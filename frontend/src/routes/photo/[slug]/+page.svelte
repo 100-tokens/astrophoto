@@ -50,7 +50,7 @@
             {
               label: 'Exposure',
               value: p.exposure,
-              ...(p.exposureTotal ? { sublabel: p.exposureTotal } : {})
+              ...(p.exposureTotal ? { sublabel: p.exposureTotal, sublabelAccent: true } : {})
             },
             { label: 'Gain', value: p.gain },
             {

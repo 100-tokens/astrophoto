@@ -6,6 +6,7 @@
     value: string;
     sublabel?: string;
     valueAccent?: boolean;
+    sublabelAccent?: boolean;
   }
 
   interface Props {
@@ -24,7 +25,10 @@
         <td style={row.valueAccent ? 'color: var(--accent);' : ''}>
           {row.value}
           {#if row.sublabel}
-            <br /><span style="color: var(--fg-muted); font-size: var(--t-xs);">{row.sublabel}</span
+            <br /><span
+              style="color: {row.sublabelAccent
+                ? 'var(--accent)'
+                : 'var(--fg-muted)'}; font-size: var(--t-xs);">{row.sublabel}</span
             >
           {/if}
         </td>
