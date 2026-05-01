@@ -48,10 +48,8 @@ async function request<T>(
 
 export const api = {
   health: (opts?: ApiCall) => request<Health>('GET', '/healthz', undefined, opts),
-  signup: (
-    body: { email: string; password: string; display_name: string },
-    opts?: ApiCall
-  ) => request<User>('POST', '/api/auth/signup', body, opts),
+  signup: (body: { email: string; password: string; display_name: string }, opts?: ApiCall) =>
+    request<User>('POST', '/api/auth/signup', body, opts),
   login: (body: { email: string; password: string }, opts?: ApiCall) =>
     request<User>('POST', '/api/auth/login', body, opts),
   logout: (opts?: ApiCall) => request<void>('POST', '/api/auth/logout', undefined, opts),

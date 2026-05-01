@@ -21,13 +21,9 @@ pub struct AppState {
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
 /// server). Credentials are permitted so session cookies flow through.
 /// Hard-coded to the dev origin for now; will be sourced from `Config` later.
-pub fn cors_layer(allowed_origin: &str) -> CorsLayer {
+pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
     CorsLayer::new()
-        .allow_origin(
-            allowed_origin
-                .parse::<HeaderValue>()
-                .expect("valid origin"),
-        )
+        .allow_origin(allowed_origin)
         .allow_credentials(true)
         .allow_headers([HeaderName::from_static("content-type")])
         .allow_methods([Method::GET, Method::POST, Method::DELETE])

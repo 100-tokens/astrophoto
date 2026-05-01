@@ -16,9 +16,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     User::export_all_to(out_dir)?;
     AuthError::export_all_to(out_dir)?;
 
-    println!(
-        "Wrote types to: {}",
-        out_dir.display()
-    );
+    println!("Wrote types to: {}", out_dir.display());
     Ok(())
 }
