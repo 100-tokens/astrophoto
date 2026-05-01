@@ -1,1 +1,3 @@
-//! Astrophoto crate root. Modules added in later tasks.
+pub mod error;
+
+pub use error::AppError;
