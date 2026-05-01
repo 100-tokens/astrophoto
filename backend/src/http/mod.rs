@@ -27,5 +27,13 @@ pub fn router(pool: PgPool, config: Config) -> Router {
         .route("/api/auth/login", post(crate::auth::login::handler))
         .route("/api/auth/me", get(crate::auth::me::handler))
         .route("/api/auth/logout", post(crate::auth::logout::handler))
+        .route(
+            "/api/auth/oauth/google/start",
+            get(crate::auth::oauth_google::start),
+        )
+        .route(
+            "/api/auth/oauth/google/callback",
+            get(crate::auth::oauth_google::callback),
+        )
         .with_state(state)
 }
