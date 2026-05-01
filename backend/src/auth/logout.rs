@@ -1,0 +1,34 @@
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode, header::COOKIE},
+    response::IntoResponse,
+};
+
+use crate::AppError;
+use crate::auth::session;
+use crate::http::AppState;
+
+#[allow(clippy::unwrap_used)]
+pub async fn handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<impl IntoResponse, AppError> {
+    if let Some(value) = headers
+        .get(COOKIE)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| {
+            s.split(';').map(str::trim).find_map(|kv| {
+                session::COOKIE_NAMES
+                    .iter()
+                    .find_map(|name| kv.strip_prefix(&format!("{name}=")))
+            })
+        })
+    {
+        session::delete(&state.pool, value).await?;
+    }
+    let clear = session::clear_cookie_header(state.config.session_secure);
+    let mut resp = StatusCode::NO_CONTENT.into_response();
+    resp.headers_mut()
+        .insert("set-cookie", clear.parse().unwrap());
+    Ok(resp)
+}

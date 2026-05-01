@@ -76,7 +76,7 @@
   <title>Design System — Astrophoto</title>
 </svelte:head>
 
-<AppHeader active="Gallery" auth={false} />
+<AppHeader active="Gallery" />
 
 <main style="max-width: 1200px; margin: 0 auto; padding: 64px 32px;">
   <!-- Header -->
@@ -345,14 +345,11 @@
   >
     <div class="t-eyebrow" style="margin-bottom: 24px;">HEADER & FOOTER</div>
 
-    <div class="t-meta" style="margin-bottom: 12px;">Header — unauthenticated, Gallery active</div>
-    <div style="border: 1px solid var(--border-subtle); margin-bottom: 32px; overflow: hidden;">
-      <AppHeader active="Gallery" auth={false} />
+    <div class="t-meta" style="margin-bottom: 12px;">
+      Header — Gallery active (auth state reflects current session)
     </div>
-
-    <div class="t-meta" style="margin-bottom: 12px;">Header — authenticated</div>
     <div style="border: 1px solid var(--border-subtle); margin-bottom: 32px; overflow: hidden;">
-      <AppHeader active="Gallery" auth={true} userInitial="M" />
+      <AppHeader active="Gallery" />
     </div>
 
     <div class="t-meta" style="margin-bottom: 12px;">Footer</div>

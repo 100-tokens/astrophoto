@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select user_id from oauth_identities where provider = $1 and subject = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bec8a9f65e01fcf434b2ec64d211ce5f1a93828e16d27d2162d4cde9068034c2"
+}

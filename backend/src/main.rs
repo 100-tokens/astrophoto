@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use astrophoto::{Config, db, http};
+use axum::http::HeaderValue;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
@@ -14,7 +15,12 @@ async fn main() -> Result<()> {
     let pool = db::connect(&cfg.database_url).await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    let app = http::router(pool).layer(TraceLayer::new_for_http());
+    // Allow the SvelteKit dev server to reach the backend with credentials.
+    // TODO: source allowed origin from Config in a later iteration.
+    let cors_origin: HeaderValue = "http://localhost:5173".parse().expect("valid origin");
+    let app = http::router(pool, cfg.clone())
+        .layer(http::cors_layer(cors_origin))
+        .layer(TraceLayer::new_for_http());
 
     let listener = TcpListener::bind(&cfg.bind).await?;
     tracing::info!(bind = %cfg.bind, "astrophoto listening");

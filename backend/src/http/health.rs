@@ -1,8 +1,8 @@
 use axum::{Json, extract::State, http::StatusCode};
 use serde::Serialize;
-use sqlx::PgPool;
 
 use crate::AppError;
+use crate::http::AppState;
 
 #[derive(Serialize)]
 pub struct HealthBody {
@@ -11,10 +11,10 @@ pub struct HealthBody {
 }
 
 pub async fn healthz(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<HealthBody>), AppError> {
     sqlx::query_scalar::<_, i32>("select 1")
-        .fetch_one(&pool)
+        .fetch_one(&state.pool)
         .await?;
     Ok((
         StatusCode::OK,

@@ -1,6 +1,8 @@
 # Rust
 /backend/target/
 **/*.rs.bk
+# ts-rs test output — canonical export via `just types` goes to frontend/src/lib/api/
+/backend/bindings/
 # sqlx offline data — DO commit (CI uses it)
 !/backend/.sqlx/
 

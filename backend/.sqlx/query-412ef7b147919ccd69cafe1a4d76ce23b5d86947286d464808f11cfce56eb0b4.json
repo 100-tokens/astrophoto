@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into oauth_identities (user_id, provider, subject) values ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "412ef7b147919ccd69cafe1a4d76ce23b5d86947286d464808f11cfce56eb0b4"
+}

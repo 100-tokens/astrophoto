@@ -163,9 +163,13 @@ Frontend-only (run from `frontend/`):
   assume UTC unless the camera embeds GPS + offset.
 - MinIO (dev) does not enforce all S3 quirks. Test path-style vs
   virtual-hosted addressing with `aws-sdk-s3` config matching prod.
-- Session cookies are `__Host-session`, `Secure`, `HttpOnly`,
-  `SameSite=Lax`. The Lax (not Strict) is intentional for the OAuth
-  redirect flow; do not change without reading `auth/oauth.rs`.
+- Session cookie is `__Host-session` in prod (HTTPS) and plain
+  `session` in dev (HTTP). The `__Host-` prefix is browser-enforced
+  to require `Secure`, so dev over plain HTTP must drop the prefix
+  or the cookie is silently rejected. The read path accepts both via
+  `session::COOKIE_NAMES`. Same pattern for the OAuth state cookie.
+  `SameSite=Lax` (not Strict) is intentional for the OAuth redirect
+  flow; do not change without reading `auth/oauth_google.rs`.
 - Argon2 password verification is CPU-bound: always inside
   `spawn_blocking`. Same for image decode.
 
