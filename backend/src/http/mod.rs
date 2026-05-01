@@ -22,5 +22,7 @@ pub fn router(pool: PgPool, config: Config) -> Router {
         .route("/healthz", get(health::healthz))
         .route("/api/auth/signup", post(crate::auth::signup::handler))
         .route("/api/auth/login", post(crate::auth::login::handler))
+        .route("/api/auth/me", get(crate::auth::me::handler))
+        .route("/api/auth/logout", post(crate::auth::logout::handler))
         .with_state(state)
 }
