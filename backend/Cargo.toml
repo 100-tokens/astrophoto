@@ -1,0 +1,78 @@
+[package]
+name = "astrophoto"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "astrophoto"
+path = "src/lib.rs"
+
+[[bin]]
+name = "astrophoto"
+path = "src/main.rs"
+
+[[bin]]
+name = "gen-types"
+path = "src/bin/gen-types.rs"
+
+[dependencies]
+# HTTP / runtime
+axum = { version = "0.7", features = ["macros", "multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id"] }
+hyper = "1"
+
+# DB
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio-rustls", "postgres", "macros", "migrate",
+    "uuid", "chrono", "ipnetwork", "json"
+] }
+
+# Errors / config / logging
+thiserror = "1"
+anyhow = "1"  # main.rs only
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+figment = { version = "0.10", features = ["env", "toml"] }
+
+# Auth / crypto
+argon2 = "0.5"
+oauth2 = { version = "4", default-features = false, features = ["rustls-tls"] }
+rand = "0.8"
+base64 = "0.22"
+
+# Storage / images
+aws-sdk-s3 = "1"
+aws-config = "1"
+kamadak-exif = "0.5"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "tiff"] }
+
+# Misc
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+validator = { version = "0.18", features = ["derive"] }
+ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
+
+[dev-dependencies]
+testcontainers = "0.23"
+testcontainers-modules = { version = "0.11", features = ["postgres"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[profile.dev]
+opt-level = 0
+debug = 1
