@@ -1,8 +1,22 @@
+import { api, ApiError } from '$lib/api/client';
 import type { Handle } from '@sveltejs/kit';
 
-// Reads the session cookie and resolves event.locals.user.
-// MVP: stub. Real session resolution arrives with the auth feature.
 export const handle: Handle = async ({ event, resolve }) => {
-  event.locals.user = null;
+  const cookie = event.request.headers.get('cookie') ?? '';
+  if (cookie.includes('__Host-session=')) {
+    try {
+      const user = await api.me({ fetch: event.fetch, cookie });
+      event.locals.user = { id: user.id, displayName: user.display_name };
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        event.locals.user = null;
+      } else {
+        // Don't break the page on transient backend errors.
+        event.locals.user = null;
+      }
+    }
+  } else {
+    event.locals.user = null;
+  }
   return resolve(event);
 };
