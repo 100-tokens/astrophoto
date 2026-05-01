@@ -5,8 +5,8 @@
 //! exist for unit tests.
 
 use argon2::{
-    password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
     Argon2, PasswordHash,
+    password_hash::{PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 
 use crate::AppError;
@@ -48,8 +48,14 @@ mod tests {
 
     #[tokio::test]
     async fn hash_and_verify_round_trip() {
-        let h = hash("correct horse battery staple".to_string()).await.unwrap();
-        assert!(verify("correct horse battery staple".to_string(), h.clone()).await.unwrap());
+        let h = hash("correct horse battery staple".to_string())
+            .await
+            .unwrap();
+        assert!(
+            verify("correct horse battery staple".to_string(), h.clone())
+                .await
+                .unwrap()
+        );
         assert!(!verify("wrong password".to_string(), h).await.unwrap());
     }
 
