@@ -59,6 +59,7 @@ ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["env", "toml", "test"] }
+http-body-util = "0.1"
 testcontainers = "0.23"
 testcontainers-modules = { version = "0.11", features = ["postgres"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
