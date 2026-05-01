@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Astrophoto — single screen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>body { background: var(--bg-canvas); margin: 0; }</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script type="text/babel" src="logos.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="screens-tokens.jsx"></script>
+  <script type="text/babel" src="screens-1.jsx"></script>
+  <script type="text/babel" src="screens-2.jsx"></script>
+  <script type="text/babel" data-presets="react">
+    const screens = {
+      tokens: window.ScreenTokens,
+      gallery: window.ScreenGallery,
+      detail: window.ScreenPhotoDetail,
+      'detail-mobile': window.ScreenPhotoMobile,
+      profile: window.ScreenProfile,
+      home: window.ScreenHome,
+      upload: window.ScreenUpload,
+      myphotos: window.ScreenMyPhotos,
+      signin: window.ScreenSignIn,
+      signup: window.ScreenSignUp,
+      settings: window.ScreenSettings,
+      '404': window.Screen404,
+      empty: window.ScreenEmpty,
+    };
+    const params = new URLSearchParams(location.search);
+    const which = params.get('screen') || 'gallery';
+    const Comp = screens[which];
+    const marks = window.AstroMarks;
+    function App() {
+      if (!Comp) return <div style={{padding: 40, color: '#fff'}}>Unknown screen: {which}. Try: ?screen=gallery</div>;
+      return <Comp marks={marks}/>;
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
