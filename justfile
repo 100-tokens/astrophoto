@@ -47,5 +47,6 @@ _migrate:
 
 # Regenerate TypeScript types from Rust source.
 types:
-    cd backend && cargo run --bin gen-types > ../frontend/src/lib/api/types.ts
-    cd frontend && pnpm prettier --write src/lib/api/types.ts
+    mkdir -p frontend/src/lib/api
+    cd backend && cargo run --bin gen-types
+    cd frontend && pnpm prettier --write 'src/lib/api/**/*.ts' 2>/dev/null || true
