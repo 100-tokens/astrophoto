@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Astrophoto — Brand & Design System</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="styles.css"/>
+
+  <style>
+    /* design canvas section dividers */
+    body { background: #06050a; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="logos.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="screens-tokens.jsx"></script>
+  <script type="text/babel" src="screens-1.jsx"></script>
+  <script type="text/babel" src="screens-2.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const marks = window.AstroMarks;
+    const Logos = window.LogoExplorations;
+
+    function App() {
+      const Canvas = window.DesignCanvas;
+      const Section = window.DCSection;
+      const Artboard = window.DCArtboard;
+      return (
+        <Canvas title="Astrophoto · Brand & Design System" subtitle="A quiet archive of the night sky · v0.1 · 2026">
+          <Section id="brand" title="01 · Brand & Identity"
+            subtitle="Wordmark in Cormorant Garamond italic. Constellation-line glyphs in sodium amber. 8 logo directions to choose between.">
+            {Logos.map((Logo, i) => (
+              <Artboard key={i} id={`logo-${i+1}`} label={`Logo · No. ${String(i+1).padStart(2,'0')}`} width={480} height={260}>
+                <Logo />
+              </Artboard>
+            ))}
+          </Section>
+
+          <Section id="system" title="02 · Design System"
+            subtitle="Type scale, color palette, components. The chrome that recedes so the photo can lead.">
+            <Artboard id="tokens" label="Tokens · type, color, components" width={1440} height={1700}>
+              <window.ScreenTokens marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section id="public" title="03 · Public · For everyone"
+            subtitle="Landing, photo detail (desktop + mobile), profile. The lurker on Reddit lands here.">
+            <Artboard id="gallery" label="Public gallery / landing" width={1440} height={1900}>
+              <window.ScreenGallery marks={marks}/>
+            </Artboard>
+            <Artboard id="detail" label="Photo detail · with EXIF panel" width={1440} height={1100}>
+              <window.ScreenPhotoDetail marks={marks}/>
+            </Artboard>
+            <Artboard id="detail-mobile" label="Photo detail · mobile" width={390} height={844}>
+              <window.ScreenPhotoMobile marks={marks}/>
+            </Artboard>
+            <Artboard id="profile" label="User profile" width={1440} height={1500}>
+              <window.ScreenProfile marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section id="auth" title="04 · Authentication"
+            subtitle="Sign-in feels like opening an observatory log. Sign-up is invitational, never modal.">
+            <Artboard id="signin" label="Sign in" width={1440} height={900}>
+              <window.ScreenSignIn marks={marks}/>
+            </Artboard>
+            <Artboard id="signup" label="Sign up" width={720} height={900}>
+              <window.ScreenSignUp marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section id="auth-app" title="05 · Authenticated · Daily use"
+            subtitle="Logged-in home, upload flow, the user's own archive, settings.">
+            <Artboard id="home" label="Logged-in home · following feed" width={1440} height={1500}>
+              <window.ScreenHome marks={marks}/>
+            </Artboard>
+            <Artboard id="upload" label="Upload · EXIF confirmation" width={1440} height={1300}>
+              <window.ScreenUpload marks={marks}/>
+            </Artboard>
+            <Artboard id="myphotos" label="My photos · dashboard" width={1440} height={1200}>
+              <window.ScreenMyPhotos marks={marks}/>
+            </Artboard>
+            <Artboard id="settings" label="Account settings" width={1440} height={1100}>
+              <window.ScreenSettings marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section id="edge" title="06 · Edge cases"
+            subtitle="404 and the new-user empty state — moments where tone matters most.">
+            <Artboard id="404" label="404 · Page not found" width={1440} height={900}>
+              <window.Screen404 marks={marks}/>
+            </Artboard>
+            <Artboard id="empty" label="Empty state · first-time user" width={1440} height={900}>
+              <window.ScreenEmpty marks={marks}/>
+            </Artboard>
+          </Section>
+        </Canvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
