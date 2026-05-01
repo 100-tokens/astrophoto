@@ -1,16 +1,19 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import MarkReticle from './MarkReticle.svelte';
   import Wordmark from './Wordmark.svelte';
   import { cls } from '$lib/utils/cls';
 
   interface Props {
     active?: 'Gallery' | 'Targets' | 'Photographers' | 'About';
-    auth?: boolean;
-    userInitial?: string;
     class?: string;
   }
 
-  let { active = 'Gallery', auth = false, userInitial = 'M', class: className }: Props = $props();
+  let { active = 'Gallery', class: className }: Props = $props();
+
+  // Auth state comes from layout data resolved by hooks.server.ts.
+  let user = $derived(page.data.user);
+  let userInitial = $derived(user?.displayName?.[0]?.toUpperCase() ?? 'M');
 
   const navLinks: Array<{
     label: 'Gallery' | 'Targets' | 'Photographers' | 'About';
@@ -67,14 +70,15 @@
       <span style="margin-left: auto; font-size: 10px; letter-spacing: 0.1em;">⌘K</span>
     </div>
 
-    {#if auth}
+    {#if user}
       <a href="/upload" class="btn btn-secondary btn-sm">Upload</a>
-      <div
-        style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 15px;"
-        aria-label="User menu"
+      <a
+        href="/u/{user.id}"
+        style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 15px; text-decoration: none;"
+        aria-label="Your profile ({user.displayName})"
       >
         {userInitial}
-      </div>
+      </a>
     {:else}
       <a href="/signin" class="nav-link">Sign in</a>
       <a href="/signup" class="btn btn-primary btn-sm">Create account</a>
