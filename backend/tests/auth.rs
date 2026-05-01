@@ -131,3 +131,10 @@ async fn signup_login_me_logout_full_flow() {
         .unwrap();
     assert_eq!(resp.status(), 200);
 }
+
+#[tokio::test]
+#[ignore = "requires APP_OAUTH_GOOGLE_CLIENT_ID"]
+async fn oauth_start_redirects_to_google() {
+    // Manual smoke test only.
+    // Run with creds: APP_OAUTH_GOOGLE_CLIENT_ID=... cargo test --test auth -- --ignored
+}
