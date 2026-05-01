@@ -1,0 +1,27 @@
+# Rust
+/backend/target/
+**/*.rs.bk
+# sqlx offline data — DO commit (CI uses it)
+!/backend/.sqlx/
+
+# Node / SvelteKit
+/frontend/node_modules/
+/frontend/.svelte-kit/
+/frontend/build/
+/frontend/.vite/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Local data volumes from compose
+/data/
