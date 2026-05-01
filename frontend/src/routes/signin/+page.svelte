@@ -31,7 +31,7 @@
     <!-- Quote bottom-left -->
     <div class="photo-quote">
       <div class="t-eyebrow" style="color: var(--accent); margin-bottom: 16px;">
-        ● ρ OPHIUCHI · 5h45m
+        ● ρ OPHIUCHI · 5h45m · A. DIMOV
       </div>
       <p class="quote-text">"The faintest tendrils of dust only show themselves to the patient."</p>
     </div>
@@ -43,7 +43,7 @@
   <!-- Right column: form -->
   <div class="form-col">
     <div class="form-inner">
-      <div class="t-eyebrow" style="color: var(--accent); margin-bottom: 16px;">● SIGN IN</div>
+      <div class="t-eyebrow" style="margin-bottom: 16px;">SIGN IN</div>
 
       <h1 class="signin-headline">
         Welcome back<br />to <em>your archive</em>.
@@ -108,12 +108,6 @@
           <Button variant="primary" size="lg" type="submit" class="full-width-btn">Sign in</Button>
         </div>
       </form>
-
-      <!-- Footer micro-copy -->
-      <p class="t-meta footer-copy">
-        By signing in you agree to the <a href="/terms" style="color: var(--accent);">Terms</a>
-        and <a href="/privacy" style="color: var(--accent);">Privacy Policy</a>.
-      </p>
     </div>
   </div>
 </div>
@@ -246,12 +240,6 @@
   .form-error {
     color: var(--danger);
     margin: 0;
-  }
-
-  .footer-copy {
-    margin-top: 24px;
-    line-height: 1.6;
-    text-align: center;
   }
 
   /* Make Button full-width within form context */

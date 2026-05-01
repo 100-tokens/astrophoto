@@ -1,6 +1,7 @@
 <script lang="ts">
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
+  import MobileHeader from '$lib/components/MobileHeader.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import ExifTable from '$lib/components/ExifTable.svelte';
   import type { PhotoDetail } from '$lib/data/photos';
@@ -70,7 +71,8 @@
   let titleLine2 = $derived(p.targetSubtitle);
 </script>
 
-<AppHeader active="Gallery" />
+<div class="desktop-only"><AppHeader active="Gallery" /></div>
+<div class="mobile-only"><MobileHeader backHref="/" /></div>
 
 <!-- Desktop: 2-col grid; mobile: single column -->
 <div class="detail-layout">
@@ -137,7 +139,10 @@
       </div>
 
       {#if p.photographer.caption}
-        <p class="caption">{p.photographer.caption}</p>
+        <p class="caption desktop-caption">{p.photographer.caption}</p>
+      {/if}
+      {#if p.photographer.captionShort}
+        <p class="caption mobile-caption">{p.photographer.captionShort}</p>
       {/if}
 
       <!-- Actions -->
@@ -325,6 +330,17 @@
     margin-bottom: 8px;
   }
 
+  /* Visibility helpers */
+  .desktop-only {
+    display: block;
+  }
+  .mobile-only {
+    display: none;
+  }
+  .mobile-caption {
+    display: none;
+  }
+
   /* ── Mobile sticky bottom bar ─────────────────────────────── */
   .mobile-actions {
     display: none;
@@ -345,8 +361,15 @@
     border-left: 1px solid var(--border-subtle);
   }
 
-  /* ── Responsive ───────────────────────────────────────────── */
-  @media (max-width: 900px) {
+  /* ── Responsive (≤768px = phone) ─────────────────────────── */
+  @media (max-width: 768px) {
+    .desktop-only {
+      display: none;
+    }
+    .mobile-only {
+      display: block;
+    }
+
     .detail-layout {
       grid-template-columns: 1fr;
       min-height: auto;
@@ -354,17 +377,51 @@
 
     .image-stage {
       height: 320px;
-      padding: 16px;
+      padding: 0;
     }
 
     .image-inner {
       max-height: 100%;
     }
 
+    /* Strip technical chrome from the photo on mobile per the design */
+    .reticle,
+    .zoom-controls {
+      display: none;
+    }
+
     .info-panel {
       border-left: none;
-      border-top: 1px solid var(--border-subtle);
+      border-top: 0;
       overflow-y: visible;
+    }
+
+    .info-top {
+      padding: 20px 20px 0;
+    }
+
+    .photo-title {
+      font-size: 28px;
+    }
+
+    .desktop-caption {
+      display: none;
+    }
+    .mobile-caption {
+      display: block;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+
+    /* EXIF table shrinks to 11px on mobile */
+    .exif-section {
+      padding: 0 20px 20px;
+      font-size: 11px;
+    }
+    .exif-section :global(.exif),
+    .exif-section :global(.exif th),
+    .exif-section :global(.exif td) {
+      font-size: 11px;
     }
 
     /* Sticky bottom action bar replaces the desktop action row */
@@ -377,7 +434,6 @@
       z-index: 10;
     }
 
-    /* Hide the desktop inline action row on mobile */
     .action-row {
       display: none;
     }
