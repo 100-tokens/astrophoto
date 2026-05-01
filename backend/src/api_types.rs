@@ -10,3 +10,19 @@ pub struct Health {
     pub status: String,
     pub db: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "User.ts")]
+pub struct User {
+    pub id: String,
+    pub email: String,
+    pub display_name: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "AuthError.ts")]
+pub struct AuthError {
+    pub error: String,
+    pub message: String,
+}
