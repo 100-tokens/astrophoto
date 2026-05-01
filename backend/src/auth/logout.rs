@@ -17,9 +17,11 @@ pub async fn handler(
         .get(COOKIE)
         .and_then(|h| h.to_str().ok())
         .and_then(|s| {
-            s.split(';')
-                .map(str::trim)
-                .find_map(|kv| kv.strip_prefix(&format!("{}=", session::COOKIE_NAME)))
+            s.split(';').map(str::trim).find_map(|kv| {
+                session::COOKIE_NAMES
+                    .iter()
+                    .find_map(|name| kv.strip_prefix(&format!("{name}=")))
+            })
         })
     {
         session::delete(&state.pool, value).await?;

@@ -60,8 +60,9 @@ pub async fn start(State(state): State<AppState>) -> Result<Response, AppError> 
         ""
     };
     let cookie = format!(
-        "__Host-oauth={}; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=600",
-        cookie_body,
+        "{name}={body}; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=600",
+        name = crate::auth::oauth::oauth_cookie_name(state.config.session_secure),
+        body = cookie_body,
         secure = secure_attr,
     );
 
@@ -101,14 +102,16 @@ pub async fn callback(
         .state
         .ok_or_else(|| AppError::Validation("missing state".into()))?;
 
-    // Read state cookie
+    // Read state cookie (accept both __Host- prefixed and unprefixed forms).
     let cookie_value = headers
         .get(axum::http::header::COOKIE)
         .and_then(|h| h.to_str().ok())
         .and_then(|s| {
-            s.split(';')
-                .map(str::trim)
-                .find_map(|kv| kv.strip_prefix("__Host-oauth="))
+            s.split(';').map(str::trim).find_map(|kv| {
+                crate::auth::oauth::OAUTH_COOKIE_NAMES
+                    .iter()
+                    .find_map(|name| kv.strip_prefix(&format!("{name}=")))
+            })
         })
         .ok_or_else(|| AppError::Validation("missing state cookie".into()))?;
     let bytes = URL_SAFE_NO_PAD
@@ -154,7 +157,8 @@ pub async fn callback(
 
     // Clear the oauth state cookie too
     let clear_oauth = format!(
-        "__Host-oauth=; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=0",
+        "{name}=; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=0",
+        name = crate::auth::oauth::oauth_cookie_name(state.config.session_secure),
         secure = if state.config.session_secure {
             "; Secure"
         } else {

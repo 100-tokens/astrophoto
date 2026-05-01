@@ -12,8 +12,19 @@ use uuid::Uuid;
 
 use crate::AppError;
 
-pub const COOKIE_NAME: &str = "__Host-session";
 pub const SESSION_DAYS: i64 = 30;
+
+/// Cookie name. The `__Host-` prefix is browser-enforced to require `Secure`
+/// (HTTPS only) and forbids `Domain`. In dev over plain HTTP the prefix would
+/// cause the browser to silently reject the cookie, so we drop it. The Set-Cookie
+/// header construction must use whichever name `cookie_name(secure)` returns.
+pub fn cookie_name(secure: bool) -> &'static str {
+    if secure { "__Host-session" } else { "session" }
+}
+
+/// Both names a request might carry — used on the read path so a server that
+/// previously issued one prefix can still resolve sessions after a config flip.
+pub const COOKIE_NAMES: &[&str] = &["__Host-session", "session"];
 
 #[derive(Debug, Clone)]
 pub struct SessionRow {
@@ -102,7 +113,7 @@ pub fn cookie_header(value: &str, secure: bool, max_age_days: i64) -> String {
     let secure_part = if secure { "; Secure" } else { "" };
     format!(
         "{name}={value}; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age={max_age}",
-        name = COOKIE_NAME,
+        name = cookie_name(secure),
         value = value,
         secure = secure_part,
         max_age = max_age_days * 86_400
@@ -114,7 +125,7 @@ pub fn clear_cookie_header(secure: bool) -> String {
     let secure_part = if secure { "; Secure" } else { "" };
     format!(
         "{name}=; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=0",
-        name = COOKIE_NAME,
+        name = cookie_name(secure),
         secure = secure_part,
     )
 }
@@ -133,7 +144,7 @@ mod tests {
     #[test]
     fn cookie_header_basic_attrs() {
         let h = cookie_header("abc", true, 30);
-        assert!(h.starts_with("__Host-session=abc"));
+        assert!(h.starts_with("__Host-session=abc"), "got: {h}");
         assert!(h.contains("HttpOnly"));
         assert!(h.contains("Secure"));
         assert!(h.contains("SameSite=Lax"));
@@ -144,6 +155,9 @@ mod tests {
     #[test]
     fn cookie_header_drops_secure_when_disabled() {
         let h = cookie_header("abc", false, 1);
+        // Without HTTPS we drop both the Secure attribute and the __Host- prefix.
+        assert!(h.starts_with("session=abc"), "got: {h}");
+        assert!(!h.contains("__Host-"));
         assert!(!h.contains("Secure"));
         assert!(h.contains("Max-Age=86400"));
     }

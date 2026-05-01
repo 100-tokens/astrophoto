@@ -20,11 +20,12 @@ async fn resolve(state: &AppState, parts: &Parts) -> Result<Option<UserRow>, App
     let Ok(cookie_str) = cookie_header.to_str() else {
         return Ok(None);
     };
-    let Some(value) = cookie_str
-        .split(';')
-        .map(str::trim)
-        .find_map(|kv| kv.strip_prefix(&format!("{}=", session::COOKIE_NAME)))
-    else {
+    // Accept either `__Host-session=` (HTTPS prod) or `session=` (HTTP dev).
+    let Some(value) = cookie_str.split(';').map(str::trim).find_map(|kv| {
+        session::COOKIE_NAMES
+            .iter()
+            .find_map(|name| kv.strip_prefix(&format!("{name}=")))
+    }) else {
         return Ok(None);
     };
     let Some(s) = session::lookup(&state.pool, value).await? else {
