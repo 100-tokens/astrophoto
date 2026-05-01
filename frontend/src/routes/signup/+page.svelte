@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PageProps } from './$types';
-  import MarkReticle from '$lib/components/MarkReticle.svelte';
   import Wordmark from '$lib/components/Wordmark.svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
@@ -14,26 +13,23 @@
 
 <div class="signup-screen">
   <div class="signup-col">
-    <!-- Logo -->
+    <!-- Logo: wordmark only (per design prototype). -->
     <div class="signup-logo">
-      <MarkReticle size={28} color="var(--accent)" />
-      <Wordmark size={22} italic={true} />
+      <Wordmark size={28} italic={true} />
     </div>
 
-    <!-- Eyebrow -->
-    <div class="t-eyebrow" style="color: var(--accent); margin-top: 48px; margin-bottom: 16px;">
-      ● OPEN AN ACCOUNT
-    </div>
+    <!-- Eyebrow: no leading dot (per design prototype) -->
+    <div class="t-eyebrow" style="margin-top: 48px; margin-bottom: 16px;">OPEN AN ACCOUNT</div>
 
     <!-- Headline -->
     <h1 class="signup-headline">
       A serious home for<br /><em>the work you make</em>.
     </h1>
 
-    <!-- Reassurance -->
+    <!-- Reassurance (verbatim from design prototype) -->
     <p class="signup-body">
-      Free to use. We treat every frame as a technical record and as a photograph. You keep all your
-      data; you can delete your account at any time.
+      Free, no ads, no rankings. Your photos with their full technical record, kept for as long as
+      you want them kept.
     </p>
 
     <!-- Google OAuth button -->
@@ -66,12 +62,17 @@
     <form method="POST" class="signup-form">
       <div class="field">
         <label class="t-label" for="display_name">DISPLAY NAME</label>
-        <Input name="display_name" id="display_name" required placeholder="Marie Dubois" />
+        <Input
+          name="display_name"
+          id="display_name"
+          required
+          placeholder="How others will see you"
+        />
       </div>
 
       <div class="field">
         <label class="t-label" for="email">EMAIL</label>
-        <Input name="email" id="email" type="email" required placeholder="you@domain.com" />
+        <Input name="email" id="email" type="email" required placeholder="you@somewhere.com" />
       </div>
 
       <div class="field">
@@ -81,9 +82,8 @@
           id="password"
           type="password"
           required
-          placeholder="At least 12 characters"
+          placeholder="At least 10 characters"
         />
-        <span class="t-meta password-hint">Use at least 12 characters.</span>
       </div>
 
       {#if form?.message}
@@ -97,21 +97,13 @@
       </div>
 
       <p class="t-meta terms-copy">
-        By creating an account you agree to the
-        <a href="/terms" style="color: var(--accent);">Terms</a>
+        By continuing you agree to our
+        <a href="/terms" style="color: var(--accent);">terms</a>
         and
-        <a href="/privacy" style="color: var(--accent);">Privacy Policy</a>. We don't track you
-        across the web.
+        <a href="/privacy" style="color: var(--accent);">privacy policy</a>. We don't ask for, and
+        never sell, your data.
       </p>
     </form>
-
-    <!-- Already have an account -->
-    <div class="signin-link">
-      <span class="t-meta" style="color: var(--fg-muted);">
-        Already have an account?
-        <a href="/signin" style="color: var(--accent);">Sign in →</a>
-      </span>
-    </div>
   </div>
 </div>
 
@@ -185,12 +177,6 @@
     gap: 6px;
   }
 
-  .password-hint {
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--fg-muted);
-  }
-
   .form-error {
     color: var(--danger);
     margin: 0;
@@ -199,11 +185,6 @@
   .terms-copy {
     margin-top: 4px;
     line-height: 1.6;
-    text-align: center;
-  }
-
-  .signin-link {
-    margin-top: 32px;
     text-align: center;
   }
 
