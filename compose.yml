@@ -33,3 +33,38 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backend:
+    build: ./backend
+    profiles: ["full"]
+    environment:
+      APP_BIND: 0.0.0.0:8080
+      APP_LOG: info
+      APP_DATABASE_URL: postgres://astrophoto:astrophoto@postgres:5432/astrophoto
+      APP_SESSION_DOMAIN: localhost
+      APP_SESSION_SECURE: "false"
+      APP_PUBLIC_BASE_URL: http://localhost:8080
+      APP_S3_ENDPOINT: http://minio:9000
+      APP_S3_REGION: us-east-1
+      APP_S3_BUCKET: astrophoto
+      APP_S3_ACCESS_KEY: minioadmin
+      APP_S3_SECRET_KEY: minioadmin
+      APP_S3_PATH_STYLE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    profiles: ["full"]
+    environment:
+      ORIGIN: http://localhost:5173
+      VITE_API_BASE_URL: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "5173:3000"
