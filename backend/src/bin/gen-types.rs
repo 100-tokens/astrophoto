@@ -4,16 +4,21 @@ use std::fs;
 use std::path::Path;
 use ts_rs::TS;
 
-use astrophoto::api_types::Health;
+use astrophoto::api_types::{AuthError, Health, User};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
     fs::create_dir_all(out_dir)?;
 
-    // export_all_to writes Health.ts (from #[ts(export_to = "Health.ts")])
+    // export_all_to writes each type (from #[ts(export_to = "Foo.ts")])
     // into the given directory, together with all transitive dependencies.
     Health::export_all_to(out_dir)?;
+    User::export_all_to(out_dir)?;
+    AuthError::export_all_to(out_dir)?;
 
-    println!("Wrote: {}/Health.ts", out_dir.display());
+    println!(
+        "Wrote types to: {}",
+        out_dir.display()
+    );
     Ok(())
 }
