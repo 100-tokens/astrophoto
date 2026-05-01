@@ -1,5 +1,11 @@
 :root {
-  font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Helvetica,
+    Arial,
+    sans-serif;
   color-scheme: light dark;
   --bg: #0c0e14;
   --fg: #e7ecf2;

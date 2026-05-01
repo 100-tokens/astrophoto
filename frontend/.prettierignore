@@ -1,0 +1,6 @@
+.svelte-kit/
+build/
+node_modules/
+pnpm-lock.yaml
+src/lib/api/Health.ts
+src/lib/api/types.ts
