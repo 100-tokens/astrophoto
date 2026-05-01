@@ -2,10 +2,10 @@ use axum::{Json, extract::State, http::HeaderMap, response::IntoResponse};
 use serde::Deserialize;
 use validator::Validate;
 
+use crate::AppError;
 use crate::api_types::User;
 use crate::auth::{password, session};
 use crate::users::queries;
-use crate::AppError;
 
 #[derive(Deserialize, Validate)]
 pub struct SignupBody {
@@ -32,8 +32,11 @@ pub async fn handler(
 
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
     let cookie_value = session::create(&state.pool, user.id, ua, None).await?;
-    let cookie =
-        session::cookie_header(&cookie_value, state.config.session_secure, session::SESSION_DAYS);
+    let cookie = session::cookie_header(
+        &cookie_value,
+        state.config.session_secure,
+        session::SESSION_DAYS,
+    );
 
     let user_dto: User = user.into();
     let mut response = (axum::http::StatusCode::CREATED, Json(user_dto)).into_response();

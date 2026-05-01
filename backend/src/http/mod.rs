@@ -2,7 +2,10 @@ pub mod health;
 
 use std::sync::Arc;
 
-use axum::{Router, routing::{get, post}};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use sqlx::PgPool;
 
 use crate::config::Config;

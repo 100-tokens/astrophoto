@@ -3,10 +3,10 @@ use axum::{
     http::{header::COOKIE, request::Parts},
 };
 
+use crate::AppError;
 use crate::auth::session;
 use crate::http::AppState;
 use crate::users::queries::{self, UserRow};
-use crate::AppError;
 
 /// Holds the authenticated user, or `None` if no valid session.
 pub struct CurrentUser(pub UserRow);

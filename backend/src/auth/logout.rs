@@ -4,9 +4,9 @@ use axum::{
     response::IntoResponse,
 };
 
+use crate::AppError;
 use crate::auth::session;
 use crate::http::AppState;
-use crate::AppError;
 
 #[allow(clippy::unwrap_used)]
 pub async fn handler(

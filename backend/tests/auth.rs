@@ -1,5 +1,8 @@
 use astrophoto::{Config, db, http};
-use axum::{body::Body, http::{Request, header}};
+use axum::{
+    body::Body,
+    http::{Request, header},
+};
 use http_body_util::BodyExt as _;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
