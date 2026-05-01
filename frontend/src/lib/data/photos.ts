@@ -26,6 +26,8 @@ export interface Photographer {
   bortle: number;
   location: string;
   caption: string;
+  /** Short caption shown on mobile photo detail (≤768px). */
+  captionShort?: string;
 }
 
 export interface PhotoDetail {
@@ -251,7 +253,8 @@ export const NGC7000: PhotoDetail = {
     caption:
       'North America Nebula in narrowband, 18 h total integration over 4 nights from a Bortle 4 site in Provence. ' +
       'Hubble palette (SHO), processed in PixInsight with a careful background-extraction pass and a ' +
-      'non-linear stretch designed to preserve the dim H-α tendrils running through Pelican.'
+      'non-linear stretch designed to preserve the dim H-α tendrils running through Pelican.',
+    captionShort: '18 h total integration, narrowband SHO, Bortle 4. Processed in PixInsight.'
   },
   appreciations: 248,
   comments: 12,
