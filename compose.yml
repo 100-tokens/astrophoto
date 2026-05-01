@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: astrophoto
       POSTGRES_DB: astrophoto
     ports:
-      - "5432:5432"
+      # Host port 5434 to avoid clash with other dev Postgres instances.
+      - "5434:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -24,8 +25,9 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Host ports 9100/9101 to avoid clash with other dev MinIO on 9000/9001.
+      - "9100:9000"
+      - "9101:9001"
     volumes:
       - ./data/minio:/data
     healthcheck:
