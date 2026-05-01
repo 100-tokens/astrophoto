@@ -98,10 +98,7 @@
     font-size: 11px;
     color: var(--fg-muted);
     letter-spacing: 0.08em;
-    background: var(--bg-raised);
-    border: 1px solid var(--border-default);
-    padding: 16px 20px;
-    text-align: left;
+    text-align: center;
     line-height: 1.8;
   }
 
