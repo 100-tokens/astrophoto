@@ -8,6 +8,12 @@ const config = {
     adapter: adapter(),
     alias: {
       $lib: 'src/lib'
+    },
+    prerender: {
+      // Phase 1: many nav targets (/targets, /signin, /about, ...) don't exist
+      // yet. Warn so the build doesn't fail, fix as routes land.
+      handleHttpError: 'warn',
+      handleMissingId: 'warn'
     }
   }
 };
