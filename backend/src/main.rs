@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
     let pool = db::connect(&cfg.database_url).await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    let app = http::router(pool).layer(TraceLayer::new_for_http());
+    let app = http::router(pool, cfg.clone()).layer(TraceLayer::new_for_http());
 
     let listener = TcpListener::bind(&cfg.bind).await?;
     tracing::info!(bind = %cfg.bind, "astrophoto listening");

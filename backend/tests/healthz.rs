@@ -1,8 +1,28 @@
-use astrophoto::{db, http};
+use astrophoto::{Config, db, http};
 use axum::{body::Body, http::Request};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tower::ServiceExt;
+
+fn config_for(url: &str) -> Config {
+    Config {
+        bind: "127.0.0.1:0".into(),
+        log: "info".into(),
+        database_url: url.into(),
+        session_domain: "localhost".into(),
+        session_secure: false,
+        public_base_url: "http://localhost:8080".into(),
+        s3_endpoint: None,
+        s3_region: "us-east-1".into(),
+        s3_bucket: "x".into(),
+        s3_access_key: "a".into(),
+        s3_secret_key: "s".into(),
+        s3_path_style: true,
+        oauth_google_client_id: String::new(),
+        oauth_google_client_secret: String::new(),
+        oauth_google_redirect_url: String::new(),
+    }
+}
 
 #[tokio::test]
 async fn healthz_returns_ok_with_real_postgres() {
@@ -20,7 +40,7 @@ async fn healthz_returns_ok_with_real_postgres() {
         .await
         .expect("migrate");
 
-    let app = http::router(pool);
+    let app = http::router(pool, config_for(&url));
 
     let resp = app
         .oneshot(
