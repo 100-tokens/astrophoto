@@ -10,7 +10,10 @@ use std::time::Duration;
 
 use astrophoto::storage::MemoryStorage;
 use astrophoto::{Config, db, http};
-use axum::{body::Body, http::{Request, header}};
+use axum::{
+    body::Body,
+    http::{Request, header},
+};
 use http_body_util::BodyExt as _;
 use image::{DynamicImage, ImageFormat, RgbImage};
 use std::io::Cursor;
@@ -81,14 +84,22 @@ async fn upload_pipeline_signup_upload_thumb() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 201);
-    let cookie = resp.headers().get("set-cookie").unwrap().to_str().unwrap().to_string();
+    let cookie = resp
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
 
     // 2. Upload — manual multipart body
     let boundary = "----astrophototestboundary";
     let jpeg = make_test_jpeg();
     let mut body = Vec::new();
     body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-    body.extend_from_slice(b"Content-Disposition: form-data; name=\"file\"; filename=\"test.jpg\"\r\n");
+    body.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.jpg\"\r\n",
+    );
     body.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
     body.extend_from_slice(&jpeg);
     body.extend_from_slice(format!("\r\n--{boundary}\r\n").as_bytes());
@@ -103,7 +114,10 @@ async fn upload_pipeline_signup_upload_thumb() {
                 .method("POST")
                 .uri("/api/photos")
                 .header(header::COOKIE, &cookie)
-                .header(header::CONTENT_TYPE, format!("multipart/form-data; boundary={boundary}"))
+                .header(
+                    header::CONTENT_TYPE,
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
                 .body(Body::from(body))
                 .unwrap(),
         )
@@ -152,5 +166,9 @@ async fn upload_pipeline_signup_upload_thumb() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    assert!(bytes.starts_with(b"\xff\xd8"), "not a JPEG: {:?}", &bytes[..bytes.len().min(8)]);
+    assert!(
+        bytes.starts_with(b"\xff\xd8"),
+        "not a JPEG: {:?}",
+        &bytes[..bytes.len().min(8)]
+    );
 }

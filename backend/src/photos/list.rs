@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use crate::AppError;
 use crate::http::AppState;
-use crate::photos::queries;
 use crate::photos::get::PhotoDetail;
+use crate::photos::queries;
 
 #[derive(Deserialize)]
 pub struct ListQuery {

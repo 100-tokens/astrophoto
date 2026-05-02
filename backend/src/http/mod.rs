@@ -57,6 +57,9 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
                 .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
         .route("/api/photos/:id", get(crate::photos::get::handler))
-        .route("/api/photos/:id/thumb/:size", get(crate::photos::serve::thumb))
+        .route(
+            "/api/photos/:id/thumb/:size",
+            get(crate::photos::serve::thumb),
+        )
         .with_state(state)
 }

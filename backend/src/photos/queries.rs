@@ -25,6 +25,7 @@ pub struct PhotoRow {
     pub created_at: DateTime<Utc>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_processing(
     pool: &PgPool,
     owner_id: Uuid,
@@ -42,7 +43,13 @@ pub async fn insert_processing(
         values ($1, $2, $3, $4, $5, $6, $7, 'processing')
         returning id
         "#,
-        owner_id, storage_key, original_name, bytes, mime, target, caption,
+        owner_id,
+        storage_key,
+        original_name,
+        bytes,
+        mime,
+        target,
+        caption,
     )
     .fetch_one(pool)
     .await?;
@@ -67,9 +74,14 @@ pub async fn mark_ready(
         where id=$1
         "#,
         id,
-        width, height,
-        exif.taken_at, exif.camera, exif.lens, exif.iso,
-        exif.exposure_s, exif.focal_mm,
+        width,
+        height,
+        exif.taken_at,
+        exif.camera,
+        exif.lens,
+        exif.iso,
+        exif.exposure_s,
+        exif.focal_mm,
         exif.raw,
     )
     .execute(pool)
@@ -94,7 +106,10 @@ pub async fn insert_thumbnail(
     sqlx::query!(
         r#"insert into thumbnails (photo_id, size, storage_key, bytes) values ($1,$2,$3,$4)
            on conflict (photo_id, size) do update set storage_key=$3, bytes=$4"#,
-        photo_id, size, storage_key, bytes,
+        photo_id,
+        size,
+        storage_key,
+        bytes,
     )
     .execute(pool)
     .await?;
@@ -117,7 +132,11 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
     Ok(row)
 }
 
-pub async fn list_by_owner(pool: &PgPool, owner_id: Uuid, limit: i64) -> Result<Vec<PhotoRow>, AppError> {
+pub async fn list_by_owner(
+    pool: &PgPool,
+    owner_id: Uuid,
+    limit: i64,
+) -> Result<Vec<PhotoRow>, AppError> {
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
@@ -129,7 +148,8 @@ pub async fn list_by_owner(pool: &PgPool, owner_id: Uuid, limit: i64) -> Result<
         order by created_at desc
         limit $2
         "#,
-        owner_id, limit
+        owner_id,
+        limit
     )
     .fetch_all(pool)
     .await?;
@@ -162,7 +182,8 @@ pub async fn thumb_storage_key(
 ) -> Result<Option<String>, AppError> {
     let row = sqlx::query!(
         "select storage_key from thumbnails where photo_id=$1 and size=$2",
-        photo_id, size
+        photo_id,
+        size
     )
     .fetch_optional(pool)
     .await?;
