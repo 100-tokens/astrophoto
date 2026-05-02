@@ -682,3 +682,98 @@ async fn preferences_default_dark_work_then_updated() {
         StatusCode::NO_CONTENT
     );
 }
+
+#[tokio::test]
+async fn sessions_list_marks_current_first() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    // signup itself creates a session; signin creates one more — at least 2 total.
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_a = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let _cookie_b = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    let mut req = Request::builder()
+        .method("GET")
+        .uri("/api/me/sessions")
+        .header(header::COOKIE, cookie_a.split(';').next().unwrap())
+        .body(Body::empty())
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    let resp = app.oneshot(req).await.unwrap();
+    let v: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let arr = v.as_array().unwrap();
+    // signup + 2 signins = at least 2 sessions; what matters is ordering.
+    assert!(arr.len() >= 2);
+    assert_eq!(arr[0]["is_current"], true);
+    // Every other session must not be the current one.
+    for row in &arr[1..] {
+        assert_eq!(row["is_current"], false);
+    }
+    let _ = pool;
+}
+
+#[tokio::test]
+async fn revoke_current_session_returns_400() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    // Extract the session token bytes from the cookie to get the actual current id.
+    let token_b64 = cookie
+        .split(';')
+        .next()
+        .unwrap()
+        .trim()
+        .split('=')
+        .nth(1)
+        .unwrap();
+    let token_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(token_b64)
+        .unwrap();
+    let id_hex = hex::encode(&token_bytes);
+
+    let mut req = Request::builder()
+        .method("DELETE")
+        .uri(format!("/api/me/sessions/{id_hex}"))
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::empty())
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let _ = pool;
+}
+
+#[tokio::test]
+async fn sign_out_others_keeps_current_kills_rest() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_a = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let _ = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let _ = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/api/me/sessions/sign-out-others")
+        .header(header::COOKIE, cookie_a.split(';').next().unwrap())
+        .body(Body::empty())
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(
+        app.oneshot(req).await.unwrap().status(),
+        StatusCode::NO_CONTENT
+    );
+
+    let count: i64 = sqlx::query_scalar!(
+        "select count(*) as \"c!\" from sessions s join users u on u.id = s.user_id \
+         where u.email = $1",
+        "marie@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 1);
+}

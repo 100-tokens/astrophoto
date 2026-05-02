@@ -49,3 +49,18 @@ pub struct Preferences {
     pub theme: String,
     pub density: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SessionRow.ts")]
+pub struct SessionRow {
+    pub id: String,
+    pub browser: String,
+    pub browser_version: String,
+    pub os: String,
+    pub os_version: String,
+    pub category: String,
+    pub ip: String,
+    pub last_used_at: String, // RFC3339
+    pub created_at: String,
+    pub is_current: bool,
+}

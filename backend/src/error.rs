@@ -54,6 +54,10 @@ impl AppError {
     pub fn too_many_requests(msg: impl Into<String>) -> Self {
         AppError::TooManyRequests(msg.into())
     }
+
+    pub fn not_found(_msg: impl Into<String>) -> Self {
+        AppError::NotFound
+    }
 }
 
 impl AppError {

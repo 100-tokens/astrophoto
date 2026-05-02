@@ -135,5 +135,17 @@ pub fn router(
             "/api/me/preferences",
             axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put),
         )
+        .route(
+            "/api/me/sessions",
+            axum::routing::get(crate::users::sessions::list),
+        )
+        .route(
+            "/api/me/sessions/:id",
+            axum::routing::delete(crate::users::sessions::revoke),
+        )
+        .route(
+            "/api/me/sessions/sign-out-others",
+            axum::routing::post(crate::users::sessions::sign_out_others),
+        )
         .with_state(state)
 }

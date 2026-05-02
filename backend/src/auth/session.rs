@@ -29,6 +29,7 @@ pub const COOKIE_NAMES: &[&str] = &["__Host-session", "session"];
 
 #[derive(Debug, Clone)]
 pub struct SessionRow {
+    pub id: Vec<u8>,
     pub user_id: Uuid,
     pub expires_at: DateTime<Utc>,
 }
@@ -92,6 +93,7 @@ pub async fn lookup(pool: &PgPool, cookie: &str) -> Result<Option<SessionRow>, A
     .fetch_optional(pool)
     .await?;
     Ok(row.map(|r| SessionRow {
+        id: token.clone(),
         user_id: r.user_id,
         expires_at: r.expires_at,
     }))
