@@ -168,6 +168,7 @@ pub fn router(
             post(crate::users::deletion::cancel),
         )
         .route("/api/me/photos/count", get(crate::photos::count::handler))
+        .route("/api/me/stats", get(crate::users::stats::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
         .with_state(state)
 }

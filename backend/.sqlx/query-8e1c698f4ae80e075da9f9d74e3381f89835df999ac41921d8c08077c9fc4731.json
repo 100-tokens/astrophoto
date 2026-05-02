@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select count(*) as \"c!\"\n        from appreciations a\n        join photos p on p.id = a.photo_id\n        where p.owner_id = $1 and p.published_at is not null\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8e1c698f4ae80e075da9f9d74e3381f89835df999ac41921d8c08077c9fc4731"
+}

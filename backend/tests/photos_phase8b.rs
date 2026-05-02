@@ -860,3 +860,28 @@ async fn replace_400_when_pipeline_busy() {
     let status = h.replace_status(id, &alice).await;
     assert_eq!(status, 400);
 }
+
+// ---------------------------------------------------------------------------
+// Task 11: GET /api/me/stats
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn me_stats_counts_published_and_drafts_separately() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let p1 = h.upload_draft(&alice).await;
+    h.wait_for_ready(p1).await;
+    h.post_status(&format!("/api/photos/{p1}/publish"), None, Some(&alice))
+        .await;
+    let p2 = h.upload_draft(&alice).await;
+    h.wait_for_ready(p2).await;
+    h.post_status(&format!("/api/photos/{p2}/publish"), None, Some(&alice))
+        .await;
+    let _draft = h.upload_draft(&alice).await;
+
+    let body = h.get_json("/api/me/stats", Some(&alice)).await;
+    assert_eq!(body["published_count"], 2);
+    assert_eq!(body["draft_count"], 1);
+    assert_eq!(body["appreciations_received"], 0);
+}

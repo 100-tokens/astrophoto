@@ -5,6 +5,7 @@ pub mod preferences;
 pub mod profile;
 pub mod queries;
 pub mod sessions;
+pub mod stats;
 
 use crate::api_types::User;
 use queries::UserRow;
