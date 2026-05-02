@@ -39,17 +39,26 @@ impl Mailer {
             AppError::internal(format!("invalid MAIL_FROM '{}': {e}", cfg.mail_from))
         })?;
 
-        let mut builder =
-            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&cfg.smtp_host)
+        let transport = if cfg.smtp_tls {
+            // Prod: STARTTLS on whatever port (typically 587 for SES).
+            let mut b = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&cfg.smtp_host)
+                .map_err(|e| AppError::internal(format!("smtp starttls config: {e}")))?
                 .port(cfg.smtp_port);
-        if !cfg.smtp_user.is_empty() {
-            builder = builder
-                .credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
-        }
-        Ok(Mailer::Smtp {
-            transport: Arc::new(builder.build()),
-            from,
-        })
+            if !cfg.smtp_user.is_empty() {
+                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+            }
+            b.build()
+        } else {
+            // Dev: plaintext (MailHog accepts no TLS, no auth).
+            let mut b = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&cfg.smtp_host)
+                .port(cfg.smtp_port);
+            if !cfg.smtp_user.is_empty() {
+                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+            }
+            b.build()
+        };
+
+        Ok(Mailer::Smtp { transport: Arc::new(transport), from })
     }
 
     pub fn for_test() -> (Self, Arc<Mutex<Vec<SentMail>>>) {
@@ -68,9 +77,25 @@ impl Mailer {
     }
 
     pub async fn send_plain(&self, to: &str, subject: &str, body: &str) -> Result<(), AppError> {
-        let (from, send_smtp) = match self {
-            Mailer::Smtp { transport, from } => (from.clone(), Some(transport.clone())),
-            Mailer::Memory { from, outbox } => {
+        let to_mailbox: Mailbox = to.parse().map_err(|e| {
+            AppError::internal(format!("invalid recipient '{to}': {e}"))
+        })?;
+
+        match self {
+            Mailer::Smtp { transport, from } => {
+                let msg = Message::builder()
+                    .from(from.clone())
+                    .to(to_mailbox)
+                    .subject(subject)
+                    .header(ContentType::TEXT_PLAIN)
+                    .body(body.to_string())
+                    .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
+                transport
+                    .send(msg)
+                    .await
+                    .map_err(|e| AppError::internal(format!("smtp send failed: {e}")))?;
+            }
+            Mailer::Memory { from: _, outbox } => {
                 outbox
                     .lock()
                     .map_err(|_| AppError::internal("mail outbox lock poisoned"))?
@@ -79,25 +104,7 @@ impl Mailer {
                         subject: subject.to_string(),
                         body: body.to_string(),
                     });
-                (from.clone(), None)
             }
-        };
-
-        if let Some(transport) = send_smtp {
-            let to_mailbox: Mailbox = to.parse().map_err(|e| {
-                AppError::bad_request(format!("invalid recipient '{to}': {e}"))
-            })?;
-            let msg = Message::builder()
-                .from(from)
-                .to(to_mailbox)
-                .subject(subject)
-                .header(ContentType::TEXT_PLAIN)
-                .body(body.to_string())
-                .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
-            transport
-                .send(msg)
-                .await
-                .map_err(|e| AppError::internal(format!("smtp send failed: {e}")))?;
         }
         Ok(())
     }

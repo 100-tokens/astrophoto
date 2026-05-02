@@ -1,17 +1,5 @@
 use serde::Deserialize;
 
-fn default_smtp_host() -> String {
-    "localhost".into()
-}
-
-fn default_smtp_port() -> u16 {
-    1025
-}
-
-fn default_mail_from() -> String {
-    "Astrophoto <noreply@astrophoto.local>".into()
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub bind: String,
@@ -35,16 +23,13 @@ pub struct Config {
     #[serde(default)]
     pub oauth_google_redirect_url: String,
 
-    #[serde(default = "default_smtp_host")]
     pub smtp_host: String,
-    #[serde(default = "default_smtp_port")]
     pub smtp_port: u16,
-    #[serde(default)]
     pub smtp_user: String,
-    #[serde(default)]
     pub smtp_pass: String,
-    #[serde(default = "default_mail_from")]
     pub mail_from: String,
+    /// false in dev (MailHog, plaintext), true in prod (STARTTLS for AWS SES on port 587).
+    pub smtp_tls: bool,
 }
 
 impl Config {
@@ -76,12 +61,19 @@ mod tests {
             jail.set_env("APP_S3_ACCESS_KEY", "a");
             jail.set_env("APP_S3_SECRET_KEY", "s");
             jail.set_env("APP_S3_PATH_STYLE", "true");
+            jail.set_env("APP_SMTP_HOST", "localhost");
+            jail.set_env("APP_SMTP_PORT", "1025");
+            jail.set_env("APP_SMTP_USER", "");
+            jail.set_env("APP_SMTP_PASS", "");
+            jail.set_env("APP_MAIL_FROM", "Astrophoto <noreply@astrophoto.local>");
+            jail.set_env("APP_SMTP_TLS", "false");
 
             let cfg = Config::from_env();
             assert_eq!(cfg.bind, "0.0.0.0:1234");
             assert_eq!(cfg.log, "debug");
             assert!(!cfg.session_secure);
             assert!(cfg.s3_path_style);
+            assert!(!cfg.smtp_tls);
 
             Ok(())
         });

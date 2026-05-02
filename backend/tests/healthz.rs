@@ -28,6 +28,7 @@ fn config_for(url: &str) -> Config {
         smtp_user: String::new(),
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
+        smtp_tls: false,
     }
 }
 
@@ -48,7 +49,12 @@ async fn healthz_returns_ok_with_real_postgres() {
         .expect("migrate");
 
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
-    let app = http::router(pool, config_for(&url), Arc::new(MemoryStorage::new()), Arc::new(mailer));
+    let app = http::router(
+        pool,
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+    );
 
     let resp = app
         .oneshot(

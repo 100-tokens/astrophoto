@@ -32,6 +32,7 @@ fn config_for(url: &str) -> Config {
         smtp_user: String::new(),
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
+        smtp_tls: false,
     }
 }
 

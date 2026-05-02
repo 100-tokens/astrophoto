@@ -25,9 +25,6 @@ pub enum AppError {
     #[error(transparent)]
     Database(#[from] sqlx::Error),
 
-    #[error("bad request: {0}")]
-    BadRequest(String),
-
     #[error("internal: {0}")]
     Internal(String),
 }
@@ -35,10 +32,6 @@ pub enum AppError {
 impl AppError {
     pub fn internal(msg: impl Into<String>) -> Self {
         AppError::Internal(msg.into())
-    }
-
-    pub fn bad_request(msg: impl Into<String>) -> Self {
-        AppError::BadRequest(msg.into())
     }
 }
 
@@ -50,7 +43,6 @@ impl AppError {
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
-            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -62,7 +54,6 @@ impl AppError {
             AppError::Forbidden => "forbidden",
             AppError::Validation(_) => "validation",
             AppError::Conflict(_) => "conflict",
-            AppError::BadRequest(_) => "bad-request",
             AppError::Database(_) | AppError::Internal(_) => "internal",
         }
     }

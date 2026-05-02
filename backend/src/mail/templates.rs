@@ -25,11 +25,12 @@ pub fn password_reset(display_name: &str, link: &str, has_password: bool) -> (St
 }
 
 pub fn email_change_request(current_email: &str, link: &str) -> (String, String) {
+    let masked = mask_email(current_email);
     let subject = "Confirm your new Astrophoto email".to_string();
     let body = format!(
         "Hello,\n\n\
          A request was made to change the Astrophoto account currently registered as \
-         {current_email} to this address. Open the link below to confirm:\n\n\
+         {masked} to this address. Open the link below to confirm:\n\n\
          {link}\n\n\
          This link is single-use and expires in one hour. If you didn't request this, \
          ignore this message — nothing changes until the link is clicked.\n\n\
