@@ -2,10 +2,12 @@ use async_trait::async_trait;
 use aws_sdk_s3::{
     Client,
     config::{BehaviorVersion, Builder, Credentials, Region},
+    presigning::PresigningConfig,
     primitives::ByteStream,
     types::{CreateBucketConfiguration, Delete, ObjectIdentifier},
 };
 use bytes::Bytes;
+use std::time::Duration;
 
 use super::Storage;
 use crate::AppError;
@@ -130,6 +132,20 @@ impl Storage for S3Storage {
             .await
             .map(|_| ())
             .map_err(|e| AppError::Internal(format!("s3 delete: {e}")))
+    }
+
+    async fn signed_url(&self, key: &str, ttl_secs: u64) -> Result<String, AppError> {
+        let cfg = PresigningConfig::expires_in(Duration::from_secs(ttl_secs))
+            .map_err(|e| AppError::Internal(format!("presigning config: {e}")))?;
+        let presigned = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .presigned(cfg)
+            .await
+            .map_err(|e| AppError::Internal(format!("s3 presign: {e}")))?;
+        Ok(presigned.uri().to_string())
     }
 
     async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError> {

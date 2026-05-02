@@ -55,6 +55,10 @@ impl Storage for MemoryStorage {
         }
         Ok(())
     }
+
+    async fn signed_url(&self, key: &str, _ttl_secs: u64) -> Result<String, AppError> {
+        Ok(format!("memory://{key}"))
+    }
 }
 
 #[cfg(test)]

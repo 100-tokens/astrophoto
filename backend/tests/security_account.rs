@@ -1102,3 +1102,77 @@ async fn purge_pseudonymised_comments_remain_visible_in_listing() {
     assert_eq!(comments[0]["author_display_name"], "[deleted]");
     assert!(comments[0]["author_id"].is_null());
 }
+
+#[tokio::test]
+async fn export_json_returns_attachment_with_signed_urls() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    // Insert one photo for marie with all required NOT NULL columns.
+    let user_id: uuid::Uuid =
+        sqlx::query_scalar!("select id from users where email = $1", "marie@x.test")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+    let photo_id: uuid::Uuid = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        user_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Insert a thumbnail so the export includes a thumbnail_url.
+    sqlx::query!(
+        "insert into thumbnails (photo_id, size, storage_key, bytes)
+         values ($1, 256, 'k1-thumb', 50)",
+        photo_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let req = Request::builder()
+        .method("GET")
+        .uri("/api/me/export.json")
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let cd = resp
+        .headers()
+        .get(header::CONTENT_DISPOSITION)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        cd.contains("attachment"),
+        "Content-Disposition must say attachment: {cd}"
+    );
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["user"]["email"], "marie@x.test");
+    let photos = v["photos"].as_array().unwrap();
+    assert_eq!(photos.len(), 1);
+    assert!(
+        photos[0]["original_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("memory://k1"),
+        "original_url must be a memory:// signed URL"
+    );
+    assert!(
+        photos[0]["thumbnail_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("memory://k1-thumb"),
+        "thumbnail_url must be a memory:// signed URL"
+    );
+}

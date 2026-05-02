@@ -25,4 +25,9 @@ pub trait Storage: Send + Sync + 'static {
 
     /// Batch-delete objects by key. Unknown keys are silently skipped.
     async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError>;
+
+    /// Generate a pre-signed URL for a GET on `key`, valid for `ttl_secs` seconds.
+    /// Maximum TTL is 7 days (604 800 s). Tests use `MemoryStorage` which returns
+    /// `memory://{key}` — callers must not follow this URL.
+    async fn signed_url(&self, key: &str, ttl_secs: u64) -> Result<String, AppError>;
 }

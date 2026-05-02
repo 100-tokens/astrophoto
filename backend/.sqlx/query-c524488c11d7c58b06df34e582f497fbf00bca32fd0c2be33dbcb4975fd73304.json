@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select followed_id::text as \"f!\" from follows where follower_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "f!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c524488c11d7c58b06df34e582f497fbf00bca32fd0c2be33dbcb4975fd73304"
+}

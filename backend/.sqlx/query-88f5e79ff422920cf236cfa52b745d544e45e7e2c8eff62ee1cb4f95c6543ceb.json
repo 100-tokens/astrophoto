@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select photo_id, created_at from appreciations where user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "photo_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "88f5e79ff422920cf236cfa52b745d544e45e7e2c8eff62ee1cb4f95c6543ceb"
+}
