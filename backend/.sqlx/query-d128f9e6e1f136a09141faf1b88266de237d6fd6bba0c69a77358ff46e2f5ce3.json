@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select owner_id, status, storage_key from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d128f9e6e1f136a09141faf1b88266de237d6fd6bba0c69a77358ff46e2f5ce3"
+}

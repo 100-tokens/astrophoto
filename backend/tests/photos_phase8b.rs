@@ -265,6 +265,40 @@ impl H {
             .unwrap();
         r.status().as_u16()
     }
+
+    /// POST a fresh JPEG to `/api/photos/:id/replace`. Asserts 202.
+    #[allow(clippy::unwrap_used, dead_code)]
+    async fn replace_with_jpeg(&self, id: Uuid, cookie: &str) {
+        let status = self.replace_status(id, cookie).await;
+        assert!(status == 202, "replace returned {status}");
+    }
+
+    /// POST a fresh JPEG to `/api/photos/:id/replace`. Returns the HTTP status code.
+    #[allow(clippy::unwrap_used, dead_code)]
+    async fn replace_status(&self, id: Uuid, cookie: &str) -> u16 {
+        let body = make_test_jpeg();
+        let boundary = "----replaceboundary";
+        let mut data = Vec::new();
+        data.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        data.extend_from_slice(
+            b"Content-Disposition: form-data; name=\"file\"; filename=\"replace.jpg\"\r\n",
+        );
+        data.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
+        data.extend_from_slice(&body);
+        data.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let req = Request::builder()
+            .method("POST")
+            .uri(format!("/api/photos/{id}/replace"))
+            .header(header::COOKIE, cookie)
+            .header(
+                header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(Body::from(data))
+            .unwrap();
+        let r = self.app.clone().oneshot(req).await.unwrap();
+        r.status().as_u16()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -746,4 +780,73 @@ async fn mark_failed_records_pipeline_error_string() {
         .fetch_one(&pool).await.unwrap();
     assert_eq!(row.status, "failed");
     assert_eq!(row.pipeline_error.as_deref(), Some("decode failed: bad jpeg"));
+}
+
+// ---------------------------------------------------------------------------
+// Task 10: Replace endpoint
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn replace_swaps_storage_key_keeps_metadata() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    h.put_status(
+        &format!("/api/photos/{id}"),
+        &serde_json::json!({"target":"M31","caption":"v1"}),
+        Some(&alice),
+    )
+    .await;
+    h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+
+    let key_before: String =
+        sqlx::query_scalar!("select storage_key from photos where id=$1", id)
+            .fetch_one(&h.pool)
+            .await
+            .unwrap();
+    h.replace_with_jpeg(id, &alice).await;
+    h.wait_for_ready(id).await;
+
+    let row = sqlx::query!(
+        "select storage_key, target, caption, replaced_at, published_at from photos where id=$1",
+        id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+    assert_ne!(row.storage_key, key_before, "master key swapped");
+    assert_eq!(row.target.as_deref(), Some("M31"), "target preserved");
+    assert_eq!(row.caption.as_deref(), Some("v1"), "caption preserved");
+    assert!(row.replaced_at.is_some());
+    assert!(row.published_at.is_some(), "published_at preserved");
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn replace_403_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    let status = h.replace_status(id, &bob).await;
+    assert_eq!(status, 403);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn replace_400_when_pipeline_busy() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    sqlx::query!("update photos set status='processing' where id=$1", id)
+        .execute(&h.pool)
+        .await
+        .unwrap();
+    let status = h.replace_status(id, &alice).await;
+    assert_eq!(status, 400);
 }

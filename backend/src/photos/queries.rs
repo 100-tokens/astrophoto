@@ -142,6 +142,57 @@ pub async fn drain_pending_deletes(pool: &PgPool, photo_id: Uuid) -> Result<(), 
     Ok(())
 }
 
+pub async fn enqueue_pending_deletes(
+    pool: &PgPool,
+    photo_id: Uuid,
+    storage_keys: &[String],
+) -> Result<(), AppError> {
+    if storage_keys.is_empty() {
+        return Ok(());
+    }
+    for key in storage_keys {
+        sqlx::query!(
+            "insert into photo_pending_deletes (photo_id, storage_key) values ($1, $2)",
+            photo_id,
+            key
+        )
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+pub async fn swap_storage_key_for_replace(
+    pool: &PgPool,
+    id: Uuid,
+    new_key: &str,
+    original_name: &str,
+    mime: &str,
+    bytes: i64,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        r#"
+        update photos set
+          storage_key = $2,
+          original_name = $3,
+          mime = $4,
+          bytes = $5,
+          status = 'processing',
+          replaced_at = now(),
+          pipeline_error = null
+        where id = $1
+        "#,
+        id,
+        new_key,
+        original_name,
+        mime,
+        bytes
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn insert_thumbnail(
     pool: &PgPool,
     photo_id: Uuid,

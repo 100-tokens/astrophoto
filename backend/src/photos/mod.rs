@@ -6,6 +6,7 @@ pub mod metadata;
 pub mod pipeline;
 pub mod publish;
 pub mod queries;
+pub mod replace;
 pub mod serve;
 pub mod thumbs;
 pub mod upload;

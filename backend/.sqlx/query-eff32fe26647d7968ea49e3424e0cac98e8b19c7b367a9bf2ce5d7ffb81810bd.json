@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from thumbnails where photo_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eff32fe26647d7968ea49e3424e0cac98e8b19c7b367a9bf2ce5d7ffb81810bd"
+}
