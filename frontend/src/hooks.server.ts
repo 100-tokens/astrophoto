@@ -6,6 +6,12 @@ import type { Handle } from '@sveltejs/kit';
 // without Secure. Match either to decide whether to call /api/auth/me.
 const SESSION_COOKIE_RE = /(?:^|;\s*)(?:__Host-session|session)=/;
 
+function parseCookie(header: string, name: string): string | null {
+  const re = new RegExp('(?:^|;\\s*)' + name + '=([^;]+)');
+  const m = header.match(re);
+  return m ? decodeURIComponent(m[1] ?? '') : null;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
   const cookie = event.request.headers.get('cookie') ?? '';
   if (SESSION_COOKIE_RE.test(cookie)) {
@@ -27,5 +33,14 @@ export const handle: Handle = async ({ event, resolve }) => {
   } else {
     event.locals.user = null;
   }
-  return resolve(event);
+
+  const themeCookie = parseCookie(cookie, 'theme');
+  const densityCookie = parseCookie(cookie, 'density');
+  const theme = (themeCookie === 'light' ? 'light' : 'dark') as 'dark' | 'light';
+  const density = (densityCookie === 'data' ? 'data' : 'work') as 'work' | 'data';
+  event.locals.preferences = { theme, density };
+
+  return resolve(event, {
+    transformPageChunk: ({ html }) => html.replace('%theme%', theme).replace('%density%', density)
+  });
 };
