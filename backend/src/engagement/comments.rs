@@ -40,7 +40,8 @@ pub struct CreateBody {
 struct CommentRow {
     id: Uuid,
     photo_id: Uuid,
-    author_id: Uuid,
+    // Nullable since migration 0003: pseudonymised comments have author_id = NULL.
+    author_id: Option<Uuid>,
     author_display_name: String,
     body: String,
     created_at: DateTime<Utc>,
@@ -51,7 +52,8 @@ impl From<CommentRow> for Comment {
         Comment {
             id: r.id.to_string(),
             photo_id: r.photo_id.to_string(),
-            author_id: r.author_id.to_string(),
+            // Deleted-account comments surface as an empty author_id string.
+            author_id: r.author_id.map(|u| u.to_string()).unwrap_or_default(),
             author_display_name: r.author_display_name,
             body: r.body,
             created_at: r.created_at.to_rfc3339(),
@@ -144,7 +146,9 @@ pub async fn delete(
     .await?
     .ok_or(AppError::NotFound)?;
 
-    if row.author_id != user.id && row.photo_owner_id != user.id {
+    // author_id is nullable (NULL when account was deleted). A deleted-account
+    // comment can only be removed by the photo owner.
+    if row.author_id != Some(user.id) && row.photo_owner_id != user.id {
         return Err(AppError::Forbidden);
     }
 

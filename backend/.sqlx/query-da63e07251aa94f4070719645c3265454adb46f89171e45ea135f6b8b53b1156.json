@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(\n                select 1 from password_reset_tokens\n                where user_id = $1\n                  and created_at > now() - make_interval(secs => $2)\n            )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "da63e07251aa94f4070719645c3265454adb46f89171e45ea135f6b8b53b1156"
+}

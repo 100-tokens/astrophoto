@@ -50,6 +50,10 @@ pub fn router(
         .route("/api/auth/me", get(crate::auth::me::handler))
         .route("/api/auth/logout", post(crate::auth::logout::handler))
         .route(
+            "/api/auth/password-reset/request",
+            post(crate::auth::password_reset::request),
+        )
+        .route(
             "/api/auth/oauth/google/start",
             get(crate::auth::oauth_google::start),
         )
