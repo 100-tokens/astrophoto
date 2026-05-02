@@ -44,7 +44,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     // Global replace + done = true filter so the placeholder is robust to
     // chunk boundaries (the SvelteKit `transformPageChunk` is called per
     // chunk; a non-global `replace` would silently miss multi-occurrence).
-    transformPageChunk: ({ html }) =>
-      html.replace(/%theme%/g, theme).replace(/%density%/g, density)
+    transformPageChunk: ({ html }) => html.replace(/%theme%/g, theme).replace(/%density%/g, density)
   });
 };
