@@ -65,5 +65,40 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
             "/api/users/:id",
             axum::routing::get(crate::users::get::handler),
         )
+        .route(
+            "/api/photos/:id/appreciate",
+            axum::routing::post(crate::engagement::appreciations::appreciate)
+                .delete(crate::engagement::appreciations::unappreciate),
+        )
+        .route(
+            "/api/photos/:id/appreciations/count",
+            axum::routing::get(crate::engagement::appreciations::count),
+        )
+        .route(
+            "/api/photos/:id/appreciation-state",
+            axum::routing::get(crate::engagement::appreciations::state_for_user),
+        )
+        .route(
+            "/api/photos/:id/comments",
+            axum::routing::get(crate::engagement::comments::list)
+                .post(crate::engagement::comments::create),
+        )
+        .route(
+            "/api/comments/:id",
+            axum::routing::delete(crate::engagement::comments::delete),
+        )
+        .route(
+            "/api/users/:id/follow",
+            axum::routing::post(crate::engagement::follows::follow)
+                .delete(crate::engagement::follows::unfollow),
+        )
+        .route(
+            "/api/users/:id/followers/count",
+            axum::routing::get(crate::engagement::follows::followers_count),
+        )
+        .route(
+            "/api/users/:id/following/count",
+            axum::routing::get(crate::engagement::follows::following_count),
+        )
         .with_state(state)
 }

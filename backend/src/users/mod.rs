@@ -11,6 +11,7 @@ impl From<UserRow> for User {
             email: r.email,
             display_name: r.display_name,
             created_at: r.created_at.to_rfc3339(),
+            following_ids: vec![],
         }
     }
 }

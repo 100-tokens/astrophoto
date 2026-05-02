@@ -1,6 +1,19 @@
 import type { Health, User } from './types';
 
 // ---------------------------------------------------------------------------
+// Comment DTO
+// ---------------------------------------------------------------------------
+
+export interface Comment {
+  id: string;
+  photo_id: string;
+  author_id: string;
+  author_display_name: string;
+  body: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Photo DTOs — mirror PhotoDetail in backend/src/photos/get.rs
 // ---------------------------------------------------------------------------
 
@@ -78,12 +91,57 @@ export const api = {
   logout: (opts?: ApiCall) => request<void>('POST', '/api/auth/logout', undefined, opts),
   me: (opts?: ApiCall) => request<User>('GET', '/api/auth/me', undefined, opts),
   photos: {
-    list: (ownerId?: string, opts?: ApiCall) => {
-      const qs = ownerId ? `?owner_id=${encodeURIComponent(ownerId)}` : '';
-      return request<PhotoListResponse>('GET', `/api/photos${qs}`, undefined, opts);
+    list: (
+      opts: { ownerId?: string; limit?: number; following?: boolean } = {},
+      apiOpts?: ApiCall
+    ) => {
+      const qs = new URLSearchParams();
+      if (opts.ownerId) qs.set('owner_id', opts.ownerId);
+      if (opts.limit != null) qs.set('limit', String(opts.limit));
+      if (opts.following) qs.set('following', 'true');
+      const path = qs.toString() ? `/api/photos?${qs}` : '/api/photos';
+      return request<PhotoListResponse>('GET', path, undefined, apiOpts);
     },
     get: (id: string, opts?: ApiCall) =>
       request<PhotoSummary>('GET', `/api/photos/${id}`, undefined, opts)
     // upload uses multipart/form-data — callers use raw fetch directly
+  },
+  appreciations: {
+    count: (photoId: string, opts?: ApiCall) =>
+      request<{ count: number }>(
+        'GET',
+        `/api/photos/${photoId}/appreciations/count`,
+        undefined,
+        opts
+      ),
+    state: (photoId: string, opts?: ApiCall) =>
+      request<{ appreciated: boolean }>(
+        'GET',
+        `/api/photos/${photoId}/appreciation-state`,
+        undefined,
+        opts
+      ),
+    appreciate: (photoId: string, opts?: ApiCall) =>
+      request<void>('POST', `/api/photos/${photoId}/appreciate`, undefined, opts),
+    unappreciate: (photoId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/photos/${photoId}/appreciate`, undefined, opts)
+  },
+  follows: {
+    follow: (userId: string, opts?: ApiCall) =>
+      request<void>('POST', `/api/users/${userId}/follow`, undefined, opts),
+    unfollow: (userId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/users/${userId}/follow`, undefined, opts),
+    followersCount: (userId: string, opts?: ApiCall) =>
+      request<{ count: number }>('GET', `/api/users/${userId}/followers/count`, undefined, opts),
+    followingCount: (userId: string, opts?: ApiCall) =>
+      request<{ count: number }>('GET', `/api/users/${userId}/following/count`, undefined, opts)
+  },
+  comments: {
+    list: (photoId: string, opts?: ApiCall) =>
+      request<{ comments: Comment[] }>('GET', `/api/photos/${photoId}/comments`, undefined, opts),
+    create: (photoId: string, body: string, opts?: ApiCall) =>
+      request<Comment>('POST', `/api/photos/${photoId}/comments`, { body }, opts),
+    delete: (commentId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/comments/${commentId}`, undefined, opts)
   }
 };

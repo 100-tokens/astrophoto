@@ -1,7 +1,8 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { PHOTOS, NGC7000 } from '$lib/data/photos';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import type { PhotoDetail } from '$lib/data/photos';
+import type { Comment } from '$lib/api/client';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
@@ -32,6 +33,8 @@ interface RealPhoto {
   target: string | null;
   caption: string | null;
   created_at: string;
+  appreciation_count: number;
+  comment_count: number;
 }
 
 function formatBytes(b: number): string {
@@ -115,7 +118,7 @@ function minimalDetail(
   };
 }
 
-export const load: PageServerLoad = async ({ params, fetch }) => {
+export const load: PageServerLoad = async ({ params, fetch, locals, request }) => {
   const { slug } = params;
 
   // Canonical NGC 7000 placeholder
@@ -133,6 +136,33 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       error(500, 'Failed to load photo');
     }
     const photo = (await res.json()) as RealPhoto;
+
+    let isAppreciated = false;
+    if (locals.user) {
+      try {
+        const cookie = request.headers.get('cookie') ?? '';
+        const stateRes = await fetch(`${API}/api/photos/${params.slug}/appreciation-state`, {
+          headers: { Cookie: cookie }
+        });
+        if (stateRes.ok) {
+          const state = (await stateRes.json()) as { appreciated: boolean };
+          isAppreciated = state.appreciated;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    let comments: Comment[] = [];
+    try {
+      const res = await fetch(`${API}/api/photos/${params.slug}/comments`);
+      if (res.ok) {
+        const body = (await res.json()) as { comments: Comment[] };
+        comments = body.comments;
+      }
+    } catch {
+      // ignore — backend down, render with empty comments
+    }
 
     const detail: PhotoDetail = {
       slug: photo.id,
@@ -162,8 +192,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
         caption: photo.caption ?? '',
         captionShort: photo.caption ?? ''
       },
-      appreciations: 0,
-      comments: 0,
+      appreciations: photo.appreciation_count,
+      comments: photo.comment_count,
       ratio: photo.width && photo.height ? photo.width / photo.height : 1.5,
       integration: ''
     };
@@ -172,7 +202,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       photo: detail,
       isRich: false,
       thumbSrc1200: `${API}/api/photos/${photo.id}/thumb/1200`,
-      exifRows: buildExifRows(photo)
+      exifRows: buildExifRows(photo),
+      isAppreciated,
+      comments,
+      ownerId: photo.owner_id
     };
   }
 
@@ -193,4 +226,47 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     isRich: false,
     thumbSrc1200: undefined
   };
+};
+
+export const actions: Actions = {
+  comment: async ({ request, params, fetch, cookies }) => {
+    const data = await request.formData();
+    const body = String(data.get('body') ?? '').trim();
+    if (body.length === 0 || body.length > 2000) {
+      return fail(422, { message: 'Comment must be 1-2000 chars.' });
+    }
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const res = await fetch(`${API}/api/photos/${params.slug}/comments`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ body })
+    });
+    if (!res.ok) {
+      return fail(res.status, { message: `Failed: ${await res.text()}` });
+    }
+    return { ok: true };
+  },
+
+  deleteComment: async ({ request, fetch, cookies }) => {
+    const data = await request.formData();
+    const id = String(data.get('id') ?? '');
+    if (!id) return fail(400, { message: 'Missing comment id.' });
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const res = await fetch(`${API}/api/comments/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { Cookie: cookie }
+    });
+    if (!res.ok) {
+      return fail(res.status, { message: `Failed: ${await res.text()}` });
+    }
+    return { ok: true };
+  }
 };

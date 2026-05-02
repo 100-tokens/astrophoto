@@ -46,6 +46,17 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       displayName = locals.user.displayName;
     }
 
+    let followerCount = 0;
+    try {
+      const res = await fetch(`${API}/api/users/${username}/followers/count`);
+      if (res.ok) {
+        const body = (await res.json()) as { count: number };
+        followerCount = body.count;
+      }
+    } catch {
+      // ignore — keep default 0
+    }
+
     let photos: Photo[] = [];
     try {
       const res = await fetch(`${API}/api/photos?owner_id=${username}&limit=24`);
@@ -86,7 +97,7 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       about: '',
       frames: photoCount,
       integrationTotal: '—',
-      followers: 0,
+      followers: followerCount,
       collections: 0,
       lat: '—',
       long: '—',
@@ -96,10 +107,13 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       memberSince
     };
 
+    const isFollowing = locals.user?.following_ids?.includes(username) ?? false;
+    const isSelf = locals.user?.id === username;
+
     // Field name 'profile' (not 'user') to avoid colliding with the layout's
     // `data.user` (the auth state). Layout-level `user` must keep flowing
     // through to AppHeader's $app/state read.
-    return { profile: user, photos, isReal: true as const };
+    return { profile: user, photos, isReal: true as const, isFollowing, isSelf };
   }
 
   // Placeholder canonical user
