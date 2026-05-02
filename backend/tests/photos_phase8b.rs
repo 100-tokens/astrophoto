@@ -822,6 +822,16 @@ async fn replace_swaps_storage_key_keeps_metadata() {
     assert_eq!(row.caption.as_deref(), Some("v1"), "caption preserved");
     assert!(row.replaced_at.is_some());
     assert!(row.published_at.is_some(), "published_at preserved");
+
+    let pending: i64 = sqlx::query_scalar!(
+        r#"select count(*) as "c!" from photo_pending_deletes where photo_id = $1"#, id
+    ).fetch_one(&h.pool).await.unwrap();
+    assert_eq!(pending, 0, "pending deletes must be drained after replace");
+
+    let thumb_count: i64 = sqlx::query_scalar!(
+        r#"select count(*) as "c!" from thumbnails where photo_id = $1"#, id
+    ).fetch_one(&h.pool).await.unwrap();
+    assert!(thumb_count > 0, "thumbnails must be regenerated after replace");
 }
 
 #[tokio::test]

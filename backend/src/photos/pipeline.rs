@@ -102,18 +102,35 @@ pub async fn finalize(
             queries::mark_ready(pool, photo_id, full_w, full_h, &exif_data).await?;
         }
         PipelineOptions::Replace => {
-            // Drain old S3 keys BEFORE promoting to 'ready'. If drain fails the
-            // photo stays in 'processing'; the hourly purge worker (Task 12)
-            // will sweep stale photo_pending_deletes rows >7 days old. This
-            // avoids the failure mode where a successful new master flips to
-            // 'failed' because of an unrelated S3 cleanup error.
-            let keys = queries::pending_deletes_for(pool, photo_id).await?;
-            if !keys.is_empty() {
-                storage.delete_objects(&keys).await?;
-                queries::drain_pending_deletes(pool, photo_id).await?;
-            }
-            // Skip user-edited EXIF/target/caption — only refresh size.
+            // Mark ready first — the new master image is good (decode + thumbnail
+            // generation succeeded). If the deferred S3 cleanup that follows hits
+            // an error, the photo is still ready; the hourly purge worker
+            // (jobs::purge_deletions::sweep_pending_deletes) will retry stale rows.
             queries::mark_ready_size_only(pool, photo_id, full_w, full_h).await?;
+
+            // Best-effort drain of pending S3 deletes. Failures are logged but
+            // not propagated — the photo is healthy and the worker will catch
+            // anything left over after 7 days.
+            match queries::pending_deletes_for(pool, photo_id).await {
+                Ok(keys) if !keys.is_empty() => {
+                    if let Err(e) = storage.delete_objects(&keys).await {
+                        tracing::warn!(
+                            photo_id=%photo_id, error=%e,
+                            "replace drain: storage delete failed; purge worker will retry"
+                        );
+                    } else if let Err(e) = queries::drain_pending_deletes(pool, photo_id).await {
+                        tracing::warn!(
+                            photo_id=%photo_id, error=%e,
+                            "replace drain: pending_deletes row removal failed"
+                        );
+                    }
+                }
+                Ok(_) => {} // empty list — nothing to drain
+                Err(e) => tracing::warn!(
+                    photo_id=%photo_id, error=%e,
+                    "replace drain: pending_deletes_for query failed"
+                ),
+            }
         }
     }
     Ok(())
