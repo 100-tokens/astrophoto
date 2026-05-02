@@ -1,4 +1,6 @@
-use astrophoto::{Config, db, http};
+use std::sync::Arc;
+
+use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{body::Body, http::Request};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
@@ -40,7 +42,7 @@ async fn healthz_returns_ok_with_real_postgres() {
         .await
         .expect("migrate");
 
-    let app = http::router(pool, config_for(&url));
+    let app = http::router(pool, config_for(&url), Arc::new(MemoryStorage::new()));
 
     let resp = app
         .oneshot(

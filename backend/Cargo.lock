@@ -56,10 +56,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "argon2",
+ "async-trait",
  "aws-config",
  "aws-sdk-s3",
  "axum",
  "base64 0.22.1",
+ "bytes",
  "chrono",
  "figment",
  "http-body-util",

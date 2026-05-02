@@ -9,12 +9,14 @@
   interface PageData {
     photo: PhotoDetail;
     isRich: boolean;
+    thumbSrc1200?: string;
   }
 
   let { data }: { data: PageData } = $props();
 
   let p = $derived(data.photo);
   let isRich = $derived(data.isRich);
+  let thumbSrc1200 = $derived(data.thumbSrc1200);
 
   interface ExifRow {
     label: string;
@@ -79,7 +81,7 @@
   <!-- LEFT: image stage -->
   <div class="image-stage">
     <div class="image-inner">
-      <Photo target={p.target} style="position: absolute; inset: 0;" />
+      <Photo target={p.target} src={thumbSrc1200} style="position: absolute; inset: 0;" />
 
       <!-- Corner reticles outside the photo (inline, like screens-1.jsx) -->
       <div class="reticle reticle-tl"></div>

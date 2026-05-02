@@ -10,12 +10,26 @@
 
   interface Props {
     target: string;
-    src?: string;
-    style?: string;
-    class?: string;
+    /** Optional real image URL. When provided, it is overlaid on the gradient
+     *  (LQIP behaviour). Accepts `undefined` so callers can pass optional
+     *  thumbSrc fields without conditional spreading. */
+    src?: string | undefined;
+    style?: string | undefined;
+    class?: string | undefined;
   }
 
   let { target, src, style, class: className }: Props = $props();
+
+  // Track whether the real image has loaded (for LQIP fade-in)
+  let loaded = $state(false);
+
+  // Reset loaded state when src changes so the fade-in replays on navigation
+  $effect(() => {
+    if (src !== undefined) {
+      // Reading src registers it as a reactive dependency
+    }
+    loaded = false;
+  });
 
   // Deterministic hash — matches shared.jsx exactly
   function hash(s: string): number {
@@ -72,19 +86,29 @@
 </script>
 
 <div class={cls('photo-card', className)} {style}>
+  <!-- Gradient + stars always render — act as LQIP background -->
+  <div style="position: absolute; inset: 0; background: {gradient};"></div>
+  <svg
+    style="position: absolute; inset: 0; width: 100%; height: 100%;"
+    preserveAspectRatio="none"
+    viewBox="0 0 100 100"
+    aria-hidden="true"
+  >
+    {#each stars as star}
+      <circle cx={star.x} cy={star.y} r={star.r * 0.15} fill="white" opacity={star.o} />
+    {/each}
+  </svg>
   {#if src}
-    <img {src} alt={target} />
-  {:else}
-    <div style="position: absolute; inset: 0; background: {gradient};"></div>
-    <svg
-      style="position: absolute; inset: 0; width: 100%; height: 100%;"
-      preserveAspectRatio="none"
-      viewBox="0 0 100 100"
-      aria-hidden="true"
-    >
-      {#each stars as star}
-        <circle cx={star.x} cy={star.y} r={star.r * 0.15} fill="white" opacity={star.o} />
-      {/each}
-    </svg>
+    <!-- Real image fades in over the gradient once loaded -->
+    <img
+      {src}
+      alt={target}
+      loading="lazy"
+      decoding="async"
+      onload={() => (loaded = true)}
+      style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: {loaded
+        ? 1
+        : 0}; transition: opacity 600ms ease;"
+    />
   {/if}
 </div>

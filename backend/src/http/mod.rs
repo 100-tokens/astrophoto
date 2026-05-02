@@ -16,6 +16,7 @@ use crate::config::Config;
 pub struct AppState {
     pub pool: PgPool,
     pub config: Arc<Config>,
+    pub storage: Arc<dyn crate::storage::Storage>,
 }
 
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
@@ -29,10 +30,11 @@ pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
         .allow_methods([Method::GET, Method::POST, Method::DELETE])
 }
 
-pub fn router(pool: PgPool, config: Config) -> Router {
+pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Storage>) -> Router {
     let state = AppState {
         pool,
         config: Arc::new(config),
+        storage,
     };
     Router::new()
         .route("/healthz", get(health::healthz))
@@ -47,6 +49,17 @@ pub fn router(pool: PgPool, config: Config) -> Router {
         .route(
             "/api/auth/oauth/google/callback",
             get(crate::auth::oauth_google::callback),
+        )
+        .route(
+            "/api/photos",
+            post(crate::photos::upload::handler)
+                .get(crate::photos::list::handler)
+                .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
+        )
+        .route("/api/photos/:id", get(crate::photos::get::handler))
+        .route(
+            "/api/photos/:id/thumb/:size",
+            get(crate::photos::serve::thumb),
         )
         .with_state(state)
 }

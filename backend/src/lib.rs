@@ -4,6 +4,8 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod http;
+pub mod photos;
+pub mod storage;
 pub mod users;
 
 pub use config::Config;

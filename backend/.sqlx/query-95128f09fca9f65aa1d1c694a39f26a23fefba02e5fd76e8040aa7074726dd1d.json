@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select storage_key from thumbnails where photo_id=$1 and size=$2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "95128f09fca9f65aa1d1c694a39f26a23fefba02e5fd76e8040aa7074726dd1d"
+}
