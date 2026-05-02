@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into thumbnails (photo_id, size, storage_key, bytes) values ($1,$2,$3,$4)\n           on conflict (photo_id, size) do update set storage_key=$3, bytes=$4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "96c3688e58ede6b8a9bc1ce3d7fd19cef053c6312994bf46ee6279dc3a8fa5e4"
+}
