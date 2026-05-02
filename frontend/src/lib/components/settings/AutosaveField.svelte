@@ -11,9 +11,10 @@
     type?: string;
   } = $props();
 
-  let savedAt: number | null = $state(null);
+  let saved = $state(false);
   let error = $state(false);
-  let timer: number | undefined;
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let savedTimer: ReturnType<typeof setTimeout> | undefined;
 
   async function save() {
     const fd = new FormData();
@@ -22,7 +23,11 @@
       const r = await fetch(action, { method: 'POST', body: fd });
       if (!r.ok) throw new Error(String(r.status));
       error = false;
-      savedAt = Date.now();
+      saved = true;
+      if (savedTimer) clearTimeout(savedTimer);
+      savedTimer = setTimeout(() => {
+        saved = false;
+      }, 2000);
     } catch {
       error = true;
     }
@@ -30,18 +35,23 @@
 
   function onInput(e: Event) {
     value = (e.target as HTMLInputElement).value;
-    if (timer) clearTimeout(timer);
-    timer = window.setTimeout(save, 600);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(save, 600);
   }
 
-  function showSaved() {
-    return savedAt && Date.now() - savedAt < 2000;
-  }
+  // Clear pending timers on unmount so a stale save doesn't fire after the
+  // component is gone (and the savedTimer doesn't try to mutate dead state).
+  $effect(() => {
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (savedTimer) clearTimeout(savedTimer);
+    };
+  });
 </script>
 
 <div class="autosave">
   <input {type} {name} {value} oninput={onInput} class="input" />
-  {#if showSaved()}<span class="saved">● Saved</span>{/if}
+  {#if saved}<span class="saved">● Saved</span>{/if}
   {#if error}<span class="err">● Save failed — retry</span>{/if}
 </div>
 

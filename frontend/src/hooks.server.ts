@@ -41,6 +41,10 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.preferences = { theme, density };
 
   return resolve(event, {
-    transformPageChunk: ({ html }) => html.replace('%theme%', theme).replace('%density%', density)
+    // Global replace + done = true filter so the placeholder is robust to
+    // chunk boundaries (the SvelteKit `transformPageChunk` is called per
+    // chunk; a non-global `replace` would silently miss multi-occurrence).
+    transformPageChunk: ({ html }) =>
+      html.replace(/%theme%/g, theme).replace(/%density%/g, density)
   });
 };
