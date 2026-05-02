@@ -14,6 +14,9 @@ create index photos_published_at_idx on photos (published_at desc)
 create index photos_drafts_owner_idx on photos (owner_id, created_at desc)
   where published_at is null;
 
+create index photos_owner_published_idx on photos (owner_id, published_at desc)
+  where published_at is not null;
+
 -- Backfill: every existing 'ready' photo is considered published at its
 -- creation time. 'processing' / 'failed' rows stay draft (NULL).
 update photos set published_at = created_at where status = 'ready';
