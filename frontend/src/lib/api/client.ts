@@ -143,5 +143,19 @@ export const api = {
       request<Comment>('POST', `/api/photos/${photoId}/comments`, { body }, opts),
     delete: (commentId: string, opts?: ApiCall) =>
       request<void>('DELETE', `/api/comments/${commentId}`, undefined, opts)
-  }
+  },
+
+  passwordResetRequest: (email: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/auth/password-reset/request', { email }, opts),
+
+  passwordResetConfirm: (token: string, new_password: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/auth/password-reset/confirm', { token, new_password }, opts),
+
+  emailChangeConfirm: (token: string, opts?: ApiCall) =>
+    request<{ status: 'success' | 'expired' | 'taken' }>(
+      'POST',
+      '/api/auth/email-change/confirm',
+      { token },
+      opts
+    )
 };
