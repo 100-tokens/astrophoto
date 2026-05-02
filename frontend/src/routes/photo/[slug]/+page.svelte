@@ -178,11 +178,7 @@
 
 <!-- Mobile sticky action bar -->
 <div class="mobile-actions" aria-label="Photo actions">
-  <AppreciateButton
-    photoId={p.slug}
-    initialCount={p.appreciations}
-    initialAppreciated={data.isAppreciated ?? false}
-  />
+  <button class="mobile-action-btn" style="color: var(--accent);">♡ {p.appreciations}</button>
   <button class="mobile-action-btn">💬 {p.comments}</button>
   <button class="mobile-action-btn">↗ Share</button>
 </div>

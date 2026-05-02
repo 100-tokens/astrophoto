@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { api } from '$lib/api/client';
@@ -11,10 +12,8 @@
 
   let { photoId, initialCount, initialAppreciated = false }: Props = $props();
 
-  // eslint-disable-next-line svelte/valid-compile
-  let count = $state(initialCount);
-  // eslint-disable-next-line svelte/valid-compile
-  let appreciated = $state(initialAppreciated);
+  let count = $state(untrack(() => initialCount));
+  let appreciated = $state(untrack(() => initialAppreciated));
   let pending = $state(false);
 
   async function toggle() {

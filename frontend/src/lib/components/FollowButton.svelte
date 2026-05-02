@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import { api } from '$lib/api/client';
@@ -10,8 +11,7 @@
 
   let { userId, initialFollowing }: Props = $props();
 
-  // eslint-disable-next-line svelte/valid-compile
-  let following = $state(initialFollowing);
+  let following = $state(untrack(() => initialFollowing));
   let pending = $state(false);
   let hovering = $state(false);
 
