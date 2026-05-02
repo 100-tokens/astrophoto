@@ -1,0 +1,9 @@
+Bundled fixtures in this directory are public-domain images from
+NASA / ESA / JWST / Hubble / NOAO and similar US-government or
+explicitly-released-into-the-public-domain sources.
+
+Each file's source URL and credit line is recorded as a comment in
+the file's name or in this file (added when the fixture is committed).
+
+Drop your own JPEG / PNG astrophotos into this directory and re-run
+`just seed` to import them into the demo user's gallery.

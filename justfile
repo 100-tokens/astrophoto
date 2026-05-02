@@ -50,3 +50,7 @@ types:
     mkdir -p frontend/src/lib/api
     cd backend && cargo run --bin gen-types
     cd frontend && pnpm prettier --write 'src/lib/api/**/*.ts' 2>/dev/null || true
+
+# Seed the dev database with demo content. Idempotent.
+seed:
+    cd backend && cargo run --bin seed
