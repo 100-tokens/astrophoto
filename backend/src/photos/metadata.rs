@@ -13,15 +13,38 @@ use crate::http::AppState;
 
 #[derive(Deserialize, Default)]
 pub struct MetadataUpdate {
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub target: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub caption: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub taken_at: Option<Option<DateTime<Utc>>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub camera: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub lens: Option<Option<String>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub iso: Option<Option<i32>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub exposure_s: Option<Option<f64>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
     pub focal_mm: Option<Option<f64>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub ra_deg: Option<Option<f64>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub dec_deg: Option<Option<f64>>,
+
     pub exif_json: Option<serde_json::Value>,
+
     pub last_step: Option<String>,
 }
 
@@ -57,8 +80,10 @@ pub async fn handler(
           iso          = case when $12::bool then $13 else iso end,
           exposure_s   = case when $14::bool then $15 else exposure_s end,
           focal_mm     = case when $16::bool then $17 else focal_mm end,
-          exif_json    = case when $18::bool then $19 else exif_json end,
-          last_step    = coalesce($20, last_step)
+          ra_deg       = case when $18::bool then $19 else ra_deg end,
+          dec_deg      = case when $20::bool then $21 else dec_deg end,
+          exif_json    = case when $22::bool then $23 else exif_json end,
+          last_step    = coalesce($24, last_step)
         where id = $1
         "#,
         id,
@@ -78,6 +103,10 @@ pub async fn handler(
         patch.exposure_s.flatten(),
         patch.focal_mm.is_some(),
         patch.focal_mm.flatten(),
+        patch.ra_deg.is_some(),
+        patch.ra_deg.flatten(),
+        patch.dec_deg.is_some(),
+        patch.dec_deg.flatten(),
         patch.exif_json.is_some(),
         patch.exif_json,
         patch.last_step.as_deref(),

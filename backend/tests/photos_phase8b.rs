@@ -696,3 +696,27 @@ async fn put_metadata_403_for_non_owner() {
         .await;
     assert_eq!(status, 403);
 }
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn put_metadata_explicit_null_clears_field() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+
+    // Set target to a value
+    let body = serde_json::json!({ "target": "M31" });
+    h.put_status(&format!("/api/photos/{id}"), &body, Some(&alice)).await;
+    let row = sqlx::query!("select target from photos where id=$1", id)
+        .fetch_one(&h.pool).await.unwrap();
+    assert_eq!(row.target.as_deref(), Some("M31"));
+
+    // Now explicitly clear it via JSON null
+    let body = serde_json::json!({ "target": null });
+    let status = h.put_status(&format!("/api/photos/{id}"), &body, Some(&alice)).await;
+    assert_eq!(status, 200);
+    let row = sqlx::query!("select target from photos where id=$1", id)
+        .fetch_one(&h.pool).await.unwrap();
+    assert!(row.target.is_none(), "explicit null should clear the field");
+}
