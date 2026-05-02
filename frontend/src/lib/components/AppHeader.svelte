@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import MarkReticle from './MarkReticle.svelte';
   import Wordmark from './Wordmark.svelte';
+  import AvatarMenu from './AvatarMenu.svelte';
   import { cls } from '$lib/utils/cls';
 
   interface Props {
@@ -13,7 +14,6 @@
 
   // Auth state comes from layout data resolved by hooks.server.ts.
   let user = $derived(page.data.user);
-  let userInitial = $derived(user?.displayName?.[0]?.toUpperCase() ?? 'M');
 
   const navLinks: Array<{
     label: 'Gallery' | 'Targets' | 'Photographers' | 'About';
@@ -72,13 +72,7 @@
 
     {#if user}
       <a href="/upload" class="btn btn-secondary btn-sm">Upload</a>
-      <a
-        href="/u/{user.id}"
-        style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 15px; text-decoration: none;"
-        aria-label="Your profile ({user.displayName})"
-      >
-        {userInitial}
-      </a>
+      <AvatarMenu {user} />
     {:else}
       <a href="/signin" class="nav-link">Sign in</a>
       <a href="/signup" class="btn btn-primary btn-sm">Create account</a>

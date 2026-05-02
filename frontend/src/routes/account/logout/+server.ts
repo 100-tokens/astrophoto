@@ -18,8 +18,7 @@ export const POST: RequestHandler = async ({ fetch, cookies, setHeaders }) => {
     // Backend unreachable — clear client state anyway by setting an
     // expired session cookie locally (matches the dev-mode cookie name).
     setHeaders({
-      'set-cookie':
-        'session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'
+      'set-cookie': 'session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'
     });
     throw redirect(303, '/');
   }
