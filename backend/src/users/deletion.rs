@@ -31,7 +31,7 @@ pub async fn request(
     .fetch_one(&state.pool)
     .await?;
 
-    if let Some(stored) = row.password_hash.clone() {
+    if let Some(stored) = row.password_hash {
         let pwd = body.current_password.ok_or(AppError::Unauthorized)?;
         let ok = crate::auth::password::verify(pwd, stored).await?;
         if !ok {
@@ -39,24 +39,31 @@ pub async fn request(
         }
     }
 
-    sqlx::query!(
-        "update users set pending_deletion_at = now() + interval '7 days'
-          where id = $1 and pending_deletion_at is null",
+    let updated = sqlx::query!(
+        r#"update users set pending_deletion_at = now() + interval '7 days'
+          where id = $1 and pending_deletion_at is null
+        returning pending_deletion_at as "pending_deletion_at!: chrono::DateTime<chrono::Utc>""#,
         user.id
     )
-    .execute(&state.pool)
+    .fetch_optional(&state.pool)
     .await?;
 
-    let when_human = (chrono::Utc::now() + chrono::Duration::days(7))
-        .format("%A %e %B %Y at %H:%M UTC")
-        .to_string();
-    let cancel_link = format!(
-        "{}/settings/delete",
-        state.config.public_base_url.trim_end_matches('/')
-    );
-    let (subject, body) =
-        templates::account_deletion_scheduled(&row.display_name, &when_human, &cancel_link);
-    state.mailer.send_plain(&row.email, &subject, &body).await?;
+    if let Some(u) = updated {
+        let when_human = u
+            .pending_deletion_at
+            .format("%A %e %B %Y at %H:%M UTC")
+            .to_string();
+        let cancel_link = format!(
+            "{}/settings/delete",
+            state.config.public_base_url.trim_end_matches('/')
+        );
+        let (subject, body) =
+            templates::account_deletion_scheduled(&row.display_name, &when_human, &cancel_link);
+        if let Err(e) = state.mailer.send_plain(&row.email, &subject, &body).await {
+            tracing::warn!(error = ?e, user_id = %user.id,
+                "account-deletion scheduled notification failed; state still committed");
+        }
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -75,7 +82,10 @@ pub async fn cancel(
 
     if let Some(r) = row {
         let (subject, body) = templates::account_deletion_cancelled(&r.display_name);
-        state.mailer.send_plain(&r.email, &subject, &body).await?;
+        if let Err(e) = state.mailer.send_plain(&r.email, &subject, &body).await {
+            tracing::warn!(error = ?e, user_id = %user.id,
+                "account-deletion cancellation notification failed; state still committed");
+        }
     }
     Ok(StatusCode::NO_CONTENT)
 }
