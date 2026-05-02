@@ -192,5 +192,8 @@ export const api = {
   ) => request<void>('POST', '/api/me/delete-request', body, opts),
 
   cancelDeletion: (opts?: ApiCall) =>
-    request<void>('POST', '/api/me/delete-cancel', undefined, opts)
+    request<void>('POST', '/api/me/delete-cancel', undefined, opts),
+
+  photosCount: (opts?: ApiCall) =>
+    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts)
 };

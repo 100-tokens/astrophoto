@@ -18,11 +18,10 @@ export const actions: Actions = {
         : { confirmation_phrase: phrase };
     try {
       await api.requestDeletion(body, { fetch });
-      redirect(303, '/settings/delete');
-    } catch (e) {
-      if (e instanceof Response) throw e;
+    } catch {
       return fail(401, { error: 'wrong_password' });
     }
+    redirect(303, '/settings/delete');
   },
   cancel: async ({ fetch }) => {
     await api.cancelDeletion({ fetch });
