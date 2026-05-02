@@ -39,6 +39,11 @@ fn config_for(url: &str) -> Config {
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
+        smtp_host: "unused-in-tests".into(),
+        smtp_port: 1025,
+        smtp_user: String::new(),
+        smtp_pass: String::new(),
+        mail_from: "test <test@astrophoto.local>".into(),
     }
 }
 
@@ -63,7 +68,8 @@ async fn upload_pipeline_signup_upload_thumb() {
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
     let storage = Arc::new(MemoryStorage::new());
-    let app = http::router(pool.clone(), config_for(&url), storage);
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let app = http::router(pool.clone(), config_for(&url), storage, Arc::new(mailer));
 
     // 1. Signup
     let signup_body = serde_json::json!({

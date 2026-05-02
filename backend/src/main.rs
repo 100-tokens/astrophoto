@@ -29,10 +29,12 @@ async fn main() -> Result<()> {
         .await?,
     );
 
+    let mailer = std::sync::Arc::new(astrophoto::mail::Mailer::from_env(&cfg)?);
+
     // Allow the SvelteKit dev server to reach the backend with credentials.
     // TODO: source allowed origin from Config in a later iteration.
     let cors_origin: HeaderValue = "http://localhost:5173".parse().expect("valid origin");
-    let app = http::router(pool, cfg.clone(), storage)
+    let app = http::router(pool, cfg.clone(), storage, mailer)
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());
 

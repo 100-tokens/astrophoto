@@ -17,6 +17,7 @@ pub struct AppState {
     pub pool: PgPool,
     pub config: Arc<Config>,
     pub storage: Arc<dyn crate::storage::Storage>,
+    pub mailer: Arc<crate::mail::Mailer>,
 }
 
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
@@ -30,11 +31,17 @@ pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
         .allow_methods([Method::GET, Method::POST, Method::DELETE])
 }
 
-pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Storage>) -> Router {
+pub fn router(
+    pool: PgPool,
+    config: Config,
+    storage: Arc<dyn crate::storage::Storage>,
+    mailer: Arc<crate::mail::Mailer>,
+) -> Router {
     let state = AppState {
         pool,
         config: Arc::new(config),
         storage,
+        mailer,
     };
     Router::new()
         .route("/healthz", get(health::healthz))

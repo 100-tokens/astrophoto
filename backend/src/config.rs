@@ -1,5 +1,17 @@
 use serde::Deserialize;
 
+fn default_smtp_host() -> String {
+    "localhost".into()
+}
+
+fn default_smtp_port() -> u16 {
+    1025
+}
+
+fn default_mail_from() -> String {
+    "Astrophoto <noreply@astrophoto.local>".into()
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub bind: String,
@@ -22,6 +34,17 @@ pub struct Config {
     pub oauth_google_client_secret: String,
     #[serde(default)]
     pub oauth_google_redirect_url: String,
+
+    #[serde(default = "default_smtp_host")]
+    pub smtp_host: String,
+    #[serde(default = "default_smtp_port")]
+    pub smtp_port: u16,
+    #[serde(default)]
+    pub smtp_user: String,
+    #[serde(default)]
+    pub smtp_pass: String,
+    #[serde(default = "default_mail_from")]
+    pub mail_from: String,
 }
 
 impl Config {
