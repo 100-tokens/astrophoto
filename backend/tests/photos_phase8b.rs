@@ -878,10 +878,27 @@ async fn me_stats_counts_published_and_drafts_separately() {
     h.wait_for_ready(p2).await;
     h.post_status(&format!("/api/photos/{p2}/publish"), None, Some(&alice))
         .await;
-    let _draft = h.upload_draft(&alice).await;
+    let draft = h.upload_draft(&alice).await;
+
+    // Set exposure_s on photos to exercise integration_secs calculation
+    h.put_status(
+        &format!("/api/photos/{p1}"),
+        &serde_json::json!({"exposure_s": 60.0}),
+        Some(&alice),
+    )
+    .await;
+    h.put_status(
+        &format!("/api/photos/{draft}"),
+        &serde_json::json!({"exposure_s": 30.0}),
+        Some(&alice),
+    )
+    .await;
 
     let body = h.get_json("/api/me/stats", Some(&alice)).await;
     assert_eq!(body["published_count"], 2);
     assert_eq!(body["draft_count"], 1);
     assert_eq!(body["appreciations_received"], 0);
+    // integration_secs should sum only published photos (60.0 from p1; nothing from draft)
+    let integ = body["integration_secs"].as_f64().unwrap();
+    assert!((integ - 60.0).abs() < 0.001, "integration_secs should be 60.0, got {integ}");
 }
