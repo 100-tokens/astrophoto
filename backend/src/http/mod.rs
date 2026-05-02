@@ -61,5 +61,9 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )
+        .route(
+            "/api/users/:id",
+            axum::routing::get(crate::users::get::handler),
+        )
         .with_state(state)
 }
