@@ -20,7 +20,7 @@ use crate::http::AppState;
 pub struct Comment {
     pub id: String,
     pub photo_id: String,
-    pub author_id: String,
+    pub author_id: Option<String>,
     pub author_display_name: String,
     pub body: String,
     pub created_at: String,
@@ -52,8 +52,11 @@ impl From<CommentRow> for Comment {
         Comment {
             id: r.id.to_string(),
             photo_id: r.photo_id.to_string(),
-            // Deleted-account comments surface as an empty author_id string.
-            author_id: r.author_id.map(|u| u.to_string()).unwrap_or_default(),
+            // Deleted-account comments surface as null. Listing JOIN currently
+            // hides them (INNER JOIN users) — when Task 11 lands the purge
+            // worker, switch the JOIN to LEFT and have the frontend render
+            // "[deleted]" when this is null.
+            author_id: r.author_id.map(|u| u.to_string()),
             author_display_name: r.author_display_name,
             body: r.body,
             created_at: r.created_at.to_rfc3339(),
