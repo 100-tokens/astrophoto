@@ -175,6 +175,31 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
     Ok(rows)
 }
 
+pub async fn list_following(
+    pool: &PgPool,
+    follower_id: Uuid,
+    limit: i64,
+) -> Result<Vec<PhotoRow>, AppError> {
+    let rows = sqlx::query_as!(
+        PhotoRow,
+        r#"
+        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,
+               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
+               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at
+        from photos p
+        join follows f on f.followed_id = p.owner_id
+        where f.follower_id = $1 and p.status = 'ready'
+        order by p.created_at desc
+        limit $2
+        "#,
+        follower_id,
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 pub async fn thumb_storage_key(
     pool: &PgPool,
     photo_id: Uuid,
