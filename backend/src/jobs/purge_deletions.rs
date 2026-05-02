@@ -33,22 +33,49 @@ pub async fn purge_once(pool: &PgPool, storage: &dyn Storage) -> Result<u64, App
     .fetch_all(pool)
     .await?;
 
-    if due.is_empty() {
-        return Ok(0);
+    let mut deleted = 0u64;
+    if !due.is_empty() {
+        for user_id in &due {
+            match purge_one_user(pool, storage, *user_id).await {
+                Ok(()) => deleted += 1,
+                Err(e) => tracing::error!(
+                    user_id = %user_id, error = ?e,
+                    "purge_one_user failed; skipping"
+                ),
+            }
+        }
+        tracing::info!(deleted, total_due = due.len(), "purge cycle done");
     }
 
-    let mut deleted = 0u64;
-    for user_id in &due {
-        match purge_one_user(pool, storage, *user_id).await {
-            Ok(()) => deleted += 1,
-            Err(e) => tracing::error!(
-                user_id = %user_id, error = ?e,
-                "purge_one_user failed; skipping"
-            ),
-        }
+    // Sweep orphaned pending S3 deletes (replace pipeline never reached 'ready').
+    if let Err(e) = sweep_pending_deletes(pool, storage).await {
+        tracing::error!(error = ?e, "sweep_pending_deletes failed");
     }
-    tracing::info!(deleted, total_due = due.len(), "purge cycle done");
+
     Ok(deleted)
+}
+
+pub async fn sweep_pending_deletes(
+    pool: &PgPool,
+    storage: &dyn Storage,
+) -> Result<u64, AppError> {
+    let stale: Vec<String> = sqlx::query_scalar!(
+        "select storage_key from photo_pending_deletes
+         where queued_at < now() - interval '7 days'"
+    )
+    .fetch_all(pool)
+    .await?;
+    if stale.is_empty() {
+        return Ok(0);
+    }
+    storage.delete_objects(&stale).await?;
+    let n = sqlx::query!(
+        "delete from photo_pending_deletes where queued_at < now() - interval '7 days'"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+    Ok(n)
 }
 
 async fn purge_one_user(

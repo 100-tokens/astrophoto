@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use astrophoto::storage::MemoryStorage;
+use astrophoto::storage::{MemoryStorage, Storage};
 use astrophoto::{Config, db, http};
 use axum::{
     Router,
@@ -901,4 +901,40 @@ async fn me_stats_counts_published_and_drafts_separately() {
     // integration_secs should sum only published photos (60.0 from p1; nothing from draft)
     let integ = body["integration_secs"].as_f64().unwrap();
     assert!((integ - 60.0).abs() < 0.001, "integration_secs should be 60.0, got {integ}");
+}
+
+// ---------------------------------------------------------------------------
+// Task 12: Hourly purge worker — drain stale photo_pending_deletes
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
+    let (pool, _pg) = test_pool().await;
+    let storage = std::sync::Arc::new(astrophoto::storage::MemoryStorage::new());
+    let owner = Uuid::new_v4();
+    sqlx::query!(
+        "insert into users (id, email, password_hash, display_name)
+         values ($1, $2, '', 'O')", owner, format!("o-{owner}@e")
+    ).execute(&pool).await.unwrap();
+    let id = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime,
+                             status, original_uploaded_at, last_step)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'failed', now(), 'upload')
+         returning id", owner
+    ).fetch_one(&pool).await.unwrap();
+    storage.put("orphan-key", "image/jpeg", bytes::Bytes::from_static(b"x")).await.unwrap();
+    sqlx::query!(
+        "insert into photo_pending_deletes (photo_id, storage_key, queued_at)
+         values ($1, 'orphan-key', now() - interval '8 days')", id
+    ).execute(&pool).await.unwrap();
+
+    astrophoto::jobs::purge_deletions::sweep_pending_deletes(&pool, storage.as_ref())
+        .await.unwrap();
+
+    let remaining: i64 = sqlx::query_scalar!(
+        r#"select count(*) as "c!" from photo_pending_deletes where storage_key='orphan-key'"#
+    ).fetch_one(&pool).await.unwrap();
+    assert_eq!(remaining, 0);
+    assert!(storage.get("orphan-key").await.unwrap().is_none(), "S3 object swept");
 }

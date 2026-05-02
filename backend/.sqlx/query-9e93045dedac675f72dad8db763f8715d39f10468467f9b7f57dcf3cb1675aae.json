@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select storage_key from photo_pending_deletes\n         where queued_at < now() - interval '7 days'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e93045dedac675f72dad8db763f8715d39f10468467f9b7f57dcf3cb1675aae"
+}
