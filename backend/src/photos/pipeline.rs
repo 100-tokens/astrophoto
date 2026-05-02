@@ -102,14 +102,18 @@ pub async fn finalize(
             queries::mark_ready(pool, photo_id, full_w, full_h, &exif_data).await?;
         }
         PipelineOptions::Replace => {
-            // Skip user-edited EXIF/target/caption — only refresh size.
-            queries::mark_ready_size_only(pool, photo_id, full_w, full_h).await?;
-            // Drain any S3 keys queued for deferred deletion.
+            // Drain old S3 keys BEFORE promoting to 'ready'. If drain fails the
+            // photo stays in 'processing'; the hourly purge worker (Task 12)
+            // will sweep stale photo_pending_deletes rows >7 days old. This
+            // avoids the failure mode where a successful new master flips to
+            // 'failed' because of an unrelated S3 cleanup error.
             let keys = queries::pending_deletes_for(pool, photo_id).await?;
             if !keys.is_empty() {
                 storage.delete_objects(&keys).await?;
                 queries::drain_pending_deletes(pool, photo_id).await?;
             }
+            // Skip user-edited EXIF/target/caption — only refresh size.
+            queries::mark_ready_size_only(pool, photo_id, full_w, full_h).await?;
         }
     }
     Ok(())
