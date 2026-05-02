@@ -46,6 +46,17 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       displayName = locals.user.displayName;
     }
 
+    let followerCount = 0;
+    try {
+      const res = await fetch(`${API}/api/users/${username}/followers/count`);
+      if (res.ok) {
+        const body = (await res.json()) as { count: number };
+        followerCount = body.count;
+      }
+    } catch {
+      // ignore — keep default 0
+    }
+
     let photos: Photo[] = [];
     try {
       const res = await fetch(`${API}/api/photos?owner_id=${username}&limit=24`);
@@ -86,7 +97,7 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       about: '',
       frames: photoCount,
       integrationTotal: '—',
-      followers: 0,
+      followers: followerCount,
       collections: 0,
       lat: '—',
       long: '—',
