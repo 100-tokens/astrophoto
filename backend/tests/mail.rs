@@ -39,15 +39,31 @@ fn password_reset_uses_set_subject_when_no_password() {
 #[tokio::test]
 async fn memory_mailer_rejects_invalid_recipient() {
     let (mailer, outbox) = Mailer::for_test();
-    let err = mailer.send_plain("not-an-email", "Hi", "Body").await.unwrap_err();
+    let err = mailer
+        .send_plain("not-an-email", "Hi", "Body")
+        .await
+        .unwrap_err();
     let msg = format!("{err:?}");
-    assert!(msg.to_lowercase().contains("invalid"), "expected invalid-recipient error, got: {msg}");
-    assert!(outbox.lock().unwrap().is_empty(), "no mail must be queued for invalid recipient");
+    assert!(
+        msg.to_lowercase().contains("invalid"),
+        "expected invalid-recipient error, got: {msg}"
+    );
+    assert!(
+        outbox.lock().unwrap().is_empty(),
+        "no mail must be queued for invalid recipient"
+    );
 }
 
 #[test]
 fn email_change_request_masks_current_email() {
-    let (_subject, body) = templates::email_change_request("marie.dubois@example.fr", "https://x/c/abc");
-    assert!(body.contains("mar***@example.fr"), "current email must be masked, body was: {body}");
-    assert!(!body.contains("marie.dubois"), "full local-part must not appear");
+    let (_subject, body) =
+        templates::email_change_request("marie.dubois@example.fr", "https://x/c/abc");
+    assert!(
+        body.contains("mar***@example.fr"),
+        "current email must be masked, body was: {body}"
+    );
+    assert!(
+        !body.contains("marie.dubois"),
+        "full local-part must not appear"
+    );
 }

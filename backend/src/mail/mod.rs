@@ -45,7 +45,10 @@ impl Mailer {
                 .map_err(|e| AppError::internal(format!("smtp starttls config: {e}")))?
                 .port(cfg.smtp_port);
             if !cfg.smtp_user.is_empty() {
-                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+                b = b.credentials(Credentials::new(
+                    cfg.smtp_user.clone(),
+                    cfg.smtp_pass.clone(),
+                ));
             }
             b.build()
         } else {
@@ -53,12 +56,18 @@ impl Mailer {
             let mut b = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&cfg.smtp_host)
                 .port(cfg.smtp_port);
             if !cfg.smtp_user.is_empty() {
-                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+                b = b.credentials(Credentials::new(
+                    cfg.smtp_user.clone(),
+                    cfg.smtp_pass.clone(),
+                ));
             }
             b.build()
         };
 
-        Ok(Mailer::Smtp { transport: Arc::new(transport), from })
+        Ok(Mailer::Smtp {
+            transport: Arc::new(transport),
+            from,
+        })
     }
 
     pub fn for_test() -> (Self, Arc<Mutex<Vec<SentMail>>>) {
@@ -77,9 +86,9 @@ impl Mailer {
     }
 
     pub async fn send_plain(&self, to: &str, subject: &str, body: &str) -> Result<(), AppError> {
-        let to_mailbox: Mailbox = to.parse().map_err(|e| {
-            AppError::internal(format!("invalid recipient '{to}': {e}"))
-        })?;
+        let to_mailbox: Mailbox = to
+            .parse()
+            .map_err(|e| AppError::internal(format!("invalid recipient '{to}': {e}")))?;
 
         match self {
             Mailer::Smtp { transport, from } => {
