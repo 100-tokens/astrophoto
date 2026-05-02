@@ -111,6 +111,7 @@ pub async fn handler(
 
 /// Synchronous insert path used by the HTTP handler. Returns the DB-assigned id
 /// so the caller can respond 202 with `{id, status}` immediately.
+#[allow(clippy::too_many_arguments)]
 async fn quickstart(
     pool: &sqlx::PgPool,
     storage: &Arc<dyn Storage>,

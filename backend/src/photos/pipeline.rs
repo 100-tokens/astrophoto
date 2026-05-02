@@ -18,6 +18,7 @@ const THUMB_SIZES: &[u32] = &[400, 1200];
 /// Full synchronous pipeline: insert + finalize. Used by the seed
 /// binary. The HTTP handler uses the (insert) + (background finalize)
 /// pair instead.
+#[allow(clippy::too_many_arguments)]
 pub async fn process(
     pool: &PgPool,
     storage: Arc<dyn Storage>,
