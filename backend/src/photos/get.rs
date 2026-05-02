@@ -28,6 +28,8 @@ pub struct PhotoDetail {
     pub caption: Option<String>,
     pub taken_at: Option<String>,
     pub created_at: String,
+    pub appreciation_count: i64,
+    pub comment_count: i64,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -50,6 +52,8 @@ impl From<PhotoRow> for PhotoDetail {
             caption: p.caption,
             taken_at: p.taken_at.map(|d| d.to_rfc3339()),
             created_at: p.created_at.to_rfc3339(),
+            appreciation_count: 0,
+            comment_count: 0,
         }
     }
 }
@@ -61,5 +65,25 @@ pub async fn handler(
     let row = queries::find_by_id(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
-    Ok(Json(row.into()))
+
+    let appreciation_count = sqlx::query!(
+        r#"select count(*) as "count!" from appreciations where photo_id = $1"#,
+        id
+    )
+    .fetch_one(&state.pool)
+    .await?
+    .count;
+
+    let comment_count = sqlx::query!(
+        r#"select count(*) as "count!" from comments where photo_id = $1"#,
+        id
+    )
+    .fetch_one(&state.pool)
+    .await?
+    .count;
+
+    let mut dto: PhotoDetail = row.into();
+    dto.appreciation_count = appreciation_count;
+    dto.comment_count = comment_count;
+    Ok(Json(dto))
 }
