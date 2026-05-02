@@ -7,6 +7,7 @@
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentsSection from '$lib/components/CommentsSection.svelte';
   import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
+  import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import { invalidateAll } from '$app/navigation';
   import type { PhotoDetail } from '$lib/data/photos';
   import type { Comment } from '$lib/api/client';
@@ -107,9 +108,6 @@
       : (data.exifRows ?? [])
   );
 
-  // Display title: target + optional subtitle
-  let titleLine1 = $derived(p.target);
-  let titleLine2 = $derived(p.targetSubtitle);
 </script>
 
 <div class="desktop-only"><AppHeader active="Gallery" /></div>
@@ -163,9 +161,9 @@
       {/if}
 
       <h1 class="photo-title">
-        <em>{titleLine1}</em>
-        {#if titleLine2}
-          <br />{titleLine2}
+        <PhotoTitle photo={{ target: p.target, original_name: p.target }} size="lg" />
+        {#if p.targetSubtitle}
+          <br />{p.targetSubtitle}
         {/if}
       </h1>
 

@@ -3,6 +3,7 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import FollowButton from '$lib/components/FollowButton.svelte';
+  import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import type { User, Photo as PhotoData } from '$lib/data/photos';
 
   interface PageData {
@@ -128,7 +129,7 @@
               </div>
             </a>
             <div class="grid-caption">
-              <span class="photo-target">{photo.target}</span>
+              <span class="photo-target"><PhotoTitle photo={{ target: photo.target, original_name: photo.target }} size="md" /></span>
               <span class="photo-integration">{photo.integration}</span>
             </div>
           </div>
