@@ -43,7 +43,6 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
   };
   return {
     target: strOrNull('target'),
-    taken_at: strOrNull('taken_at'),
     camera: strOrNull('camera'),
     lens: strOrNull('lens'),
     iso: numOrNull('iso'),
