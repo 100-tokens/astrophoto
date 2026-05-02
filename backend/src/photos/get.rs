@@ -6,6 +6,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::AppError;
+use crate::auth::middleware::OptionalUser;
 use crate::http::AppState;
 use crate::photos::queries::{self, PhotoRow};
 
@@ -30,6 +31,11 @@ pub struct PhotoDetail {
     pub created_at: String,
     pub appreciation_count: i64,
     pub comment_count: i64,
+    pub is_draft: bool,
+    pub last_step: Option<String>,
+    pub replaced_at: Option<String>,
+    pub original_uploaded_at: String,
+    pub pipeline_error: Option<String>,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -54,14 +60,25 @@ impl From<PhotoRow> for PhotoDetail {
             created_at: p.created_at.to_rfc3339(),
             appreciation_count: 0,
             comment_count: 0,
+            is_draft: p.published_at.is_none(),
+            last_step: p.last_step,
+            replaced_at: p.replaced_at.map(|d| d.to_rfc3339()),
+            original_uploaded_at: p.original_uploaded_at.to_rfc3339(),
+            pipeline_error: p.pipeline_error,
         }
     }
 }
 
 pub async fn handler(
     State(state): State<AppState>,
+    user: OptionalUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<PhotoDetail>, AppError> {
+    let viewer = user.0.as_ref().map(|u| u.id);
+    if !queries::is_visible_to(&state.pool, id, viewer).await? {
+        return Err(AppError::not_found("photo"));
+    }
+
     let row = queries::find_by_id(&state.pool, id)
         .await?
         .ok_or(AppError::not_found("photo"))?;

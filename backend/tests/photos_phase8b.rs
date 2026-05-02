@@ -393,3 +393,35 @@ async fn list_drafts_with_cross_user_owner_id_is_rejected() {
     ).await;
     assert_eq!(status, 403);
 }
+
+// ---------------------------------------------------------------------------
+// Task 5: photo detail visibility 404 + extended DTO
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn get_draft_returns_404_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
+    let photo_id = h.upload_draft(&alice).await;
+
+    let status = h.get_status(&format!("/api/photos/{photo_id}"), Some(&bob)).await;
+    assert_eq!(status, 404);
+
+    let status_anon = h.get_status(&format!("/api/photos/{photo_id}"), None).await;
+    assert_eq!(status_anon, 404);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn get_draft_returns_200_with_is_draft_for_owner() {
+    let h = harness().await;
+    let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
+    let photo_id = h.upload_draft(&alice).await;
+
+    let body = h.get_json(&format!("/api/photos/{photo_id}"), Some(&alice)).await;
+    assert_eq!(body["is_draft"], true);
+    assert!(body["last_step"].as_str().is_some());
+    assert!(body["replaced_at"].is_null());
+}
