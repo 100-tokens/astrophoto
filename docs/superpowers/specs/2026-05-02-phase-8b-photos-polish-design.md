@@ -167,9 +167,20 @@ extracts the id and `redirect(303, '/upload/{id}/verify')`.
 
 ### Step 02 — `/upload/[id]/verify`
 
-Loads the photo (which may still be `status = 'processing'` if the pipeline
-is fast — display a "● PROCESSING THUMBNAILS" overlay until ready, polling
-`GET /api/photos/[id]` every 2s).
+Loads the photo. Three pipeline branches handled distinctly:
+
+- `status = 'processing'`: display a "● PROCESSING THUMBNAILS" overlay
+  with the EXIF form disabled. Poll `GET /api/photos/[id]` every 2 s
+  until `status` transitions.
+- `status = 'ready'`: render the editable form normally, EXIF pre-filled.
+- `status = 'failed'`: replace the form with an error panel — eyebrow
+  `● UPLOAD FAILED · {reason}` (the reason comes from a new
+  `pipeline_error text` column on photos, written by the pipeline when
+  it sets `status='failed'`). Two actions: **Discard** (`DELETE`) and
+  **Retry upload** (which routes back to `/upload` to pick a new file;
+  the existing draft id is dropped on Discard, kept and replaced on
+  Retry — the latter goes through `POST /api/photos/:id/replace` so the
+  user keeps any caption / target they had already saved).
 
 Form fields: `target`, `taken_at`, `camera`, `lens`, `iso`, `exposure_s`,
 `focal_mm`, `ra_deg`, `dec_deg` (existing dedicated columns) plus
@@ -198,22 +209,54 @@ Plus, when `published_at = NULL`, a secondary **Save as draft** ghost button:
 `PUT` only, redirect to `/account/frames`. Hidden when already published
 (no need — Save changes preserves the publish state).
 
+### Edit-metadata terminus on Step 02 for already-published
+
+When the user lands on `/upload/[id]/verify` for an **already-published**
+photo (entered via the ⋯ menu's "Edit metadata"), Step 02 acts as the
+*terminus* — the primary button is **Save changes** and submitting it
+saves the metadata partial-update via `PUT /api/photos/:id` and
+redirects directly to `/photo/[slug]` without forcing the user through
+Step 03. A secondary link "Edit caption →" is rendered next to the
+Save button for users who also want to update the caption — clicking it
+saves the metadata first, then navigates to `/upload/[id]/caption`.
+
+This avoids the friction trap of forcing a typo-fix to traverse two
+forms. The publish flow (when `published_at IS NULL`) keeps Continue →
+on Step 02 as the primary action, since publishing requires Step 03.
+
 ## Replace endpoint
 
 `POST /api/photos/:id/replace` (multipart, owner-only):
 
 1. Verify ownership. Reject if `status = 'processing'` (pipeline busy).
-2. Read uploaded file (single field). Validate size ≤ 64 MB and content-type.
+2. Read uploaded file (single field). Validate size ≤ 50 MB (match
+   existing upload limit at `http/mod.rs::DefaultBodyLimit::max(50MB)`)
+   and content-type.
 3. Generate new storage key `photos/{photo_id}/{uuid}`. Upload to S3.
-4. Collect old storage_key + thumbnail keys for deletion.
+4. **Stash old keys for deferred deletion** — write `storage_key` and
+   the thumbnail rows' `storage_key`s into a new `photo_pending_deletes`
+   table (`photo_id, storage_key, queued_at`) instead of deleting inline.
 5. UPDATE photos SET `storage_key`, `original_name`, `mime`, `bytes`,
    `status='processing'`, `replaced_at = now()`. (Width/height regenerate
    when pipeline finishes.)
-6. DELETE thumbnails rows. (Pipeline regenerates.)
-7. Best-effort `storage.delete_objects(&[old_key, ...thumb_keys])` — log and
-   swallow individual failures (consistent with the deletion-purge worker
-   pattern from Phase 8a).
-8. Spawn pipeline; return 202 Accepted.
+6. DELETE the old `thumbnails` rows (DB only — their S3 keys are now in
+   the pending-deletes table). Pipeline regenerates new thumbnail rows.
+7. Spawn pipeline; return 202 Accepted.
+
+**Critical invariant**: the old master is **not** removed from S3 until
+the pipeline has verified the new master decodes and the thumbnails have
+written. The pipeline's success path (`status` transitions from
+`'processing'` to `'ready'`) drains the `photo_pending_deletes` table
+for that `photo_id` via `storage.delete_objects(...)`. On pipeline
+failure (`status='failed'`), the row stays — the user sees the new file
+in `failed` state, can Discard or Retry, and the orphan-key reaper
+(part of the Phase 8a deletion-purge worker, extended in this phase)
+sweeps the pending-deletes table on its hourly tick to remove anything
+older than 7 days that's still queued.
+
+This costs one small table + two extra branches in the pipeline + one
+loop in the worker, and removes the data-loss window where a corrupt or
+oversized new master leaves the user with no recoverable original.
 
 The pipeline runs the same decode + thumbnail generation as upload. **Skip
 user-edited EXIF**: when `replaced_at IS NOT NULL`, do not write
@@ -235,6 +278,25 @@ Every existing public SELECT gains `AND published_at IS NOT NULL`:
 - Engagement: `appreciations` and `comments` reject any action targeting a
   draft photo with 404. Implementation: an existence check before the
   INSERT/DELETE, scoped to `published_at IS NOT NULL`.
+
+**Single visibility predicate**: introduce a helper
+`photos::queries::is_visible_to(photo_id, viewer_id) -> Result<bool>` that
+encodes the rule `published_at IS NOT NULL OR owner_id = viewer_id` once.
+Every public per-photo endpoint calls it before returning data and 404s
+otherwise — including the read-only counters that don't mutate state but
+still leak existence:
+
+- `GET /api/photos/:id/appreciations/count`
+- `GET /api/photos/:id/comments` (list)
+- `GET /api/photos/:id/comments/count`
+- Future per-photo lookup endpoints (target listings, share previews).
+
+A non-zero count on a draft is impossible by construction (engagement
+INSERTs reject), but the endpoint shape itself confirms a row exists at
+that id — which a probing third party can use to enumerate user activity.
+Routing every public lookup through `is_visible_to` keeps the rule in
+exactly one place and eliminates the "did we remember to filter here?"
+class of bug for any future endpoint added on top of `photos`.
 
 ## Photo detail page — owner draft state
 
@@ -330,15 +392,33 @@ Each row:
 
 | Column         | Render                                                                            |
 |----------------|-----------------------------------------------------------------------------------|
-| Thumb (60×60)  | `<img>` with 1px dashed `--warning` border + 40% black overlay if `is_draft`      |
+| Thumb (60×60)  | `<img>` (see thumb-fallback rules below) with 1px dashed `--warning` border + 40% black overlay if `is_draft` |
 | Target         | `<PhotoTitle photo={p} size="sm" />` — handles untitled fallback                  |
 | Captured       | Date or `—`                                                                       |
 | Integration    | `{exposure_s formatted}` or `—`                                                   |
-| Status         | `chip-accent "PUBLISHED"` or `chip-warning "DRAFT"`                                |
+| Status         | `chip-accent "PUBLISHED"` · `chip-warning "DRAFT"` · `chip-muted "PROCESSING"` · `chip-danger "FAILED"` |
 | ♡              | Count or `—` (drafts have no appreciations)                                       |
 | ⋯              | Open action menu: Edit / Replace / Delete or Discard                              |
 
 Draft rows get `opacity: 0.78` (CSS scoped on `.row.is-draft`).
+
+**Thumb fallback by pipeline state** (drafts can be rendered before the
+pipeline finishes — the `<img>` `src` would otherwise 404 until the
+60×60 thumb row exists):
+
+- `status = 'ready'`: render the 60×60 thumb URL normally.
+- `status = 'processing'`: render a placeholder tile (60×60, `--bg-surface`
+  background, centred mono "PROCESSING" eyebrow at 9 px, no `<img>` tag).
+  The row's Status chip is `chip-muted "PROCESSING"`. Polled refresh: the
+  table page auto-refreshes (SvelteKit `invalidateAll`) every 3 s while
+  any visible row is `processing`, then stops once they all settle.
+- `status = 'failed'`: render the same placeholder tile but with eyebrow
+  "FAILED" in `--danger`. Status chip is `chip-danger "FAILED"`. Row
+  ⋯ menu shows Discard + Retry upload (no Edit metadata).
+
+This keeps the table honest immediately after upload — no broken images,
+no flicker, and the row mirrors the same three pipeline branches the
+verify page handles.
 
 ## Polish 8.5 — micro-fixes
 
