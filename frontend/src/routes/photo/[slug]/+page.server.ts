@@ -1,7 +1,8 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { PHOTOS, NGC7000 } from '$lib/data/photos';
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import type { PhotoDetail } from '$lib/data/photos';
+import type { Comment } from '$lib/api/client';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
@@ -152,6 +153,17 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       }
     }
 
+    let comments: Comment[] = [];
+    try {
+      const res = await fetch(`${API}/api/photos/${params.slug}/comments`);
+      if (res.ok) {
+        const body = (await res.json()) as { comments: Comment[] };
+        comments = body.comments;
+      }
+    } catch {
+      // ignore — backend down, render with empty comments
+    }
+
     const detail: PhotoDetail = {
       slug: photo.id,
       target: photo.target ?? 'Untitled',
@@ -191,7 +203,9 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       isRich: false,
       thumbSrc1200: `${API}/api/photos/${photo.id}/thumb/1200`,
       exifRows: buildExifRows(photo),
-      isAppreciated
+      isAppreciated,
+      comments,
+      ownerId: photo.owner_id
     };
   }
 
@@ -212,4 +226,47 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
     isRich: false,
     thumbSrc1200: undefined
   };
+};
+
+export const actions: Actions = {
+  comment: async ({ request, params, fetch, cookies }) => {
+    const data = await request.formData();
+    const body = String(data.get('body') ?? '').trim();
+    if (body.length === 0 || body.length > 2000) {
+      return fail(422, { message: 'Comment must be 1-2000 chars.' });
+    }
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const res = await fetch(`${API}/api/photos/${params.slug}/comments`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ body })
+    });
+    if (!res.ok) {
+      return fail(res.status, { message: `Failed: ${await res.text()}` });
+    }
+    return { ok: true };
+  },
+
+  deleteComment: async ({ request, fetch, cookies }) => {
+    const data = await request.formData();
+    const id = String(data.get('id') ?? '');
+    if (!id) return fail(400, { message: 'Missing comment id.' });
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const res = await fetch(`${API}/api/comments/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { Cookie: cookie }
+    });
+    if (!res.ok) {
+      return fail(res.status, { message: `Failed: ${await res.text()}` });
+    }
+    return { ok: true };
+  }
 };

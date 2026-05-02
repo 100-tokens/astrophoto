@@ -5,7 +5,9 @@
   import Photo from '$lib/components/Photo.svelte';
   import ExifTable from '$lib/components/ExifTable.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
+  import CommentsSection from '$lib/components/CommentsSection.svelte';
   import type { PhotoDetail } from '$lib/data/photos';
+  import type { Comment } from '$lib/api/client';
 
   interface ExifRow {
     label: string;
@@ -21,6 +23,9 @@
     thumbSrc1200?: string;
     exifRows?: ExifRow[];
     isAppreciated?: boolean;
+    comments?: Comment[];
+    ownerId?: string;
+    user?: { id: string; displayName: string; following_ids?: string[] } | null;
   }
 
   let { data }: { data: PageData } = $props();
@@ -173,6 +178,14 @@
       </div>
       <ExifTable rows={exifRows} />
     </div>
+
+    {#if data.comments != null && data.ownerId != null}
+      <CommentsSection
+        photoOwnerId={data.ownerId}
+        comments={data.comments}
+        currentUser={data.user ?? null}
+      />
+    {/if}
   </aside>
 </div>
 

@@ -1,6 +1,19 @@
 import type { Health, User } from './types';
 
 // ---------------------------------------------------------------------------
+// Comment DTO
+// ---------------------------------------------------------------------------
+
+export interface Comment {
+  id: string;
+  photo_id: string;
+  author_id: string;
+  author_display_name: string;
+  body: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Photo DTOs — mirror PhotoDetail in backend/src/photos/get.rs
 // ---------------------------------------------------------------------------
 
@@ -122,5 +135,13 @@ export const api = {
       request<{ count: number }>('GET', `/api/users/${userId}/followers/count`, undefined, opts),
     followingCount: (userId: string, opts?: ApiCall) =>
       request<{ count: number }>('GET', `/api/users/${userId}/following/count`, undefined, opts)
+  },
+  comments: {
+    list: (photoId: string, opts?: ApiCall) =>
+      request<{ comments: Comment[] }>('GET', `/api/photos/${photoId}/comments`, undefined, opts),
+    create: (photoId: string, body: string, opts?: ApiCall) =>
+      request<Comment>('POST', `/api/photos/${photoId}/comments`, { body }, opts),
+    delete: (commentId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/comments/${commentId}`, undefined, opts)
   }
 };
