@@ -53,7 +53,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   body?: unknown,
   opts: ApiCall = {}
@@ -157,5 +157,26 @@ export const api = {
       '/api/auth/email-change/confirm',
       { token },
       opts
-    )
+    ),
+
+  getProfile: (opts?: ApiCall) =>
+    request<{ display_name: string }>('GET', '/api/me/profile', undefined, opts),
+
+  putProfile: (body: { display_name?: string }, opts?: ApiCall) =>
+    request<void>('PUT', '/api/me/profile', body, opts),
+
+  getPreferences: (opts?: ApiCall) =>
+    request<{ theme: string; density: string }>('GET', '/api/me/preferences', undefined, opts),
+
+  putPreferences: (body: { theme?: string; density?: string }, opts?: ApiCall) =>
+    request<void>('PUT', '/api/me/preferences', body, opts),
+
+  listSessions: (opts?: ApiCall) =>
+    request<import('./SessionRow').SessionRow[]>('GET', '/api/me/sessions', undefined, opts),
+
+  revokeSession: (id: string, opts?: ApiCall) =>
+    request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`, undefined, opts),
+
+  signOutOthers: (opts?: ApiCall) =>
+    request<void>('POST', '/api/me/sessions/sign-out-others', undefined, opts)
 };
