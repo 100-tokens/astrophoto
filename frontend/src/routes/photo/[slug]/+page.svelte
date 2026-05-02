@@ -6,6 +6,8 @@
   import ExifTable from '$lib/components/ExifTable.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentsSection from '$lib/components/CommentsSection.svelte';
+  import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
+  import { invalidateAll } from '$app/navigation';
   import type { PhotoDetail } from '$lib/data/photos';
   import type { Comment } from '$lib/api/client';
 
@@ -25,6 +27,7 @@
     isAppreciated?: boolean;
     comments?: Comment[];
     ownerId?: string;
+    current_user_id?: string | null;
     user?: { id: string; displayName: string; following_ids?: string[] } | null;
   }
 
@@ -33,6 +36,33 @@
   let p = $derived(data.photo);
   let isRich = $derived(data.isRich);
   let thumbSrc1200 = $derived(data.thumbSrc1200);
+
+  let isOwner = $derived(
+    data.current_user_id != null && data.photo.owner_id === data.current_user_id
+  );
+  let replaceOpen = $state(false);
+  let menuOpen = $state(false);
+
+  function continueHref() {
+    const ls = data.photo.last_step;
+    if (!ls || ls === 'upload' || ls === 'verify')
+      return `/upload/${data.photo.id}/verify`;
+    return `/upload/${data.photo.id}/caption`;
+  }
+
+  async function discard() {
+    if (!confirm('Discard this draft? This cannot be undone.')) return;
+    await fetch(`/api/photos/${data.photo.id}`, { method: 'DELETE', credentials: 'include' });
+    location.href = '/account/frames';
+  }
+
+  function formatRange(a: string, b: string): string {
+    const da = new Date(a), db = new Date(b);
+    const sameYear = da.getFullYear() === db.getFullYear();
+    const fmtShort = { day: '2-digit', month: 'short' } as const;
+    const fmtLong = { day: '2-digit', month: 'short', year: 'numeric' } as const;
+    return `${da.toLocaleDateString('en-GB', fmtShort).toUpperCase()} → ${db.toLocaleDateString('en-GB', sameYear ? fmtShort : fmtLong).toUpperCase()}`;
+  }
 
   // Build ExifTable rows from the rich detail object.
   // Conditionally spread sublabel to avoid assigning `undefined` to optional
@@ -85,6 +115,16 @@
 <div class="desktop-only"><AppHeader active="Gallery" /></div>
 <div class="mobile-only"><MobileHeader backHref="/" /></div>
 
+{#if isOwner && data.photo.is_draft}
+  <div class="draft-strip">
+    <span class="t-eyebrow accent">● DRAFT · ONLY YOU CAN SEE THIS</span>
+    <div class="strip-actions">
+      <a href={continueHref()} class="btn btn-secondary btn-sm">Continue editing →</a>
+      <button class="btn btn-ghost btn-sm" onclick={discard}>Discard</button>
+    </div>
+  </div>
+{/if}
+
 <!-- Desktop: 2-col grid; mobile: single column -->
 <div class="detail-layout">
   <!-- LEFT: image stage -->
@@ -113,6 +153,12 @@
       {#if isRich && p.publishedDate}
         <div class="t-eyebrow" style="margin-bottom: 12px; color: var(--accent);">
           ● PUBLISHED {p.publishedDate}
+        </div>
+      {/if}
+
+      {#if data.photo.replaced_at && data.photo.original_uploaded_at}
+        <div class="t-eyebrow muted" style="margin-bottom: 12px;">
+          ● REPROCESSED · {formatRange(data.photo.original_uploaded_at, data.photo.replaced_at)}
         </div>
       {/if}
 
@@ -165,6 +211,24 @@
         />
         <button class="btn btn-ghost btn-sm">{p.comments} comments</button>
         <button class="btn btn-ghost btn-sm" style="margin-left: auto;">↗ Share</button>
+        {#if isOwner}
+          <div class="action-menu">
+            <button class="btn btn-ghost btn-sm" onclick={() => (menuOpen = !menuOpen)} aria-label="Actions">⋯</button>
+            {#if menuOpen}
+              <ul class="menu-popover">
+                <li><a href="/upload/{data.photo.id}/verify">Edit metadata</a></li>
+                <li><button onclick={() => { replaceOpen = true; menuOpen = false; }}>Replace image…</button></li>
+                <li>
+                  {#if data.photo.is_draft}
+                    <button onclick={discard}>Discard draft</button>
+                  {:else}
+                    <button onclick={discard}>Delete photo</button>
+                  {/if}
+                </li>
+              </ul>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
 
@@ -200,6 +264,10 @@
 <div class="desktop-footer">
   <AppFooter />
 </div>
+
+{#if data.photo.id}
+  <ReplaceModal bind:open={replaceOpen} photoId={data.photo.id} onreplaced={() => invalidateAll()} />
+{/if}
 
 <style>
   /* ── Layout ───────────────────────────────────────────────── */
@@ -464,5 +532,67 @@
     .desktop-footer {
       display: none;
     }
+  }
+
+  /* ── Draft strip ──────────────────────────────────────────── */
+  .draft-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 64px;
+    background: rgba(208, 160, 80, 0.08);
+    border-bottom: 1px solid var(--warning, #c0a060);
+  }
+
+  .draft-strip .accent {
+    color: var(--accent);
+  }
+
+  .strip-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* ── Owner ⋯ menu ─────────────────────────────────────────── */
+  .action-menu {
+    position: relative;
+    display: inline-block;
+  }
+
+  .menu-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-default);
+    list-style: none;
+    padding: 4px 0;
+    min-width: 180px;
+    z-index: 10;
+    margin: 0;
+  }
+
+  .menu-popover li > a,
+  .menu-popover li > button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--fg-primary);
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .menu-popover li > a:hover,
+  .menu-popover li > button:hover {
+    background: var(--bg-raised);
+  }
+
+  /* ── REPROCESSED / muted eyebrow ──────────────────────────── */
+  .muted {
+    color: var(--fg-muted);
   }
 </style>

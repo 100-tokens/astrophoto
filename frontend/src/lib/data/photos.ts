@@ -57,6 +57,13 @@ export interface PhotoDetail {
   // Allow usage as a gallery Photo too
   ratio: number;
   integration: string;
+  // Real-photo fields (absent on placeholder/gallery photos)
+  id?: string;
+  owner_id?: string;
+  is_draft?: boolean;
+  last_step?: string | null;
+  replaced_at?: string | null;
+  original_uploaded_at?: string;
 }
 
 export interface User {
