@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use ts_rs::TS;
 
-use astrophoto::api_types::{AuthError, Health, User};
+use astrophoto::api_types::{AuthError, Health, User, UserPublic};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Health::export_all_to(out_dir)?;
     User::export_all_to(out_dir)?;
     AuthError::export_all_to(out_dir)?;
+    UserPublic::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

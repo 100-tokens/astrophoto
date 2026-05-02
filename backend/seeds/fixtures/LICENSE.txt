@@ -1,0 +1,11 @@
+Bundled fixtures in this directory.
+
+m42-orion.jpg
+  Title:   Orion Nebula (M42) — Hubble 2006 mosaic (cropped 500px)
+  Source:  https://commons.wikimedia.org/wiki/File:Orion_Nebula_-_Hubble_2006_mosaic_18000.jpg
+  Credit:  NASA, ESA, M. Robberto (STScI/ESA) and the Hubble Space
+           Telescope Orion Treasury Project Team
+  License: Public domain (PD-NASA)
+
+Drop your own JPEG / PNG astrophotos into this directory and re-run
+`just seed` to import them into the demo user's gallery.

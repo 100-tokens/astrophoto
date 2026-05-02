@@ -6,10 +6,19 @@
   import ExifTable from '$lib/components/ExifTable.svelte';
   import type { PhotoDetail } from '$lib/data/photos';
 
+  interface ExifRow {
+    label: string;
+    value: string;
+    sublabel?: string;
+    valueAccent?: boolean;
+    sublabelAccent?: boolean;
+  }
+
   interface PageData {
     photo: PhotoDetail;
     isRich: boolean;
     thumbSrc1200?: string;
+    exifRows?: ExifRow[];
   }
 
   let { data }: { data: PageData } = $props();
@@ -17,13 +26,6 @@
   let p = $derived(data.photo);
   let isRich = $derived(data.isRich);
   let thumbSrc1200 = $derived(data.thumbSrc1200);
-
-  interface ExifRow {
-    label: string;
-    value: string;
-    sublabel?: string;
-    valueAccent?: boolean;
-  }
 
   // Build ExifTable rows from the rich detail object.
   // Conditionally spread sublabel to avoid assigning `undefined` to optional
@@ -65,7 +67,7 @@
             { label: 'Pixel scale', value: p.pixelScale }
           ] as ExifRow[]
         ).filter((r) => r.value)
-      : [{ label: 'Record', value: 'Full record not available for this placeholder.' }]
+      : (data.exifRows ?? [])
   );
 
   // Display title: target + optional subtitle

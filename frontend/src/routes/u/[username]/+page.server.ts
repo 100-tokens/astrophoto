@@ -7,30 +7,11 @@ const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http:/
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Minimal user shape for unknown usernames. */
-function minimalUser(username: string): User {
-  const displayName = username
-    .split('-')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-  return {
-    username,
-    displayName,
-    firstName: displayName.split(' ')[0] ?? displayName,
-    surnameItalic: displayName.split(' ').slice(1).join(' ') || displayName,
-    initial: displayName.charAt(0).toUpperCase(),
-    about: 'Amateur astrophotographer.',
-    frames: 0,
-    integrationTotal: '—',
-    followers: 0,
-    collections: 0,
-    lat: '—',
-    long: '—',
-    bortle: 0,
-    sqm: 0,
-    equipment: { scope: '—', camera: '—', mount: '—', filters: '—' },
-    memberSince: '2026'
-  };
+interface UserPublic {
+  id: string;
+  display_name: string;
+  created_at: string;
+  photo_count: number;
 }
 
 export const load: PageServerLoad = async ({ params, fetch, locals }) => {
@@ -38,6 +19,33 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
 
   // Real user — UUID slug
   if (UUID_RE.test(username)) {
+    let displayName = 'User';
+    let photoCount = 0;
+    let memberSince = '2026';
+
+    try {
+      const res = await fetch(`${API}/api/users/${username}`);
+      if (res.status === 404) {
+        throw error(404, 'User not found');
+      }
+      if (res.ok) {
+        const u = (await res.json()) as UserPublic;
+        displayName = u.display_name;
+        photoCount = u.photo_count;
+        memberSince = new Date(u.created_at).getFullYear().toString();
+      }
+    } catch (e) {
+      // Re-throw SvelteKit errors/redirects.
+      if (e && typeof e === 'object' && 'status' in e) throw e;
+      // Network error: fall through with defaults.
+    }
+
+    // If the viewer is themselves the owner, prefer locals.user displayName
+    // (most up-to-date, avoids a stale cache).
+    if (locals.user?.id === username) {
+      displayName = locals.user.displayName;
+    }
+
     let photos: Photo[] = [];
     try {
       const res = await fetch(`${API}/api/photos?owner_id=${username}&limit=24`);
@@ -65,23 +73,18 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       // backend down — return empty gallery
     }
 
-    // If the logged-in user is viewing their own profile, use their display name
-    const localUser = locals.user;
-    let displayName = 'User';
-    if (localUser && localUser.id === username) {
-      displayName = localUser.displayName;
-    }
-    const firstName = displayName.split(' ')[0] ?? displayName;
-    const surname = displayName.split(' ').slice(1).join(' ') || displayName;
+    const parts = displayName.split(' ');
+    const firstName = parts[0] ?? displayName;
+    const surnameItalic = parts.slice(1).join(' ') || displayName;
 
     const user: User = {
       username,
       displayName,
       firstName,
-      surnameItalic: surname,
-      initial: displayName.charAt(0).toUpperCase(),
+      surnameItalic,
+      initial: displayName[0]?.toUpperCase() ?? 'U',
       about: '',
-      frames: photos.length,
+      frames: photoCount,
       integrationTotal: '—',
       followers: 0,
       collections: 0,
@@ -90,30 +93,23 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       bortle: 0,
       sqm: 0,
       equipment: { scope: '—', camera: '—', mount: '—', filters: '—' },
-      memberSince: '2026'
+      memberSince
     };
 
-    return { user, photos };
+    // Field name 'profile' (not 'user') to avoid colliding with the layout's
+    // `data.user` (the auth state). Layout-level `user` must keep flowing
+    // through to AppHeader's $app/state read.
+    return { profile: user, photos, isReal: true as const };
   }
 
   // Placeholder canonical user
   if (username === 'marie-dubois') {
     return {
-      user: MARIE,
-      photos: PHOTOS.slice(0, 8)
+      profile: MARIE,
+      photos: PHOTOS.slice(0, 8),
+      isReal: false as const
     };
   }
 
-  // Try to find a photographer in the gallery photos
-  const match = PHOTOS.find((p) => p.photographerSlug === username);
-  if (!match) {
-    error(404, 'User not found');
-  }
-
-  // Return a minimal user with photos attributed to them
-  const userPhotos = PHOTOS.filter((p) => p.photographerSlug === username);
-  return {
-    user: minimalUser(username),
-    photos: userPhotos.slice(0, 8)
-  };
+  throw error(404, 'User not found');
 };

@@ -13,12 +13,11 @@ use uuid::Uuid;
 use crate::AppError;
 use crate::auth::middleware::CurrentUser;
 use crate::http::AppState;
-use crate::photos::{exif, queries, thumbs};
+use crate::photos::{pipeline, queries};
 use crate::storage::Storage;
 
-const MAX_BYTES: usize = 50 * 1024 * 1024; // 50 MB
+const MAX_BYTES: usize = 50 * 1024 * 1024;
 const ALLOWED_MIMES: &[&str] = &["image/jpeg", "image/png", "image/tiff"];
-const THUMB_SIZES: &[u32] = &[400, 1200];
 
 #[derive(Serialize)]
 pub struct UploadResponse {
@@ -68,7 +67,7 @@ pub async fn handler(
             Some("caption") => {
                 caption = field.text().await.ok().filter(|s| !s.is_empty());
             }
-            _ => {} // ignore unknown fields
+            _ => {}
         }
     }
 
@@ -77,32 +76,26 @@ pub async fn handler(
         return Err(AppError::Validation(format!("unsupported mime: {mime}")));
     }
 
-    let photo_id = Uuid::new_v4();
-    let storage_key = format!("originals/{photo_id}");
-    state
-        .storage
-        .put(&storage_key, &mime, bytes.clone())
-        .await?;
-
-    let id = queries::insert_processing(
+    // Synchronous part: upload original, insert row → returns the id.
+    let id = quickstart(
         &state.pool,
+        &state.storage,
         user.id,
-        &storage_key,
         &filename,
-        bytes.len() as i64,
         &mime,
         target.as_deref(),
         caption.as_deref(),
+        bytes.clone(),
     )
     .await?;
 
-    // Spawn background processing.
+    // Background: EXIF + thumbnails.
     let pool = state.pool.clone();
     let storage = state.storage.clone();
-    let bytes_for_proc = bytes.clone();
+    let bytes_clone = bytes;
     tokio::spawn(async move {
-        if let Err(e) = process_photo(&pool, storage, id, bytes_for_proc).await {
-            tracing::error!(photo_id=%id, error=%e, "photo processing failed");
+        if let Err(e) = pipeline::finalize(&pool, storage, id, bytes_clone).await {
+            tracing::error!(photo_id=%id, error=%e, "photo finalize failed");
             let _ = queries::mark_failed(&pool, id).await;
         }
     });
@@ -116,41 +109,32 @@ pub async fn handler(
     ))
 }
 
-async fn process_photo(
+/// Synchronous insert path used by the HTTP handler. Returns the DB-assigned id
+/// so the caller can respond 202 with `{id, status}` immediately.
+#[allow(clippy::too_many_arguments)]
+async fn quickstart(
     pool: &sqlx::PgPool,
-    storage: Arc<dyn Storage>,
-    id: Uuid,
+    storage: &Arc<dyn Storage>,
+    owner_id: Uuid,
+    original_name: &str,
+    mime: &str,
+    target: Option<&str>,
+    caption: Option<&str>,
     bytes: Bytes,
-) -> Result<(), AppError> {
-    let bytes_for_blocking = bytes.clone();
-    let parsed = tokio::task::spawn_blocking(move || {
-        let exif_data = exif::parse_blocking(&bytes_for_blocking)?;
-        let mut generated = Vec::with_capacity(THUMB_SIZES.len());
-        for size in THUMB_SIZES {
-            generated.push(thumbs::generate_blocking(&bytes_for_blocking, *size)?);
-        }
-        Ok::<_, AppError>((exif_data, generated))
-    })
-    .await
-    .map_err(|e| AppError::Internal(format!("spawn_blocking join: {e}")))??;
-
-    let (exif_data, thumbs_out) = parsed;
-
-    // Pick the largest as the canonical width/height (input image size,
-    // since smaller-than-max thumbnails preserve original dimensions).
-    let (full_w, full_h) = thumbs_out
-        .iter()
-        .max_by_key(|t| t.size)
-        .map(|t| (t.width as i32, t.height as i32))
-        .unwrap_or((0, 0));
-
-    for thumb in thumbs_out {
-        let key = format!("thumbs/{id}/{}", thumb.size);
-        let len = thumb.bytes.len() as i64;
-        storage.put(&key, "image/jpeg", thumb.bytes).await?;
-        queries::insert_thumbnail(pool, id, thumb.size as i32, &key, len).await?;
-    }
-
-    queries::mark_ready(pool, id, full_w, full_h, &exif_data).await?;
-    Ok(())
+) -> Result<Uuid, AppError> {
+    let storage_key_prefix = Uuid::new_v4();
+    let storage_key = format!("originals/{storage_key_prefix}");
+    storage.put(&storage_key, mime, bytes.clone()).await?;
+    let photo_id = queries::insert_processing(
+        pool,
+        owner_id,
+        &storage_key,
+        original_name,
+        bytes.len() as i64,
+        mime,
+        target,
+        caption,
+    )
+    .await?;
+    Ok(photo_id)
 }

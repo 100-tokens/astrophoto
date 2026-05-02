@@ -26,3 +26,12 @@ pub struct AuthError {
     pub error: String,
     pub message: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "UserPublic.ts")]
+pub struct UserPublic {
+    pub id: String,
+    pub display_name: String,
+    pub created_at: String,
+    pub photo_count: i64,
+}

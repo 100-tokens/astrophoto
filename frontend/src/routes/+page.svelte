@@ -5,13 +5,17 @@
   import Photo from '$lib/components/Photo.svelte';
   import type { Photo as PhotoData } from '$lib/data/photos';
 
+  interface HeroPhoto {
+    target: string;
+    integration: string;
+    photographer: string;
+  }
+
   interface PageData {
+    heroPhoto: HeroPhoto;
+    heroSrc: string | undefined;
     photos: (PhotoData & { thumbSrc?: string })[];
-    heroTarget: string;
-    heroTargetSubtitle: string;
-    heroIntegration: string;
-    heroPhotographer: string;
-    heroBortle: number;
+    isReal: boolean;
   }
 
   let { data }: { data: PageData } = $props();
@@ -63,7 +67,11 @@
 
   <!-- Right column: featured photo -->
   <div class="hero-photo-wrap">
-    <Photo target={data.heroTarget} style="position: absolute; inset: 0; height: 100%;" />
+    <Photo
+      target={data.heroPhoto.target}
+      src={data.heroSrc}
+      style="position: absolute; inset: 0; height: 100%;"
+    />
 
     <!-- Corner marks (inline — 24×24 at 0 inset) -->
     <div
@@ -77,13 +85,15 @@
 
     <!-- Frame of the week tag -->
     <div class="fotw-tag">
-      <div style="color: var(--accent);">FRAME OF THE WEEK</div>
-      <div style="color: var(--fg-primary); margin-top: 4px;">
-        {data.heroTarget} · {data.heroIntegration} SHO
-      </div>
-      <div style="color: var(--fg-muted);">
-        {data.heroPhotographer} · Bortle {data.heroBortle}
-      </div>
+      <div style="color: var(--accent)">FRAME OF THE WEEK</div>
+      {#if data.isReal}
+        <div style="color: var(--fg-primary)">{data.heroPhoto.target}</div>
+      {:else}
+        <div style="color: var(--fg-primary)">
+          {data.heroPhoto.target} · {data.heroPhoto.integration}
+        </div>
+        <div style="color: var(--fg-muted)">Marie Dubois · Bortle 4</div>
+      {/if}
     </div>
   </div>
 </section>
