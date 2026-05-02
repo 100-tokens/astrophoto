@@ -3,7 +3,7 @@ use aws_sdk_s3::{
     Client,
     config::{BehaviorVersion, Builder, Credentials, Region},
     primitives::ByteStream,
-    types::CreateBucketConfiguration,
+    types::{CreateBucketConfiguration, Delete, ObjectIdentifier},
 };
 use bytes::Bytes;
 
@@ -130,5 +130,31 @@ impl Storage for S3Storage {
             .await
             .map(|_| ())
             .map_err(|e| AppError::Internal(format!("s3 delete: {e}")))
+    }
+
+    async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError> {
+        for chunk in keys.chunks(1000) {
+            let objects: Result<Vec<ObjectIdentifier>, _> = chunk
+                .iter()
+                .map(|k| {
+                    ObjectIdentifier::builder()
+                        .key(k)
+                        .build()
+                        .map_err(|e| AppError::Internal(format!("s3 object identifier: {e}")))
+                })
+                .collect();
+            let delete = Delete::builder()
+                .set_objects(Some(objects?))
+                .build()
+                .map_err(|e| AppError::Internal(format!("s3 delete spec: {e}")))?;
+            self.client
+                .delete_objects()
+                .bucket(&self.bucket)
+                .delete(delete)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(format!("s3 delete_objects: {e}")))?;
+        }
+        Ok(())
     }
 }

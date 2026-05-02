@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select storage_key from photos where owner_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "57669b2a7094985360503d4098693bdd25cfdc47de97f4bc0664f64618f43892"
+}

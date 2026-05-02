@@ -944,3 +944,103 @@ async fn delete_cancel_clears_pending_and_emails() {
             .any(|m| m.subject.contains("cancelled"))
     );
 }
+
+#[tokio::test]
+async fn purge_worker_deletes_users_past_grace() {
+    let (_app, pool, _outbox, _pg) = boot().await;
+    let storage = Arc::new(MemoryStorage::default());
+
+    // User A: grace already elapsed — must be deleted.
+    let a = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash, pending_deletion_at)
+         values ($1, 'A', null, now() - interval '1 hour') returning id",
+        "purge-a@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // User B: mid-grace — must NOT be deleted.
+    let _b = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash, pending_deletion_at)
+         values ($1, 'B', null, now() + interval '6 days') returning id",
+        "purge-b@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let n = astrophoto::jobs::purge_deletions::purge_once(&pool, storage.as_ref())
+        .await
+        .unwrap();
+    assert_eq!(n, 1);
+
+    let still: Vec<String> = sqlx::query_scalar!(
+        "select email as \"e!: String\" from users where email like 'purge-%' order by email"
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(still, vec!["purge-b@x.test"]);
+    let _ = a;
+}
+
+#[tokio::test]
+async fn purge_pseudonymises_comments_keeps_body() {
+    let (_app, pool, _outbox, _pg) = boot().await;
+    let storage = Arc::new(MemoryStorage::default());
+
+    // Leah owns a photo; Marie comments on it; Marie's account enters purge.
+    let leah: uuid::Uuid = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash) values ($1, 'Leah', null) returning id",
+        "leah@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let marie: uuid::Uuid = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash, pending_deletion_at)
+         values ($1, 'Marie', null, now() - interval '1 hour') returning id",
+        "marie@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Insert a photo with all NOT NULL columns (bytes + mime required).
+    let photo: uuid::Uuid = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        leah
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query!(
+        "insert into comments (photo_id, author_id, body) values ($1, $2, 'gorgeous Hα')",
+        photo,
+        marie
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    astrophoto::jobs::purge_deletions::purge_once(&pool, storage.as_ref())
+        .await
+        .unwrap();
+
+    let row = sqlx::query!(
+        "select author_id, body from comments where photo_id = $1",
+        photo
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        row.author_id.is_none(),
+        "author_id must be NULL after purge"
+    );
+    assert_eq!(row.body, "gorgeous Hα", "body must be preserved");
+}

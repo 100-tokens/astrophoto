@@ -22,4 +22,7 @@ pub trait Storage: Send + Sync + 'static {
 
     /// Delete an object. Idempotent (no error if missing).
     async fn delete(&self, key: &str) -> Result<(), AppError>;
+
+    /// Batch-delete objects by key. Unknown keys are silently skipped.
+    async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError>;
 }

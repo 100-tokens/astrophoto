@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.storage_key from thumbnails t\n         join photos p on p.id = t.photo_id\n         where p.owner_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eb7358219b8b7b7758bc3cf29cbbb6259fbd1f5e4b8c702e45f9e1214354082e"
+}
