@@ -65,5 +65,18 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
             "/api/users/:id",
             axum::routing::get(crate::users::get::handler),
         )
+        .route(
+            "/api/photos/:id/appreciate",
+            axum::routing::post(crate::engagement::appreciations::appreciate)
+                .delete(crate::engagement::appreciations::unappreciate),
+        )
+        .route(
+            "/api/photos/:id/appreciations/count",
+            axum::routing::get(crate::engagement::appreciations::count),
+        )
+        .route(
+            "/api/photos/:id/appreciation-state",
+            axum::routing::get(crate::engagement::appreciations::state_for_user),
+        )
         .with_state(state)
 }

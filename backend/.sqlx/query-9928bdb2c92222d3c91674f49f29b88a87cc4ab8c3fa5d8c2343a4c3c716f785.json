@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        insert into appreciations (user_id, photo_id)\n        values ($1, $2)\n        on conflict (user_id, photo_id) do nothing\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9928bdb2c92222d3c91674f49f29b88a87cc4ab8c3fa5d8c2343a4c3c716f785"
+}

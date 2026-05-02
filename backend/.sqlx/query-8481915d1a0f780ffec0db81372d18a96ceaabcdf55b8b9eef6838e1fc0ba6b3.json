@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from appreciations where user_id = $1 and photo_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8481915d1a0f780ffec0db81372d18a96ceaabcdf55b8b9eef6838e1fc0ba6b3"
+}

@@ -2,6 +2,7 @@ pub mod api_types;
 pub mod auth;
 pub mod config;
 pub mod db;
+pub mod engagement;
 pub mod error;
 pub mod http;
 pub mod photos;
