@@ -425,3 +425,59 @@ async fn get_draft_returns_200_with_is_draft_for_owner() {
     assert!(body["last_step"].as_str().is_some());
     assert!(body["replaced_at"].is_null());
 }
+
+// ---------------------------------------------------------------------------
+// Task 6: engagement visibility on drafts
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn appreciation_count_on_draft_404s_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let photo_id = h.upload_draft(&alice).await;
+
+    let status = h.get_status(
+        &format!("/api/photos/{photo_id}/appreciations/count"),
+        Some(&bob)
+    ).await;
+    assert_eq!(status, 404);
+
+    let status_anon = h.get_status(
+        &format!("/api/photos/{photo_id}/appreciations/count"),
+        None
+    ).await;
+    assert_eq!(status_anon, 404);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn appreciate_a_draft_returns_404() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let photo_id = h.upload_draft(&alice).await;
+
+    let status = h.post_status(
+        &format!("/api/photos/{photo_id}/appreciate"),
+        None,
+        Some(&bob)
+    ).await;
+    assert_eq!(status, 404);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn comment_list_on_draft_404s_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let photo_id = h.upload_draft(&alice).await;
+
+    let status = h.get_status(
+        &format!("/api/photos/{photo_id}/comments"),
+        Some(&bob)
+    ).await;
+    assert_eq!(status, 404);
+}
