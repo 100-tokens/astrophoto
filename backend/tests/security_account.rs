@@ -12,6 +12,7 @@ use axum::{
     extract::connect_info::MockConnectInfo,
     http::{Request, StatusCode, header},
 };
+use base64::Engine;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use testcontainers::runners::AsyncRunner;
@@ -411,8 +412,7 @@ async fn email_change_full_happy_path() {
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::COOKIE, cookie.split(';').next().unwrap())
         .body(Body::from(
-            json!({"new_email": "marie@new.test", "current_password": "longenoughpw1"})
-                .to_string(),
+            json!({"new_email": "marie@new.test", "current_password": "longenoughpw1"}).to_string(),
         ))
         .unwrap();
     let resp = app.clone().oneshot(req).await.unwrap();
@@ -440,17 +440,16 @@ async fn email_change_full_happy_path() {
         ))
         .await
         .unwrap();
-    let body: serde_json::Value = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let body: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(body["status"], "success");
 
     // Old address must receive the notification.
     let sent = outbox.lock().unwrap().clone();
-    assert!(sent
-        .iter()
-        .any(|m| m.to == "marie@old.test" && m.subject.contains("changed")));
+    assert!(
+        sent.iter()
+            .any(|m| m.to == "marie@old.test" && m.subject.contains("changed"))
+    );
 
     // Email row was actually updated.
     let row = sqlx::query!(
@@ -500,10 +499,8 @@ async fn email_change_target_already_taken_returns_taken_status() {
         ))
         .await
         .unwrap();
-    let body: serde_json::Value = serde_json::from_slice(
-        &resp.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let body: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(body["status"], "taken");
 }
 
@@ -534,4 +531,79 @@ async fn email_change_pending_token_invalidated_on_new_request() {
     .unwrap();
     assert_eq!(active, 1);
     let _ = outbox;
+}
+
+#[tokio::test]
+async fn email_change_throttle_60s_per_user() {
+    let (app, _pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_h = cookie.split(';').next().unwrap().to_string();
+
+    // First request: 204
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/email-change/request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::from(
+            json!({"new_email": "a@x.test", "current_password": "longenoughpw1"}).to_string(),
+        ))
+        .unwrap();
+    let r1 = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(r1.status(), StatusCode::NO_CONTENT);
+
+    // Second request immediately: 429
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/email-change/request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::from(
+            json!({"new_email": "b@x.test", "current_password": "longenoughpw1"}).to_string(),
+        ))
+        .unwrap();
+    let r2 = app.oneshot(req).await.unwrap();
+    assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(outbox.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn email_change_oauth_only_user_blocked_400() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    // Create OAuth-only user (no password) directly.
+    let user_id: uuid::Uuid = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash) values ($1, 'OAuth', null) returning id",
+        "oauth@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Mint a session row directly (cookie value = base64url(session.id), TTL 30 days).
+    let mut sess_id = [0u8; 32];
+    rand::Rng::fill(&mut rand::thread_rng(), &mut sess_id[..]);
+    sqlx::query!(
+        "insert into sessions (id, user_id, expires_at) values ($1, $2, now() + interval '30 days')",
+        &sess_id[..], user_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let cookie = format!(
+        "session={}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sess_id)
+    );
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/email-change/request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, cookie)
+        .body(Body::from(
+            json!({"new_email": "newaddr@x.test", "current_password": ""}).to_string(),
+        ))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }

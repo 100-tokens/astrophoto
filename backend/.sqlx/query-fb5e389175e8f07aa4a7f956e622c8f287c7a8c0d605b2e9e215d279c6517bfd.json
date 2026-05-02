@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select user_id, new_email as \"new_email!: String\", expires_at, used_at\n             from email_change_tokens where token_hash = $1",
+  "query": "select user_id, new_email as \"new_email!: String\", expires_at, used_at\n             from email_change_tokens\n            where token_hash = $1\n              for update",
   "describe": {
     "columns": [
       {
@@ -41,5 +41,5 @@
       true
     ]
   },
-  "hash": "4b2c62c93539b2a0170a726d293f261ea5a3a9b77f3684aae9dceef7d9823b74"
+  "hash": "fb5e389175e8f07aa4a7f956e622c8f287c7a8c0d605b2e9e215d279c6517bfd"
 }

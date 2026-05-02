@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(\n            select 1 from email_change_tokens\n             where user_id = $1\n               and created_at > now() - make_interval(secs => $2)\n        )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "beb4a60e5ef2b1878d13f93d39e94616ba80ac138af01dc10ee561884db6191f"
+}

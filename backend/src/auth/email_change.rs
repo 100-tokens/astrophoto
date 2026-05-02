@@ -1,12 +1,7 @@
 //! Email change: request issues a token to the *new* address; confirm
 //! swaps it and notifies the *old* address.
 
-use axum::{
-    Json,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use base64::Engine;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -19,6 +14,8 @@ use crate::http::AppState;
 use crate::mail::templates;
 
 const TTL_HOURS: i32 = 1;
+const PER_USER_COOLDOWN_SECS: f64 = 60.0;
+const PER_HOUR_CAP: i64 = 5;
 
 #[derive(Deserialize)]
 pub struct RequestBody {
@@ -52,6 +49,35 @@ pub async fn request(
     }
     if !new_email.contains('@') {
         return Err(AppError::bad_request("invalid_email"));
+    }
+
+    // Throttle: check cooldown and hourly cap.
+    let cooldown_hit = sqlx::query_scalar!(
+        "select exists(
+            select 1 from email_change_tokens
+             where user_id = $1
+               and created_at > now() - make_interval(secs => $2)
+        )",
+        user.id,
+        PER_USER_COOLDOWN_SECS
+    )
+    .fetch_one(&state.pool)
+    .await?
+    .unwrap_or(false);
+
+    let hour_cap_hit = sqlx::query_scalar!(
+        "select count(*) >= $2 from email_change_tokens
+          where user_id = $1
+            and created_at > now() - interval '1 hour'",
+        user.id,
+        PER_HOUR_CAP
+    )
+    .fetch_one(&state.pool)
+    .await?
+    .unwrap_or(false);
+
+    if cooldown_hit || hour_cap_hit {
+        return Err(AppError::too_many_requests("email_change_throttled"));
     }
 
     // Invalidate any prior pending token for this user.
@@ -100,20 +126,28 @@ pub async fn confirm(
     Json(body): Json<ConfirmBody>,
 ) -> Result<Json<ConfirmResponse>, AppError> {
     let hash: Vec<u8> = Sha256::digest(body.token.as_bytes()).to_vec();
+
+    let mut tx = state.pool.begin().await?;
     let row = sqlx::query!(
         r#"select user_id, new_email as "new_email!: String", expires_at, used_at
-             from email_change_tokens where token_hash = $1"#,
+             from email_change_tokens
+            where token_hash = $1
+              for update"#,
         hash
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?;
 
     let row = match row {
         Some(r) if r.used_at.is_none() && r.expires_at > chrono::Utc::now() => r,
-        _ => return Ok(Json(ConfirmResponse { status: "expired".into() })),
+        _ => {
+            tx.rollback().await.ok();
+            return Ok(Json(ConfirmResponse {
+                status: "expired".into(),
+            }));
+        }
     };
 
-    let mut tx = state.pool.begin().await?;
     let old = sqlx::query!(
         "select email as \"email!: String\" from users where id = $1",
         row.user_id
@@ -132,7 +166,9 @@ pub async fn confirm(
     match updated {
         Err(sqlx::Error::Database(e)) if e.is_unique_violation() => {
             tx.rollback().await.ok();
-            return Ok(Json(ConfirmResponse { status: "taken".into() }));
+            return Ok(Json(ConfirmResponse {
+                status: "taken".into(),
+            }));
         }
         Err(e) => return Err(e.into()),
         Ok(_) => {}
@@ -149,10 +185,16 @@ pub async fn confirm(
     let masked = templates::mask_email(&row.new_email);
     let when = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
     let (subject, notification_body) = templates::email_change_notification(&masked, &when);
-    state
+    if let Err(e) = state
         .mailer
         .send_plain(&old.email, &subject, &notification_body)
-        .await?;
+        .await
+    {
+        tracing::warn!(error = ?e, user_id = %row.user_id,
+            "email-change notification to old address failed; change still committed");
+    }
 
-    Ok(Json(ConfirmResponse { status: "success".into() }))
+    Ok(Json(ConfirmResponse {
+        status: "success".into(),
+    }))
 }

@@ -28,6 +28,9 @@ pub enum AppError {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    #[error("too many requests: {0}")]
+    TooManyRequests(String),
+
     #[error(transparent)]
     Database(#[from] sqlx::Error),
 
@@ -47,6 +50,10 @@ impl AppError {
     pub fn gone(msg: impl Into<String>) -> Self {
         AppError::Gone(msg.into())
     }
+
+    pub fn too_many_requests(msg: impl Into<String>) -> Self {
+        AppError::TooManyRequests(msg.into())
+    }
 }
 
 impl AppError {
@@ -59,6 +66,7 @@ impl AppError {
             AppError::Gone(_) => StatusCode::GONE,
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -72,6 +80,7 @@ impl AppError {
             AppError::Gone(_) => "gone",
             AppError::Validation(_) => "validation",
             AppError::Conflict(_) => "conflict",
+            AppError::TooManyRequests(_) => "too-many-requests",
             AppError::Database(_) | AppError::Internal(_) => "internal",
         }
     }
