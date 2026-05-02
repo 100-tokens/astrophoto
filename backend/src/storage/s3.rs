@@ -147,13 +147,29 @@ impl Storage for S3Storage {
                 .set_objects(Some(objects?))
                 .build()
                 .map_err(|e| AppError::Internal(format!("s3 delete spec: {e}")))?;
-            self.client
+            let output = self
+                .client
                 .delete_objects()
                 .bucket(&self.bucket)
                 .delete(delete)
                 .send()
                 .await
                 .map_err(|e| AppError::Internal(format!("s3 delete_objects: {e}")))?;
+
+            // aws-sdk-s3 returns Ok for the request even when individual objects fail.
+            // Surface partial failures as an AppError so the caller (purge_one_user) treats
+            // the user as not-yet-fully-deleted and the next hourly tick retries.
+            let errors = output.errors();
+            if !errors.is_empty() {
+                let count = errors.len();
+                let first = errors
+                    .first()
+                    .map(|e| format!("{:?}", e))
+                    .unwrap_or_default();
+                return Err(AppError::Internal(format!(
+                    "s3 delete_objects partial failure: {count} object(s) errored, first: {first}"
+                )));
+            }
         }
         Ok(())
     }

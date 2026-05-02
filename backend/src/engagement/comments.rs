@@ -52,10 +52,7 @@ impl From<CommentRow> for Comment {
         Comment {
             id: r.id.to_string(),
             photo_id: r.photo_id.to_string(),
-            // Deleted-account comments surface as null. Listing JOIN currently
-            // hides them (INNER JOIN users) — when Task 11 lands the purge
-            // worker, switch the JOIN to LEFT and have the frontend render
-            // "[deleted]" when this is null.
+            // Deleted-account comments surface with author_id = null and display_name = "[deleted]".
             author_id: r.author_id.map(|u| u.to_string()),
             author_display_name: r.author_display_name,
             body: r.body,
@@ -72,10 +69,10 @@ pub async fn list(
         CommentRow,
         r#"
         select c.id, c.photo_id, c.author_id,
-               u.display_name as author_display_name,
+               coalesce(u.display_name, '[deleted]') as "author_display_name!: String",
                c.body, c.created_at
         from comments c
-        join users u on u.id = c.author_id
+        left join users u on u.id = c.author_id
         where c.photo_id = $1
         order by c.created_at asc
         "#,

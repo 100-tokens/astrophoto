@@ -1044,3 +1044,61 @@ async fn purge_pseudonymises_comments_keeps_body() {
     );
     assert_eq!(row.body, "gorgeous Hα", "body must be preserved");
 }
+
+#[tokio::test]
+async fn purge_pseudonymised_comments_remain_visible_in_listing() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    let storage = Arc::new(MemoryStorage::default());
+
+    // Leah owns a photo; Marie comments; Marie's account is purged.
+    let leah = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash) values ($1,'Leah',null) returning id",
+        "leah-list@x.test"
+    ).fetch_one(&pool).await.unwrap();
+    let marie = sqlx::query_scalar!(
+        "insert into users (email, display_name, password_hash, pending_deletion_at)
+         values ($1,'Marie',null, now() - interval '1 hour') returning id",
+        "marie-list@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let photo: uuid::Uuid = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        leah
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        "insert into comments (photo_id, author_id, body)
+                  values ($1, $2, 'gorgeous Hα')",
+        photo,
+        marie
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    astrophoto::jobs::purge_deletions::purge_once(&pool, storage.as_ref())
+        .await
+        .unwrap();
+
+    let mut req = Request::builder()
+        .method("GET")
+        .uri(format!("/api/photos/{photo}/comments"))
+        .body(Body::empty())
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let v: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let comments = v["comments"].as_array().unwrap();
+    assert_eq!(comments.len(), 1);
+    assert_eq!(comments[0]["body"], "gorgeous Hα");
+    assert_eq!(comments[0]["author_display_name"], "[deleted]");
+    assert!(comments[0]["author_id"].is_null());
+}
