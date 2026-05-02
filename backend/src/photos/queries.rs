@@ -189,3 +189,13 @@ pub async fn thumb_storage_key(
     .await?;
     Ok(row.map(|r| r.storage_key))
 }
+
+pub async fn count_by_owner(pool: &PgPool, owner_id: Uuid) -> Result<i64, AppError> {
+    let row = sqlx::query!(
+        r#"select count(*) as "count!" from photos where owner_id = $1 and status = 'ready'"#,
+        owner_id
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(row.count)
+}
