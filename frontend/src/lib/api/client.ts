@@ -1,4 +1,5 @@
 import type { Health, User } from './types';
+import type { PhotoDetail } from './PhotoDetail';
 
 // ---------------------------------------------------------------------------
 // Comment DTO
@@ -103,7 +104,13 @@ export const api = {
       return request<PhotoListResponse>('GET', path, undefined, apiOpts);
     },
     get: (id: string, opts?: ApiCall) =>
-      request<PhotoSummary>('GET', `/api/photos/${id}`, undefined, opts)
+      request<PhotoSummary>('GET', `/api/photos/${id}`, undefined, opts),
+    getDetail: (id: string, opts?: ApiCall) =>
+      request<PhotoDetail>('GET', `/api/photos/${id}`, undefined, opts),
+    putMetadata: (id: string, patch: Record<string, unknown>, opts?: ApiCall) =>
+      request<void>('PUT', `/api/photos/${id}`, patch, opts),
+    publish: (id: string, opts?: ApiCall) =>
+      request<void>('POST', `/api/photos/${id}/publish`, undefined, opts)
     // upload uses multipart/form-data — callers use raw fetch directly
   },
   appreciations: {
@@ -197,3 +204,23 @@ export const api = {
   photosCount: (opts?: ApiCall) =>
     request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts)
 };
+
+// ---------------------------------------------------------------------------
+// Standalone helpers for the upload wizard (server-side load + actions)
+// ---------------------------------------------------------------------------
+
+export async function getPhoto(id: string, opts: ApiCall = {}): Promise<PhotoDetail> {
+  return request<PhotoDetail>('GET', `/api/photos/${id}`, undefined, opts);
+}
+
+export async function putPhotoMetadata(
+  id: string,
+  patch: Record<string, unknown>,
+  opts: ApiCall = {}
+): Promise<void> {
+  await request<void>('PUT', `/api/photos/${id}`, patch, opts);
+}
+
+export async function publishPhoto(id: string, opts: ApiCall = {}): Promise<void> {
+  await request<void>('POST', `/api/photos/${id}/publish`, undefined, opts);
+}
