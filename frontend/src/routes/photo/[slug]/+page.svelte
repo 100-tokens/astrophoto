@@ -253,12 +253,17 @@
   </aside>
 </div>
 
-<!-- Mobile sticky action bar -->
-<div class="mobile-actions" aria-label="Photo actions">
-  <button class="mobile-action-btn" style="color: var(--accent);">♡ {p.appreciations}</button>
-  <button class="mobile-action-btn">💬 {p.comments}</button>
-  <button class="mobile-action-btn">↗ Share</button>
-</div>
+{#if p.slug}
+  <div class="mobile-sticky-wrap">
+    <AppreciateButton
+      variant="mobile-sticky"
+      photoId={p.slug}
+      initialCount={p.appreciations}
+      initialAppreciated={data.isAppreciated ?? false}
+      commentCount={data.comments?.length ?? 0}
+    />
+  </div>
+{/if}
 
 <!-- Footer: hidden on mobile via CSS -->
 <div class="desktop-footer">
@@ -432,24 +437,9 @@
     display: none;
   }
 
-  /* ── Mobile sticky bottom bar ─────────────────────────────── */
-  .mobile-actions {
+  /* ── Mobile sticky bottom bar wrapper ────────────────────── */
+  .mobile-sticky-wrap {
     display: none;
-  }
-
-  .mobile-action-btn {
-    flex: 1;
-    padding: 16px 0;
-    color: var(--fg-secondary);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    border: none;
-    background: var(--bg-base);
-    cursor: pointer;
-  }
-
-  .mobile-action-btn + .mobile-action-btn {
-    border-left: 1px solid var(--border-subtle);
   }
 
   /* ── Responsive (≤768px = phone) ─────────────────────────── */
@@ -515,21 +505,19 @@
       font-size: 11px;
     }
 
-    /* Sticky bottom action bar replaces the desktop action row */
-    .mobile-actions {
-      display: flex;
-      position: sticky;
-      bottom: 0;
-      border-top: 1px solid var(--border-subtle);
-      background: var(--bg-base);
-      z-index: 10;
+    .desktop-footer {
+      display: none;
+    }
+  }
+
+  /* ── Responsive (≤640px = narrow phone) ──────────────────── */
+  @media (max-width: 640px) {
+    /* Show mobile sticky bar, hide desktop action row */
+    .mobile-sticky-wrap {
+      display: block;
     }
 
     .action-row {
-      display: none;
-    }
-
-    .desktop-footer {
       display: none;
     }
   }
