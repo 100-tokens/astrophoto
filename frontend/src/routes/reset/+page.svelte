@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageProps } from './$types';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import Wordmark from '$lib/components/Wordmark.svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
@@ -10,6 +11,8 @@
 <svelte:head>
   <title>Reset password — Astrophoto</title>
 </svelte:head>
+
+<AppHeader />
 
 <div class="reset-screen">
   <div class="reset-col">

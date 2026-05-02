@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use axum::{Json, extract::State, http::HeaderMap, response::IntoResponse};
 use serde::Deserialize;
 use validator::Validate;
@@ -31,7 +33,12 @@ pub async fn handler(
         queries::create_with_password(&state.pool, &body.email, &body.display_name, &hash).await?;
 
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
-    let cookie_value = session::create(&state.pool, user.id, ua, None).await?;
+    let ip: Option<IpAddr> = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .and_then(|s| s.trim().parse().ok());
+    let cookie_value = session::create(&state.pool, user.id, ua, ip).await?;
     let cookie = session::cookie_header(
         &cookie_value,
         state.config.session_secure,

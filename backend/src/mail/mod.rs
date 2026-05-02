@@ -6,7 +6,10 @@ use std::sync::{Arc, Mutex};
 
 use lettre::{
     AsyncTransport, Message, Tokio1Executor,
-    message::{Mailbox, header::ContentType},
+    message::{
+        Mailbox, SinglePart,
+        header::{ContentTransferEncoding, ContentType},
+    },
     transport::smtp::{AsyncSmtpTransport, authentication::Credentials},
 };
 
@@ -96,8 +99,12 @@ impl Mailer {
                     .from(from.clone())
                     .to(to_mailbox)
                     .subject(subject)
-                    .header(ContentType::TEXT_PLAIN)
-                    .body(body.to_string())
+                    .singlepart(
+                        SinglePart::builder()
+                            .header(ContentType::TEXT_PLAIN)
+                            .header(ContentTransferEncoding::EightBit)
+                            .body(body.to_string()),
+                    )
                     .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
                 transport
                     .send(msg)

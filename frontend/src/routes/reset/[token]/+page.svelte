@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { PageProps } from './$types';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
 
@@ -19,6 +20,8 @@
 <svelte:head>
   <title>Choose a new password — Astrophoto</title>
 </svelte:head>
+
+<AppHeader />
 
 {#if form?.error === 'expired_or_used'}
   <div class="reset-screen">

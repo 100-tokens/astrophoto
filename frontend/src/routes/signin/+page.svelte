@@ -89,7 +89,7 @@
         <div class="field">
           <div class="field-label-row">
             <label class="t-label" for="password">PASSWORD</label>
-            <a href="/forgot" class="t-meta" style="color: var(--accent);">Forgot?</a>
+            <a href="/reset" class="t-meta" style="color: var(--accent);">Forgot?</a>
           </div>
           <Input
             name="password"

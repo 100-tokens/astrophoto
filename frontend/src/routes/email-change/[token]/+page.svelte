@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageProps } from './$types';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
 
   let { data }: PageProps = $props();
@@ -8,6 +9,8 @@
 <svelte:head>
   <title>Email change — Astrophoto</title>
 </svelte:head>
+
+<AppHeader />
 
 <div class="confirm-screen">
   <div class="confirm-col">

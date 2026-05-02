@@ -4,7 +4,7 @@ import type { Actions } from './$types';
 const API = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export const actions: Actions = {
-  default: async ({ request, fetch, cookies }) => {
+  default: async ({ request, fetch, cookies, getClientAddress }) => {
     const data = await request.formData();
     const email = String(data.get('email') ?? '');
     const password = String(data.get('password') ?? '');
@@ -26,7 +26,11 @@ export const actions: Actions = {
       res = await fetch(`${API}/api/auth/signup`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': request.headers.get('user-agent') ?? '',
+          'X-Forwarded-For': getClientAddress()
+        },
         body: JSON.stringify({ email, password, display_name })
       });
     } catch (e) {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
   import { api } from '$lib/api/client';
 
@@ -31,6 +32,8 @@
 <svelte:head>
   <title>Check your email — Astrophoto</title>
 </svelte:head>
+
+<AppHeader />
 
 <div class="reset-screen">
   <div class="reset-col">

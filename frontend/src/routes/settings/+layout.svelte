@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   let { children } = $props();
 
   const items = [
@@ -14,6 +15,8 @@
 
   let active = $derived(page.url.pathname.split('/').pop() ?? 'profile');
 </script>
+
+<AppHeader />
 
 <div class="settings-shell">
   <header class="settings-head">
