@@ -70,7 +70,6 @@ chrono = { version = "0.4", features = ["serde"] }
 validator = { version = "0.18", features = ["derive"] }
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 woothee = "0.13"
-hex = "0.4"
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["env", "toml", "test"] }

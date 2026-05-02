@@ -19,8 +19,12 @@ pub async fn thumb(
     }
     let key = queries::thumb_storage_key(&state.pool, id, size)
         .await?
-        .ok_or(AppError::NotFound)?;
-    let bytes = state.storage.get(&key).await?.ok_or(AppError::NotFound)?;
+        .ok_or(AppError::not_found("thumbnail"))?;
+    let bytes = state
+        .storage
+        .get(&key)
+        .await?
+        .ok_or(AppError::not_found("thumbnail"))?;
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("image/jpeg"));
     headers.insert(

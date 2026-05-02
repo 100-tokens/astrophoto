@@ -7,8 +7,8 @@ use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("not found")]
-    NotFound,
+    #[error("not found: {0}")]
+    NotFound(String),
 
     #[error("unauthorized")]
     Unauthorized,
@@ -55,15 +55,15 @@ impl AppError {
         AppError::TooManyRequests(msg.into())
     }
 
-    pub fn not_found(_msg: impl Into<String>) -> Self {
-        AppError::NotFound
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        AppError::NotFound(msg.into())
     }
 }
 
 impl AppError {
     fn status(&self) -> StatusCode {
         match self {
-            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
@@ -77,7 +77,7 @@ impl AppError {
 
     fn code(&self) -> &'static str {
         match self {
-            AppError::NotFound => "not-found",
+            AppError::NotFound(_) => "not-found",
             AppError::Unauthorized => "unauthorized",
             AppError::Forbidden => "forbidden",
             AppError::BadRequest(_) => "bad-request",
@@ -117,7 +117,7 @@ mod tests {
 
     #[tokio::test]
     async fn not_found_maps_to_404() {
-        let resp = AppError::NotFound.into_response();
+        let resp = AppError::not_found("test_resource").into_response();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();

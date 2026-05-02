@@ -103,7 +103,7 @@ pub async fn create(
         .fetch_optional(&state.pool)
         .await?;
     if exists.is_none() {
-        return Err(AppError::NotFound);
+        return Err(AppError::not_found("photo"));
     }
 
     let row = sqlx::query_as!(
@@ -147,7 +147,7 @@ pub async fn delete(
     )
     .fetch_optional(&state.pool)
     .await?
-    .ok_or(AppError::NotFound)?;
+    .ok_or(AppError::not_found("comment"))?;
 
     // author_id is nullable (NULL when account was deleted). A deleted-account
     // comment can only be removed by the photo owner.

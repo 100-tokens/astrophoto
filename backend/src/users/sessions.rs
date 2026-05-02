@@ -4,14 +4,22 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use base64::Engine;
+use std::sync::OnceLock;
 
 use crate::AppError;
 use crate::api_types::SessionRow;
 use crate::auth::middleware::{CurrentSessionId, CurrentUser};
 use crate::http::AppState;
 
+static UA_PARSER: OnceLock<woothee::parser::Parser> = OnceLock::new();
+
+fn ua_parser() -> &'static woothee::parser::Parser {
+    UA_PARSER.get_or_init(woothee::parser::Parser::new)
+}
+
 fn parse_label(ua: &str) -> (String, String, String, String, String) {
-    let parser = woothee::parser::Parser::new();
+    let parser = ua_parser();
     match parser.parse(ua) {
         Some(r) => (
             r.name.to_string(),
@@ -54,7 +62,7 @@ pub async fn list(
             let ua = r.user_agent.unwrap_or_default();
             let (browser, bv, os, osv, cat) = parse_label(&ua);
             SessionRow {
-                id: hex::encode(&r.id),
+                id: base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&r.id),
                 browser,
                 browser_version: bv,
                 os,
@@ -76,7 +84,9 @@ pub async fn revoke(
     CurrentSessionId(current_id): CurrentSessionId,
     Path(id_hex): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    let id = hex::decode(&id_hex).map_err(|_| AppError::bad_request("bad_id"))?;
+    let id = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(&id_hex)
+        .map_err(|_| AppError::bad_request("bad_id"))?;
     if id == current_id {
         return Err(AppError::bad_request("use_logout"));
     }

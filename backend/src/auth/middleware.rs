@@ -12,7 +12,23 @@ use crate::users::queries::{self, UserRow};
 pub struct CurrentUser(pub UserRow);
 /// Holds an optional user; `None` when the request has no valid session cookie.
 pub struct OptionalUser(pub Option<UserRow>);
-/// Holds the raw session id bytes for the authenticated session.
+
+/// Session id of the currently-authenticated request.
+///
+/// **Ordering invariant:** This extractor must appear AFTER
+/// [`CurrentUser`] in any handler signature. `CurrentUser`'s extraction
+/// runs the session lookup that populates the request extensions; if
+/// `CurrentSessionId` runs first, it returns `Unauthorized("no_session")`
+/// even for valid sessions.
+///
+/// Wrong:
+/// ```ignore
+/// async fn h(CurrentSessionId(_): CurrentSessionId, CurrentUser(_): CurrentUser) { ... }
+/// ```
+/// Right:
+/// ```ignore
+/// async fn h(CurrentUser(_): CurrentUser, CurrentSessionId(_): CurrentSessionId) { ... }
+/// ```
 #[derive(Clone)]
 pub struct CurrentSessionId(pub Vec<u8>);
 

@@ -64,7 +64,7 @@ pub async fn handler(
 ) -> Result<Json<PhotoDetail>, AppError> {
     let row = queries::find_by_id(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::not_found("photo"))?;
 
     let appreciation_count = sqlx::query!(
         r#"select count(*) as "count!" from appreciations where photo_id = $1"#,

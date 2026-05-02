@@ -731,7 +731,7 @@ async fn revoke_current_session_returns_400() {
     let token_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(token_b64)
         .unwrap();
-    let id_hex = hex::encode(&token_bytes);
+    let id_hex = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
 
     let mut req = Request::builder()
         .method("DELETE")

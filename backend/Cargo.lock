@@ -64,7 +64,6 @@ dependencies = [
  "bytes",
  "chrono",
  "figment",
- "hex",
  "http-body-util",
  "hyper 1.9.0",
  "image",
