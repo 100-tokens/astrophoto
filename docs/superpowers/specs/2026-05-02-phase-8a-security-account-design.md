@@ -184,17 +184,19 @@ panel in the public reset Step 02 design.
 Configuration via env (see updated `.env.example`):
 
 ```
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_USER=
-SMTP_PASS=
-MAIL_FROM=Astrophoto <noreply@astrophoto.local>
-BASE_URL=http://localhost:5173
+APP_SMTP_HOST=localhost
+APP_SMTP_PORT=1025
+APP_SMTP_TLS=false
+APP_SMTP_USER=
+APP_SMTP_PASS=
+APP_MAIL_FROM=Astrophoto <noreply@astrophoto.local>
 ```
+
+`APP_SMTP_TLS` selects between `starttls_relay()` (true, used in prod for AWS SES on port 587) and `builder_dangerous()` (false, used in dev for MailHog on port 1025).
 
 Dev: a `mailhog` service is added to `compose.yml` exposing the SMTP port
 on `1025` and the UI on `8025`. Prod: AWS SES SMTP credentials —
-`MAIL_FROM` must point at a verified sender.
+`APP_MAIL_FROM` must point at a verified sender.
 
 Templates are five pure functions in `templates.rs` returning
 `(subject, body)` tuples; no templating engine. `format!` is enough for
@@ -286,7 +288,8 @@ the design is decorative — labelled WEAK / FAIR / GOOD / STRONG.
    (`UPDATE … SET used_at = now() WHERE user_id = ? AND used_at IS NULL`),
    then insert a new one with `expires_at = now() + 1 hour`.
 4. Send the confirmation mail to `new_email` with link
-   `{BASE_URL}/email-change/{token}`.
+   `{BASE_URL}/email-change/{token}`. The mail body uses `mask_email(current_email)` so an
+   attacker controlling the new inbox cannot learn the victim's current address.
 
 ### Confirm — `/email-change/[token]/+page.server.ts`
 
