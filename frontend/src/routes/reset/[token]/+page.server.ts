@@ -29,6 +29,13 @@ export const actions: Actions = {
     }
 
     if (res.status === 410) return fail(410, { error: 'expired_or_used' as const });
+    if (res.status === 400) {
+      // Backend returns 400 with a code like "password_too_short" or
+      // "password_too_common" when the strength validator rejects.
+      const body = (await res.json().catch(() => ({}))) as { code?: string };
+      const code = body.code ?? 'invalid';
+      return fail(400, { error: 'weak' as const, detail: code });
+    }
     if (!res.ok) return fail(500, { error: 'server' as const });
 
     // Forward the session cookie the backend sets after auto-login.

@@ -1,13 +1,12 @@
 <script lang="ts">
   import { page } from '$app/state';
   import Button from '$lib/components/Button.svelte';
+  import { api } from '$lib/api/client';
 
   let email = $derived(page.url.searchParams.get('email') ?? '');
   let secondsLeft = $state(60);
   let resending = $state(false);
   let resentOk = $state(false);
-
-  const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
   $effect(() => {
     const t = setInterval(() => {
@@ -19,12 +18,7 @@
   async function resend() {
     resending = true;
     try {
-      await fetch(`${API}/api/auth/password-reset/request`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      await api.passwordResetRequest(email);
     } catch {
       // Best-effort; we don't reveal whether the address exists.
     }

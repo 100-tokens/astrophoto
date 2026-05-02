@@ -68,6 +68,16 @@
           <p class="t-meta form-error">Password must be at least 12 characters.</p>
         {/if}
 
+        {#if form?.error === 'weak'}
+          <p class="t-meta form-error">
+            {#if form.detail === 'password_too_common'}
+              That password is too common. Try a longer or more unique one.
+            {:else}
+              Password is too weak. Try a longer one with more variety.
+            {/if}
+          </p>
+        {/if}
+
         {#if form?.error === 'server'}
           <p class="t-meta form-error">Something went wrong. Please try again.</p>
         {/if}
