@@ -102,7 +102,12 @@ impl Mailer {
                     .singlepart(
                         SinglePart::builder()
                             .header(ContentType::TEXT_PLAIN)
-                            .header(ContentTransferEncoding::EightBit)
+                            // Base64 (not EightBit, not the lettre default of
+                            // quoted-printable): bodies contain UTF-8 (em-dash
+                            // `—`, accented display names) which EightBit
+                            // refuses, and quoted-printable inserts soft-wraps
+                            // every 76 chars that break long URLs.
+                            .header(ContentTransferEncoding::Base64)
                             .body(body.to_string()),
                     )
                     .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
