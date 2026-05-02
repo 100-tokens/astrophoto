@@ -50,5 +50,10 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
             "/api/auth/oauth/google/callback",
             get(crate::auth::oauth_google::callback),
         )
+        .route(
+            "/api/photos",
+            post(crate::photos::upload::handler)
+                .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
+        )
         .with_state(state)
 }
