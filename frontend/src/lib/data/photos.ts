@@ -17,6 +17,8 @@ export interface Photo {
   photographer: string;
   photographerSlug: string;
   camera: string;
+  /** Optional real thumbnail URL; when present, the Photo component renders the image */
+  thumbSrc?: string;
 }
 
 export interface Photographer {

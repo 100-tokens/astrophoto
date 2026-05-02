@@ -6,7 +6,7 @@
 
   interface PageData {
     user: User;
-    photos: PhotoData[];
+    photos: (PhotoData & { thumbSrc?: string })[];
   }
 
   let { data }: { data: PageData } = $props();
@@ -115,7 +115,11 @@
           <div class="grid-item">
             <a href="/photo/{photo.slug}" class="grid-photo-link" aria-label={photo.target}>
               <div class="grid-photo-inner">
-                <Photo target={photo.target} style="position: absolute; inset: 0;" />
+                <Photo
+                  target={photo.target}
+                  src={photo.thumbSrc}
+                  style="position: absolute; inset: 0;"
+                />
               </div>
             </a>
             <div class="grid-caption">

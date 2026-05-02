@@ -1,5 +1,28 @@
 import type { Health, User } from './types';
 
+// ---------------------------------------------------------------------------
+// Photo DTOs — mirror PhotoDetail in backend/src/photos/get.rs
+// ---------------------------------------------------------------------------
+
+export interface PhotoSummary {
+  id: string;
+  owner_id: string;
+  status: string;
+  width: number | null;
+  height: number | null;
+  target: string | null;
+  caption: string | null;
+  taken_at: string | null;
+  created_at: string;
+  camera: string | null;
+  iso: number | null;
+  exposure_s: number | null;
+}
+
+interface PhotoListResponse {
+  photos: PhotoSummary[];
+}
+
 const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
 
 interface ApiCall {
@@ -53,5 +76,14 @@ export const api = {
   login: (body: { email: string; password: string }, opts?: ApiCall) =>
     request<User>('POST', '/api/auth/login', body, opts),
   logout: (opts?: ApiCall) => request<void>('POST', '/api/auth/logout', undefined, opts),
-  me: (opts?: ApiCall) => request<User>('GET', '/api/auth/me', undefined, opts)
+  me: (opts?: ApiCall) => request<User>('GET', '/api/auth/me', undefined, opts),
+  photos: {
+    list: (ownerId?: string, opts?: ApiCall) => {
+      const qs = ownerId ? `?owner_id=${encodeURIComponent(ownerId)}` : '';
+      return request<PhotoListResponse>('GET', `/api/photos${qs}`, undefined, opts);
+    },
+    get: (id: string, opts?: ApiCall) =>
+      request<PhotoSummary>('GET', `/api/photos/${id}`, undefined, opts)
+    // upload uses multipart/form-data — callers use raw fetch directly
+  }
 };

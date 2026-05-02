@@ -6,7 +6,7 @@
   import type { Photo as PhotoData } from '$lib/data/photos';
 
   interface PageData {
-    photos: PhotoData[];
+    photos: (PhotoData & { thumbSrc?: string })[];
     heroTarget: string;
     heroTargetSubtitle: string;
     heroIntegration: string;
@@ -114,8 +114,12 @@
     {#each data.photos as photo, i}
       <div class="masonry-item">
         <a href="/photo/{photo.slug}" class="masonry-link" aria-label={photo.target}>
-          <div class="photo-wrap" style="height: {HEIGHTS[i]}px;">
-            <Photo target={photo.target} style="position: absolute; inset: 0; height: 100%;" />
+          <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
+            <Photo
+              target={photo.target}
+              src={photo.thumbSrc}
+              style="position: absolute; inset: 0; height: 100%;"
+            />
           </div>
         </a>
         <div class="photo-meta-row">
