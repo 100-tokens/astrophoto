@@ -366,12 +366,17 @@ async fn list_drafts_returns_only_callers_drafts() {
     let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
 
-    h.upload_draft(&alice).await;        // draft for alice
+    let alice_draft_id = h.upload_draft(&alice).await;
     h.upload_draft(&bob).await;          // draft for bob
 
     let body = h.get_json("/api/photos?drafts=true", Some(&alice)).await;
     let photos = body["photos"].as_array().unwrap();
     assert_eq!(photos.len(), 1, "alice sees only her own draft");
+    assert_eq!(
+        photos[0]["id"].as_str().unwrap(),
+        alice_draft_id.to_string(),
+        "the returned draft belongs to alice"
+    );
 }
 
 #[tokio::test]
