@@ -147,5 +147,13 @@ pub fn router(
             "/api/me/sessions/sign-out-others",
             axum::routing::post(crate::users::sessions::sign_out_others),
         )
+        .route(
+            "/api/me/delete-request",
+            post(crate::users::deletion::request),
+        )
+        .route(
+            "/api/me/delete-cancel",
+            post(crate::users::deletion::cancel),
+        )
         .with_state(state)
 }

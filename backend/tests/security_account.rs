@@ -777,3 +777,170 @@ async fn sign_out_others_keeps_current_kills_rest() {
     .unwrap();
     assert_eq!(count, 1);
 }
+
+#[tokio::test]
+async fn delete_request_with_correct_password_and_phrase_succeeds() {
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/api/me/delete-request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::from(
+            json!({
+                "current_password": "longenoughpw1",
+                "confirmation_phrase": "DELETE MY ACCOUNT"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(
+        app.oneshot(req).await.unwrap().status(),
+        StatusCode::NO_CONTENT
+    );
+
+    let pending: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar!(
+        "select pending_deletion_at from users where email = $1",
+        "marie@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(pending.is_some());
+    assert!(
+        outbox
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|m| m.subject.contains("scheduled"))
+    );
+}
+
+#[tokio::test]
+async fn delete_request_wrong_phrase_returns_400() {
+    let (app, _pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/api/me/delete-request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::from(
+            json!({
+                "current_password": "longenoughpw1",
+                "confirmation_phrase": "delete my account"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(
+        app.oneshot(req).await.unwrap().status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn delete_request_idempotent_does_not_extend_grace() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_h = cookie.split(';').next().unwrap().to_string();
+
+    for _ in 0..2 {
+        let mut req = Request::builder()
+            .method("POST")
+            .uri("/api/me/delete-request")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &cookie_h)
+            .body(Body::from(
+                json!({
+                    "current_password": "longenoughpw1",
+                    "confirmation_phrase": "DELETE MY ACCOUNT"
+                })
+                .to_string(),
+            ))
+            .unwrap();
+        req.extensions_mut()
+            .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+        app.clone().oneshot(req).await.unwrap();
+    }
+    let pending: chrono::DateTime<chrono::Utc> = sqlx::query_scalar!(
+        "select pending_deletion_at as \"p!: chrono::DateTime<chrono::Utc>\"
+           from users where email = $1",
+        "marie@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let dt = (pending - chrono::Utc::now()).num_hours();
+    assert!(
+        (167..169).contains(&dt),
+        "grace must remain ~7 days, got {dt}h"
+    );
+}
+
+#[tokio::test]
+async fn delete_cancel_clears_pending_and_emails() {
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_h = cookie.split(';').next().unwrap().to_string();
+
+    // Mark for deletion.
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/api/me/delete-request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::from(
+            json!({
+                "current_password": "longenoughpw1",
+                "confirmation_phrase": "DELETE MY ACCOUNT"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    app.clone().oneshot(req).await.unwrap();
+    outbox.lock().unwrap().clear();
+
+    // Cancel.
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/api/me/delete-cancel")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::empty())
+        .unwrap();
+    req.extensions_mut()
+        .insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(
+        app.oneshot(req).await.unwrap().status(),
+        StatusCode::NO_CONTENT
+    );
+
+    let pending: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar!(
+        "select pending_deletion_at from users where email = $1",
+        "marie@x.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(pending.is_none());
+    assert!(
+        outbox
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|m| m.subject.contains("cancelled"))
+    );
+}

@@ -19,6 +19,7 @@ pub struct User {
     pub display_name: String,
     pub created_at: String,
     pub following_ids: Vec<String>,
+    pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
