@@ -7,7 +7,7 @@ import type { Health, User } from './types';
 export interface Comment {
   id: string;
   photo_id: string;
-  author_id: string | null;  // null = author account was deleted (pseudonymised)
+  author_id: string | null; // null = author account was deleted (pseudonymised)
   author_display_name: string;
   body: string;
   created_at: string;
