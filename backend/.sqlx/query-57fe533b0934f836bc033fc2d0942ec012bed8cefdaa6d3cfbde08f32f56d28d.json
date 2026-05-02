@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,\n               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,\n               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at\n        from photos p\n        join follows f on f.followed_id = p.owner_id\n        where f.follower_id = $1 and p.status = 'ready'\n        order by p.created_at desc\n        limit $2\n        ",
+  "query": "\n        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,\n               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,\n               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,\n               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error\n        from photos p\n        join follows f on f.followed_id = p.owner_id\n        where f.follower_id = $1 and p.status = 'ready'\n        order by p.created_at desc\n        limit $2\n        ",
   "describe": {
     "columns": [
       {
@@ -92,6 +92,31 @@
         "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 19,
+        "name": "replaced_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 20,
+        "name": "original_uploaded_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 21,
+        "name": "last_step",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 22,
+        "name": "pipeline_error",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -118,8 +143,13 @@
       true,
       true,
       false,
-      false
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "ca046f9512698a60e6d528e91b3841982b5a9d59aa4a063f4092909ef0d38a03"
+  "hash": "57fe533b0934f836bc033fc2d0942ec012bed8cefdaa6d3cfbde08f32f56d28d"
 }

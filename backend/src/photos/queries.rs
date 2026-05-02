@@ -23,6 +23,11 @@ pub struct PhotoRow {
     pub caption: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
+    pub published_at: Option<DateTime<Utc>>,
+    pub replaced_at: Option<DateTime<Utc>>,
+    pub original_uploaded_at: DateTime<Utc>,
+    pub last_step: Option<String>,
+    pub pipeline_error: Option<String>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -39,8 +44,8 @@ pub async fn insert_processing(
     let row = sqlx::query!(
         r#"
         insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                            target, caption, status)
-        values ($1, $2, $3, $4, $5, $6, $7, 'processing')
+                            target, caption, status, original_uploaded_at)
+        values ($1, $2, $3, $4, $5, $6, $7, 'processing', now())
         returning id
         "#,
         owner_id,
@@ -122,7 +127,8 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
         r#"
         select id, owner_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
-               target, caption, status, created_at
+               target, caption, status, created_at,
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos where id = $1
         "#,
         id
@@ -142,7 +148,8 @@ pub async fn list_by_owner(
         r#"
         select id, owner_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
-               target, caption, status, created_at
+               target, caption, status, created_at,
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
         where owner_id = $1 and status = 'ready'
         order by created_at desc
@@ -162,7 +169,8 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
         r#"
         select id, owner_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
-               target, caption, status, created_at
+               target, caption, status, created_at,
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
         where status = 'ready'
         order by created_at desc
@@ -185,7 +193,8 @@ pub async fn list_following(
         r#"
         select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,
                p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
-               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at
+               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,
+               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
         from photos p
         join follows f on f.followed_id = p.owner_id
         where f.follower_id = $1 and p.status = 'ready'
@@ -223,4 +232,28 @@ pub async fn count_by_owner(pool: &PgPool, owner_id: Uuid) -> Result<i64, AppErr
     .fetch_one(pool)
     .await?;
     Ok(row.count)
+}
+
+/// Returns true if `viewer_id` may see `photo_id` on a public surface.
+/// Encodes the visibility rule once: a photo is visible if it's published
+/// (`published_at IS NOT NULL`) OR if the viewer owns it. Used by every
+/// public per-photo endpoint (detail, counts, comments list) so the
+/// predicate lives in one place and future endpoints inherit it.
+pub async fn is_visible_to(
+    pool: &PgPool,
+    photo_id: Uuid,
+    viewer_id: Option<Uuid>,
+) -> Result<bool, AppError> {
+    let row = sqlx::query!(
+        r#"select published_at, owner_id from photos where id = $1"#,
+        photo_id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(match (row, viewer_id) {
+        (None, _) => false,
+        (Some(r), _) if r.published_at.is_some() => true,
+        (Some(r), Some(v)) if r.owner_id == v => true,
+        _ => false,
+    })
 }
