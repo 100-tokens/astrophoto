@@ -44,14 +44,16 @@ pub async fn purge_once(pool: &PgPool, storage: &dyn Storage) -> Result<u64, App
                 ),
             }
         }
-        tracing::info!(deleted, total_due = due.len(), "purge cycle done");
     }
 
     // Sweep orphaned pending S3 deletes (replace pipeline never reached 'ready').
-    if let Err(e) = sweep_pending_deletes(pool, storage).await {
-        tracing::error!(error = ?e, "sweep_pending_deletes failed");
+    match sweep_pending_deletes(pool, storage).await {
+        Ok(swept) if swept > 0 => tracing::info!(swept, "sweep_pending_deletes cleared stale rows"),
+        Ok(_) => {}
+        Err(e) => tracing::error!(error = ?e, "sweep_pending_deletes failed"),
     }
 
+    tracing::info!(deleted, total_due = due.len(), "purge cycle done");
     Ok(deleted)
 }
 

@@ -929,6 +929,13 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
          values ($1, 'orphan-key', now() - interval '8 days')", id
     ).execute(&pool).await.unwrap();
 
+    // Fresh row — must NOT be swept (queued_at = now())
+    storage.put("fresh-key", "image/jpeg", bytes::Bytes::from_static(b"y")).await.unwrap();
+    sqlx::query!(
+        "insert into photo_pending_deletes (photo_id, storage_key, queued_at)
+         values ($1, 'fresh-key', now())", id
+    ).execute(&pool).await.unwrap();
+
     astrophoto::jobs::purge_deletions::sweep_pending_deletes(&pool, storage.as_ref())
         .await.unwrap();
 
@@ -937,4 +944,10 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
     ).fetch_one(&pool).await.unwrap();
     assert_eq!(remaining, 0);
     assert!(storage.get("orphan-key").await.unwrap().is_none(), "S3 object swept");
+
+    let fresh_remaining: i64 = sqlx::query_scalar!(
+        r#"select count(*) as "c!" from photo_pending_deletes where storage_key='fresh-key'"#
+    ).fetch_one(&pool).await.unwrap();
+    assert_eq!(fresh_remaining, 1, "fresh row must survive sweep");
+    assert!(storage.get("fresh-key").await.unwrap().is_some(), "fresh S3 object must survive");
 }
