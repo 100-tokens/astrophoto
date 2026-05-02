@@ -5,13 +5,13 @@
   import type { User, Photo as PhotoData } from '$lib/data/photos';
 
   interface PageData {
-    user: User;
+    profile: User;
     photos: (PhotoData & { thumbSrc?: string })[];
   }
 
   let { data }: { data: PageData } = $props();
 
-  let u = $derived(data.user);
+  let u = $derived(data.profile);
   let photos = $derived(data.photos);
 
   const TABS = [

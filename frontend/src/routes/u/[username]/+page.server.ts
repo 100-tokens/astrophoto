@@ -96,13 +96,16 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       memberSince
     };
 
-    return { user, photos, isReal: true as const };
+    // Field name 'profile' (not 'user') to avoid colliding with the layout's
+    // `data.user` (the auth state). Layout-level `user` must keep flowing
+    // through to AppHeader's $app/state read.
+    return { profile: user, photos, isReal: true as const };
   }
 
   // Placeholder canonical user
   if (username === 'marie-dubois') {
     return {
-      user: MARIE,
+      profile: MARIE,
       photos: PHOTOS.slice(0, 8),
       isReal: false as const
     };
