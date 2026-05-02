@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use astrophoto::db;
 
+#[allow(clippy::unwrap_used)]
 async fn test_pool() -> (sqlx::PgPool, testcontainers::ContainerAsync<PgImage>) {
     let pg = PgImage::default().start().await.unwrap();
     let host = pg.get_host().await.unwrap();
@@ -26,18 +27,35 @@ async fn is_visible_to_returns_true_for_published_to_anyone() {
     sqlx::query!(
         "insert into users (id, email, password_hash, display_name)
          values ($1, $2, '', 'O'), ($3, $4, '', 'V')",
-        owner, format!("o-{owner}@e"), viewer, format!("v-{viewer}@e")
-    ).execute(&pool).await.unwrap();
+        owner,
+        format!("o-{owner}@e"),
+        viewer,
+        format!("v-{viewer}@e")
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let photo_id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, published_at, original_uploaded_at, last_step)
          values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'ready', now(), now(), 'caption')
          returning id",
         owner
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
-    assert!(astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(viewer)).await.unwrap());
-    assert!(astrophoto::photos::queries::is_visible_to(&pool, photo_id, None).await.unwrap());
+    assert!(
+        astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(viewer))
+            .await
+            .unwrap()
+    );
+    assert!(
+        astrophoto::photos::queries::is_visible_to(&pool, photo_id, None)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -49,17 +67,38 @@ async fn is_visible_to_returns_false_for_draft_to_non_owner_and_anon() {
     sqlx::query!(
         "insert into users (id, email, password_hash, display_name)
          values ($1, $2, '', 'O'), ($3, $4, '', 'V')",
-        owner, format!("o-{owner}@e"), viewer, format!("v-{viewer}@e")
-    ).execute(&pool).await.unwrap();
+        owner,
+        format!("o-{owner}@e"),
+        viewer,
+        format!("v-{viewer}@e")
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let photo_id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, original_uploaded_at, last_step)
          values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload')
          returning id",
         owner
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
-    assert!(astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(viewer)).await.unwrap() == false);
-    assert!(astrophoto::photos::queries::is_visible_to(&pool, photo_id, None).await.unwrap() == false);
-    assert!(astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(owner)).await.unwrap());
+    assert!(
+        !astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(viewer))
+            .await
+            .unwrap()
+    );
+    assert!(
+        !astrophoto::photos::queries::is_visible_to(&pool, photo_id, None)
+            .await
+            .unwrap()
+    );
+    assert!(
+        astrophoto::photos::queries::is_visible_to(&pool, photo_id, Some(owner))
+            .await
+            .unwrap()
+    );
 }
