@@ -11,6 +11,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::AppError;
+use crate::http::AppState;
 
 pub const SESSION_DAYS: i64 = 30;
 
@@ -128,6 +129,23 @@ pub fn clear_cookie_header(secure: bool) -> String {
         name = cookie_name(secure),
         secure = secure_part,
     )
+}
+
+/// Create a fresh session for `user_id` and return the full `Set-Cookie`
+/// header value string. Used by login, password-reset confirm, and
+/// password-change to ensure identical cookie construction everywhere.
+///
+/// No user-agent or IP is recorded because this helper is called from paths
+/// that may not have access to the request headers (e.g. reset-confirm, which
+/// is a JSON body POST — the UA and IP matter less than the fresh token).
+/// If you need them in future, add optional params here.
+pub async fn create_session(state: &AppState, user_id: Uuid) -> Result<String, AppError> {
+    let cookie_value = create(&state.pool, user_id, None, None).await?;
+    Ok(cookie_header(
+        &cookie_value,
+        state.config.session_secure,
+        SESSION_DAYS,
+    ))
 }
 
 #[cfg(test)]

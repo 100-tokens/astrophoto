@@ -12,7 +12,7 @@ use axum::{
     extract::connect_info::MockConnectInfo,
     http::{Request, StatusCode, header},
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
@@ -43,11 +43,13 @@ fn config_for(url: &str) -> Config {
     }
 }
 
-/// Boot a test stack. Returns (router, outbox, container).
-/// The caller must hold `_pg` for the duration of the test — dropping it tears
-/// down the Postgres container and causes pool timeouts.
+/// Boot a test stack. Returns (router, pool, outbox, container).
+/// The caller MUST hold the returned `ContainerAsync` for the duration of the
+/// test — dropping it tears down the Postgres container and causes pool
+/// timeouts.
 async fn boot() -> (
     axum::Router,
+    sqlx::PgPool,
     Arc<Mutex<Vec<SentMail>>>,
     testcontainers::ContainerAsync<PgImage>,
 ) {
@@ -63,9 +65,21 @@ async fn boot() -> (
     let (mailer, outbox) = Mailer::for_test();
     // Wrap with MockConnectInfo so ConnectInfo<SocketAddr> extracts correctly
     // without needing a real TCP listener.
-    let app = http::router(pool, cfg, storage, Arc::new(mailer))
-        .layer(MockConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 9999))));
-    (app, outbox, pg)
+    let app = http::router(pool.clone(), cfg, storage, Arc::new(mailer)).layer(MockConnectInfo(
+        std::net::SocketAddr::from(([127, 0, 0, 1], 9999)),
+    ));
+    (app, pool, outbox, pg)
+}
+
+/// Build a JSON POST request. The app layer's MockConnectInfo handles the
+/// ConnectInfo<SocketAddr> extraction for all routes.
+fn req_with_ip(method: &str, uri: &str, body: Value) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap()
 }
 
 async fn signup(app: &axum::Router, email: &str, password: &str) {
@@ -89,6 +103,30 @@ async fn signup(app: &axum::Router, email: &str, password: &str) {
     );
 }
 
+/// Sign in and return the full Set-Cookie header value (e.g. `session=...; HttpOnly; ...`).
+async fn signin(app: &axum::Router, email: &str, password: &str) -> String {
+    let resp = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/login",
+            json!({"email": email, "password": password}),
+        ))
+        .await
+        .unwrap();
+    assert!(
+        resp.status().is_success(),
+        "signin must succeed (got {})",
+        resp.status()
+    );
+    resp.headers()
+        .get(header::SET_COOKIE)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
+}
+
 fn reset_request(email: &str) -> Request<Body> {
     Request::builder()
         .method("POST")
@@ -100,7 +138,7 @@ fn reset_request(email: &str) -> Request<Body> {
 
 #[tokio::test]
 async fn password_reset_request_unknown_email_returns_204_silent() {
-    let (app, outbox, _pg) = boot().await;
+    let (app, _pool, outbox, _pg) = boot().await;
     let resp = app
         .oneshot(reset_request("ghost@nowhere.test"))
         .await
@@ -114,7 +152,7 @@ async fn password_reset_request_unknown_email_returns_204_silent() {
 
 #[tokio::test]
 async fn password_reset_request_known_email_sends_one_mail() {
-    let (app, outbox, _pg) = boot().await;
+    let (app, _pool, outbox, _pg) = boot().await;
     signup(&app, "marie@example.com", "longenoughpw1").await;
 
     let resp = app
@@ -133,7 +171,7 @@ async fn password_reset_request_known_email_sends_one_mail() {
 
 #[tokio::test]
 async fn password_reset_throttle_60s_per_email() {
-    let (app, outbox, _pg) = boot().await;
+    let (app, _pool, outbox, _pg) = boot().await;
     signup(&app, "marie@example.com", "longenoughpw1").await;
 
     for _ in 0..3 {
@@ -151,6 +189,210 @@ async fn password_reset_throttle_60s_per_email() {
     );
 }
 
-// (The OAuth-only "set a password" template path is exercised in Task 6,
-//  once `boot()` exposes `pool` and we can `INSERT INTO users (..., password_hash) VALUES (..., NULL)`
-//  directly.)
+#[tokio::test]
+async fn password_reset_full_happy_path() {
+    let (app, _pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@example.com", "longenoughpw1").await;
+
+    // Request reset.
+    app.clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/password-reset/request",
+            json!({"email": "marie@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    let body = outbox.lock().unwrap()[0].body.clone();
+    // Extract token from the reset link: http://localhost:5173/reset/<token>
+    let token = body
+        .split("/reset/")
+        .nth(1)
+        .expect("reset link in mail body")
+        .split_whitespace()
+        .next()
+        .expect("token after /reset/");
+
+    // Confirm with a strong new password.
+    let resp = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/password-reset/confirm",
+            json!({"token": token.trim(), "new_password": "evenlongerpw12"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    let cookie = resp.headers().get(header::SET_COOKIE).unwrap();
+    assert!(cookie.to_str().unwrap().contains("session"));
+
+    // Old password no longer works.
+    let resp_old = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/login",
+            json!({"email": "marie@example.com", "password": "longenoughpw1"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp_old.status(), StatusCode::UNAUTHORIZED);
+
+    // New password works.
+    let resp_new = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/login",
+            json!({"email": "marie@example.com", "password": "evenlongerpw12"}),
+        ))
+        .await
+        .unwrap();
+    assert!(resp_new.status().is_success());
+}
+
+#[tokio::test]
+async fn password_reset_token_single_use() {
+    let (app, _pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@example.com", "longenoughpw1").await;
+    app.clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/password-reset/request",
+            json!({"email": "marie@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    let token = outbox.lock().unwrap()[0]
+        .body
+        .split("/reset/")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .to_string();
+
+    // First confirm: 204.
+    let r1 = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/password-reset/confirm",
+            json!({"token": token, "new_password": "evenlongerpw12"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r1.status(), StatusCode::NO_CONTENT);
+
+    // Second confirm with same token: 410 Gone.
+    let r2 = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/password-reset/confirm",
+            json!({"token": token, "new_password": "anotherlongerpw9"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r2.status(), StatusCode::GONE);
+}
+
+#[tokio::test]
+async fn password_reset_oauth_user_gets_set_password_template() {
+    let (app, pool, outbox, _pg) = boot().await;
+    // OAuth-only user: signup never happened; insert directly with NULL password_hash.
+    sqlx::query!(
+        "insert into users (email, display_name, password_hash) values ($1, $2, null)",
+        "oauth@x.test",
+        "OAuthie"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    outbox.lock().unwrap().clear();
+
+    app.oneshot(req_with_ip(
+        "POST",
+        "/api/auth/password-reset/request",
+        json!({"email": "oauth@x.test"}),
+    ))
+    .await
+    .unwrap();
+
+    let sent = outbox.lock().unwrap().clone();
+    assert_eq!(sent.len(), 1);
+    assert!(
+        sent[0].subject.contains("Set a password"),
+        "OAuth-only user should get the set-password subject, got: {}",
+        sent[0].subject
+    );
+}
+
+#[tokio::test]
+async fn password_change_invalidates_all_sessions_then_creates_fresh() {
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@example.com", "longenoughpw1").await;
+
+    // Use the session cookie to change the password.
+    let session_cookie = cookie.split(';').next().unwrap().to_string();
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/password-change")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &session_cookie)
+        .body(Body::from(
+            json!({
+                "current_password": "longenoughpw1",
+                "new_password": "evenlongerpw12"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    assert!(
+        resp.headers().contains_key(header::SET_COOKIE),
+        "must rotate the cookie"
+    );
+
+    // Exactly one row in sessions for this user (the new rotated session).
+    let count: i64 = sqlx::query_scalar!(
+        r#"select count(*) as "c!" from sessions s join users u on u.id = s.user_id
+          where u.email = $1"#,
+        "marie@example.com"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 1);
+}
+
+#[tokio::test]
+async fn password_change_wrong_current_returns_401() {
+    let (app, _pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@example.com", "longenoughpw1").await;
+
+    let session_cookie = cookie.split(';').next().unwrap().to_string();
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/password-change")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &session_cookie)
+        .body(Body::from(
+            json!({
+                "current_password": "WRONG",
+                "new_password": "evenlongerpw12"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}

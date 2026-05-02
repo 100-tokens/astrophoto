@@ -54,6 +54,14 @@ pub fn router(
             post(crate::auth::password_reset::request),
         )
         .route(
+            "/api/auth/password-reset/confirm",
+            post(crate::auth::password_reset::confirm),
+        )
+        .route(
+            "/api/me/password-change",
+            post(crate::auth::password_change::change),
+        )
+        .route(
             "/api/auth/oauth/google/start",
             get(crate::auth::oauth_google::start),
         )

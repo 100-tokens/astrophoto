@@ -6,7 +6,7 @@
 use axum::{
     Json,
     extract::{ConnectInfo, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
 };
 use base64::Engine;
@@ -17,6 +17,7 @@ use sqlx::types::ipnetwork::IpNetwork;
 use std::net::SocketAddr;
 
 use crate::AppError;
+use crate::auth::{password, session};
 use crate::http::AppState;
 use crate::mail::templates;
 
@@ -101,4 +102,64 @@ pub async fn request(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmBody {
+    pub token: String,
+    pub new_password: String,
+}
+
+pub async fn confirm(
+    State(state): State<AppState>,
+    Json(body): Json<ConfirmBody>,
+) -> Result<impl IntoResponse, AppError> {
+    password::validate_strength(&body.new_password).map_err(AppError::bad_request)?;
+
+    let hash: Vec<u8> = Sha256::digest(body.token.as_bytes()).to_vec();
+    let row = sqlx::query!(
+        r#"select user_id, expires_at, used_at
+             from password_reset_tokens
+            where token_hash = $1"#,
+        hash
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| AppError::gone("expired_or_used"))?;
+
+    if row.used_at.is_some() || row.expires_at < chrono::Utc::now() {
+        return Err(AppError::gone("expired_or_used"));
+    }
+
+    let pwd_hash = password::hash(body.new_password).await?;
+
+    let mut tx = state.pool.begin().await?;
+    sqlx::query!(
+        "update users set password_hash = $1, password_changed_at = now() where id = $2",
+        pwd_hash,
+        row.user_id
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "update password_reset_tokens set used_at = now() where token_hash = $1",
+        hash
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!("delete from sessions where user_id = $1", row.user_id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+
+    // Auto-login: create a fresh session and return Set-Cookie.
+    let cookie = session::create_session(&state, row.user_id).await?;
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::SET_COOKIE,
+        cookie
+            .parse()
+            .map_err(|_| AppError::internal("bad cookie"))?,
+    );
+    Ok((StatusCode::NO_CONTENT, headers))
 }

@@ -5,6 +5,7 @@ pub mod middleware;
 pub mod oauth;
 pub mod oauth_google;
 pub mod password;
+pub mod password_change;
 pub mod password_reset;
 pub mod session;
 pub mod signup;

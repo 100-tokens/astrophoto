@@ -16,6 +16,12 @@ pub enum AppError {
     #[error("forbidden")]
     Forbidden,
 
+    #[error("bad request: {0}")]
+    BadRequest(String),
+
+    #[error("gone: {0}")]
+    Gone(String),
+
     #[error("validation: {0}")]
     Validation(String),
 
@@ -33,6 +39,14 @@ impl AppError {
     pub fn internal(msg: impl Into<String>) -> Self {
         AppError::Internal(msg.into())
     }
+
+    pub fn bad_request(msg: impl Into<String>) -> Self {
+        AppError::BadRequest(msg.into())
+    }
+
+    pub fn gone(msg: impl Into<String>) -> Self {
+        AppError::Gone(msg.into())
+    }
 }
 
 impl AppError {
@@ -41,6 +55,8 @@ impl AppError {
             AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::Gone(_) => StatusCode::GONE,
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -52,6 +68,8 @@ impl AppError {
             AppError::NotFound => "not-found",
             AppError::Unauthorized => "unauthorized",
             AppError::Forbidden => "forbidden",
+            AppError::BadRequest(_) => "bad-request",
+            AppError::Gone(_) => "gone",
             AppError::Validation(_) => "validation",
             AppError::Conflict(_) => "conflict",
             AppError::Database(_) | AppError::Internal(_) => "internal",
@@ -101,5 +119,23 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["error"], "validation");
         assert!(v["message"].as_str().unwrap().contains("bad email"));
+    }
+
+    #[tokio::test]
+    async fn bad_request_maps_to_400() {
+        let resp = AppError::bad_request("too short").into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"], "bad-request");
+    }
+
+    #[tokio::test]
+    async fn gone_maps_to_410() {
+        let resp = AppError::gone("expired_or_used").into_response();
+        assert_eq!(resp.status(), StatusCode::GONE);
+        let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"], "gone");
     }
 }
