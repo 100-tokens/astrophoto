@@ -12,6 +12,7 @@ use axum::{
     extract::connect_info::MockConnectInfo,
     http::{Request, StatusCode, header},
 };
+use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
@@ -395,4 +396,142 @@ async fn password_change_wrong_current_returns_401() {
 
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn email_change_full_happy_path() {
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@old.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/email-change/request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::from(
+            json!({"new_email": "marie@new.test", "current_password": "longenoughpw1"})
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    let sent = outbox.lock().unwrap().clone();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].to, "marie@new.test");
+    let token = sent[0]
+        .body
+        .split("/email-change/")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .to_string();
+
+    let resp = app
+        .clone()
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/email-change/confirm",
+            json!({"token": token}),
+        ))
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(
+        &resp.into_body().collect().await.unwrap().to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(body["status"], "success");
+
+    // Old address must receive the notification.
+    let sent = outbox.lock().unwrap().clone();
+    assert!(sent
+        .iter()
+        .any(|m| m.to == "marie@old.test" && m.subject.contains("changed")));
+
+    // Email row was actually updated.
+    let row = sqlx::query!(
+        "select email as \"email!: String\" from users where email = $1",
+        "marie@new.test"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.email, "marie@new.test");
+}
+
+#[tokio::test]
+async fn email_change_target_already_taken_returns_taken_status() {
+    let (app, _pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@old.test", "longenoughpw1").await;
+    signup(&app, "leah@taken.test", "longenoughpw2").await;
+    let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/api/me/email-change/request")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, cookie.split(';').next().unwrap())
+        .body(Body::from(
+            json!({"new_email": "leah@taken.test", "current_password": "longenoughpw1"})
+                .to_string(),
+        ))
+        .unwrap();
+    app.clone().oneshot(req).await.unwrap();
+    let token = outbox.lock().unwrap()[0]
+        .body
+        .split("/email-change/")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .to_string();
+
+    let resp = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/email-change/confirm",
+            json!({"token": token}),
+        ))
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(
+        &resp.into_body().collect().await.unwrap().to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(body["status"], "taken");
+}
+
+#[tokio::test]
+async fn email_change_pending_token_invalidated_on_new_request() {
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, "marie@old.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
+
+    for new in ["a@x.test", "b@x.test"] {
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/me/email-change/request")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, cookie.split(';').next().unwrap())
+            .body(Body::from(
+                json!({"new_email": new, "current_password": "longenoughpw1"}).to_string(),
+            ))
+            .unwrap();
+        app.clone().oneshot(req).await.unwrap();
+    }
+
+    let active: i64 = sqlx::query_scalar!(
+        "select count(*) as \"c!\" from email_change_tokens where used_at is null"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(active, 1);
+    let _ = outbox;
 }

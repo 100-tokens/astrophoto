@@ -62,6 +62,14 @@ pub fn router(
             post(crate::auth::password_change::change),
         )
         .route(
+            "/api/me/email-change/request",
+            post(crate::auth::email_change::request),
+        )
+        .route(
+            "/api/auth/email-change/confirm",
+            post(crate::auth::email_change::confirm),
+        )
+        .route(
             "/api/auth/oauth/google/start",
             get(crate::auth::oauth_google::start),
         )

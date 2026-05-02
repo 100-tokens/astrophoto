@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select email as \"email!: String\" from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!: String",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "75e7dc55bf789490ca47e91c9755a8a99649fe628e0136b930f869ca20c47a66"
+}

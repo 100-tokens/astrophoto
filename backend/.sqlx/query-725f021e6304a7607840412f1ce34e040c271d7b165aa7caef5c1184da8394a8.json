@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into email_change_tokens (token_hash, user_id, new_email, expires_at)\n          values ($1, $2, $3, now() + make_interval(hours => $4))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "725f021e6304a7607840412f1ce34e040c271d7b165aa7caef5c1184da8394a8"
+}
