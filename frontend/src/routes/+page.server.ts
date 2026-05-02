@@ -46,6 +46,8 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
 
   // If we have real photos, build a gallery from them. Otherwise keep
   // the placeholder demo content for a non-empty landing.
+  const following_count = locals.user?.following_ids?.length ?? 0;
+
   if (realPhotos.length > 0) {
     const [hero, ...rest] = realPhotos as [RealPhoto, ...RealPhoto[]];
     return {
@@ -65,7 +67,8 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
         camera: '',
         thumbSrc: `${API}/api/photos/${p.id}/thumb/400`
       })),
-      isReal: true
+      isReal: true,
+      following_count
     };
   }
 
@@ -77,6 +80,7 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
     },
     heroSrc: undefined,
     photos: PHOTOS.slice(0, 12).map((p) => ({ ...p, thumbSrc: undefined })),
-    isReal: false
+    isReal: false,
+    following_count
   };
 };

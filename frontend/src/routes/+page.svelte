@@ -16,6 +16,8 @@
     heroSrc: string | undefined;
     photos: (PhotoData & { thumbSrc?: string })[];
     isReal: boolean;
+    following_count: number;
+    user?: { id: string } | null;
   }
 
   let { data }: { data: PageData } = $props();
@@ -31,8 +33,12 @@
 <section class="hero">
   <!-- Left column: editorial copy -->
   <div class="hero-copy">
-    <div class="t-eyebrow" style="margin-bottom: 16px;">
-      <span style="color: var(--accent);">●</span> 14 March 2026 · Friday
+    <div style="margin-bottom: 16px;">
+      {#if data.user && data.following_count > 0}
+        <span class="t-eyebrow accent">● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span>
+      {:else}
+        <span class="t-eyebrow">● 14 March 2026 · Friday</span>
+      {/if}
     </div>
 
     <h1 class="hero-h1">
