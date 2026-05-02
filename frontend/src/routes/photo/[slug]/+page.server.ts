@@ -7,6 +7,72 @@ const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http:/
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface ExifRow {
+  label: string;
+  value: string;
+  sublabel?: string;
+  sublabelAccent?: boolean;
+}
+
+interface RealPhoto {
+  id: string;
+  owner_id: string;
+  status: string;
+  original_name: string;
+  bytes: number;
+  mime: string;
+  width: number | null;
+  height: number | null;
+  taken_at: string | null;
+  camera: string | null;
+  lens: string | null;
+  iso: number | null;
+  exposure_s: number | null;
+  focal_mm: number | null;
+  target: string | null;
+  caption: string | null;
+  created_at: string;
+}
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatExposure(s: number): string {
+  if (s >= 1) return `${s} s`;
+  if (s <= 0) return `${s} s`;
+  return `1/${Math.round(1 / s)} s`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toISOString().slice(0, 10);
+}
+
+function buildExifRows(p: RealPhoto): ExifRow[] {
+  const rows: ExifRow[] = [];
+  rows.push({ label: 'Original file', value: p.original_name });
+  rows.push({ label: 'Size', value: formatBytes(p.bytes) });
+  if (p.width != null && p.height != null) {
+    rows.push({ label: 'Dimensions', value: `${p.width} × ${p.height}` });
+  }
+  if (p.target) rows.push({ label: 'Target', value: p.target });
+  if (p.taken_at) rows.push({ label: 'Captured', value: formatDate(p.taken_at) });
+  if (p.camera) rows.push({ label: 'Camera', value: p.camera });
+  if (p.lens) rows.push({ label: 'Lens', value: p.lens });
+  if (p.iso != null) rows.push({ label: 'ISO', value: String(p.iso) });
+  if (p.exposure_s != null) {
+    rows.push({ label: 'Exposure', value: formatExposure(p.exposure_s) });
+  }
+  if (p.focal_mm != null) {
+    rows.push({ label: 'Focal', value: `${p.focal_mm} mm` });
+  }
+  return rows;
+}
+
 /** Minimal photo detail shape for gallery photos that lack rich EXIF data. */
 function minimalDetail(
   target: string,
@@ -66,17 +132,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       }
       error(500, 'Failed to load photo');
     }
-    const photo = (await res.json()) as {
-      id: string;
-      target: string | null;
-      caption: string | null;
-      camera: string | null;
-      taken_at: string | null;
-      width: number | null;
-      height: number | null;
-      iso: number | null;
-      exposure_s: number | null;
-    };
+    const photo = (await res.json()) as RealPhoto;
 
     const detail: PhotoDetail = {
       slug: photo.id,
@@ -89,7 +145,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       telescopeSub: '',
       mount: '',
       filters: '',
-      exposure: photo.exposure_s != null ? `${photo.exposure_s} s` : '',
+      exposure: photo.exposure_s != null ? formatExposure(photo.exposure_s) : '',
       exposureTotal: '',
       gain: photo.iso != null ? String(photo.iso) : '',
       ra: '',
@@ -115,7 +171,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     return {
       photo: detail,
       isRich: false,
-      thumbSrc1200: `${API}/api/photos/${photo.id}/thumb/1200`
+      thumbSrc1200: `${API}/api/photos/${photo.id}/thumb/1200`,
+      exifRows: buildExifRows(photo)
     };
   }
 
