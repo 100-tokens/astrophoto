@@ -28,7 +28,7 @@ pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
         .allow_origin(allowed_origin)
         .allow_credentials(true)
         .allow_headers([HeaderName::from_static("content-type")])
-        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
 }
 
 pub fn router(
@@ -127,7 +127,13 @@ pub fn router(
             "/api/users/:id/following/count",
             axum::routing::get(crate::engagement::follows::following_count),
         )
-        .route("/api/me/profile", axum::routing::get(crate::users::profile::get).put(crate::users::profile::put))
-        .route("/api/me/preferences", axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put))
+        .route(
+            "/api/me/profile",
+            axum::routing::get(crate::users::profile::get).put(crate::users::profile::put),
+        )
+        .route(
+            "/api/me/preferences",
+            axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put),
+        )
         .with_state(state)
 }
