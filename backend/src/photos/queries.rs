@@ -234,6 +234,31 @@ pub async fn count_by_owner(pool: &PgPool, owner_id: Uuid) -> Result<i64, AppErr
     Ok(row.count)
 }
 
+pub async fn list_drafts_by_owner(
+    pool: &PgPool,
+    owner_id: Uuid,
+    limit: i64,
+) -> Result<Vec<PhotoRow>, AppError> {
+    let rows = sqlx::query_as!(
+        PhotoRow,
+        r#"
+        select id, owner_id, storage_key, original_name, bytes, mime,
+               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
+               target, caption, status, created_at,
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
+        from photos
+        where owner_id = $1 and published_at is null
+        order by created_at desc
+        limit $2
+        "#,
+        owner_id,
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Returns true if `viewer_id` may see `photo_id` on a public surface.
 /// Encodes the visibility rule once: a photo is visible if it's published
 /// (`published_at IS NOT NULL`) OR if the viewer owns it. Used by every
