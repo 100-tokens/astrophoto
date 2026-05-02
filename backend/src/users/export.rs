@@ -91,7 +91,10 @@ pub async fn handler(
              from photos p
              left join thumbnails t on t.photo_id = p.id
             where p.owner_id = $1
-            order by p.id, t.size asc nulls last"#,
+            order by p.id, t.size asc nulls last
+            limit 10000"#,
+        // Best-effort cap. Users with >10k photos contact support; an
+        // unbounded SELECT could blow up memory on a giant account.
         user.id
     )
     .fetch_all(&state.pool)
