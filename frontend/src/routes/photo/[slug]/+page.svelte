@@ -4,6 +4,7 @@
   import MobileHeader from '$lib/components/MobileHeader.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import ExifTable from '$lib/components/ExifTable.svelte';
+  import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import type { PhotoDetail } from '$lib/data/photos';
 
   interface ExifRow {
@@ -19,6 +20,7 @@
     isRich: boolean;
     thumbSrc1200?: string;
     exifRows?: ExifRow[];
+    isAppreciated?: boolean;
   }
 
   let { data }: { data: PageData } = $props();
@@ -151,7 +153,11 @@
 
       <!-- Actions -->
       <div class="action-row">
-        <button class="btn btn-secondary btn-sm">♡ {p.appreciations} appreciations</button>
+        <AppreciateButton
+          photoId={p.slug}
+          initialCount={p.appreciations}
+          initialAppreciated={data.isAppreciated ?? false}
+        />
         <button class="btn btn-ghost btn-sm">{p.comments} comments</button>
         <button class="btn btn-ghost btn-sm" style="margin-left: auto;">↗ Share</button>
       </div>
@@ -172,7 +178,11 @@
 
 <!-- Mobile sticky action bar -->
 <div class="mobile-actions" aria-label="Photo actions">
-  <button class="mobile-action-btn" style="color: var(--accent);">♡ {p.appreciations}</button>
+  <AppreciateButton
+    photoId={p.slug}
+    initialCount={p.appreciations}
+    initialAppreciated={data.isAppreciated ?? false}
+  />
   <button class="mobile-action-btn">💬 {p.comments}</button>
   <button class="mobile-action-btn">↗ Share</button>
 </div>

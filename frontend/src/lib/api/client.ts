@@ -92,5 +92,35 @@ export const api = {
     get: (id: string, opts?: ApiCall) =>
       request<PhotoSummary>('GET', `/api/photos/${id}`, undefined, opts)
     // upload uses multipart/form-data — callers use raw fetch directly
+  },
+  appreciations: {
+    count: (photoId: string, opts?: ApiCall) =>
+      request<{ count: number }>(
+        'GET',
+        `/api/photos/${photoId}/appreciations/count`,
+        undefined,
+        opts
+      ),
+    state: (photoId: string, opts?: ApiCall) =>
+      request<{ appreciated: boolean }>(
+        'GET',
+        `/api/photos/${photoId}/appreciation-state`,
+        undefined,
+        opts
+      ),
+    appreciate: (photoId: string, opts?: ApiCall) =>
+      request<void>('POST', `/api/photos/${photoId}/appreciate`, undefined, opts),
+    unappreciate: (photoId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/photos/${photoId}/appreciate`, undefined, opts)
+  },
+  follows: {
+    follow: (userId: string, opts?: ApiCall) =>
+      request<void>('POST', `/api/users/${userId}/follow`, undefined, opts),
+    unfollow: (userId: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/users/${userId}/follow`, undefined, opts),
+    followersCount: (userId: string, opts?: ApiCall) =>
+      request<{ count: number }>('GET', `/api/users/${userId}/followers/count`, undefined, opts),
+    followingCount: (userId: string, opts?: ApiCall) =>
+      request<{ count: number }>('GET', `/api/users/${userId}/following/count`, undefined, opts)
   }
 };

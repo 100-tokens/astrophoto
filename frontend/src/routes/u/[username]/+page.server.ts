@@ -96,10 +96,13 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       memberSince
     };
 
+    const isFollowing = locals.user?.following_ids?.includes(username) ?? false;
+    const isSelf = locals.user?.id === username;
+
     // Field name 'profile' (not 'user') to avoid colliding with the layout's
     // `data.user` (the auth state). Layout-level `user` must keep flowing
     // through to AppHeader's $app/state read.
-    return { profile: user, photos, isReal: true as const };
+    return { profile: user, photos, isReal: true as const, isFollowing, isSelf };
   }
 
   // Placeholder canonical user

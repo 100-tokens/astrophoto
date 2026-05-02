@@ -11,7 +11,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (SESSION_COOKIE_RE.test(cookie)) {
     try {
       const user = await api.me({ fetch: event.fetch, cookie });
-      event.locals.user = { id: user.id, displayName: user.display_name };
+      event.locals.user = {
+        id: user.id,
+        displayName: user.display_name,
+        following_ids: user.following_ids ?? []
+      };
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         event.locals.user = null;

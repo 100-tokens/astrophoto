@@ -2,11 +2,14 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Photo from '$lib/components/Photo.svelte';
+  import FollowButton from '$lib/components/FollowButton.svelte';
   import type { User, Photo as PhotoData } from '$lib/data/photos';
 
   interface PageData {
     profile: User;
     photos: (PhotoData & { thumbSrc?: string })[];
+    isFollowing?: boolean;
+    isSelf?: boolean;
   }
 
   let { data }: { data: PageData } = $props();
@@ -64,7 +67,9 @@
 
   <!-- Right column: actions + location -->
   <div class="profile-actions">
-    <button class="btn btn-primary">Follow</button>
+    {#if !data.isSelf}
+      <FollowButton userId={data.profile.username} initialFollowing={data.isFollowing ?? false} />
+    {/if}
     <button class="btn btn-secondary">Message</button>
     {#if u.bortle > 0}
       <div class="t-meta profile-location">
