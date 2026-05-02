@@ -1,3 +1,4 @@
+pub mod get;
 pub mod queries;
 
 use crate::api_types::User;
