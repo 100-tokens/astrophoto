@@ -720,3 +720,30 @@ async fn put_metadata_explicit_null_clears_field() {
         .fetch_one(&h.pool).await.unwrap();
     assert!(row.target.is_none(), "explicit null should clear the field");
 }
+
+// ---------------------------------------------------------------------------
+// Task 9: pipeline_error capture
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn mark_failed_records_pipeline_error_string() {
+    let (pool, _pg) = test_pool().await;
+    let owner = Uuid::new_v4();
+    sqlx::query!(
+        "insert into users (id, email, password_hash, display_name)
+         values ($1, $2, '', 'O')", owner, format!("o-{owner}@e")
+    ).execute(&pool).await.unwrap();
+    let id = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime,
+                             status, original_uploaded_at, last_step)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload')
+         returning id", owner
+    ).fetch_one(&pool).await.unwrap();
+
+    astrophoto::photos::queries::mark_failed(&pool, id, "decode failed: bad jpeg").await.unwrap();
+    let row = sqlx::query!("select status, pipeline_error from photos where id=$1", id)
+        .fetch_one(&pool).await.unwrap();
+    assert_eq!(row.status, "failed");
+    assert_eq!(row.pipeline_error.as_deref(), Some("decode failed: bad jpeg"));
+}

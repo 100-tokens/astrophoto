@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update photos set status='failed' where id=$1",
+  "query": "delete from photo_pending_deletes where photo_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "14b5a0078fd1e10d0ba9a6f0358767271f1ef64610c3a3aeb65a8ae434a62572"
+  "hash": "becf24634952d1ad94cb61d051035af943cb39617e28cbb7b44a97f72956c981"
 }

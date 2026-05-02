@@ -71,7 +71,7 @@ pub async fn mark_ready(
     sqlx::query!(
         r#"
         update photos set
-            status='ready',
+            status='ready', pipeline_error=null,
             width=$2, height=$3,
             taken_at=$4, camera=$5, lens=$6, iso=$7,
             exposure_s=$8, focal_mm=$9,
@@ -94,10 +94,51 @@ pub async fn mark_ready(
     Ok(())
 }
 
-pub async fn mark_failed(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
-    sqlx::query!("update photos set status='failed' where id=$1", id)
-        .execute(pool)
-        .await?;
+pub async fn mark_ready_size_only(
+    pool: &PgPool,
+    id: Uuid,
+    width: i32,
+    height: i32,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        "update photos set status='ready', width=$2, height=$3, pipeline_error=null where id=$1",
+        id,
+        width,
+        height
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn mark_failed(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), AppError> {
+    sqlx::query!(
+        "update photos set status='failed', pipeline_error=$2 where id=$1",
+        id,
+        reason
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn pending_deletes_for(pool: &PgPool, photo_id: Uuid) -> Result<Vec<String>, AppError> {
+    let rows = sqlx::query_scalar!(
+        "select storage_key from photo_pending_deletes where photo_id = $1",
+        photo_id
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+pub async fn drain_pending_deletes(pool: &PgPool, photo_id: Uuid) -> Result<(), AppError> {
+    sqlx::query!(
+        "delete from photo_pending_deletes where photo_id = $1",
+        photo_id
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

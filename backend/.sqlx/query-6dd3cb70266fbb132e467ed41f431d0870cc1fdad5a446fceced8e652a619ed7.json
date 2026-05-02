@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set status='ready', width=$2, height=$3, pipeline_error=null where id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6dd3cb70266fbb132e467ed41f431d0870cc1fdad5a446fceced8e652a619ed7"
+}

@@ -93,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
             None,
             None,
             bytes,
+            pipeline::PipelineOptions::Initial,
         )
         .await?;
         tracing::info!(file = %name, photo_id = %id, "imported");

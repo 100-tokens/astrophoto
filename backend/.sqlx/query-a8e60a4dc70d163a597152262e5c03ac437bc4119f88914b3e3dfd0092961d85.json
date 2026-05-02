@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select storage_key from photo_pending_deletes where photo_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a8e60a4dc70d163a597152262e5c03ac437bc4119f88914b3e3dfd0092961d85"
+}
