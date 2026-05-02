@@ -1,4 +1,6 @@
-use astrophoto::{Config, db, http};
+use std::sync::Arc;
+
+use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{
     body::Body,
     http::{Request, header},
@@ -37,7 +39,11 @@ async fn signup_login_me_logout_full_flow() {
     let pool = db::connect(&url).await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
-    let app = http::router(pool.clone(), config_for(&url));
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+    );
 
     // 1. signup
     let signup_body = serde_json::json!({

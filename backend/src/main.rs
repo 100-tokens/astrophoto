@@ -1,7 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use std::sync::Arc;
+
 use anyhow::Result;
-use astrophoto::{Config, db, http};
+use astrophoto::{Config, db, http, storage::S3Storage};
 use axum::http::HeaderValue;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -15,10 +17,22 @@ async fn main() -> Result<()> {
     let pool = db::connect(&cfg.database_url).await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
+    let storage = Arc::new(
+        S3Storage::new(
+            cfg.s3_endpoint.as_deref(),
+            &cfg.s3_region,
+            &cfg.s3_bucket,
+            &cfg.s3_access_key,
+            &cfg.s3_secret_key,
+            cfg.s3_path_style,
+        )
+        .await?,
+    );
+
     // Allow the SvelteKit dev server to reach the backend with credentials.
     // TODO: source allowed origin from Config in a later iteration.
     let cors_origin: HeaderValue = "http://localhost:5173".parse().expect("valid origin");
-    let app = http::router(pool, cfg.clone())
+    let app = http::router(pool, cfg.clone(), storage)
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());
 
