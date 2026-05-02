@@ -137,14 +137,20 @@ async fn boot_app() -> (
     (app, pool, pg)
 }
 
-async fn publish_photo(pool: &sqlx::PgPool, id: uuid::Uuid) {
-    sqlx::query!(
-        "update photos set published_at = now(), last_step = 'caption' where id = $1",
-        id
-    )
-    .execute(pool)
-    .await
-    .unwrap();
+async fn publish_photo(app: &axum::Router, cookie: &str, id: &str) {
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/photos/{id}/publish"))
+                .header(header::COOKIE, cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200, "publish_photo failed for {id}");
 }
 
 async fn json_get(app: &axum::Router, uri: &str, cookie: Option<&str>) -> serde_json::Value {
@@ -170,18 +176,23 @@ async fn json_get(app: &axum::Router, uri: &str, cookie: Option<&str>) -> serde_
 
 #[tokio::test]
 async fn appreciation_toggle() {
-    let (app, pool, _pg) = boot_app().await;
+    let (app, _pool, _pg) = boot_app().await;
 
     let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
     let photo_id = upload(&app, &owner_cookie).await;
-    publish_photo(&pool, uuid::Uuid::parse_str(&photo_id).unwrap()).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        let v = json_get(&app, &format!("/api/photos/{photo_id}"), None).await;
+        let v = json_get(
+            &app,
+            &format!("/api/photos/{photo_id}"),
+            Some(&owner_cookie),
+        )
+        .await;
         if v["status"] == "ready" {
             break;
         }
     }
+    publish_photo(&app, &owner_cookie, &photo_id).await;
 
     let (_other_id, cookie) = signup(&app, "u@example.com", "U").await;
 
@@ -252,18 +263,23 @@ async fn appreciation_toggle() {
 
 #[tokio::test]
 async fn comment_create_list_delete_authorization() {
-    let (app, pool, _pg) = boot_app().await;
+    let (app, _pool, _pg) = boot_app().await;
 
     let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
     let photo_id = upload(&app, &owner_cookie).await;
-    publish_photo(&pool, uuid::Uuid::parse_str(&photo_id).unwrap()).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        let v = json_get(&app, &format!("/api/photos/{photo_id}"), None).await;
+        let v = json_get(
+            &app,
+            &format!("/api/photos/{photo_id}"),
+            Some(&owner_cookie),
+        )
+        .await;
         if v["status"] == "ready" {
             break;
         }
     }
+    publish_photo(&app, &owner_cookie, &photo_id).await;
 
     let (_b_id, b_cookie) = signup(&app, "b@example.com", "B").await;
     let (_c_id, c_cookie) = signup(&app, "c@example.com", "C").await;

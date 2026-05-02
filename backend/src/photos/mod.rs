@@ -3,6 +3,7 @@ pub mod exif;
 pub mod get;
 pub mod list;
 pub mod pipeline;
+pub mod publish;
 pub mod queries;
 pub mod serve;
 pub mod thumbs;

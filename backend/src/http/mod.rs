@@ -85,6 +85,10 @@ pub fn router(
         )
         .route("/api/photos/:id", get(crate::photos::get::handler))
         .route(
+            "/api/photos/:id/publish",
+            post(crate::photos::publish::handler),
+        )
+        .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )

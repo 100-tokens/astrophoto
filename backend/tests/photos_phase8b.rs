@@ -94,6 +94,23 @@ async fn harness() -> H {
 }
 
 impl H {
+    /// Poll until `photos.status = 'ready'` for the given photo id.
+    /// Panics if not reached within 10 s.
+    #[allow(clippy::unwrap_used, clippy::panic)]
+    async fn wait_for_ready(&self, id: Uuid) {
+        for _ in 0..200 {
+            let status = sqlx::query_scalar!("select status from photos where id = $1", id)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap();
+            if status == "ready" {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        panic!("photo {id} did not reach status='ready' within 10 s");
+    }
+
     /// POST /api/auth/signup, returns the `set-cookie` header value.
     #[allow(clippy::unwrap_used)]
     async fn signup(&self, email: &str, password: &str, display_name: &str) -> String {
@@ -338,17 +355,33 @@ async fn insert_processing_sets_last_step_upload_and_published_at_null() {
     sqlx::query!(
         "insert into users (id, email, password_hash, display_name)
          values ($1, $2, '', 'O')",
-        owner, format!("o-{owner}@e")
-    ).execute(&pool).await.unwrap();
+        owner,
+        format!("o-{owner}@e")
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     let photo_id = astrophoto::photos::queries::insert_processing(
-        &pool, owner, "k", "n.jpg", 10, "image/jpeg", None, None
-    ).await.unwrap();
+        &pool,
+        owner,
+        "k",
+        "n.jpg",
+        10,
+        "image/jpeg",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
 
     let row = sqlx::query!(
         "select published_at, last_step, original_uploaded_at from photos where id = $1",
         photo_id
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
     assert!(row.published_at.is_none());
     assert_eq!(row.last_step.as_deref(), Some("upload"));
@@ -367,7 +400,7 @@ async fn list_drafts_returns_only_callers_drafts() {
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
 
     let alice_draft_id = h.upload_draft(&alice).await;
-    h.upload_draft(&bob).await;          // draft for bob
+    h.upload_draft(&bob).await; // draft for bob
 
     let body = h.get_json("/api/photos?drafts=true", Some(&alice)).await;
     let photos = body["photos"].as_array().unwrap();
@@ -387,10 +420,12 @@ async fn list_drafts_with_cross_user_owner_id_is_rejected() {
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
     let bob_id = h.user_id(&bob).await;
 
-    let status = h.get_status(
-        &format!("/api/photos?drafts=true&owner_id={bob_id}"),
-        Some(&alice)
-    ).await;
+    let status = h
+        .get_status(
+            &format!("/api/photos?drafts=true&owner_id={bob_id}"),
+            Some(&alice),
+        )
+        .await;
     assert_eq!(status, 403);
 }
 
@@ -406,7 +441,9 @@ async fn get_draft_returns_404_for_non_owner() {
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
     let photo_id = h.upload_draft(&alice).await;
 
-    let status = h.get_status(&format!("/api/photos/{photo_id}"), Some(&bob)).await;
+    let status = h
+        .get_status(&format!("/api/photos/{photo_id}"), Some(&bob))
+        .await;
     assert_eq!(status, 404);
 
     let status_anon = h.get_status(&format!("/api/photos/{photo_id}"), None).await;
@@ -420,7 +457,9 @@ async fn get_draft_returns_200_with_is_draft_for_owner() {
     let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
     let photo_id = h.upload_draft(&alice).await;
 
-    let body = h.get_json(&format!("/api/photos/{photo_id}"), Some(&alice)).await;
+    let body = h
+        .get_json(&format!("/api/photos/{photo_id}"), Some(&alice))
+        .await;
     assert_eq!(body["is_draft"], true);
     assert!(body["last_step"].as_str().is_some());
     assert!(body["replaced_at"].is_null());
@@ -438,16 +477,17 @@ async fn appreciation_count_on_draft_404s_for_non_owner() {
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
     let photo_id = h.upload_draft(&alice).await;
 
-    let status = h.get_status(
-        &format!("/api/photos/{photo_id}/appreciations/count"),
-        Some(&bob)
-    ).await;
+    let status = h
+        .get_status(
+            &format!("/api/photos/{photo_id}/appreciations/count"),
+            Some(&bob),
+        )
+        .await;
     assert_eq!(status, 404);
 
-    let status_anon = h.get_status(
-        &format!("/api/photos/{photo_id}/appreciations/count"),
-        None
-    ).await;
+    let status_anon = h
+        .get_status(&format!("/api/photos/{photo_id}/appreciations/count"), None)
+        .await;
     assert_eq!(status_anon, 404);
 }
 
@@ -459,11 +499,13 @@ async fn appreciate_a_draft_returns_404() {
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
     let photo_id = h.upload_draft(&alice).await;
 
-    let status = h.post_status(
-        &format!("/api/photos/{photo_id}/appreciate"),
-        None,
-        Some(&bob)
-    ).await;
+    let status = h
+        .post_status(
+            &format!("/api/photos/{photo_id}/appreciate"),
+            None,
+            Some(&bob),
+        )
+        .await;
     assert_eq!(status, 404);
 }
 
@@ -475,9 +517,93 @@ async fn comment_list_on_draft_404s_for_non_owner() {
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
     let photo_id = h.upload_draft(&alice).await;
 
-    let status = h.get_status(
-        &format!("/api/photos/{photo_id}/comments"),
-        Some(&bob)
-    ).await;
+    let status = h
+        .get_status(&format!("/api/photos/{photo_id}/comments"), Some(&bob))
+        .await;
     assert_eq!(status, 404);
+}
+
+// ---------------------------------------------------------------------------
+// Task 7: publish endpoint
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn publish_sets_published_at_and_last_step_caption() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+
+    let status = h
+        .post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+    assert_eq!(status, 200);
+    let row = sqlx::query!("select published_at, last_step from photos where id=$1", id)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
+    assert!(row.published_at.is_some());
+    assert_eq!(row.last_step.as_deref(), Some("caption"));
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn publish_is_idempotent() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+    let first = sqlx::query_scalar!("select published_at from photos where id=$1", id)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let status = h
+        .post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+    assert_eq!(status, 200);
+    let second = sqlx::query_scalar!("select published_at from photos where id=$1", id)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        first, second,
+        "publish must be idempotent — published_at unchanged"
+    );
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn publish_403_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    let status = h
+        .post_status(&format!("/api/photos/{id}/publish"), None, Some(&bob))
+        .await;
+    assert_eq!(status, 403);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn publish_400_when_status_processing() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    // Don't wait — pipeline still processing in the background.
+    sqlx::query!("update photos set status='processing' where id=$1", id)
+        .execute(&h.pool)
+        .await
+        .unwrap();
+    let status = h
+        .post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+    assert_eq!(status, 400);
 }
