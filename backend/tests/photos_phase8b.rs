@@ -245,6 +245,26 @@ impl H {
             .unwrap();
         resp.status().as_u16()
     }
+
+    /// PUT `path` with a JSON body, optionally authenticated.
+    /// Returns HTTP status code only.
+    #[allow(clippy::unwrap_used, dead_code)]
+    async fn put_status(&self, path: &str, body: &serde_json::Value, cookie: Option<&str>) -> u16 {
+        let mut req = Request::builder()
+            .method("PUT")
+            .uri(path)
+            .header(header::CONTENT_TYPE, "application/json");
+        if let Some(c) = cookie {
+            req = req.header(header::COOKIE, c);
+        }
+        let r = self
+            .app
+            .clone()
+            .oneshot(req.body(Body::from(body.to_string())).unwrap())
+            .await
+            .unwrap();
+        r.status().as_u16()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -613,4 +633,66 @@ async fn publish_400_when_status_processing() {
         .post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
         .await;
     assert_eq!(status, 400);
+}
+
+// ---------------------------------------------------------------------------
+// Task 8: metadata partial-update PUT /api/photos/:id
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn put_metadata_works_on_draft_and_published() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let draft = h.upload_draft(&alice).await;
+    h.wait_for_ready(draft).await;
+
+    let body = serde_json::json!({
+        "target": "M31",
+        "caption": "first light",
+        "iso": 1600,
+        "last_step": "verify",
+    });
+    let status = h
+        .put_status(&format!("/api/photos/{draft}"), &body, Some(&alice))
+        .await;
+    assert_eq!(status, 200);
+    let row = sqlx::query!(
+        "select target, caption, iso, last_step from photos where id=$1",
+        draft
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+    assert_eq!(row.target.as_deref(), Some("M31"));
+    assert_eq!(row.caption.as_deref(), Some("first light"));
+    assert_eq!(row.iso, Some(1600));
+    assert_eq!(row.last_step.as_deref(), Some("verify"));
+
+    h.post_status(&format!("/api/photos/{draft}/publish"), None, Some(&alice))
+        .await;
+    let body2 = serde_json::json!({ "caption": "edited after publish" });
+    let status = h
+        .put_status(&format!("/api/photos/{draft}"), &body2, Some(&alice))
+        .await;
+    assert_eq!(status, 200);
+    let row = sqlx::query!("select caption from photos where id=$1", draft)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
+    assert_eq!(row.caption.as_deref(), Some("edited after publish"));
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn put_metadata_403_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let id = h.upload_draft(&alice).await;
+    let body = serde_json::json!({ "target": "hijack" });
+    let status = h
+        .put_status(&format!("/api/photos/{id}"), &body, Some(&bob))
+        .await;
+    assert_eq!(status, 403);
 }

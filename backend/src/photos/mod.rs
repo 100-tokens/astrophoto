@@ -2,6 +2,7 @@ pub mod count;
 pub mod exif;
 pub mod get;
 pub mod list;
+pub mod metadata;
 pub mod pipeline;
 pub mod publish;
 pub mod queries;
