@@ -71,9 +71,7 @@ fn read_rational(r: &exif::Exif, tag: exif::Tag) -> Option<f64> {
 fn read_datetime(r: &exif::Exif, tag: exif::Tag) -> Option<DateTime<Utc>> {
     let f = r.get_field(tag, exif::In::PRIMARY)?;
     if let exif::Value::Ascii(ref bytes) = f.value {
-        let s = bytes
-            .first()
-            .and_then(|v| std::str::from_utf8(v).ok())?;
+        let s = bytes.first().and_then(|v| std::str::from_utf8(v).ok())?;
         let dt = NaiveDateTime::parse_from_str(s, "%Y:%m:%d %H:%M:%S").ok()?;
         Some(Utc.from_utc_datetime(&dt))
     } else {
