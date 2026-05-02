@@ -71,7 +71,9 @@ async fn signup_login_me_logout_full_flow() {
         .to_str()
         .unwrap()
         .to_string();
-    assert!(cookie.starts_with("__Host-session="));
+    // session_secure=false in the test config, so the cookie name drops the
+    // __Host- prefix per backend/src/auth/session.rs::cookie_name().
+    assert!(cookie.starts_with("session="), "got: {cookie}");
 
     // 2. /me with the cookie
     let resp = app
