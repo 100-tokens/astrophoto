@@ -596,12 +596,19 @@ async fn publish_403_for_non_owner() {
 async fn publish_400_when_status_processing() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
-    // Don't wait — pipeline still processing in the background.
-    sqlx::query!("update photos set status='processing' where id=$1", id)
-        .execute(&h.pool)
-        .await
-        .unwrap();
+    let alice_id = h.user_id(&alice).await;
+    // Insert directly (bypassing upload_draft) so no background pipeline races.
+    let id = sqlx::query_scalar!(
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime,
+                             status, last_step, original_uploaded_at)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', 'upload', now())
+         returning id",
+        alice_id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+
     let status = h
         .post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
         .await;
