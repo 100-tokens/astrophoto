@@ -103,15 +103,6 @@ pub async fn create(
         return Err(AppError::not_found("photo"));
     }
 
-    // Verify the photo exists; surfaces 404 (photos table FK enforces it
-    // anyway, but better error message than a constraint violation).
-    let exists = sqlx::query!("select id from photos where id = $1", photo_id)
-        .fetch_optional(&state.pool)
-        .await?;
-    if exists.is_none() {
-        return Err(AppError::not_found("photo"));
-    }
-
     let row = sqlx::query_as!(
         CommentRow,
         r#"
