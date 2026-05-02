@@ -18,6 +18,7 @@ pub struct User {
     pub email: String,
     pub display_name: String,
     pub created_at: String,
+    pub following_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
