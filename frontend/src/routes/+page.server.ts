@@ -23,8 +23,15 @@ export const load: PageServerLoad = async ({ fetch }) => {
   // If we have real photos, build a gallery from them. Otherwise keep
   // the placeholder demo content for a non-empty landing.
   if (realPhotos.length > 0) {
+    const [hero, ...rest] = realPhotos as [(typeof realPhotos)[0], ...typeof realPhotos];
     return {
-      photos: realPhotos.map((p) => ({
+      heroPhoto: {
+        target: hero.target ?? 'Untitled',
+        integration: '',
+        photographer: ''
+      },
+      heroSrc: `${API}/api/photos/${hero.id}/thumb/1200`,
+      photos: rest.map((p) => ({
         slug: p.id,
         target: p.target ?? 'Untitled',
         ratio: p.width && p.height ? p.width / p.height : 1.5,
@@ -34,20 +41,18 @@ export const load: PageServerLoad = async ({ fetch }) => {
         camera: '',
         thumbSrc: `${API}/api/photos/${p.id}/thumb/400`
       })),
-      heroTarget: realPhotos[0]?.target ?? 'NGC 7000',
-      heroTargetSubtitle: '',
-      heroIntegration: '',
-      heroPhotographer: '',
-      heroBortle: 0
+      isReal: true
     };
   }
 
   return {
+    heroPhoto: {
+      target: NGC7000.target,
+      integration: NGC7000.integration,
+      photographer: NGC7000.photographer.name
+    },
+    heroSrc: undefined,
     photos: PHOTOS.slice(0, 12).map((p) => ({ ...p, thumbSrc: undefined })),
-    heroTarget: NGC7000.target,
-    heroTargetSubtitle: NGC7000.targetSubtitle,
-    heroIntegration: NGC7000.integration,
-    heroPhotographer: NGC7000.photographer.name,
-    heroBortle: NGC7000.photographer.bortle
+    isReal: false
   };
 };
