@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
-import { api } from '$lib/api/client';
+import { api, ApiError } from '$lib/api/client';
 
 export const load: PageServerLoad = async ({ locals }) => ({
   pending_deletion_at: locals.user?.pending_deletion_at ?? null
@@ -18,8 +18,18 @@ export const actions: Actions = {
         : { confirmation_phrase: phrase };
     try {
       await api.requestDeletion(body, { fetch });
-    } catch {
-      return fail(401, { error: 'wrong_password' });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 401) return fail(401, { error: 'wrong_password' });
+        if (e.status === 429) return fail(429, { error: 'throttled' });
+        if (e.status === 400) {
+          const errorBody = e.body as { message?: string } | undefined;
+          const msg = errorBody?.message ?? '';
+          if (msg.includes('phrase_mismatch')) return fail(400, { error: 'phrase' });
+          return fail(400, { error: 'invalid' });
+        }
+      }
+      return fail(500, { error: 'server' });
     }
     redirect(303, '/settings/delete');
   },

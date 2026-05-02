@@ -28,6 +28,13 @@
     <label class="lbl" for="current_password">CURRENT PASSWORD</label>
     <input type="password" id="current_password" name="current_password" required class="input" />
     {#if form?.error === 'wrong_password'}<p class="err">Wrong password.</p>{/if}
+    {#if form?.error === 'throttled'}<p class="err">
+        Too many requests. Wait a minute and try again.
+      </p>{/if}
+    {#if form?.error === 'same_email'}<p class="err">That's already your email.</p>{/if}
+    {#if form?.error === 'invalid_email'}<p class="err">That email isn't valid.</p>{/if}
+    {#if form?.error === 'invalid'}<p class="err">That value isn't valid.</p>{/if}
+    {#if form?.error === 'server'}<p class="err">Something went wrong. Please try again.</p>{/if}
     {#if form?.ok}<p class="ok">Check your new inbox for a confirmation link.</p>{/if}
     <button type="submit" class="btn btn-primary">Send confirmation link</button>
   </form>

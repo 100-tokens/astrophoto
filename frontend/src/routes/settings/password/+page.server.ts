@@ -1,6 +1,6 @@
 import type { Actions } from './$types';
 import { fail } from '@sveltejs/kit';
-import { api } from '$lib/api/client';
+import { api, ApiError } from '$lib/api/client';
 
 export const actions: Actions = {
   default: async ({ request, fetch }) => {
@@ -15,8 +15,19 @@ export const actions: Actions = {
     try {
       await api.changePassword(body, { fetch });
       return { ok: true };
-    } catch {
-      return fail(401, { error: 'wrong_password' });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 401) return fail(401, { error: 'wrong_password' });
+        if (e.status === 429) return fail(429, { error: 'throttled' });
+        if (e.status === 400) {
+          const errorBody = e.body as { message?: string } | undefined;
+          const msg = errorBody?.message ?? '';
+          if (msg.includes('password_too_short')) return fail(400, { error: 'too_short' });
+          if (msg.includes('password_too_common')) return fail(400, { error: 'too_common' });
+          return fail(400, { error: 'invalid' });
+        }
+      }
+      return fail(500, { error: 'server' });
     }
   }
 };

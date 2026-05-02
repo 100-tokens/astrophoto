@@ -3,6 +3,8 @@
 
   let { data, form } = $props();
   let phrase = $state('');
+
+  const exportHref = `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/me/export.json`;
 </script>
 
 {#if data.pending_deletion_at}
@@ -16,7 +18,7 @@
     <form method="POST" action="?/cancel">
       <button class="btn btn-primary">Cancel deletion · keep my account</button>
     </form>
-    <a class="btn btn-secondary" href="/api/me/export.json" download>Download my archive (JSON)</a>
+    <a class="btn btn-secondary" href={exportHref} download>Download my archive (JSON)</a>
   </div>
 {:else}
   <Section
@@ -37,6 +39,11 @@
       />
       {#if form?.error === 'phrase'}<p class="err">The phrase doesn't match.</p>{/if}
       {#if form?.error === 'wrong_password'}<p class="err">Wrong password.</p>{/if}
+      {#if form?.error === 'throttled'}<p class="err">
+          Too many requests. Wait a minute and try again.
+        </p>{/if}
+      {#if form?.error === 'invalid'}<p class="err">That value isn't valid.</p>{/if}
+      {#if form?.error === 'server'}<p class="err">Something went wrong. Please try again.</p>{/if}
       <button type="submit" class="btn btn-danger" disabled={phrase !== 'DELETE MY ACCOUNT'}>
         Begin 7-day deletion
       </button>

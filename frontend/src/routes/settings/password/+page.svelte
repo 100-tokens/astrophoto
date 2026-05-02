@@ -22,6 +22,14 @@
 
     {#if form?.error === 'wrong_password'}<p class="err">Wrong current password.</p>{/if}
     {#if form?.error === 'too_short'}<p class="err">Use at least 12 characters.</p>{/if}
+    {#if form?.error === 'too_common'}<p class="err">
+        That password is too common. Choose something more unique.
+      </p>{/if}
+    {#if form?.error === 'throttled'}<p class="err">
+        Too many requests. Wait a minute and try again.
+      </p>{/if}
+    {#if form?.error === 'invalid'}<p class="err">That value isn't valid.</p>{/if}
+    {#if form?.error === 'server'}<p class="err">Something went wrong. Please try again.</p>{/if}
     {#if form?.ok}<p class="ok">Password changed. Other devices have been signed out.</p>{/if}
 
     <button type="submit" class="btn btn-primary">Save new password</button>
