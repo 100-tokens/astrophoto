@@ -127,5 +127,7 @@ pub fn router(
             "/api/users/:id/following/count",
             axum::routing::get(crate::engagement::follows::following_count),
         )
+        .route("/api/me/profile", axum::routing::get(crate::users::profile::get).put(crate::users::profile::put))
+        .route("/api/me/preferences", axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put))
         .with_state(state)
 }

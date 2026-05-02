@@ -1,5 +1,7 @@
 pub mod get;
 pub mod queries;
+pub mod profile;
+pub mod preferences;
 
 use crate::api_types::User;
 use queries::UserRow;

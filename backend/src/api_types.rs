@@ -36,3 +36,16 @@ pub struct UserPublic {
     pub created_at: String,
     pub photo_count: i64,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "Profile.ts")]
+pub struct Profile {
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "Preferences.ts")]
+pub struct Preferences {
+    pub theme: String,
+    pub density: String,
+}

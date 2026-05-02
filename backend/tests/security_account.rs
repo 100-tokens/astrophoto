@@ -607,3 +607,55 @@ async fn email_change_oauth_only_user_blocked_400() {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn profile_get_put_round_trip() {
+    let (app, _pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_h = cookie.split(';').next().unwrap().to_string();
+
+    // PUT
+    let mut req = Request::builder()
+        .method("PUT").uri("/api/me/profile")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::from(json!({"display_name": "Marie Dubois"}).to_string())).unwrap();
+    req.extensions_mut().insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(app.clone().oneshot(req).await.unwrap().status(), StatusCode::NO_CONTENT);
+
+    // GET
+    let mut req = Request::builder()
+        .method("GET").uri("/api/me/profile")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::empty()).unwrap();
+    req.extensions_mut().insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    let resp = app.oneshot(req).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(
+        &resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(v["display_name"], "Marie Dubois");
+}
+
+#[tokio::test]
+async fn preferences_default_dark_work_then_updated() {
+    let (app, _pool, _outbox, _pg) = boot().await;
+    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
+    let cookie_h = cookie.split(';').next().unwrap().to_string();
+
+    let mut req = Request::builder().method("GET").uri("/api/me/preferences")
+        .header(header::COOKIE, &cookie_h).body(Body::empty()).unwrap();
+    req.extensions_mut().insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(
+        &resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(v["theme"], "dark");
+    assert_eq!(v["density"], "work");
+
+    let mut req = Request::builder().method("PUT").uri("/api/me/preferences")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::COOKIE, &cookie_h)
+        .body(Body::from(json!({"theme": "light"}).to_string())).unwrap();
+    req.extensions_mut().insert(std::net::SocketAddr::from(([127, 0, 0, 1], 9999)));
+    assert_eq!(app.oneshot(req).await.unwrap().status(), StatusCode::NO_CONTENT);
+}
