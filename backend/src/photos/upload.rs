@@ -94,7 +94,15 @@ pub async fn handler(
     let storage = state.storage.clone();
     let bytes_clone = bytes;
     tokio::spawn(async move {
-        if let Err(e) = pipeline::finalize(&pool, storage, id, bytes_clone, pipeline::PipelineOptions::Initial).await {
+        if let Err(e) = pipeline::finalize(
+            &pool,
+            storage,
+            id,
+            bytes_clone,
+            pipeline::PipelineOptions::Initial,
+        )
+        .await
+        {
             let reason = format!("{e}");
             tracing::error!(photo_id=%id, error=%reason, "photo finalize failed");
             let _ = queries::mark_failed(&pool, id, &reason).await;

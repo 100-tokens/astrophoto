@@ -741,17 +741,24 @@ async fn put_metadata_explicit_null_clears_field() {
 
     // Set target to a value
     let body = serde_json::json!({ "target": "M31" });
-    h.put_status(&format!("/api/photos/{id}"), &body, Some(&alice)).await;
+    h.put_status(&format!("/api/photos/{id}"), &body, Some(&alice))
+        .await;
     let row = sqlx::query!("select target from photos where id=$1", id)
-        .fetch_one(&h.pool).await.unwrap();
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
     assert_eq!(row.target.as_deref(), Some("M31"));
 
     // Now explicitly clear it via JSON null
     let body = serde_json::json!({ "target": null });
-    let status = h.put_status(&format!("/api/photos/{id}"), &body, Some(&alice)).await;
+    let status = h
+        .put_status(&format!("/api/photos/{id}"), &body, Some(&alice))
+        .await;
     assert_eq!(status, 200);
     let row = sqlx::query!("select target from photos where id=$1", id)
-        .fetch_one(&h.pool).await.unwrap();
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
     assert!(row.target.is_none(), "explicit null should clear the field");
 }
 
@@ -766,20 +773,36 @@ async fn mark_failed_records_pipeline_error_string() {
     let owner = Uuid::new_v4();
     sqlx::query!(
         "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O')", owner, format!("o-{owner}@e")
-    ).execute(&pool).await.unwrap();
+         values ($1, $2, '', 'O')",
+        owner,
+        format!("o-{owner}@e")
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, original_uploaded_at, last_step)
          values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload')
-         returning id", owner
-    ).fetch_one(&pool).await.unwrap();
+         returning id",
+        owner
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
 
-    astrophoto::photos::queries::mark_failed(&pool, id, "decode failed: bad jpeg").await.unwrap();
+    astrophoto::photos::queries::mark_failed(&pool, id, "decode failed: bad jpeg")
+        .await
+        .unwrap();
     let row = sqlx::query!("select status, pipeline_error from photos where id=$1", id)
-        .fetch_one(&pool).await.unwrap();
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(row.status, "failed");
-    assert_eq!(row.pipeline_error.as_deref(), Some("decode failed: bad jpeg"));
+    assert_eq!(
+        row.pipeline_error.as_deref(),
+        Some("decode failed: bad jpeg")
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -802,11 +825,10 @@ async fn replace_swaps_storage_key_keeps_metadata() {
     h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
         .await;
 
-    let key_before: String =
-        sqlx::query_scalar!("select storage_key from photos where id=$1", id)
-            .fetch_one(&h.pool)
-            .await
-            .unwrap();
+    let key_before: String = sqlx::query_scalar!("select storage_key from photos where id=$1", id)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
     h.replace_with_jpeg(id, &alice).await;
     h.wait_for_ready(id).await;
 
@@ -824,14 +846,25 @@ async fn replace_swaps_storage_key_keeps_metadata() {
     assert!(row.published_at.is_some(), "published_at preserved");
 
     let pending: i64 = sqlx::query_scalar!(
-        r#"select count(*) as "c!" from photo_pending_deletes where photo_id = $1"#, id
-    ).fetch_one(&h.pool).await.unwrap();
+        r#"select count(*) as "c!" from photo_pending_deletes where photo_id = $1"#,
+        id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
     assert_eq!(pending, 0, "pending deletes must be drained after replace");
 
     let thumb_count: i64 = sqlx::query_scalar!(
-        r#"select count(*) as "c!" from thumbnails where photo_id = $1"#, id
-    ).fetch_one(&h.pool).await.unwrap();
-    assert!(thumb_count > 0, "thumbnails must be regenerated after replace");
+        r#"select count(*) as "c!" from thumbnails where photo_id = $1"#,
+        id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+    assert!(
+        thumb_count > 0,
+        "thumbnails must be regenerated after replace"
+    );
 }
 
 #[tokio::test]
@@ -900,7 +933,10 @@ async fn me_stats_counts_published_and_drafts_separately() {
     assert_eq!(body["appreciations_received"], 0);
     // integration_secs should sum only published photos (60.0 from p1; nothing from draft)
     let integ = body["integration_secs"].as_f64().unwrap();
-    assert!((integ - 60.0).abs() < 0.001, "integration_secs should be 60.0, got {integ}");
+    assert!(
+        (integ - 60.0).abs() < 0.001,
+        "integration_secs should be 60.0, got {integ}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -915,39 +951,75 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
     let owner = Uuid::new_v4();
     sqlx::query!(
         "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O')", owner, format!("o-{owner}@e")
-    ).execute(&pool).await.unwrap();
+         values ($1, $2, '', 'O')",
+        owner,
+        format!("o-{owner}@e")
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, original_uploaded_at, last_step)
          values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'failed', now(), 'upload')
-         returning id", owner
-    ).fetch_one(&pool).await.unwrap();
-    storage.put("orphan-key", "image/jpeg", bytes::Bytes::from_static(b"x")).await.unwrap();
+         returning id",
+        owner
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    storage
+        .put("orphan-key", "image/jpeg", bytes::Bytes::from_static(b"x"))
+        .await
+        .unwrap();
     sqlx::query!(
         "insert into photo_pending_deletes (photo_id, storage_key, queued_at)
-         values ($1, 'orphan-key', now() - interval '8 days')", id
-    ).execute(&pool).await.unwrap();
+         values ($1, 'orphan-key', now() - interval '8 days')",
+        id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Fresh row — must NOT be swept (queued_at = now())
-    storage.put("fresh-key", "image/jpeg", bytes::Bytes::from_static(b"y")).await.unwrap();
+    storage
+        .put("fresh-key", "image/jpeg", bytes::Bytes::from_static(b"y"))
+        .await
+        .unwrap();
     sqlx::query!(
         "insert into photo_pending_deletes (photo_id, storage_key, queued_at)
-         values ($1, 'fresh-key', now())", id
-    ).execute(&pool).await.unwrap();
+         values ($1, 'fresh-key', now())",
+        id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     astrophoto::jobs::purge_deletions::sweep_pending_deletes(&pool, storage.as_ref())
-        .await.unwrap();
+        .await
+        .unwrap();
 
     let remaining: i64 = sqlx::query_scalar!(
         r#"select count(*) as "c!" from photo_pending_deletes where storage_key='orphan-key'"#
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(remaining, 0);
-    assert!(storage.get("orphan-key").await.unwrap().is_none(), "S3 object swept");
+    assert!(
+        storage.get("orphan-key").await.unwrap().is_none(),
+        "S3 object swept"
+    );
 
     let fresh_remaining: i64 = sqlx::query_scalar!(
         r#"select count(*) as "c!" from photo_pending_deletes where storage_key='fresh-key'"#
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(fresh_remaining, 1, "fresh row must survive sweep");
-    assert!(storage.get("fresh-key").await.unwrap().is_some(), "fresh S3 object must survive");
+    assert!(
+        storage.get("fresh-key").await.unwrap().is_some(),
+        "fresh S3 object must survive"
+    );
 }

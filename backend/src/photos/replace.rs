@@ -69,12 +69,10 @@ pub async fn handler(
 
     // 1. Stash old master + thumb keys for deferred deletion.
     let mut to_stash = vec![row.storage_key.clone()];
-    let old_thumb_keys: Vec<String> = sqlx::query_scalar!(
-        "select storage_key from thumbnails where photo_id = $1",
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
+    let old_thumb_keys: Vec<String> =
+        sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
+            .fetch_all(&state.pool)
+            .await?;
     to_stash.extend(old_thumb_keys);
     queries::enqueue_pending_deletes(&state.pool, id, &to_stash).await?;
 
@@ -102,8 +100,14 @@ pub async fn handler(
     let pool = state.pool.clone();
     let storage = state.storage.clone();
     tokio::spawn(async move {
-        if let Err(e) =
-            pipeline::finalize(&pool, storage, id, bytes, pipeline::PipelineOptions::Replace).await
+        if let Err(e) = pipeline::finalize(
+            &pool,
+            storage,
+            id,
+            bytes,
+            pipeline::PipelineOptions::Replace,
+        )
+        .await
         {
             let reason = format!("{e}");
             tracing::error!(photo_id=%id, error=%reason, "replace finalize failed");

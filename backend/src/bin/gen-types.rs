@@ -5,7 +5,7 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, Health, Preferences, Profile, SessionRow, User, UserPublic,
+    AuthError, Health, MeStats, PhotoDetail, Preferences, Profile, SessionRow, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,6 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Profile::export_all_to(out_dir)?;
     Preferences::export_all_to(out_dir)?;
     SessionRow::export_all_to(out_dir)?;
+    MeStats::export_all_to(out_dir)?;
+    PhotoDetail::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

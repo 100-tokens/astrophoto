@@ -57,10 +57,7 @@ pub async fn purge_once(pool: &PgPool, storage: &dyn Storage) -> Result<u64, App
     Ok(deleted)
 }
 
-pub async fn sweep_pending_deletes(
-    pool: &PgPool,
-    storage: &dyn Storage,
-) -> Result<u64, AppError> {
+pub async fn sweep_pending_deletes(pool: &PgPool, storage: &dyn Storage) -> Result<u64, AppError> {
     let stale: Vec<String> = sqlx::query_scalar!(
         "select storage_key from photo_pending_deletes
          where queued_at < now() - interval '7 days'"
