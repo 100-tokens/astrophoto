@@ -155,6 +155,7 @@ pub fn router(
             "/api/me/delete-cancel",
             post(crate::users::deletion::cancel),
         )
+        .route("/api/me/photos/count", get(crate::photos::count::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
         .with_state(state)
 }

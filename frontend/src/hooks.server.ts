@@ -19,8 +19,10 @@ export const handle: Handle = async ({ event, resolve }) => {
       const user = await api.me({ fetch: event.fetch, cookie });
       event.locals.user = {
         id: user.id,
+        email: user.email,
         displayName: user.display_name,
-        following_ids: user.following_ids ?? []
+        following_ids: user.following_ids ?? [],
+        pending_deletion_at: user.pending_deletion_at ?? null
       };
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {

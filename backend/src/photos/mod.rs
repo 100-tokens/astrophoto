@@ -1,3 +1,4 @@
+pub mod count;
 pub mod exif;
 pub mod get;
 pub mod list;

@@ -178,5 +178,19 @@ export const api = {
     request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`, undefined, opts),
 
   signOutOthers: (opts?: ApiCall) =>
-    request<void>('POST', '/api/me/sessions/sign-out-others', undefined, opts)
+    request<void>('POST', '/api/me/sessions/sign-out-others', undefined, opts),
+
+  requestEmailChange: (new_email: string, current_password: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/me/email-change/request', { new_email, current_password }, opts),
+
+  changePassword: (body: { current_password?: string; new_password: string }, opts?: ApiCall) =>
+    request<void>('POST', '/api/me/password-change', body, opts),
+
+  requestDeletion: (
+    body: { current_password?: string; confirmation_phrase: string },
+    opts?: ApiCall
+  ) => request<void>('POST', '/api/me/delete-request', body, opts),
+
+  cancelDeletion: (opts?: ApiCall) =>
+    request<void>('POST', '/api/me/delete-cancel', undefined, opts)
 };
