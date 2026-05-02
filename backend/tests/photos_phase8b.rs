@@ -69,6 +69,8 @@ fn make_test_jpeg() -> Vec<u8> {
 /// lifetime; the `_` prefix suppresses the dead_code lint.
 struct H {
     app: Router,
+    // Kept for future tasks (5-11) that hit the DB layer directly.
+    #[allow(dead_code)]
     pool: PgPool,
     _pg: testcontainers::ContainerAsync<PgImage>,
 }
@@ -202,7 +204,7 @@ impl H {
 
     /// POST `path` with optional JSON body, optionally authenticated.
     /// Returns HTTP status code only.
-    #[allow(clippy::unwrap_used)]
+    #[allow(clippy::unwrap_used, dead_code)]
     async fn post_status(
         &self,
         path: &str,

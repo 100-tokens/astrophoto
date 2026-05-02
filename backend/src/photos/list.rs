@@ -33,10 +33,10 @@ pub async fn handler(
     if q.drafts.unwrap_or(false) {
         let me = user.0.ok_or(AppError::Unauthorized)?;
         // Reject cross-user drafts — users can only ever see their own.
-        if let Some(requested) = q.owner_id {
-            if requested != me.id {
-                return Err(AppError::Forbidden);
-            }
+        if let Some(requested) = q.owner_id
+            && requested != me.id
+        {
+            return Err(AppError::Forbidden);
         }
         let rows = queries::list_drafts_by_owner(&state.pool, me.id, limit).await?;
         return Ok(Json(ListResponse {
