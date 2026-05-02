@@ -3,27 +3,51 @@ import type { PageServerLoad } from './$types';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
-export const load: PageServerLoad = async ({ fetch }) => {
-  let realPhotos: Array<{
-    id: string;
-    target: string | null;
-    width: number | null;
-    height: number | null;
-  }> = [];
-  try {
-    const res = await fetch(`${API}/api/photos?limit=24`);
-    if (res.ok) {
-      const body = (await res.json()) as { photos: typeof realPhotos };
-      realPhotos = body.photos;
+type RealPhoto = {
+  id: string;
+  target: string | null;
+  width: number | null;
+  height: number | null;
+  owner_id?: string;
+};
+
+export const load: PageServerLoad = async ({ fetch, locals, request }) => {
+  let realPhotos: RealPhoto[] = [];
+
+  // 1. Authenticated user with follows: try the personalised feed first.
+  if (locals.user) {
+    try {
+      const cookie = request.headers.get('cookie') ?? '';
+      const res = await fetch(`${API}/api/photos?following=true`, {
+        headers: cookie ? { Cookie: cookie } : {}
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { photos: RealPhoto[] };
+        realPhotos = body.photos;
+      }
+    } catch {
+      // ignore — fall through to public list
     }
-  } catch {
-    // backend down — fall through to placeholders
+  }
+
+  // 2. Anonymous, OR auth user follows nobody, OR follows-with-no-photos:
+  //    show the public feed.
+  if (realPhotos.length === 0) {
+    try {
+      const res = await fetch(`${API}/api/photos?limit=24`);
+      if (res.ok) {
+        const body = (await res.json()) as { photos: RealPhoto[] };
+        realPhotos = body.photos;
+      }
+    } catch {
+      // backend down — fall back to placeholder demo content
+    }
   }
 
   // If we have real photos, build a gallery from them. Otherwise keep
   // the placeholder demo content for a non-empty landing.
   if (realPhotos.length > 0) {
-    const [hero, ...rest] = realPhotos as [(typeof realPhotos)[0], ...typeof realPhotos];
+    const [hero, ...rest] = realPhotos as [RealPhoto, ...RealPhoto[]];
     return {
       heroPhoto: {
         target: hero.target ?? 'Untitled',
