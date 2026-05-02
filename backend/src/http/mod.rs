@@ -17,6 +17,7 @@ pub struct AppState {
     pub pool: PgPool,
     pub config: Arc<Config>,
     pub storage: Arc<dyn crate::storage::Storage>,
+    pub mailer: Arc<crate::mail::Mailer>,
 }
 
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
@@ -27,14 +28,20 @@ pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
         .allow_origin(allowed_origin)
         .allow_credentials(true)
         .allow_headers([HeaderName::from_static("content-type")])
-        .allow_methods([Method::GET, Method::POST, Method::DELETE])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
 }
 
-pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Storage>) -> Router {
+pub fn router(
+    pool: PgPool,
+    config: Config,
+    storage: Arc<dyn crate::storage::Storage>,
+    mailer: Arc<crate::mail::Mailer>,
+) -> Router {
     let state = AppState {
         pool,
         config: Arc::new(config),
         storage,
+        mailer,
     };
     Router::new()
         .route("/healthz", get(health::healthz))
@@ -42,6 +49,26 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
         .route("/api/auth/login", post(crate::auth::login::handler))
         .route("/api/auth/me", get(crate::auth::me::handler))
         .route("/api/auth/logout", post(crate::auth::logout::handler))
+        .route(
+            "/api/auth/password-reset/request",
+            post(crate::auth::password_reset::request),
+        )
+        .route(
+            "/api/auth/password-reset/confirm",
+            post(crate::auth::password_reset::confirm),
+        )
+        .route(
+            "/api/me/password-change",
+            post(crate::auth::password_change::change),
+        )
+        .route(
+            "/api/me/email-change/request",
+            post(crate::auth::email_change::request),
+        )
+        .route(
+            "/api/auth/email-change/confirm",
+            post(crate::auth::email_change::confirm),
+        )
         .route(
             "/api/auth/oauth/google/start",
             get(crate::auth::oauth_google::start),
@@ -100,5 +127,35 @@ pub fn router(pool: PgPool, config: Config, storage: Arc<dyn crate::storage::Sto
             "/api/users/:id/following/count",
             axum::routing::get(crate::engagement::follows::following_count),
         )
+        .route(
+            "/api/me/profile",
+            axum::routing::get(crate::users::profile::get).put(crate::users::profile::put),
+        )
+        .route(
+            "/api/me/preferences",
+            axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put),
+        )
+        .route(
+            "/api/me/sessions",
+            axum::routing::get(crate::users::sessions::list),
+        )
+        .route(
+            "/api/me/sessions/:id",
+            axum::routing::delete(crate::users::sessions::revoke),
+        )
+        .route(
+            "/api/me/sessions/sign-out-others",
+            axum::routing::post(crate::users::sessions::sign_out_others),
+        )
+        .route(
+            "/api/me/delete-request",
+            post(crate::users::deletion::request),
+        )
+        .route(
+            "/api/me/delete-cancel",
+            post(crate::users::deletion::cancel),
+        )
+        .route("/api/me/photos/count", get(crate::photos::count::handler))
+        .route("/api/me/export.json", get(crate::users::export::handler))
         .with_state(state)
 }

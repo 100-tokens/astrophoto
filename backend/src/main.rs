@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -29,16 +30,25 @@ async fn main() -> Result<()> {
         .await?,
     );
 
+    let mailer = std::sync::Arc::new(astrophoto::mail::Mailer::from_env(&cfg)?);
+
+    // Spawn the hourly purge worker before handing pool/storage to the router.
+    astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
+
     // Allow the SvelteKit dev server to reach the backend with credentials.
     // TODO: source allowed origin from Config in a later iteration.
     let cors_origin: HeaderValue = "http://localhost:5173".parse().expect("valid origin");
-    let app = http::router(pool, cfg.clone(), storage)
+    let app = http::router(pool, cfg.clone(), storage, mailer)
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());
 
     let listener = TcpListener::bind(&cfg.bind).await?;
     tracing::info!(bind = %cfg.bind, "astrophoto listening");
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 

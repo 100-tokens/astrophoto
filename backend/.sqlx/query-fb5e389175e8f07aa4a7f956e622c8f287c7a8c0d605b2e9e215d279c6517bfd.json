@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select user_id, new_email as \"new_email!: String\", expires_at, used_at\n             from email_change_tokens\n            where token_hash = $1\n              for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "new_email!: String",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "fb5e389175e8f07aa4a7f956e622c8f287c7a8c0d605b2e9e215d279c6517bfd"
+}

@@ -11,6 +11,21 @@ use argon2::{
 
 use crate::AppError;
 
+const COMMON: &str = include_str!("../../assets/common-passwords.txt");
+
+/// Validate password strength. Returns `Err` with a static error code string
+/// if the password is too short or appears in the common-password dictionary.
+pub fn validate_strength(pwd: &str) -> Result<(), &'static str> {
+    if pwd.chars().count() < 12 {
+        return Err("password_too_short");
+    }
+    let lower = pwd.to_ascii_lowercase();
+    if COMMON.lines().any(|p| p.trim() == lower) {
+        return Err("password_too_common");
+    }
+    Ok(())
+}
+
 /// Hash a plaintext password. Async-safe — runs the work on the blocking pool.
 pub async fn hash(password: String) -> Result<String, AppError> {
     tokio::task::spawn_blocking(move || hash_blocking(&password))

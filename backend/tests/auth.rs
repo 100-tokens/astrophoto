@@ -27,6 +27,12 @@ fn config_for(url: &str) -> Config {
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
+        smtp_host: "unused-in-tests".into(),
+        smtp_port: 1025,
+        smtp_user: String::new(),
+        smtp_pass: String::new(),
+        mail_from: "test <test@astrophoto.local>".into(),
+        smtp_tls: false,
     }
 }
 
@@ -39,10 +45,12 @@ async fn signup_login_me_logout_full_flow() {
     let pool = db::connect(&url).await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
     let app = http::router(
         pool.clone(),
         config_for(&url),
         Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
     );
 
     // 1. signup

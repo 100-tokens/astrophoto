@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select theme, density from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "theme",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "density",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5a441b65fb3595836bf70dc83f500cc55d38e02207912bb1dd68787632c8ad41"
+}

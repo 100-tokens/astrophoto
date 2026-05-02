@@ -44,6 +44,21 @@ impl Storage for MemoryStorage {
         g.remove(key);
         Ok(())
     }
+
+    async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError> {
+        let mut g = self
+            .inner
+            .lock()
+            .map_err(|e| AppError::Internal(format!("memory lock: {e}")))?;
+        for key in keys {
+            g.remove(key.as_str());
+        }
+        Ok(())
+    }
+
+    async fn signed_url(&self, key: &str, _ttl_secs: u64) -> Result<String, AppError> {
+        Ok(format!("memory://{key}"))
+    }
 }
 
 #[cfg(test)]

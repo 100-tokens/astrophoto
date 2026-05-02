@@ -16,7 +16,7 @@ pub async fn handler(
 ) -> Result<Json<UserPublic>, AppError> {
     let user = user_q::find_by_id(&state.pool, id)
         .await?
-        .ok_or(AppError::NotFound)?;
+        .ok_or(AppError::not_found("user"))?;
     let count = photo_q::count_by_owner(&state.pool, id).await?;
     Ok(Json(UserPublic {
         id: user.id.to_string(),

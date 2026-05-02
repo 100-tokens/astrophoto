@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set pending_deletion_at = now() + interval '7 days'\n          where id = $1 and pending_deletion_at is null\n        returning pending_deletion_at as \"pending_deletion_at!: chrono::DateTime<chrono::Utc>\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pending_deletion_at!: chrono::DateTime<chrono::Utc>",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "37d34263e54281b1a64038e0087a00e7639873eeb5d537080e1270b0cf71584f"
+}

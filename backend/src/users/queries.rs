@@ -21,8 +21,8 @@ pub async fn create_with_password(
     let row = sqlx::query_as!(
         UserRow,
         r#"
-        insert into users (email, display_name, password_hash)
-        values ($1, $2, $3)
+        insert into users (email, display_name, password_hash, password_changed_at)
+        values ($1, $2, $3, now())
         returning id, email::text as "email!", display_name, password_hash, created_at
         "#,
         email,

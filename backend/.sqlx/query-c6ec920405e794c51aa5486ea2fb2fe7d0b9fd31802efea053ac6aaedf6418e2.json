@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from users\n          where pending_deletion_at is not null\n            and pending_deletion_at < now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c6ec920405e794c51aa5486ea2fb2fe7d0b9fd31802efea053ac6aaedf6418e2"
+}

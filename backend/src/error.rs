@@ -7,8 +7,8 @@ use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    #[error("not found")]
-    NotFound,
+    #[error("not found: {0}")]
+    NotFound(String),
 
     #[error("unauthorized")]
     Unauthorized,
@@ -16,11 +16,20 @@ pub enum AppError {
     #[error("forbidden")]
     Forbidden,
 
+    #[error("bad request: {0}")]
+    BadRequest(String),
+
+    #[error("gone: {0}")]
+    Gone(String),
+
     #[error("validation: {0}")]
     Validation(String),
 
     #[error("conflict: {0}")]
     Conflict(String),
+
+    #[error("too many requests: {0}")]
+    TooManyRequests(String),
 
     #[error(transparent)]
     Database(#[from] sqlx::Error),
@@ -30,24 +39,52 @@ pub enum AppError {
 }
 
 impl AppError {
+    pub fn internal(msg: impl Into<String>) -> Self {
+        AppError::Internal(msg.into())
+    }
+
+    pub fn bad_request(msg: impl Into<String>) -> Self {
+        AppError::BadRequest(msg.into())
+    }
+
+    pub fn gone(msg: impl Into<String>) -> Self {
+        AppError::Gone(msg.into())
+    }
+
+    pub fn too_many_requests(msg: impl Into<String>) -> Self {
+        AppError::TooManyRequests(msg.into())
+    }
+
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        AppError::NotFound(msg.into())
+    }
+}
+
+impl AppError {
     fn status(&self) -> StatusCode {
         match self {
-            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::Gone(_) => StatusCode::GONE,
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
     fn code(&self) -> &'static str {
         match self {
-            AppError::NotFound => "not-found",
+            AppError::NotFound(_) => "not-found",
             AppError::Unauthorized => "unauthorized",
             AppError::Forbidden => "forbidden",
+            AppError::BadRequest(_) => "bad-request",
+            AppError::Gone(_) => "gone",
             AppError::Validation(_) => "validation",
             AppError::Conflict(_) => "conflict",
+            AppError::TooManyRequests(_) => "too-many-requests",
             AppError::Database(_) | AppError::Internal(_) => "internal",
         }
     }
@@ -80,7 +117,7 @@ mod tests {
 
     #[tokio::test]
     async fn not_found_maps_to_404() {
-        let resp = AppError::NotFound.into_response();
+        let resp = AppError::not_found("test_resource").into_response();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -95,5 +132,23 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["error"], "validation");
         assert!(v["message"].as_str().unwrap().contains("bad email"));
+    }
+
+    #[tokio::test]
+    async fn bad_request_maps_to_400() {
+        let resp = AppError::bad_request("too short").into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"], "bad-request");
+    }
+
+    #[tokio::test]
+    async fn gone_maps_to_410() {
+        let resp = AppError::gone("expired_or_used").into_response();
+        assert_eq!(resp.status(), StatusCode::GONE);
+        let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"], "gone");
     }
 }

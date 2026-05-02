@@ -3,12 +3,21 @@ declare global {
     interface Locals {
       user: {
         id: string;
+        email: string;
         displayName: string;
         following_ids: string[];
+        pending_deletion_at: string | null;
       } | null;
+      preferences: { theme: 'dark' | 'light'; density: 'work' | 'data' };
     }
     interface PageData {
-      user: { id: string; displayName: string; following_ids: string[] } | null;
+      user: {
+        id: string;
+        email: string;
+        displayName: string;
+        following_ids: string[];
+        pending_deletion_at: string | null;
+      } | null;
     }
   }
 }

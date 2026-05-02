@@ -36,6 +36,25 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    # Always-on dev infra (same role as postgres/minio): the backend connects
+    # to it on boot. Pinned at v1.0.1 — last upstream release; project is
+    # feature-complete for an SMTP sink.
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      # 1025 = SMTP, 8025 = web UI (open http://localhost:8025).
+      - "1025:1025"
+      - "8025:8025"
+    # In-memory storage; messages cleared on restart. Fine for dev.
+    restart: unless-stopped
+    healthcheck:
+      # MailHog's `mailhog/mailhog:v1.0.1` Alpine image ships with `nc` (busybox).
+      # Probing the SMTP port is the cheapest reliable signal.
+      test: ["CMD", "nc", "-z", "localhost", "1025"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build: ./backend
     profiles: ["full"]

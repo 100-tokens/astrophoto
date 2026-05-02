@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set pending_deletion_at = null\n          where id = $1 and pending_deletion_at is not null\n        returning email as \"email!: String\", display_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!: String",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "display_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "fd41ac9771c1413a8315c36b1d4a940e62580de5b4a297861ad54aed9eadffe3"
+}

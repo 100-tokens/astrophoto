@@ -205,16 +205,18 @@ Expected: a JSON envelope `{"total":0,"count":0,...}` proving MailHog answers on
 Open `.env.example`. Append (or update if SMTP-related entries already exist):
 
 ```
-# Mail (Phase 8a). Dev: MailHog (no auth). Prod: AWS SES SMTP credentials.
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_USER=
-SMTP_PASS=
-MAIL_FROM=Astrophoto <noreply@astrophoto.local>
-PUBLIC_BASE_URL=http://localhost:5173
+# --- Mail (Phase 8a) ---
+# Dev (MailHog): plaintext SMTP on port 1025, no auth.
+# Prod (AWS SES): TLS on port 587, with SES SMTP credentials. Set APP_SMTP_TLS=true.
+APP_SMTP_HOST=localhost
+APP_SMTP_PORT=1025
+APP_SMTP_TLS=false
+APP_SMTP_USER=
+APP_SMTP_PASS=
+APP_MAIL_FROM=Astrophoto <noreply@astrophoto.local>
 ```
 
-(`PUBLIC_BASE_URL` may already be present from earlier phases; if so, leave the existing line untouched.)
+(`PUBLIC_BASE_URL` may already be present from earlier phases; if so, leave the existing line untouched. Note the `APP_` prefix — figment's `Env::prefixed("APP_")` silently ignores any var without it.)
 
 - [ ] **Step 4: Commit**
 
@@ -247,10 +249,12 @@ pub smtp_port: u16,
 pub smtp_user: String,        // empty string in dev (MailHog accepts no auth)
 pub smtp_pass: String,
 pub mail_from: String,        // "Astrophoto <noreply@example>" parseable by lettre
+/// false in dev, true in prod for STARTTLS (AWS SES on port 587).
+pub smtp_tls: bool,
 pub public_base_url: String,  // existing — leave as-is if already present
 ```
 
-If a `Default` impl or test fixture exists nearby, extend it accordingly. Run `cargo check`; address compile errors by updating call sites that build `Config` literals (notably the integration-test `config_for(...)` helpers).
+All SMTP fields are required (no `#[serde(default)]`). Figment will surface a clear error at boot if any is missing. Run `cargo check`; address compile errors by updating call sites that build `Config` literals (notably the integration-test `config_for(...)` helpers — add `smtp_tls: false` to each).
 
 - [ ] **Step 2: Create `backend/src/mail/mod.rs`**
 
@@ -300,51 +304,64 @@ impl Mailer {
             AppError::internal(format!("invalid MAIL_FROM '{}': {e}", cfg.mail_from))
         })?;
 
-        let mut builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&cfg.smtp_host)
-            .port(cfg.smtp_port);
-        if !cfg.smtp_user.is_empty() {
-            builder = builder.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
-        }
-        Ok(Mailer::Smtp { transport: Arc::new(builder.build()), from })
+        let transport = if cfg.smtp_tls {
+            // Prod: STARTTLS on whatever port (typically 587 for SES).
+            let mut b = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&cfg.smtp_host)
+                .map_err(|e| AppError::internal(format!("smtp starttls config: {e}")))?
+                .port(cfg.smtp_port);
+            if !cfg.smtp_user.is_empty() {
+                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+            }
+            b.build()
+        } else {
+            // Dev: plaintext (MailHog accepts no TLS, no auth).
+            let mut b = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&cfg.smtp_host)
+                .port(cfg.smtp_port);
+            if !cfg.smtp_user.is_empty() {
+                b = b.credentials(Credentials::new(cfg.smtp_user.clone(), cfg.smtp_pass.clone()));
+            }
+            b.build()
+        };
+
+        Ok(Mailer::Smtp { transport: Arc::new(transport), from })
     }
 
     pub fn for_test() -> (Self, Arc<Mutex<Vec<SentMail>>>) {
         let outbox = Arc::new(Mutex::new(Vec::new()));
-        let from: Mailbox = "test <test@astrophoto.local>".parse().expect("valid mailbox");
+        #[allow(clippy::expect_used)]
+        let from: Mailbox = "test <test@astrophoto.local>".parse().expect("valid mailbox literal");
         (Mailer::Memory { from, outbox: outbox.clone() }, outbox)
     }
 
     pub async fn send_plain(&self, to: &str, subject: &str, body: &str) -> Result<(), AppError> {
-        let (from, send_smtp) = match self {
-            Mailer::Smtp { transport, from } => (from.clone(), Some(transport.clone())),
-            Mailer::Memory { from, outbox } => {
+        let to_mailbox: Mailbox = to.parse().map_err(|e| {
+            AppError::internal(format!("invalid recipient '{to}': {e}"))
+        })?;
+
+        match self {
+            Mailer::Smtp { transport, from } => {
+                let msg = Message::builder()
+                    .from(from.clone())
+                    .to(to_mailbox)
+                    .subject(subject)
+                    .header(ContentType::TEXT_PLAIN)
+                    .body(body.to_string())
+                    .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
+                transport.send(msg).await.map_err(|e| AppError::internal(format!("smtp send failed: {e}")))?;
+            }
+            Mailer::Memory { from: _, outbox } => {
                 outbox
                     .lock()
                     .map_err(|_| AppError::internal("mail outbox lock poisoned"))?
                     .push(SentMail { to: to.to_string(), subject: subject.to_string(), body: body.to_string() });
-                (from.clone(), None)
             }
-        };
-
-        if let Some(transport) = send_smtp {
-            let to_mailbox: Mailbox = to.parse().map_err(|e| {
-                AppError::bad_request(format!("invalid recipient '{to}': {e}"))
-            })?;
-            let msg = Message::builder()
-                .from(from)
-                .to(to_mailbox)
-                .subject(subject)
-                .header(ContentType::TEXT_PLAIN)
-                .body(body.to_string())
-                .map_err(|e| AppError::internal(format!("mail build failed: {e}")))?;
-            transport.send(msg).await.map_err(|e| AppError::internal(format!("smtp send failed: {e}")))?;
         }
         Ok(())
     }
 }
 ```
 
-If `AppError` does not yet expose `internal(impl Into<String>)` and `bad_request(impl Into<String>)` constructors, add them in `backend/src/error.rs` mirroring the existing helper pattern (each is a 3-line method returning the matching variant).
+Note: `AppError::bad_request` has zero call sites after this change. The `BadRequest` variant and its constructor are deleted from `error.rs`. `internal(impl Into<String>)` is the only constructor needed.
 
 - [ ] **Step 3: Create `backend/src/mail/templates.rs`**
 
@@ -376,11 +393,12 @@ pub fn password_reset(display_name: &str, link: &str, has_password: bool) -> (St
 }
 
 pub fn email_change_request(current_email: &str, link: &str) -> (String, String) {
+    let masked = mask_email(current_email);
     let subject = "Confirm your new Astrophoto email".to_string();
     let body = format!(
         "Hello,\n\n\
          A request was made to change the Astrophoto account currently registered as \
-         {current_email} to this address. Open the link below to confirm:\n\n\
+         {masked} to this address. Open the link below to confirm:\n\n\
          {link}\n\n\
          This link is single-use and expires in one hour. If you didn't request this, \
          ignore this message — nothing changes until the link is clicked.\n\n\
@@ -389,6 +407,8 @@ pub fn email_change_request(current_email: &str, link: &str) -> (String, String)
     );
     (subject, body)
 }
+// mask_email is called at the top so an attacker controlling the new inbox
+// cannot learn the victim's full current address.
 
 pub fn email_change_notification(masked_new: &str, occurred_at: &str) -> (String, String) {
     let subject = "Your Astrophoto email was changed".to_string();

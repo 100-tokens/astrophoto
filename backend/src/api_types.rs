@@ -19,6 +19,7 @@ pub struct User {
     pub display_name: String,
     pub created_at: String,
     pub following_ids: Vec<String>,
+    pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -35,4 +36,32 @@ pub struct UserPublic {
     pub display_name: String,
     pub created_at: String,
     pub photo_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "Profile.ts")]
+pub struct Profile {
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "Preferences.ts")]
+pub struct Preferences {
+    pub theme: String,
+    pub density: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SessionRow.ts")]
+pub struct SessionRow {
+    pub id: String,
+    pub browser: String,
+    pub browser_version: String,
+    pub os: String,
+    pub os_version: String,
+    pub category: String,
+    pub ip: String,
+    pub last_used_at: String, // RFC3339
+    pub created_at: String,
+    pub is_current: bool,
 }

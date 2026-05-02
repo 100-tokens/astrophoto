@@ -2,10 +2,12 @@ use async_trait::async_trait;
 use aws_sdk_s3::{
     Client,
     config::{BehaviorVersion, Builder, Credentials, Region},
+    presigning::PresigningConfig,
     primitives::ByteStream,
-    types::CreateBucketConfiguration,
+    types::{CreateBucketConfiguration, Delete, ObjectIdentifier},
 };
 use bytes::Bytes;
+use std::time::Duration;
 
 use super::Storage;
 use crate::AppError;
@@ -130,5 +132,61 @@ impl Storage for S3Storage {
             .await
             .map(|_| ())
             .map_err(|e| AppError::Internal(format!("s3 delete: {e}")))
+    }
+
+    async fn signed_url(&self, key: &str, ttl_secs: u64) -> Result<String, AppError> {
+        let cfg = PresigningConfig::expires_in(Duration::from_secs(ttl_secs))
+            .map_err(|e| AppError::Internal(format!("presigning config: {e}")))?;
+        let presigned = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .presigned(cfg)
+            .await
+            .map_err(|e| AppError::Internal(format!("s3 presign: {e}")))?;
+        Ok(presigned.uri().to_string())
+    }
+
+    async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError> {
+        for chunk in keys.chunks(1000) {
+            let objects: Result<Vec<ObjectIdentifier>, _> = chunk
+                .iter()
+                .map(|k| {
+                    ObjectIdentifier::builder()
+                        .key(k)
+                        .build()
+                        .map_err(|e| AppError::Internal(format!("s3 object identifier: {e}")))
+                })
+                .collect();
+            let delete = Delete::builder()
+                .set_objects(Some(objects?))
+                .build()
+                .map_err(|e| AppError::Internal(format!("s3 delete spec: {e}")))?;
+            let output = self
+                .client
+                .delete_objects()
+                .bucket(&self.bucket)
+                .delete(delete)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(format!("s3 delete_objects: {e}")))?;
+
+            // aws-sdk-s3 returns Ok for the request even when individual objects fail.
+            // Surface partial failures as an AppError so the caller (purge_one_user) treats
+            // the user as not-yet-fully-deleted and the next hourly tick retries.
+            let errors = output.errors();
+            if !errors.is_empty() {
+                let count = errors.len();
+                let first = errors
+                    .first()
+                    .map(|e| format!("{:?}", e))
+                    .unwrap_or_default();
+                return Err(AppError::Internal(format!(
+                    "s3 delete_objects partial failure: {count} object(s) errored, first: {first}"
+                )));
+            }
+        }
+        Ok(())
     }
 }

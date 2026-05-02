@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select distinct on (p.id)\n                  p.id,\n                  p.caption,\n                  p.taken_at,\n                  p.exif_json,\n                  p.storage_key,\n                  t.storage_key as \"thumbnail_key?\"\n             from photos p\n             left join thumbnails t on t.photo_id = p.id\n            where p.owner_id = $1\n            order by p.id, t.size asc nulls last\n            limit 10000",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "caption",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "taken_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "exif_json",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "thumbnail_key?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "0ba2c9e1b1d10d2330ebe18439fb9ba3dbc6578bb6cd9eefea99c3bab7cefdad"
+}

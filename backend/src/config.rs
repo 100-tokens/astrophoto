@@ -22,6 +22,14 @@ pub struct Config {
     pub oauth_google_client_secret: String,
     #[serde(default)]
     pub oauth_google_redirect_url: String,
+
+    pub smtp_host: String,
+    pub smtp_port: u16,
+    pub smtp_user: String,
+    pub smtp_pass: String,
+    pub mail_from: String,
+    /// false in dev (MailHog, plaintext), true in prod (STARTTLS for AWS SES on port 587).
+    pub smtp_tls: bool,
 }
 
 impl Config {
@@ -53,12 +61,19 @@ mod tests {
             jail.set_env("APP_S3_ACCESS_KEY", "a");
             jail.set_env("APP_S3_SECRET_KEY", "s");
             jail.set_env("APP_S3_PATH_STYLE", "true");
+            jail.set_env("APP_SMTP_HOST", "localhost");
+            jail.set_env("APP_SMTP_PORT", "1025");
+            jail.set_env("APP_SMTP_USER", "");
+            jail.set_env("APP_SMTP_PASS", "");
+            jail.set_env("APP_MAIL_FROM", "Astrophoto <noreply@astrophoto.local>");
+            jail.set_env("APP_SMTP_TLS", "false");
 
             let cfg = Config::from_env();
             assert_eq!(cfg.bind, "0.0.0.0:1234");
             assert_eq!(cfg.log, "debug");
             assert!(!cfg.session_secure);
             assert!(cfg.s3_path_style);
+            assert!(!cfg.smtp_tls);
 
             Ok(())
         });

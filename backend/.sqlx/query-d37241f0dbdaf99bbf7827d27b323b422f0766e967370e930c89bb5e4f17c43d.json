@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update email_change_tokens set used_at = now()\n          where user_id = $1 and used_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d37241f0dbdaf99bbf7827d27b323b422f0766e967370e930c89bb5e4f17c43d"
+}

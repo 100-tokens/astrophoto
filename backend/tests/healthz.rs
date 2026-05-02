@@ -23,6 +23,12 @@ fn config_for(url: &str) -> Config {
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
+        smtp_host: "unused-in-tests".into(),
+        smtp_port: 1025,
+        smtp_user: String::new(),
+        smtp_pass: String::new(),
+        mail_from: "test <test@astrophoto.local>".into(),
+        smtp_tls: false,
     }
 }
 
@@ -42,7 +48,13 @@ async fn healthz_returns_ok_with_real_postgres() {
         .await
         .expect("migrate");
 
-    let app = http::router(pool, config_for(&url), Arc::new(MemoryStorage::new()));
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let app = http::router(
+        pool,
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+    );
 
     let resp = app
         .oneshot(

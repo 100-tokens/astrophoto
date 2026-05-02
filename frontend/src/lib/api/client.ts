@@ -7,7 +7,7 @@ import type { Health, User } from './types';
 export interface Comment {
   id: string;
   photo_id: string;
-  author_id: string;
+  author_id: string | null; // null = author account was deleted (pseudonymised)
   author_display_name: string;
   body: string;
   created_at: string;
@@ -53,7 +53,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   body?: unknown,
   opts: ApiCall = {}
@@ -143,5 +143,57 @@ export const api = {
       request<Comment>('POST', `/api/photos/${photoId}/comments`, { body }, opts),
     delete: (commentId: string, opts?: ApiCall) =>
       request<void>('DELETE', `/api/comments/${commentId}`, undefined, opts)
-  }
+  },
+
+  passwordResetRequest: (email: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/auth/password-reset/request', { email }, opts),
+
+  passwordResetConfirm: (token: string, new_password: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/auth/password-reset/confirm', { token, new_password }, opts),
+
+  emailChangeConfirm: (token: string, opts?: ApiCall) =>
+    request<{ status: 'success' | 'expired' | 'taken' }>(
+      'POST',
+      '/api/auth/email-change/confirm',
+      { token },
+      opts
+    ),
+
+  getProfile: (opts?: ApiCall) =>
+    request<{ display_name: string }>('GET', '/api/me/profile', undefined, opts),
+
+  putProfile: (body: { display_name?: string }, opts?: ApiCall) =>
+    request<void>('PUT', '/api/me/profile', body, opts),
+
+  getPreferences: (opts?: ApiCall) =>
+    request<{ theme: string; density: string }>('GET', '/api/me/preferences', undefined, opts),
+
+  putPreferences: (body: { theme?: string; density?: string }, opts?: ApiCall) =>
+    request<void>('PUT', '/api/me/preferences', body, opts),
+
+  listSessions: (opts?: ApiCall) =>
+    request<import('./SessionRow').SessionRow[]>('GET', '/api/me/sessions', undefined, opts),
+
+  revokeSession: (id: string, opts?: ApiCall) =>
+    request<void>('DELETE', `/api/me/sessions/${encodeURIComponent(id)}`, undefined, opts),
+
+  signOutOthers: (opts?: ApiCall) =>
+    request<void>('POST', '/api/me/sessions/sign-out-others', undefined, opts),
+
+  requestEmailChange: (new_email: string, current_password: string, opts?: ApiCall) =>
+    request<void>('POST', '/api/me/email-change/request', { new_email, current_password }, opts),
+
+  changePassword: (body: { current_password?: string; new_password: string }, opts?: ApiCall) =>
+    request<void>('POST', '/api/me/password-change', body, opts),
+
+  requestDeletion: (
+    body: { current_password?: string; confirmation_phrase: string },
+    opts?: ApiCall
+  ) => request<void>('POST', '/api/me/delete-request', body, opts),
+
+  cancelDeletion: (opts?: ApiCall) =>
+    request<void>('POST', '/api/me/delete-cancel', undefined, opts),
+
+  photosCount: (opts?: ApiCall) =>
+    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts)
 };

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, user_agent, ip,\n                  last_used_at, created_at,\n                  (id = $2) as \"is_current!: bool\"\n             from sessions\n            where user_id = $1 and expires_at > now()\n            order by (id = $2) desc, last_used_at desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_agent",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ip",
+        "type_info": "Inet"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_used_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_current!: bool",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "4de6f830c1df400467982a4332300be5143527cc7b601eb91008a9352861e3e4"
+}
