@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select count(*) as \"count!\" from photos where owner_id = $1 and status = 'ready'",
+  "query": "select count(*) as \"count!\" from photos where owner_id = $1 and published_at is not null",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "46f14a26eb55669ecaa5ed94027368ef8b3da2cd727af4b67f35c86d63585dbd"
+  "hash": "81349be0847f2e96d2377d964463b9e52e0dca222ca2e8ee46b575fae2146923"
 }

@@ -102,3 +102,28 @@ async fn is_visible_to_returns_false_for_draft_to_non_owner_and_anon() {
             .unwrap()
     );
 }
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn insert_processing_sets_last_step_upload_and_published_at_null() {
+    let (pool, _pg) = test_pool().await;
+    let owner = Uuid::new_v4();
+    sqlx::query!(
+        "insert into users (id, email, password_hash, display_name)
+         values ($1, $2, '', 'O')",
+        owner, format!("o-{owner}@e")
+    ).execute(&pool).await.unwrap();
+
+    let photo_id = astrophoto::photos::queries::insert_processing(
+        &pool, owner, "k", "n.jpg", 10, "image/jpeg", None, None
+    ).await.unwrap();
+
+    let row = sqlx::query!(
+        "select published_at, last_step, original_uploaded_at from photos where id = $1",
+        photo_id
+    ).fetch_one(&pool).await.unwrap();
+
+    assert!(row.published_at.is_none());
+    assert_eq!(row.last_step.as_deref(), Some("upload"));
+    assert!(row.original_uploaded_at <= chrono::Utc::now());
+}

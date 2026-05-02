@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,\n               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,\n               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,\n               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error\n        from photos p\n        join follows f on f.followed_id = p.owner_id\n        where f.follower_id = $1 and p.status = 'ready'\n        order by p.created_at desc\n        limit $2\n        ",
+  "query": "\n        select id, owner_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where published_at is not null\n        order by published_at desc\n        limit $1\n        ",
   "describe": {
     "columns": [
       {
@@ -121,7 +121,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Int8"
       ]
     },
@@ -151,5 +150,5 @@
       true
     ]
   },
-  "hash": "57fe533b0934f836bc033fc2d0942ec012bed8cefdaa6d3cfbde08f32f56d28d"
+  "hash": "de3931d1be6f51675bcdafcc566cc91040921f14ecdc0e0262443b3febb8e1e7"
 }

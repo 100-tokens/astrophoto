@@ -44,8 +44,8 @@ pub async fn insert_processing(
     let row = sqlx::query!(
         r#"
         insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                            target, caption, status, original_uploaded_at)
-        values ($1, $2, $3, $4, $5, $6, $7, 'processing', now())
+                            target, caption, status, last_step, original_uploaded_at)
+        values ($1, $2, $3, $4, $5, $6, $7, 'processing', 'upload', now())
         returning id
         "#,
         owner_id,
@@ -151,8 +151,8 @@ pub async fn list_by_owner(
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
-        where owner_id = $1 and status = 'ready'
-        order by created_at desc
+        where owner_id = $1 and published_at is not null
+        order by published_at desc
         limit $2
         "#,
         owner_id,
@@ -172,8 +172,8 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
-        where status = 'ready'
-        order by created_at desc
+        where published_at is not null
+        order by published_at desc
         limit $1
         "#,
         limit
@@ -197,8 +197,8 @@ pub async fn list_following(
                p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
         from photos p
         join follows f on f.followed_id = p.owner_id
-        where f.follower_id = $1 and p.status = 'ready'
-        order by p.created_at desc
+        where f.follower_id = $1 and p.published_at is not null
+        order by p.published_at desc
         limit $2
         "#,
         follower_id,
@@ -226,7 +226,7 @@ pub async fn thumb_storage_key(
 
 pub async fn count_by_owner(pool: &PgPool, owner_id: Uuid) -> Result<i64, AppError> {
     let row = sqlx::query!(
-        r#"select count(*) as "count!" from photos where owner_id = $1 and status = 'ready'"#,
+        r#"select count(*) as "count!" from photos where owner_id = $1 and published_at is not null"#,
         owner_id
     )
     .fetch_one(pool)
