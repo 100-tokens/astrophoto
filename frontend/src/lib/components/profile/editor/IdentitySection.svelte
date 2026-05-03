@@ -33,21 +33,11 @@
   <legend>Identity</legend>
   <label class="field">
     <span>Display name</span>
-    <input
-      type="text"
-      bind:value={localName}
-      onblur={() => void commitName()}
-      maxlength="60"
-    />
+    <input type="text" bind:value={localName} onblur={() => void commitName()} maxlength="60" />
   </label>
   <label class="field">
     <span>Tagline</span>
-    <input
-      type="text"
-      bind:value={localTag}
-      onblur={() => void commitTag()}
-      maxlength="140"
-    />
+    <input type="text" bind:value={localTag} onblur={() => void commitTag()} maxlength="140" />
   </label>
 </fieldset>
 

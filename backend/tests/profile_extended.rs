@@ -8,7 +8,9 @@ use common::TestApp;
 #[allow(clippy::unwrap_used)]
 async fn get_profile_returns_full_shape_for_fresh_user() {
     let app = TestApp::launch().await;
-    let (cookie, _user_id) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, _user_id) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     let (status, body) = app
         .oneshot_json::<Profile>("GET", "/api/me/profile", Some(&cookie), None)
@@ -34,7 +36,9 @@ async fn get_profile_returns_full_shape_for_fresh_user() {
 #[allow(clippy::unwrap_used)]
 async fn patch_profile_writes_tagline_and_bio_with_sanitisation() {
     let app = TestApp::launch().await;
-    let (cookie, _) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, _) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     let body = serde_json::json!({
         "tagline": "Hunting deep-sky from a Bortle 6 backyard",
@@ -48,7 +52,10 @@ async fn patch_profile_writes_tagline_and_bio_with_sanitisation() {
     let (_status, body) = app
         .oneshot_json::<Profile>("GET", "/api/me/profile", Some(&cookie), None)
         .await;
-    assert_eq!(body.tagline.as_deref(), Some("Hunting deep-sky from a Bortle 6 backyard"));
+    assert_eq!(
+        body.tagline.as_deref(),
+        Some("Hunting deep-sky from a Bortle 6 backyard")
+    );
     let bio = body.bio_html.unwrap();
     assert!(bio.contains("<strong>"));
     assert!(!bio.contains("<script>"), "script must be stripped: {bio}");
@@ -58,7 +65,9 @@ async fn patch_profile_writes_tagline_and_bio_with_sanitisation() {
 #[allow(clippy::unwrap_used)]
 async fn patch_profile_writes_equipment_and_location() {
     let app = TestApp::launch().await;
-    let (cookie, _) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, _) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     let body = serde_json::json!({
         "equipment": {
@@ -93,7 +102,9 @@ async fn patch_profile_writes_equipment_and_location() {
 #[allow(clippy::unwrap_used)]
 async fn patch_profile_validates_social_links() {
     let app = TestApp::launch().await;
-    let (cookie, _) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, _) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     // Wrong host for the named platform → 400.
     let bad = serde_json::json!({
@@ -126,7 +137,9 @@ async fn patch_profile_validates_social_links() {
 #[allow(clippy::unwrap_used)]
 async fn patch_profile_clears_field_when_explicit_null() {
     let app = TestApp::launch().await;
-    let (cookie, _) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, _) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     // Set tagline.
     app.oneshot(

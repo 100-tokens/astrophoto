@@ -9,8 +9,20 @@ use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 pub const ALLOWED_TAGS: &[&str] = &[
-    "a", "blockquote", "br", "code", "em", "h2", "h3", "h4", "li", "ol", "p",
-    "strong", "u", "ul",
+    "a",
+    "blockquote",
+    "br",
+    "code",
+    "em",
+    "h2",
+    "h3",
+    "h4",
+    "li",
+    "ol",
+    "p",
+    "strong",
+    "u",
+    "ul",
 ];
 
 const ANCHOR_SCHEMES: &[&str] = &["http", "https", "mailto"];
@@ -81,8 +93,8 @@ mod tests {
     #[test]
     fn allowlist_matches_shared_json() {
         let raw = include_str!("../../data/bio-allowed-tags.json");
-        let json: serde_json::Value = serde_json::from_str(raw)
-            .expect("bio-allowed-tags.json must be valid JSON");
+        let json: serde_json::Value =
+            serde_json::from_str(raw).expect("bio-allowed-tags.json must be valid JSON");
         let arr = json
             .get("tags")
             .and_then(|v| v.as_array())

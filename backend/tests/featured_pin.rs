@@ -4,12 +4,26 @@ use axum::http::StatusCode;
 use common::TestApp;
 
 async fn pin(app: &TestApp, cookie: &str, photo_id: uuid::Uuid) -> StatusCode {
-    let (status, _) = app.oneshot("POST", &format!("/api/me/featured/{photo_id}"), Some(cookie), None).await;
+    let (status, _) = app
+        .oneshot(
+            "POST",
+            &format!("/api/me/featured/{photo_id}"),
+            Some(cookie),
+            None,
+        )
+        .await;
     status
 }
 
 async fn unpin(app: &TestApp, cookie: &str, photo_id: uuid::Uuid) -> StatusCode {
-    let (status, _) = app.oneshot("DELETE", &format!("/api/me/featured/{photo_id}"), Some(cookie), None).await;
+    let (status, _) = app
+        .oneshot(
+            "DELETE",
+            &format!("/api/me/featured/{photo_id}"),
+            Some(cookie),
+            None,
+        )
+        .await;
     status
 }
 
@@ -50,7 +64,9 @@ async fn pin_idempotent_for_already_pinned_photo() {
         "select count(*) from photos where owner_id=$1 and featured_at is not null",
         uid
     )
-    .fetch_one(&app.pool).await.unwrap()
+    .fetch_one(&app.pool)
+    .await
+    .unwrap()
     .unwrap_or(0);
     assert_eq!(count, 1);
 }

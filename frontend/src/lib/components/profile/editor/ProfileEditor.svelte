@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { fetchOwnerProfile, patchOwnerProfile, type ProfilePatchBody } from '$lib/api/profileClient';
+  import {
+    fetchOwnerProfile,
+    patchOwnerProfile,
+    type ProfilePatchBody
+  } from '$lib/api/profileClient';
   import type { Profile } from '$lib/api/Profile';
   import IdentitySection from './IdentitySection.svelte';
   import AboutSection from './AboutSection.svelte';
@@ -136,7 +140,11 @@
     padding-bottom: 12px;
     margin-bottom: 16px;
   }
-  header h2 { margin: 0; font-family: var(--font-display, serif); font-weight: 400; }
+  header h2 {
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-weight: 400;
+  }
   .x {
     background: transparent;
     color: var(--fg-muted);
@@ -144,6 +152,12 @@
     font-size: 24px;
     cursor: pointer;
   }
-  .status { color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; }
-  .status.err { color: var(--danger, #c33); }
+  .status {
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .status.err {
+    color: var(--danger, #c33);
+  }
 </style>

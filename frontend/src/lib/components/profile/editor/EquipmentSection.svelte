@@ -58,9 +58,23 @@
     padding: 16px;
     margin: 0 0 16px;
   }
-  legend { font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); padding: 0 6px; }
-  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-  .field span { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+  legend {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fg-muted);
+    padding: 0 6px;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .field span {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+  }
   .field input {
     background: var(--bg-canvas);
     border: 1px solid var(--border-subtle);

@@ -39,7 +39,9 @@
     font-size: 12px;
     cursor: pointer;
   }
-  .ladder button:last-child { border-right: 0; }
+  .ladder button:last-child {
+    border-right: 0;
+  }
   .ladder .selected {
     background: var(--accent);
     color: var(--accent-ink);

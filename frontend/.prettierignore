@@ -6,3 +6,4 @@ src/lib/api/Health.ts
 src/lib/api/User.ts
 src/lib/api/AuthError.ts
 src/lib/api/types.ts
+test-results/

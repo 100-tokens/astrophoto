@@ -78,21 +78,42 @@
 
 <section class="about-editor">
   <div class="toolbar" role="toolbar" aria-label="Bio formatting">
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBold().run())}>B</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleItalic().run())}><em>I</em></button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleUnderline().run())}><u>U</u></button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleHeading({ level: 2 }).run())}>H₂</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleHeading({ level: 3 }).run())}>H₃</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBulletList().run())}>•</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleOrderedList().run())}>1.</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBlockquote().run())}>"</button>
-    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleCode().run())}>&lt;&gt;</button>
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBold().run())}
+      >B</button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleItalic().run())}
+      ><em>I</em></button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleUnderline().run())}
+      ><u>U</u></button
+    >
+    <button
+      type="button"
+      onclick={toggle(() => editor?.chain().focus().toggleHeading({ level: 2 }).run())}>H₂</button
+    >
+    <button
+      type="button"
+      onclick={toggle(() => editor?.chain().focus().toggleHeading({ level: 3 }).run())}>H₃</button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBulletList().run())}
+      >•</button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleOrderedList().run())}
+      >1.</button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleBlockquote().run())}
+      >"</button
+    >
+    <button type="button" onclick={toggle(() => editor?.chain().focus().toggleCode().run())}
+      >&lt;&gt;</button
+    >
     <button
       type="button"
       onclick={() => {
         const url = prompt('Link URL:');
         if (url) editor?.chain().focus().setLink({ href: url }).run();
-      }}>🔗</button>
+      }}>🔗</button
+    >
   </div>
   <div bind:this={el} class="editor-host"></div>
   {#if saving}<span class="saving">Saving…</span>{/if}

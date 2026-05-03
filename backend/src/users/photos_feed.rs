@@ -14,8 +14,8 @@ use crate::http::AppState;
 #[derive(Deserialize)]
 pub struct Q {
     pub cursor: Option<String>,
-    pub limit:  Option<i64>,
-    pub sort:   Option<String>, // "newest" (default) | "popular"
+    pub limit: Option<i64>,
+    pub sort: Option<String>, // "newest" (default) | "popular"
 }
 
 const DEFAULT_LIMIT: i64 = 24;
@@ -126,10 +126,12 @@ pub async fn get(
     let more = rows.len() as i64 > limit;
     let take: Vec<_> = rows.into_iter().take(limit as usize).collect();
 
-    let next_cursor = if more && !take.is_empty() {
-        let last = take.last().unwrap();
+    let next_cursor = if more && let Some(last) = take.last() {
+        let published_at = last
+            .published_at
+            .ok_or_else(|| AppError::internal("gallery_row_missing_published_at"))?;
         Some(encode_cursor(&Cursor {
-            published_at: last.published_at.unwrap(),
+            published_at,
             id: last.id,
             appreciations: if sort == "popular" {
                 Some(last.appreciations_count)

@@ -14,7 +14,13 @@
   let saved = $state<SocialLink[]>(structuredClone(links));
 
   const PLATFORMS: SocialPlatform[] = [
-    'twitter', 'instagram', 'bluesky', 'astrobin', 'mastodon', 'youtube', 'website'
+    'twitter',
+    'instagram',
+    'bluesky',
+    'astrobin',
+    'mastodon',
+    'youtube',
+    'website'
   ];
 
   function changed(): boolean {
@@ -48,7 +54,9 @@
         value={link.platform}
         onchange={(e) => {
           local = local.map((l, idx) =>
-            idx === i ? { ...l, platform: (e.target as HTMLSelectElement).value as SocialPlatform } : l
+            idx === i
+              ? { ...l, platform: (e.target as HTMLSelectElement).value as SocialPlatform }
+              : l
           );
         }}
       >
@@ -75,8 +83,17 @@
 </fieldset>
 
 <style>
-  .section { border: 1px solid var(--border-subtle); padding: 16px; margin: 0 0 16px; }
-  legend { font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); padding: 0 6px; }
+  .section {
+    border: 1px solid var(--border-subtle);
+    padding: 16px;
+    margin: 0 0 16px;
+  }
+  legend {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fg-muted);
+    padding: 0 6px;
+  }
   .row {
     display: grid;
     grid-template-columns: 140px 1fr 32px;

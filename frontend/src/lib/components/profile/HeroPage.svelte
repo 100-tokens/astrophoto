@@ -46,12 +46,7 @@
 
   <HeroStatsRow stats={profile.stats} />
 
-  <FeaturedRow
-    items={profile.featured}
-    handle={profile.handle}
-    {isOwner}
-    editorMode={isOwner}
-  />
+  <FeaturedRow items={profile.featured} handle={profile.handle} {isOwner} editorMode={isOwner} />
 
   <GalleryToolbar bind:sort />
 

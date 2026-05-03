@@ -5,7 +5,13 @@ use common::TestApp;
 use uuid::Uuid;
 
 async fn pin(app: &TestApp, cookie: &str, photo_id: Uuid) {
-    app.oneshot("POST", &format!("/api/me/featured/{photo_id}"), Some(cookie), None).await;
+    app.oneshot(
+        "POST",
+        &format!("/api/me/featured/{photo_id}"),
+        Some(cookie),
+        None,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -23,7 +29,9 @@ async fn reorder_moves_photos_to_supplied_positions() {
     }
 
     let body = serde_json::json!({ "photo_ids": [ids[2], ids[1], ids[0]] });
-    let (status, _) = app.oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body)).await;
+    let (status, _) = app
+        .oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body))
+        .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     let rows = sqlx::query!(
@@ -42,12 +50,14 @@ async fn reorder_moves_photos_to_supplied_positions() {
 async fn reorder_400_when_a_photo_is_not_currently_pinned() {
     let app = TestApp::launch().await;
     let (cookie, uid) = app.signup_with_handle("M", "marie", "m@x.test").await;
-    let pinned   = app.ready_photo_with(uid, "PINN0001", None).await;
+    let pinned = app.ready_photo_with(uid, "PINN0001", None).await;
     let unpinned = app.ready_photo_with(uid, "UNPI0001", None).await;
     pin(&app, &cookie, pinned).await;
 
     let body = serde_json::json!({ "photo_ids": [pinned, unpinned] });
-    let (status, _) = app.oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body)).await;
+    let (status, _) = app
+        .oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body))
+        .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -62,7 +72,9 @@ async fn reorder_400_when_duplicate_id() {
     pin(&app, &cookie, p2).await;
 
     let body = serde_json::json!({ "photo_ids": [p1, p1] });
-    let (status, _) = app.oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body)).await;
+    let (status, _) = app
+        .oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body))
+        .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -74,6 +86,8 @@ async fn reorder_400_when_more_than_six() {
     let body = serde_json::json!({
         "photo_ids": (0..7).map(|_| Uuid::new_v4()).collect::<Vec<_>>()
     });
-    let (status, _) = app.oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body)).await;
+    let (status, _) = app
+        .oneshot("PATCH", "/api/me/featured/order", Some(&cookie), Some(body))
+        .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }

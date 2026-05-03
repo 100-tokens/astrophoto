@@ -9,7 +9,9 @@ use common::TestApp;
 #[allow(clippy::unwrap_used)]
 async fn public_profile_returns_full_shape() {
     let app = TestApp::launch().await;
-    let (cookie, uid) = app.signup_with_handle("Marie", "marie", "marie@x.test").await;
+    let (cookie, uid) = app
+        .signup_with_handle("Marie", "marie", "marie@x.test")
+        .await;
 
     // Populate profile fields.
     app.oneshot(
@@ -29,8 +31,20 @@ async fn public_profile_returns_full_shape() {
     let p1 = app.ready_photo_with(uid, "AAAA0001", Some("M31")).await;
     let p2 = app.ready_photo_with(uid, "BBBB0002", Some("M42")).await;
 
-    app.oneshot("POST", &format!("/api/me/featured/{p1}"), Some(&cookie), None).await;
-    app.oneshot("POST", &format!("/api/me/featured/{p2}"), Some(&cookie), None).await;
+    app.oneshot(
+        "POST",
+        &format!("/api/me/featured/{p1}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    app.oneshot(
+        "POST",
+        &format!("/api/me/featured/{p2}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
     app.oneshot(
         "POST",
         "/api/me/cover",
@@ -45,7 +59,10 @@ async fn public_profile_returns_full_shape() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body.handle, "marie");
     assert_eq!(body.display_name, "Marie");
-    assert_eq!(body.tagline.as_deref(), Some("Hunting deep-sky from a Bortle 6 backyard"));
+    assert_eq!(
+        body.tagline.as_deref(),
+        Some("Hunting deep-sky from a Bortle 6 backyard")
+    );
     assert_eq!(body.equipment.telescope.as_deref(), Some("RedCat 51"));
     assert_eq!(body.location.bortle_class, Some(6));
     assert_eq!(body.social_links.len(), 1);

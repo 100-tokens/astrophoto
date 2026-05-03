@@ -66,9 +66,23 @@
         <FeaturedTile {item} {handle} />
         {#if editorMode}
           <div class="controls">
-            <button type="button" class="ctl" disabled={idx === 0} onclick={() => moveLeft(idx)} aria-label="Move left">←</button>
-            <button type="button" class="ctl" disabled={idx === local.length - 1} onclick={() => moveRight(idx)} aria-label="Move right">→</button>
-            <button type="button" class="ctl" onclick={() => unpin(item.id)} aria-label="Unpin">✕</button>
+            <button
+              type="button"
+              class="ctl"
+              disabled={idx === 0}
+              onclick={() => moveLeft(idx)}
+              aria-label="Move left">←</button
+            >
+            <button
+              type="button"
+              class="ctl"
+              disabled={idx === local.length - 1}
+              onclick={() => moveRight(idx)}
+              aria-label="Move right">→</button
+            >
+            <button type="button" class="ctl" onclick={() => unpin(item.id)} aria-label="Unpin"
+              >✕</button
+            >
           </div>
         {/if}
       </div>

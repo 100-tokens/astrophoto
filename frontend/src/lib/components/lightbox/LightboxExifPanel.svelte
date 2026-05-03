@@ -15,10 +15,7 @@
   {/if}
 
   <div class="appreciate-row">
-    <AppreciateButton
-      photoId={photo.id}
-      initialCount={Number(photo.appreciation_count)}
-    />
+    <AppreciateButton photoId={photo.id} initialCount={Number(photo.appreciation_count)} />
   </div>
 
   <dl class="exif-table">

@@ -28,7 +28,13 @@ pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
         .allow_origin(allowed_origin)
         .allow_credentials(true)
         .allow_headers([HeaderName::from_static("content-type")])
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+        ])
 }
 
 pub fn router(
@@ -169,8 +175,7 @@ pub fn router(
         )
         .route(
             "/api/me/featured/:photo_id",
-            axum::routing::post(crate::users::featured::pin)
-                .delete(crate::users::featured::unpin),
+            axum::routing::post(crate::users::featured::pin).delete(crate::users::featured::unpin),
         )
         .route(
             "/api/me/profile",

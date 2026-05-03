@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     morePhotos = others.slice(0, 4);
     const idx = feed.photos.findIndex((p) => p.id === photo.id);
     if (idx > 0) prevShortid = feed.photos[idx - 1]?.short_id ?? null;
-    if (idx >= 0 && idx < feed.photos.length - 1) nextShortid = feed.photos[idx + 1]?.short_id ?? null;
+    if (idx >= 0 && idx < feed.photos.length - 1)
+      nextShortid = feed.photos[idx + 1]?.short_id ?? null;
   } catch (_e) {
     // ignore — fall back to empty values
   }

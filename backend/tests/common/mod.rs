@@ -9,7 +9,7 @@
 //! `session=` per `backend/src/auth/session.rs::cookie_name()`. Cookie
 //! assertions everywhere depend on this.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(dead_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::sync::Arc;
 
@@ -173,7 +173,10 @@ impl TestApp {
         };
         let resp = self.app.clone().oneshot(req).await.unwrap();
         let status = resp.status();
-        let bytes = to_bytes(resp.into_body(), 1_048_576).await.unwrap().to_vec();
+        let bytes = to_bytes(resp.into_body(), 1_048_576)
+            .await
+            .unwrap()
+            .to_vec();
         (status, bytes)
     }
 

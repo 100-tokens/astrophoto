@@ -24,7 +24,10 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
   }
 
   // First page of the gallery — SSR'd so the hero gallery has content on first paint.
-  let firstPage: { photos: import('$lib/api/GalleryPhoto').GalleryPhoto[]; next_cursor: string | null } | null = null;
+  let firstPage: {
+    photos: import('$lib/api/GalleryPhoto').GalleryPhoto[];
+    next_cursor: string | null;
+  } | null = null;
   try {
     const page = await fetchPhotosFeed(fetch, handle, { limit: 24 });
     firstPage = { photos: page.photos, next_cursor: page.next_cursor ?? null };

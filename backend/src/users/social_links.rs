@@ -22,8 +22,8 @@ pub fn validate_links(links: &[SocialLink]) -> Result<(), AppError> {
 }
 
 fn validate_one(link: &SocialLink) -> Result<(), AppError> {
-    let parsed = Url::parse(&link.url)
-        .map_err(|_| AppError::bad_request("social_link_url_invalid"))?;
+    let parsed =
+        Url::parse(&link.url).map_err(|_| AppError::bad_request("social_link_url_invalid"))?;
     let scheme = parsed.scheme();
     if scheme != "http" && scheme != "https" {
         return Err(AppError::bad_request("social_link_url_scheme"));
@@ -33,13 +33,13 @@ fn validate_one(link: &SocialLink) -> Result<(), AppError> {
         .ok_or_else(|| AppError::bad_request("social_link_url_no_host"))?;
     let host = host.to_ascii_lowercase();
     let allowed: &[&str] = match link.platform {
-        SocialPlatform::Twitter   => &["twitter.com", "x.com"],
+        SocialPlatform::Twitter => &["twitter.com", "x.com"],
         SocialPlatform::Instagram => &["instagram.com", "www.instagram.com"],
-        SocialPlatform::Bluesky   => &["bsky.app"],
-        SocialPlatform::Astrobin  => &["astrobin.com", "www.astrobin.com"],
-        SocialPlatform::Mastodon  => &[], // any host — many instances
-        SocialPlatform::Youtube   => &["youtube.com", "www.youtube.com", "youtu.be"],
-        SocialPlatform::Website   => &[], // any host
+        SocialPlatform::Bluesky => &["bsky.app"],
+        SocialPlatform::Astrobin => &["astrobin.com", "www.astrobin.com"],
+        SocialPlatform::Mastodon => &[], // any host — many instances
+        SocialPlatform::Youtube => &["youtube.com", "www.youtube.com", "youtu.be"],
+        SocialPlatform::Website => &[], // any host
     };
     if !allowed.is_empty()
         && !allowed
@@ -56,7 +56,10 @@ mod tests {
     use super::*;
 
     fn sl(p: SocialPlatform, url: &str) -> SocialLink {
-        SocialLink { platform: p, url: url.into() }
+        SocialLink {
+            platform: p,
+            url: url.into(),
+        }
     }
 
     #[test]
@@ -71,14 +74,15 @@ mod tests {
 
     #[test]
     fn rejects_wrong_host_for_platform() {
-        let err =
-            validate_links(&[sl(SocialPlatform::Twitter, "https://evil.example/marie")]).unwrap_err();
+        let err = validate_links(&[sl(SocialPlatform::Twitter, "https://evil.example/marie")])
+            .unwrap_err();
         assert!(format!("{err:?}").contains("social_link_host_mismatch"));
     }
 
     #[test]
     fn rejects_javascript_scheme() {
-        let err = validate_links(&[sl(SocialPlatform::Website, "javascript:alert(1)")]).unwrap_err();
+        let err =
+            validate_links(&[sl(SocialPlatform::Website, "javascript:alert(1)")]).unwrap_err();
         let msg = format!("{err:?}");
         assert!(msg.contains("social_link_url_scheme") || msg.contains("social_link_url_invalid"));
     }
@@ -109,6 +113,10 @@ mod tests {
 
     #[test]
     fn mastodon_accepts_any_https_host() {
-        validate_links(&[sl(SocialPlatform::Mastodon, "https://mastodon.social/@marie")]).unwrap();
+        validate_links(&[sl(
+            SocialPlatform::Mastodon,
+            "https://mastodon.social/@marie",
+        )])
+        .unwrap();
     }
 }

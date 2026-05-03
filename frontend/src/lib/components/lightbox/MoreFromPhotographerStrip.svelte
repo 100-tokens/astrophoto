@@ -16,11 +16,7 @@
     <p class="label">More from this photographer</p>
     <div class="grid">
       {#each photos as p (p.id)}
-        <a
-          class="thumb"
-          href="/u/{handle}/p/{p.short_id}"
-          aria-label={p.target ?? 'Untitled'}
-        >
+        <a class="thumb" href="/u/{handle}/p/{p.short_id}" aria-label={p.target ?? 'Untitled'}>
           <Img
             photoId={p.id}
             w={200}

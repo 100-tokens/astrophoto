@@ -62,11 +62,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <!-- Backdrop -->
-<div
-  class="backdrop"
-  role="presentation"
-  onclick={onClose}
-></div>
+<div class="backdrop" role="presentation" onclick={onClose}></div>
 
 <!-- Overlay -->
 <div class="lightbox" role="dialog" aria-modal="true" aria-label={title}>
@@ -82,12 +78,7 @@
     <!-- Left: image area -->
     <div class="image-area">
       {#if onPrev}
-        <button
-          class="arrow arrow-prev"
-          type="button"
-          aria-label="Previous photo"
-          onclick={onPrev}
-        >
+        <button class="arrow arrow-prev" type="button" aria-label="Previous photo" onclick={onPrev}>
           ‹
         </button>
       {/if}
@@ -103,12 +94,7 @@
       </div>
 
       {#if onNext}
-        <button
-          class="arrow arrow-next"
-          type="button"
-          aria-label="Next photo"
-          onclick={onNext}
-        >
+        <button class="arrow arrow-next" type="button" aria-label="Next photo" onclick={onNext}>
           ›
         </button>
       {/if}

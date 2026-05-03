@@ -1,9 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 
 use crate::AppError;
-use crate::api_types::{
-    EquipmentSummary, LocationSummary, Profile, ProfilePatch, SocialLink,
-};
+use crate::api_types::{EquipmentSummary, LocationSummary, Profile, ProfilePatch, SocialLink};
 use crate::auth::middleware::CurrentUser;
 use crate::http::AppState;
 use crate::users::{bio, social_links};
@@ -61,7 +59,7 @@ pub async fn get(
 }
 
 const MAX_BIO_HTML_BYTES: usize = 16_384;
-const MAX_TAGLINE_CHARS:  usize = 140;
+const MAX_TAGLINE_CHARS: usize = 140;
 const MAX_DISPLAY_NAME_CHARS: usize = 60;
 
 pub async fn put(
@@ -76,10 +74,10 @@ pub async fn put(
             return Err(AppError::bad_request("invalid_display_name"));
         }
     }
-    if let Some(Some(tag)) = body.tagline.as_ref() {
-        if tag.chars().count() > MAX_TAGLINE_CHARS {
-            return Err(AppError::bad_request("tagline_too_long"));
-        }
+    if let Some(Some(tag)) = body.tagline.as_ref()
+        && tag.chars().count() > MAX_TAGLINE_CHARS
+    {
+        return Err(AppError::bad_request("tagline_too_long"));
     }
 
     // bio_html: sanitise BEFORE any other check; never trust the client.
@@ -97,15 +95,15 @@ pub async fn put(
     });
 
     if let Some(loc) = body.location.as_ref() {
-        if let Some(b) = loc.bortle_class {
-            if !(1..=9).contains(&b) {
-                return Err(AppError::bad_request("bortle_out_of_range"));
-            }
+        if let Some(b) = loc.bortle_class
+            && !(1..=9).contains(&b)
+        {
+            return Err(AppError::bad_request("bortle_out_of_range"));
         }
-        if let Some(s) = loc.sqm {
-            if !(0.0..=99.99).contains(&s) {
-                return Err(AppError::bad_request("sqm_out_of_range"));
-            }
+        if let Some(s) = loc.sqm
+            && !(0.0..=99.99).contains(&s)
+        {
+            return Err(AppError::bad_request("sqm_out_of_range"));
         }
     }
 

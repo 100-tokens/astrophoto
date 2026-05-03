@@ -58,12 +58,22 @@ async fn photos_feed_respects_limit_bounds() {
     let _ = app.ready_photo_with(uid, "AAAA0001", None).await;
 
     let (status, _) = app
-        .oneshot("GET", "/api/users/by-handle/marie/photos?limit=999", None, None)
+        .oneshot(
+            "GET",
+            "/api/users/by-handle/marie/photos?limit=999",
+            None,
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK, "limit clamped, not 400");
 
     let (status, _) = app
-        .oneshot("GET", "/api/users/by-handle/marie/photos?limit=0", None, None)
+        .oneshot(
+            "GET",
+            "/api/users/by-handle/marie/photos?limit=0",
+            None,
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
 }
@@ -80,7 +90,9 @@ async fn photos_feed_sort_popular_orders_by_appreciations() {
         "update photos set appreciations_count = 5 where id = $1",
         p1
     )
-    .execute(&app.pool).await.unwrap();
+    .execute(&app.pool)
+    .await
+    .unwrap();
 
     let (_status, body) = app
         .oneshot_json::<GalleryPage>(
@@ -90,6 +102,9 @@ async fn photos_feed_sort_popular_orders_by_appreciations() {
             None,
         )
         .await;
-    assert_eq!(body.photos[0].id, p1, "popular puts highest appreciations first");
+    assert_eq!(
+        body.photos[0].id, p1,
+        "popular puts highest appreciations first"
+    );
     assert_eq!(body.photos[1].id, p2);
 }

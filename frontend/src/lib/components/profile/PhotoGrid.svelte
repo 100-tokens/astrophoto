@@ -66,7 +66,10 @@
 
   let layout = $derived.by(() => {
     if (containerWidth <= 0 || photos.length === 0) {
-      return { containerHeight: 0, boxes: [] as Array<{ width: number; height: number; top: number; left: number }> };
+      return {
+        containerHeight: 0,
+        boxes: [] as Array<{ width: number; height: number; top: number; left: number }>
+      };
     }
     const isMobile = containerWidth < 640;
     const aspectRatios = photos.map((p) => {

@@ -107,13 +107,11 @@ pub async fn get(
     .fetch_one(&state.pool)
     .await?;
 
-    let followers: i64 = sqlx::query_scalar!(
-        "select count(*) from follows where followed_id = $1",
-        u.id
-    )
-    .fetch_one(&state.pool)
-    .await?
-    .unwrap_or(0);
+    let followers: i64 =
+        sqlx::query_scalar!("select count(*) from follows where followed_id = $1", u.id)
+            .fetch_one(&state.pool)
+            .await?
+            .unwrap_or(0);
 
     let social_links: Vec<SocialLink> = serde_json::from_value(u.social_links)
         .map_err(|_| AppError::internal("social_links_corrupt"))?;

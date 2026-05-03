@@ -47,7 +47,13 @@
       {#each visible as p (p.id)}
         <li>
           <button type="button" class="cell" onclick={() => onPick(p)}>
-            <Img photoId={p.id} w={300} aspectRatio="1/1" alt={p.target ?? 'Untitled'} class="img" />
+            <Img
+              photoId={p.id}
+              w={300}
+              aspectRatio="1/1"
+              alt={p.target ?? 'Untitled'}
+              class="img"
+            />
             <span class="cap">{p.target ?? 'Untitled'}</span>
           </button>
         </li>
