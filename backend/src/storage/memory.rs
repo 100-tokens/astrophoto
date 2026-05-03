@@ -59,6 +59,18 @@ impl Storage for MemoryStorage {
     async fn signed_url(&self, key: &str, _ttl_secs: u64) -> Result<String, AppError> {
         Ok(format!("memory://{key}"))
     }
+
+    async fn presigned_put(
+        &self,
+        key: &str,
+        _content_type: &str,
+        _max_bytes: u64,
+        _ttl_secs: u64,
+    ) -> Result<String, AppError> {
+        // Tests don't actually PUT against this URL; they use Storage::put
+        // directly to seed objects.
+        Ok(format!("memory://put/{key}"))
+    }
 }
 
 #[cfg(test)]

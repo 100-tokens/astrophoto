@@ -148,6 +148,28 @@ impl Storage for S3Storage {
         Ok(presigned.uri().to_string())
     }
 
+    async fn presigned_put(
+        &self,
+        key: &str,
+        content_type: &str,
+        max_bytes: u64,
+        ttl_secs: u64,
+    ) -> Result<String, AppError> {
+        let cfg = PresigningConfig::expires_in(Duration::from_secs(ttl_secs))
+            .map_err(|e| AppError::Internal(format!("presign cfg: {e}")))?;
+        let signed = self
+            .client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .content_type(content_type)
+            .content_length(max_bytes as i64)
+            .presigned(cfg)
+            .await
+            .map_err(|e| AppError::Internal(format!("presign: {e}")))?;
+        Ok(signed.uri().to_string())
+    }
+
     async fn delete_objects(&self, keys: &[String]) -> Result<(), AppError> {
         for chunk in keys.chunks(1000) {
             let objects: Result<Vec<ObjectIdentifier>, _> = chunk

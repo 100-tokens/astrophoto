@@ -31,4 +31,15 @@ pub trait Storage: Send + Sync + 'static {
     /// Maximum TTL is 7 days (604 800 s). Tests use `MemoryStorage` which returns
     /// `memory://{key}` — callers must not follow this URL.
     async fn signed_url(&self, key: &str, ttl_secs: u64) -> Result<String, AppError>;
+
+    /// Sign a PUT URL good for `ttl_secs`, capped to `max_bytes`.
+    /// The S3 implementation embeds Content-Length-Range so the bucket
+    /// rejects oversize uploads at the edge.
+    async fn presigned_put(
+        &self,
+        key: &str,
+        content_type: &str,
+        max_bytes: u64,
+        ttl_secs: u64,
+    ) -> Result<String, AppError>;
 }
