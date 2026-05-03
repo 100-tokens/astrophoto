@@ -41,6 +41,16 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     const v = fd.get(k);
     return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
   };
+  const parseTags = (): string[] => {
+    try {
+      const raw = fd.get('tags');
+      const parsed: unknown = JSON.parse(typeof raw === 'string' ? raw : '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((t): t is string => typeof t === 'string');
+    } catch {
+      return [];
+    }
+  };
   return {
     target: strOrNull('target'),
     camera: strOrNull('camera'),
@@ -48,6 +58,12 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     iso: numOrNull('iso'),
     exposure_s: numOrNull('exposure_s'),
     focal_mm: numOrNull('focal_mm'),
+    category: strOrNull('category'),
+    scope: strOrNull('scope'),
+    mount: strOrNull('mount'),
+    filters: strOrNull('filters'),
+    guiding: strOrNull('guiding'),
+    tags: parseTags(),
     last_step
   };
 }
