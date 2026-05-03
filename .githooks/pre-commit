@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-commit hook: scan staged changes for secrets with gitleaks.
+#
+# Activation (one-time per clone):
+#   git config core.hooksPath .githooks
+#
+# Bypass (only with explicit reason):
+#   git commit --no-verify
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "warning: gitleaks not installed; skipping secret scan" >&2
+  echo "  install: brew install gitleaks  (macOS)" >&2
+  echo "          https://github.com/gitleaks/gitleaks#installing  (other)" >&2
+  exit 0
+fi
+
+# `gitleaks git --staged` only scans the diff of what's about to be
+# committed — fast (sub-second on small diffs) and won't re-flag
+# pre-existing content that's already in history.
+exec gitleaks git --staged --redact --no-banner --verbose
