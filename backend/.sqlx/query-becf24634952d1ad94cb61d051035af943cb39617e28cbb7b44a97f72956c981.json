@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from photo_pending_deletes where photo_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "becf24634952d1ad94cb61d051035af943cb39617e28cbb7b44a97f72956c981"
+}

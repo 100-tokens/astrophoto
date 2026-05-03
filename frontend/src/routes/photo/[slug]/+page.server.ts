@@ -35,6 +35,10 @@ interface RealPhoto {
   created_at: string;
   appreciation_count: number;
   comment_count: number;
+  is_draft: boolean;
+  last_step: string | null;
+  replaced_at: string | null;
+  original_uploaded_at: string;
 }
 
 function formatBytes(b: number): string {
@@ -166,6 +170,8 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
 
     const detail: PhotoDetail = {
       slug: photo.id,
+      id: photo.id,
+      owner_id: photo.owner_id,
       target: photo.target ?? 'Untitled',
       targetSubtitle: '',
       captured: photo.taken_at ?? '',
@@ -195,7 +201,11 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       appreciations: photo.appreciation_count,
       comments: photo.comment_count,
       ratio: photo.width && photo.height ? photo.width / photo.height : 1.5,
-      integration: ''
+      integration: '',
+      is_draft: photo.is_draft,
+      last_step: photo.last_step,
+      replaced_at: photo.replaced_at,
+      original_uploaded_at: photo.original_uploaded_at
     };
 
     return {
@@ -205,7 +215,8 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       exifRows: buildExifRows(photo),
       isAppreciated,
       comments,
-      ownerId: photo.owner_id
+      ownerId: photo.owner_id,
+      current_user_id: locals.user?.id ?? null
     };
   }
 

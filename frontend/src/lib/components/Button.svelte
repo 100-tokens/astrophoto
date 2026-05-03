@@ -8,6 +8,7 @@
     type?: 'button' | 'submit' | 'reset';
     disabled?: boolean;
     href?: string;
+    formaction?: string;
     class?: string;
     onclick?: (e: MouseEvent) => void;
     children?: Snippet;
@@ -19,6 +20,7 @@
     type = 'button',
     disabled = false,
     href,
+    formaction,
     class: className,
     onclick,
     children
@@ -34,7 +36,7 @@
     {@render children?.()}
   </a>
 {:else}
-  <button class={btnClass} {type} {disabled} {onclick}>
+  <button class={btnClass} {type} {disabled} {formaction} {onclick}>
     {@render children?.()}
   </button>
 {/if}

@@ -1,9 +1,13 @@
 pub mod count;
+pub mod delete;
 pub mod exif;
 pub mod get;
 pub mod list;
+pub mod metadata;
 pub mod pipeline;
+pub mod publish;
 pub mod queries;
+pub mod replace;
 pub mod serve;
 pub mod thumbs;
 pub mod upload;

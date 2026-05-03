@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select count(*) as \"count!\" from photos where owner_id = $1 and status = 'ready'",
+  "query": "select count(*) as \"c!\" from thumbnails where photo_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "count!",
+        "name": "c!",
         "type_info": "Int8"
       }
     ],
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "46f14a26eb55669ecaa5ed94027368ef8b3da2cd727af4b67f35c86d63585dbd"
+  "hash": "65496ee768783201a8846b435cf5f0f5b038db3895517aa35494bd6593f27b2a"
 }

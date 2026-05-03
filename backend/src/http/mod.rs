@@ -83,7 +83,21 @@ pub fn router(
                 .get(crate::photos::list::handler)
                 .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
-        .route("/api/photos/:id", get(crate::photos::get::handler))
+        .route(
+            "/api/photos/:id",
+            get(crate::photos::get::handler)
+                .put(crate::photos::metadata::handler)
+                .delete(crate::photos::delete::handler),
+        )
+        .route(
+            "/api/photos/:id/publish",
+            post(crate::photos::publish::handler),
+        )
+        .route(
+            "/api/photos/:id/replace",
+            post(crate::photos::replace::handler)
+                .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
+        )
         .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
@@ -156,6 +170,7 @@ pub fn router(
             post(crate::users::deletion::cancel),
         )
         .route("/api/me/photos/count", get(crate::photos::count::handler))
+        .route("/api/me/stats", get(crate::users::stats::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
         .with_state(state)
 }

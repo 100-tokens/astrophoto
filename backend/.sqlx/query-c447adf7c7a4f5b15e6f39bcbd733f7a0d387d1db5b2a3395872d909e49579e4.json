@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select storage_key, target, caption, replaced_at, published_at from photos where id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "caption",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "replaced_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c447adf7c7a4f5b15e6f39bcbd733f7a0d387d1db5b2a3395872d909e49579e4"
+}

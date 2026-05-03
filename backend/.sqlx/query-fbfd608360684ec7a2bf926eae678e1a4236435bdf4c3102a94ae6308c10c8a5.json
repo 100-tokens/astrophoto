@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set status='failed', pipeline_error=$2 where id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fbfd608360684ec7a2bf926eae678e1a4236435bdf4c3102a94ae6308c10c8a5"
+}

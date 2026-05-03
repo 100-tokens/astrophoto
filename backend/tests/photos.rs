@@ -137,6 +137,7 @@ async fn upload_pipeline_signup_upload_thumb() {
     assert_eq!(v["status"], "processing");
 
     // 3. Poll until ready (max ~3s)
+    // Owner cookie is required: drafts are only visible to their owner.
     let mut ready = false;
     for _ in 0..30 {
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -145,6 +146,7 @@ async fn upload_pipeline_signup_upload_thumb() {
             .oneshot(
                 Request::builder()
                     .uri(format!("/api/photos/{photo_id}"))
+                    .header(header::COOKIE, &cookie)
                     .body(Body::empty())
                     .unwrap(),
             )

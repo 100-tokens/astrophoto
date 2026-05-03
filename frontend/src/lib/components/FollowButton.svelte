@@ -40,7 +40,7 @@
     }
   }
 
-  let label = $derived(following ? (hovering ? 'Unfollow' : '✓ Following') : 'Follow');
+  let label = $derived(following ? (hovering ? 'Unfollow?' : '✓ Following') : 'Follow');
 </script>
 
 <button

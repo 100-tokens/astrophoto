@@ -3,19 +3,27 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Button from '$lib/components/Button.svelte';
   import Photo from '$lib/components/Photo.svelte';
+  import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import type { Photo as PhotoData } from '$lib/data/photos';
 
   interface HeroPhoto {
-    target: string;
+    target: string | null;
     integration: string;
     photographer: string;
+  }
+
+  interface GalleryPhoto extends Omit<PhotoData, 'target'> {
+    target: string | null;
+    thumbSrc?: string;
   }
 
   interface PageData {
     heroPhoto: HeroPhoto;
     heroSrc: string | undefined;
-    photos: (PhotoData & { thumbSrc?: string })[];
+    photos: GalleryPhoto[];
     isReal: boolean;
+    following_count: number;
+    user?: { id: string } | null;
   }
 
   let { data }: { data: PageData } = $props();
@@ -31,8 +39,14 @@
 <section class="hero">
   <!-- Left column: editorial copy -->
   <div class="hero-copy">
-    <div class="t-eyebrow" style="margin-bottom: 16px;">
-      <span style="color: var(--accent);">●</span> 14 March 2026 · Friday
+    <div style="margin-bottom: 16px;">
+      {#if data.user && data.following_count > 0}
+        <span class="t-eyebrow accent"
+          >● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span
+        >
+      {:else}
+        <span class="t-eyebrow">● 14 March 2026 · Friday</span>
+      {/if}
     </div>
 
     <h1 class="hero-h1">
@@ -68,7 +82,7 @@
   <!-- Right column: featured photo -->
   <div class="hero-photo-wrap">
     <Photo
-      target={data.heroPhoto.target}
+      target={data.heroPhoto.target ?? ''}
       src={data.heroSrc}
       style="position: absolute; inset: 0; height: 100%;"
     />
@@ -87,7 +101,7 @@
     <div class="fotw-tag">
       <div style="color: var(--accent)">FRAME OF THE WEEK</div>
       {#if data.isReal}
-        <div style="color: var(--fg-primary)">{data.heroPhoto.target}</div>
+        <div style="color: var(--fg-primary)">{data.heroPhoto.target ?? 'Untitled'}</div>
       {:else}
         <div style="color: var(--fg-primary)">
           {data.heroPhoto.target} · {data.heroPhoto.integration}
@@ -123,17 +137,18 @@
   <div class="masonry">
     {#each data.photos as photo, i}
       <div class="masonry-item">
-        <a href="/photo/{photo.slug}" class="masonry-link" aria-label={photo.target}>
+        <a href="/photo/{photo.slug}" class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
           <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
             <Photo
-              target={photo.target}
+              target={photo.target ?? ''}
               src={photo.thumbSrc}
               style="position: absolute; inset: 0; height: 100%;"
             />
           </div>
         </a>
         <div class="photo-meta-row">
-          <span class="photo-target">{photo.target}</span>
+          <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+          >
           <span class="photo-integration">{photo.integration}</span>
         </div>
         <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>

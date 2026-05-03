@@ -137,6 +137,22 @@ async fn boot_app() -> (
     (app, pool, pg)
 }
 
+async fn publish_photo(app: &axum::Router, cookie: &str, id: &str) {
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/photos/{id}/publish"))
+                .header(header::COOKIE, cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200, "publish_photo failed for {id}");
+}
+
 async fn json_get(app: &axum::Router, uri: &str, cookie: Option<&str>) -> serde_json::Value {
     let mut req = Request::builder().uri(uri);
     if let Some(c) = cookie {
@@ -166,11 +182,17 @@ async fn appreciation_toggle() {
     let photo_id = upload(&app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        let v = json_get(&app, &format!("/api/photos/{photo_id}"), None).await;
+        let v = json_get(
+            &app,
+            &format!("/api/photos/{photo_id}"),
+            Some(&owner_cookie),
+        )
+        .await;
         if v["status"] == "ready" {
             break;
         }
     }
+    publish_photo(&app, &owner_cookie, &photo_id).await;
 
     let (_other_id, cookie) = signup(&app, "u@example.com", "U").await;
 
@@ -247,11 +269,17 @@ async fn comment_create_list_delete_authorization() {
     let photo_id = upload(&app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        let v = json_get(&app, &format!("/api/photos/{photo_id}"), None).await;
+        let v = json_get(
+            &app,
+            &format!("/api/photos/{photo_id}"),
+            Some(&owner_cookie),
+        )
+        .await;
         if v["status"] == "ready" {
             break;
         }
     }
+    publish_photo(&app, &owner_cookie, &photo_id).await;
 
     let (_b_id, b_cookie) = signup(&app, "b@example.com", "B").await;
     let (_c_id, c_cookie) = signup(&app, "c@example.com", "C").await;

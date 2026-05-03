@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from photo_pending_deletes where queued_at < now() - interval '7 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "463610d602cabcd992ed4ade086af1402f4b8ffe968ad2fddd9bd17625525cbd"
+}

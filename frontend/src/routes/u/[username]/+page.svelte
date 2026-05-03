@@ -3,11 +3,17 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import FollowButton from '$lib/components/FollowButton.svelte';
+  import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import type { User, Photo as PhotoData } from '$lib/data/photos';
+
+  interface ProfilePhoto extends Omit<PhotoData, 'target'> {
+    target: string | null;
+    thumbSrc?: string;
+  }
 
   interface PageData {
     profile: User;
-    photos: (PhotoData & { thumbSrc?: string })[];
+    photos: ProfilePhoto[];
     isFollowing?: boolean;
     isSelf?: boolean;
   }
@@ -118,17 +124,23 @@
       <div class="photo-grid">
         {#each photos as photo}
           <div class="grid-item">
-            <a href="/photo/{photo.slug}" class="grid-photo-link" aria-label={photo.target}>
+            <a
+              href="/photo/{photo.slug}"
+              class="grid-photo-link"
+              aria-label={photo.target ?? 'Untitled'}
+            >
               <div class="grid-photo-inner">
                 <Photo
-                  target={photo.target}
+                  target={photo.target ?? ''}
                   src={photo.thumbSrc}
                   style="position: absolute; inset: 0;"
                 />
               </div>
             </a>
             <div class="grid-caption">
-              <span class="photo-target">{photo.target}</span>
+              <span class="photo-target"
+                ><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+              >
               <span class="photo-integration">{photo.integration}</span>
             </div>
           </div>

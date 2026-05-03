@@ -7,8 +7,8 @@
 
   // Steps for the visual stepper (MVP: all three shown as chrome)
   const STEPS: Array<{ n: string; label: string; state: 'done' | 'active' | '' }> = [
-    { n: '01', label: 'UPLOAD', state: 'done' },
-    { n: '02', label: 'VERIFY DATA', state: 'active' },
+    { n: '01', label: 'UPLOAD', state: 'active' },
+    { n: '02', label: 'VERIFY DATA', state: '' },
     { n: '03', label: 'CAPTION & PUBLISH', state: '' }
   ];
 
@@ -120,39 +120,16 @@
         {/if}
       </div>
 
-      <!-- Right: target + caption + submit -->
-      <div class="col-right">
-        <div style="margin-bottom: 24px;">
-          <div class="t-label" style="margin-bottom: 6px;">TARGET</div>
-          <input
-            class="input input-mono"
-            type="text"
-            name="target"
-            placeholder="M31, NGC 7000, ρ Oph Cloud…"
-          />
+      <!-- Error message -->
+      {#if form?.message}
+        <div class="error-banner" role="alert">
+          {form.message}
         </div>
+      {/if}
 
-        <div style="margin-bottom: 32px;">
-          <div class="t-label" style="margin-bottom: 6px;">CAPTION</div>
-          <textarea
-            class="input input-mono"
-            name="caption"
-            rows="6"
-            placeholder="Describe your capture — integration time, site conditions, processing notes…"
-          ></textarea>
-        </div>
-
-        <!-- Error message -->
-        {#if form?.message}
-          <div class="error-banner" role="alert">
-            {form.message}
-          </div>
-        {/if}
-
-        <div class="actions">
-          <a href="/" class="btn btn-ghost btn-lg">Cancel</a>
-          <button type="submit" class="btn btn-primary btn-lg">Upload &amp; publish</button>
-        </div>
+      <div class="actions">
+        <a href="/" class="btn btn-ghost btn-lg">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-lg">Continue →</button>
       </div>
     </form>
   </section>
@@ -210,8 +187,8 @@
 
   .upload-form {
     display: grid;
-    grid-template-columns: 560px 1fr;
-    gap: 64px;
+    grid-template-columns: 1fr;
+    max-width: 640px;
   }
 
   /* ── Left column ──────────────────────────────────────────── */
@@ -291,17 +268,7 @@
     color: var(--fg-muted);
   }
 
-  /* ── Right column ─────────────────────────────────────────── */
-  .input {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  textarea.input {
-    resize: vertical;
-    min-height: 120px;
-  }
-
+  /* ── Error / actions ─────────────────────────────────────── */
   .error-banner {
     margin-bottom: 16px;
     padding: 12px 16px;
@@ -319,13 +286,6 @@
   }
 
   /* ── Responsive ───────────────────────────────────────────── */
-  @media (max-width: 1100px) {
-    .upload-form {
-      grid-template-columns: 1fr;
-      max-width: 640px;
-    }
-  }
-
   @media (max-width: 768px) {
     .page-header {
       padding: 32px 24px 16px;

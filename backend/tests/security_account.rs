@@ -1010,8 +1010,8 @@ async fn purge_pseudonymises_comments_keeps_body() {
 
     // Insert a photo with all NOT NULL columns (bytes + mime required).
     let photo: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now()) returning id",
         leah
     )
     .fetch_one(&pool)
@@ -1064,8 +1064,8 @@ async fn purge_pseudonymised_comments_remain_visible_in_listing() {
     .await
     .unwrap();
     let photo: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at, published_at)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now(), now()) returning id",
         leah
     )
     .fetch_one(&pool)
@@ -1117,8 +1117,8 @@ async fn export_json_returns_attachment_with_signed_urls() {
             .unwrap();
 
     let photo_id: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg') returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now()) returning id",
         user_id
     )
     .fetch_one(&pool)

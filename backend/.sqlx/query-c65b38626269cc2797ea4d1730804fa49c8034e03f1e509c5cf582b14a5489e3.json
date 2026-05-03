@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set published_at = now(), last_step = 'caption' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c65b38626269cc2797ea4d1730804fa49c8034e03f1e509c5cf582b14a5489e3"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select caption from photos where id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "caption",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "24d0539ef702c798ac0531ad54b8e3fae25f62f9f262f686000263dcd36f926e"
+}

@@ -57,7 +57,8 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       // ignore — keep default 0
     }
 
-    let photos: Photo[] = [];
+    type ProfilePhoto = Omit<Photo, 'target'> & { target: string | null };
+    let photos: ProfilePhoto[] = [];
     try {
       const res = await fetch(`${API}/api/photos?owner_id=${username}&limit=24`);
       if (res.ok) {
@@ -71,7 +72,7 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
         };
         photos = body.photos.map((p) => ({
           slug: p.id,
-          target: p.target ?? 'Untitled',
+          target: p.target,
           ratio: p.width && p.height ? p.width / p.height : 1.5,
           integration: '',
           photographer: '',

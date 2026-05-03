@@ -210,6 +210,10 @@ img {
   color: var(--fg-muted);
 }
 
+.t-eyebrow.accent {
+  color: var(--accent);
+}
+
 .t-label {
   font-family: var(--font-mono);
   font-size: var(--t-xs);

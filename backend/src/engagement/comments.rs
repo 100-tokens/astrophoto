@@ -13,8 +13,9 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::AppError;
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::{CurrentUser, OptionalUser};
 use crate::http::AppState;
+use crate::photos::queries::is_visible_to;
 
 #[derive(Serialize)]
 pub struct Comment {
@@ -63,8 +64,12 @@ impl From<CommentRow> for Comment {
 
 pub async fn list(
     State(state): State<AppState>,
+    user: OptionalUser,
     Path(photo_id): Path<Uuid>,
 ) -> Result<Json<ListResponse>, AppError> {
+    if !is_visible_to(&state.pool, photo_id, user.0.as_ref().map(|u| u.id)).await? {
+        return Err(AppError::not_found("photo"));
+    }
     let rows = sqlx::query_as!(
         CommentRow,
         r#"
@@ -94,12 +99,7 @@ pub async fn create(
     body.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    // Verify the photo exists; surfaces 404 (photos table FK enforces it
-    // anyway, but better error message than a constraint violation).
-    let exists = sqlx::query!("select id from photos where id = $1", photo_id)
-        .fetch_optional(&state.pool)
-        .await?;
-    if exists.is_none() {
+    if !is_visible_to(&state.pool, photo_id, Some(user.id)).await? {
         return Err(AppError::not_found("photo"));
     }
 

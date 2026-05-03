@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update photos set\n          storage_key = $2,\n          original_name = $3,\n          mime = $4,\n          bytes = $5,\n          status = 'processing',\n          replaced_at = now(),\n          pipeline_error = null\n        where id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fced481afb730b675387647dd3cb53ae5325a4fb23c76e008f08be2ec28cde84"
+}

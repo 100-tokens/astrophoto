@@ -6,3 +6,5 @@
 export type { Health } from './Health';
 export type { User } from './User';
 export type { AuthError } from './AuthError';
+export type { MeStats } from './MeStats';
+export type { PhotoDetail } from './PhotoDetail';

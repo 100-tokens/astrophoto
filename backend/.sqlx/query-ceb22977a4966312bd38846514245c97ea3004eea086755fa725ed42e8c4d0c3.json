@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at\n        from photos where id = $1\n        ",
+  "query": "\n        select id, owner_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where owner_id = $1 and published_at is null\n        order by created_at desc\n        limit $2\n        ",
   "describe": {
     "columns": [
       {
@@ -92,11 +92,37 @@
         "ordinal": 17,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 18,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 19,
+        "name": "replaced_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 20,
+        "name": "original_uploaded_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 21,
+        "name": "last_step",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 22,
+        "name": "pipeline_error",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
@@ -117,8 +143,13 @@
       true,
       true,
       false,
-      false
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "1e615cd8c8d2a7de933c15d26beadebbd0bb67dfc270eac460081b098a6283ed"
+  "hash": "ceb22977a4966312bd38846514245c97ea3004eea086755fa725ed42e8c4d0c3"
 }
