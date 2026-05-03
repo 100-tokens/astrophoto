@@ -80,6 +80,7 @@ pub struct MeStats {
 pub struct PhotoDetail {
     pub id: String,
     pub owner_id: String,
+    pub short_id: String,
     pub status: String,
     pub original_name: String,
     pub bytes: i64,
