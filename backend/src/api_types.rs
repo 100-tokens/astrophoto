@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "Health.ts")]
@@ -36,12 +37,6 @@ pub struct UserPublic {
     pub display_name: String,
     pub created_at: String,
     pub photo_count: i64,
-}
-
-#[derive(Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "Profile.ts")]
-pub struct Profile {
-    pub display_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -103,4 +98,145 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
+#[ts(export, export_to = "SocialPlatform.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum SocialPlatform {
+    Twitter,
+    Instagram,
+    Bluesky,
+    Astrobin,
+    Mastodon,
+    Youtube,
+    Website,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
+#[ts(export, export_to = "SocialLink.ts")]
+pub struct SocialLink {
+    pub platform: SocialPlatform,
+    pub url: String,
+}
+
+// PartialEq/Eq/Hash on SocialLink so the validator can detect duplicate platforms.
+// (Hash is on SocialLink itself though we only really need it on SocialPlatform —
+// adding it everywhere is cheap and keeps signatures simple.)
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentSummary.ts")]
+pub struct EquipmentSummary {
+    pub telescope: Option<String>,
+    pub camera: Option<String>,
+    pub mount: Option<String>,
+    pub filters: Option<String>,
+    pub guiding: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "LocationSummary.ts")]
+pub struct LocationSummary {
+    pub location_text: Option<String>,
+    pub bortle_class: Option<i16>,
+    pub sqm: Option<f64>,
+}
+
+/// Authenticated owner's view of their own profile (writable surface).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "Profile.ts")]
+pub struct Profile {
+    pub display_name: String,
+    pub tagline: Option<String>,
+    pub bio_html: Option<String>,
+    pub cover_photo_id: Option<Uuid>,
+    pub equipment: EquipmentSummary,
+    pub location: LocationSummary,
+    pub social_links: Vec<SocialLink>,
+}
+
+/// Patch body — every field is optional; absent = leave alone, explicit null = clear.
+/// `ProfilePatch` is NOT exported to TS — frontend builds its own partial type.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProfilePatch {
+    #[serde(default, deserialize_with = "deserialize_some")]
+    pub display_name: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_some")]
+    pub tagline: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_some")]
+    pub bio_html: Option<Option<String>>,
+    pub equipment: Option<EquipmentSummary>,
+    pub location: Option<LocationSummary>,
+    pub social_links: Option<Vec<SocialLink>>,
+}
+
+/// Helper: distinguishes "field absent" from "field present and null" for double-Option.
+fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "HeroStats.ts")]
+pub struct HeroStats {
+    pub frames: i64,
+    pub integration_seconds: i64,
+    pub followers: i64,
+    pub appreciations: i64,
+    pub targets: i64,
+    pub member_since_year: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "FeaturedPhotoSummary.ts")]
+pub struct FeaturedPhotoSummary {
+    pub id: Uuid,
+    pub short_id: String,
+    pub featured_position: i16,
+    pub target: Option<String>,
+    pub appreciations_count: i32,
+    pub blurhash: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+}
+
+/// Public read-side aggregator returned by GET /api/users/by-handle/:handle/profile.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PublicProfile.ts")]
+pub struct PublicProfile {
+    pub id: Uuid,
+    pub handle: String,
+    pub display_name: String,
+    pub tagline: Option<String>,
+    pub bio_html: Option<String>,
+    pub cover: Option<FeaturedPhotoSummary>,
+    pub equipment: EquipmentSummary,
+    pub location: LocationSummary,
+    pub social_links: Vec<SocialLink>,
+    pub stats: HeroStats,
+    pub featured: Vec<FeaturedPhotoSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "GalleryPhoto.ts")]
+pub struct GalleryPhoto {
+    pub id: Uuid,
+    pub short_id: String,
+    pub target: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub blurhash: Option<String>,
+    pub appreciations_count: i32,
+    pub published_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "GalleryPage.ts")]
+pub struct GalleryPage {
+    pub photos: Vec<GalleryPhoto>,
+    /// Opaque cursor; pass back as `?cursor=` to load the next page. `None` when exhausted.
+    pub next_cursor: Option<String>,
 }
