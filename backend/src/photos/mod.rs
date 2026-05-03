@@ -9,5 +9,6 @@ pub mod publish;
 pub mod queries;
 pub mod replace;
 pub mod serve;
+pub mod short_id;
 pub mod thumbs;
 pub mod upload;
