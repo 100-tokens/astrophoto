@@ -18,6 +18,15 @@ pub struct Config {
 
     pub cdn_base_url: String,
 
+    /// When true, mount the backend's `/cdn/img/:id` route that performs
+    /// on-the-fly resize from `display/<id>.jpg` using the `image` crate.
+    /// Defaults to false (production: CloudFront fronts the bucket and
+    /// this route is not needed). Set to true on dev / staging when
+    /// CloudFront isn't deployed yet so the backend itself serves CDN
+    /// URLs. Auto-on when `cdn_base_url` contains localhost.
+    #[serde(default)]
+    pub cdn_local_fallback: bool,
+
     /// Allowed CORS origin for browser clients (e.g. the SvelteKit app).
     /// Defaults to `http://localhost:5173` when unset (dev mode).
     pub cors_origin: Option<String>,

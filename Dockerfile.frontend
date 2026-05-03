@@ -20,9 +20,9 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the frontend source
 COPY frontend/ .
 
-# Build-time env: bake the app public URL into the client bundle.
-# All /api/* requests route to the backend service via Koyeb path routing.
-# Update this default if the Koyeb app auto-domain changes.
+# Build-time env: bake the backend public URL into the client bundle.
+# Backend lives in the astrophoto-staging app at its own auto-domain.
+# Update this default if the Koyeb app is recreated.
 ARG VITE_API_BASE_URL=https://astrophoto-staging-xavyo-008151d0.koyeb.app
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 

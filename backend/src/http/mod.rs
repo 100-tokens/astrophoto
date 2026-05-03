@@ -217,9 +217,10 @@ pub fn router(
 
     // Mount the dev CDN only when CDN_BASE_URL points back at this process.
     // In production, CloudFront is in front and this route is not needed.
-    if state.config.cdn_base_url.contains("localhost")
-        || state.config.cdn_base_url.contains("127.0.0.1")
-    {
+    let mount_cdn_dev = state.config.cdn_local_fallback
+        || state.config.cdn_base_url.contains("localhost")
+        || state.config.cdn_base_url.contains("127.0.0.1");
+    if mount_cdn_dev {
         router = router.route(
             "/cdn/img/:id",
             axum::routing::get(crate::storage::cdn_dev::handler),
