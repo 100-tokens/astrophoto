@@ -23,7 +23,7 @@
     class: cls = ''
   }: Props = $props();
 
-  const widths = [w, w * 2, w * 3];
+  let widths = $derived([w, w * 2, w * 3]);
 
   // Decode blurhash to a CSS gradient placeholder if provided.
   // Lightweight approach: skip decoding here, render solid bg.

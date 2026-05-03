@@ -5,7 +5,7 @@
     overQuota?: boolean;
   }
 
-  let { onFiles, tierMax = 50 * 1024 * 1024, overQuota = false }: Props = $props();
+  let { onFiles, overQuota = false }: Props = $props();
 
   let dragOver = $state(false);
   let inputEl: HTMLInputElement;

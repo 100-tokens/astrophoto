@@ -31,7 +31,6 @@
 </script>
 
 <!-- Label targets the text input; the hidden input carries the JSON array -->
-<!-- svelte-ignore a11y_label_has_associated_control -->
 <label class="t-label" for="{name}-input">TAGS · max 8</label>
 <div class="tags">
   {#each value as t}

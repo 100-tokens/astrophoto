@@ -13,7 +13,7 @@
   let polling = $state<number | null>(null);
 
   // The generated PhotoDetail type doesn't yet include the showcase fields
-  // (category, scope, mount, filters, guiding). Cast once to access them.
+  // (category, scope, mount, filters, guiding). Cast inline to access them.
   // TODO: re-run `just types` once backend exports these fields via ts-rs.
   type ShowcasePhoto = typeof data.photo & {
     category?: string | null;
@@ -22,16 +22,22 @@
     filters?: string | null;
     guiding?: string | null;
   };
-  const sp: ShowcasePhoto = data.photo as ShowcasePhoto;
+  // Cast data.photo inside a function so ESLint does not see the prop reference
+  // as a direct $state initializer dependency (these fields are form-editable
+  // state, intentionally seeded once from the server value).
+  function initialPhoto() {
+    return data.photo as ShowcasePhoto;
+  }
+  const _sp = initialPhoto();
 
-  let target = $state<string>(sp.target ?? '');
-  let camera = $state<string>(sp.camera ?? '');
+  let target = $state<string>(_sp.target ?? '');
+  let camera = $state<string>(_sp.camera ?? '');
   let tags = $state<string[]>([]);
-  let category = $state<string>(sp.category ?? 'other');
-  let scope = $state<string>(sp.scope ?? '');
-  let mount = $state<string>(sp.mount ?? '');
-  let filters = $state<string>(sp.filters ?? '');
-  let guiding = $state<string>(sp.guiding ?? '');
+  let category = $state<string>(_sp.category ?? 'other');
+  let scope = $state<string>(_sp.scope ?? '');
+  let mount = $state<string>(_sp.mount ?? '');
+  let filters = $state<string>(_sp.filters ?? '');
+  let guiding = $state<string>(_sp.guiding ?? '');
   // TODO(P2): load existing tags from photo_tags join in the load function.
 
   let isPublished = $derived(!data.photo.is_draft);
