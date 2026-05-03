@@ -11,16 +11,16 @@ export type Transform = {
 };
 
 export function cdn(photoId: string, t: Transform = {}): string {
-  const url = new URL(`${BASE}/img/${photoId}`, 'http://placeholder');
-  if (t.w)   url.searchParams.set('w',  String(t.w));
-  if (t.h)   url.searchParams.set('h',  String(t.h));
-  if (t.fit) url.searchParams.set('fit', t.fit);
-  if (t.q)   url.searchParams.set('q',  String(t.q));
-  if (t.fm)  url.searchParams.set('fm', t.fm);
-  // strip placeholder origin
-  return url.pathname + url.search;
+  const params = new URLSearchParams();
+  if (t.w) params.set('w', String(t.w));
+  if (t.h) params.set('h', String(t.h));
+  if (t.fit) params.set('fit', t.fit);
+  if (t.q) params.set('q', String(t.q));
+  if (t.fm) params.set('fm', t.fm);
+  const qs = params.toString();
+  return qs ? `${BASE}/img/${photoId}?${qs}` : `${BASE}/img/${photoId}`;
 }
 
 export function srcset(photoId: string, widths: number[], t: Omit<Transform, 'w'> = {}): string {
-  return widths.map(w => `${cdn(photoId, { ...t, w })} ${w}w`).join(', ');
+  return widths.map((w) => `${cdn(photoId, { ...t, w })} ${w}w`).join(', ');
 }
