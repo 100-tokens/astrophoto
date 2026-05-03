@@ -261,6 +261,10 @@ pub fn router(
         .route(
             "/api/categories/:cat",
             axum::routing::get(crate::discovery::category::get),
+        )
+        .route(
+            "/api/search",
+            axum::routing::get(crate::discovery::search::get),
         );
 
     // Mount the dev CDN only when CDN_BASE_URL points back at this process.
