@@ -168,6 +168,27 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       // ignore — backend down, render with empty comments
     }
 
+    // Look up the owner's public profile so the photographer card shows
+    // the actual display name + avatar initial + a working /u/{uuid} link
+    // instead of the placeholder "User" / "/u/user".
+    let ownerName = 'User';
+    let ownerInitial = 'U';
+    try {
+      const r = await fetch(`${API}/api/users/${photo.owner_id}`);
+      if (r.ok) {
+        const u = (await r.json()) as { display_name: string };
+        ownerName = u.display_name;
+        ownerInitial = u.display_name.charAt(0).toUpperCase();
+      }
+    } catch {
+      // ignore — fall back to placeholder
+    }
+    // If the viewer is the owner, prefer locals.user for fresh display name.
+    if (locals.user?.id === photo.owner_id) {
+      ownerName = locals.user.displayName;
+      ownerInitial = ownerName.charAt(0).toUpperCase();
+    }
+
     const detail: PhotoDetail = {
       slug: photo.id,
       id: photo.id,
@@ -190,8 +211,9 @@ export const load: PageServerLoad = async ({ params, fetch, locals, request }) =
       pixelScale: '',
       publishedDate: '',
       photographer: {
-        name: 'User',
-        initial: 'U',
+        id: photo.owner_id,
+        name: ownerName,
+        initial: ownerInitial,
         frames: 0,
         bortle: 0,
         location: '',

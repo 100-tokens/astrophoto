@@ -22,6 +22,8 @@ export interface Photo {
 }
 
 export interface Photographer {
+  /** UUID of the owner — present for real photos so the page can build /u/{id}. */
+  id?: string;
   name: string;
   initial: string;
   frames: number;
