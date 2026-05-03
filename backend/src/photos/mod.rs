@@ -1,3 +1,4 @@
+pub mod cdn;
 pub mod count;
 pub mod delete;
 pub mod exif;
