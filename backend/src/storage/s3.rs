@@ -152,7 +152,7 @@ impl Storage for S3Storage {
         &self,
         key: &str,
         content_type: &str,
-        max_bytes: u64,
+        body_bytes: u64,
         ttl_secs: u64,
     ) -> Result<String, AppError> {
         let cfg = PresigningConfig::expires_in(Duration::from_secs(ttl_secs))
@@ -163,7 +163,7 @@ impl Storage for S3Storage {
             .bucket(&self.bucket)
             .key(key)
             .content_type(content_type)
-            .content_length(max_bytes as i64)
+            .content_length(body_bytes as i64)
             .presigned(cfg)
             .await
             .map_err(|e| AppError::Internal(format!("presign: {e}")))?;

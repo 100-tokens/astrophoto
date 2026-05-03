@@ -123,7 +123,7 @@ pub async fn handler(
 
         let url = state
             .storage
-            .presigned_put(&key, &f.mime, max_bytes, PUT_TTL_SECS)
+            .presigned_put(&key, &f.mime, f.size, PUT_TTL_SECS)
             .await?;
 
         out.push(InitFile {

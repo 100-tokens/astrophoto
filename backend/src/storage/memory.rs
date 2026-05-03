@@ -64,7 +64,7 @@ impl Storage for MemoryStorage {
         &self,
         key: &str,
         _content_type: &str,
-        _max_bytes: u64,
+        _body_bytes: u64,
         _ttl_secs: u64,
     ) -> Result<String, AppError> {
         // Tests don't actually PUT against this URL; they use Storage::put
