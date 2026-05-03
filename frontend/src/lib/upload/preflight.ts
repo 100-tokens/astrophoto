@@ -1,4 +1,8 @@
-import { parse as parseExif } from 'exifr';
+import exifr from 'exifr';
+
+// exifr is published as CommonJS — named imports fail under Vite SSR.
+// Use the default import and pull `parse` off it.
+const parseExif = exifr.parse;
 
 export type Preflight = {
   thumbDataUrl: string;
