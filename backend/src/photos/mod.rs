@@ -15,6 +15,7 @@ pub mod serve;
 pub mod short_id;
 pub mod tags;
 pub mod targets;
+pub mod targets_autocomplete;
 pub mod thumbs;
 pub mod upload_finalize;
 pub mod upload_init;

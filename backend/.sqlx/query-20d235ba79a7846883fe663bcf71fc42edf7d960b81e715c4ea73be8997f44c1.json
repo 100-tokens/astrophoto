@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select count(*) from photo_targets pt\n          join targets t on t.id = pt.target_id\n         where pt.photo_id = $1\n           and t.slug = 'm31'\n           and pt.is_primary = true\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "20d235ba79a7846883fe663bcf71fc42edf7d960b81e715c4ea73be8997f44c1"
+}
