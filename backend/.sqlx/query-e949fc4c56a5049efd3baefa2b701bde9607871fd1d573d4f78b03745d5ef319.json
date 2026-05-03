@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select id, display_name, handle, tagline, bio_html,\n               cover_photo_id,\n               equipment_telescope, equipment_camera, equipment_mount,\n               equipment_filters,   equipment_guiding,\n               location_text, bortle_class,\n               cast(sqm as double precision) as \"sqm?: f64\",\n               social_links,\n               created_at\n        from users\n        where handle = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "handle",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "tagline",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "bio_html",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "cover_photo_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "equipment_telescope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "equipment_camera",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "equipment_mount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "equipment_filters",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "equipment_guiding",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "location_text",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "bortle_class",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 13,
+        "name": "sqm?: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 14,
+        "name": "social_links",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "e949fc4c56a5049efd3baefa2b701bde9607871fd1d573d4f78b03745d5ef319"
+}
