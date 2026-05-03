@@ -77,13 +77,13 @@ pub async fn handler(
         return Err(AppError::Validation(format!("bad last_step: {s}")));
     }
 
-    if let Some(c) = &patch.category {
-        if !matches!(
+    if let Some(c) = &patch.category
+        && !matches!(
             c.as_str(),
             "dso" | "planetary" | "lunar" | "solar" | "wide_field" | "nightscape" | "other"
-        ) {
-            return Err(AppError::Validation("invalid category".into()));
-        }
+        )
+    {
+        return Err(AppError::Validation("invalid category".into()));
     }
 
     if let Some(tags) = &patch.tags
@@ -173,10 +173,10 @@ pub async fn handler(
         ("filter", filters_freetext.as_deref()),
         ("guiding", guiding_freetext.as_deref()),
     ] {
-        if let Some(v) = val {
-            if !v.trim().is_empty() {
-                crate::equipment::upsert::upsert(&state.pool, kind, v).await?;
-            }
+        if let Some(v) = val
+            && !v.trim().is_empty()
+        {
+            crate::equipment::upsert::upsert(&state.pool, kind, v).await?;
         }
     }
 
