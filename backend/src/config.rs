@@ -16,6 +16,8 @@ pub struct Config {
     pub s3_secret_key: String,
     pub s3_path_style: bool,
 
+    pub cdn_base_url: String,
+
     #[serde(default)]
     pub oauth_google_client_id: String,
     #[serde(default)]
@@ -61,6 +63,7 @@ mod tests {
             jail.set_env("APP_S3_ACCESS_KEY", "a");
             jail.set_env("APP_S3_SECRET_KEY", "s");
             jail.set_env("APP_S3_PATH_STYLE", "true");
+            jail.set_env("APP_CDN_BASE_URL", "http://localhost:8080/cdn");
             jail.set_env("APP_SMTP_HOST", "localhost");
             jail.set_env("APP_SMTP_PORT", "1025");
             jail.set_env("APP_SMTP_USER", "");
