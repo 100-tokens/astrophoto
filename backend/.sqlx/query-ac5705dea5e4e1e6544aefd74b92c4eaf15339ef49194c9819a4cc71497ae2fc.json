@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where owner_id = $1 and published_at is null\n        order by created_at desc\n        limit $2\n        ",
+  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where owner_id = $1 and published_at is not null\n        order by published_at desc\n        limit $2\n        ",
   "describe": {
     "columns": [
       {
@@ -15,106 +15,111 @@
       },
       {
         "ordinal": 2,
-        "name": "storage_key",
+        "name": "short_id",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "original_name",
+        "name": "storage_key",
         "type_info": "Text"
       },
       {
         "ordinal": 4,
+        "name": "original_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
         "name": "bytes",
         "type_info": "Int8"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "mime",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "width",
         "type_info": "Int4"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "height",
         "type_info": "Int4"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "taken_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "camera",
         "type_info": "Text"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "lens",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "iso",
         "type_info": "Int4"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "exposure_s",
         "type_info": "Float8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "focal_mm",
         "type_info": "Float8"
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "target",
         "type_info": "Text"
       },
       {
-        "ordinal": 15,
+        "ordinal": 16,
         "name": "caption",
         "type_info": "Text"
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "status",
         "type_info": "Text"
       },
       {
-        "ordinal": 17,
+        "ordinal": 18,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 18,
+        "ordinal": 19,
         "name": "published_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 19,
+        "ordinal": 20,
         "name": "replaced_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 20,
+        "ordinal": 21,
         "name": "original_uploaded_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 21,
+        "ordinal": 22,
         "name": "last_step",
         "type_info": "Text"
       },
       {
-        "ordinal": 22,
+        "ordinal": 23,
         "name": "pipeline_error",
         "type_info": "Text"
       }
@@ -126,6 +131,7 @@
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -151,5 +157,5 @@
       true
     ]
   },
-  "hash": "ceb22977a4966312bd38846514245c97ea3004eea086755fa725ed42e8c4d0c3"
+  "hash": "ac5705dea5e4e1e6544aefd74b92c4eaf15339ef49194c9819a4cc71497ae2fc"
 }

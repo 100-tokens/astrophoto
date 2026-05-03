@@ -7,6 +7,7 @@ use crate::AppError;
 pub struct PhotoRow {
     pub id: Uuid,
     pub owner_id: Uuid,
+    pub short_id: String,
     pub storage_key: String,
     pub original_name: String,
     pub bytes: i64,
@@ -249,7 +250,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
     let row = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -270,7 +271,7 @@ pub async fn list_by_owner(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -291,7 +292,7 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -315,7 +316,7 @@ pub async fn list_following(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,
+        select p.id, p.owner_id, p.short_id, p.storage_key, p.original_name, p.bytes, p.mime,
                p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
                p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,
                p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
@@ -366,7 +367,7 @@ pub async fn list_drafts_by_owner(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error

@@ -14,6 +14,7 @@ use crate::photos::queries::{self, PhotoRow};
 pub struct PhotoDetail {
     pub id: String,
     pub owner_id: String,
+    pub short_id: String,
     pub status: String,
     pub original_name: String,
     pub bytes: i64,
@@ -43,6 +44,7 @@ impl From<PhotoRow> for PhotoDetail {
         Self {
             id: p.id.to_string(),
             owner_id: p.owner_id.to_string(),
+            short_id: p.short_id,
             status: p.status,
             original_name: p.original_name,
             bytes: p.bytes,
