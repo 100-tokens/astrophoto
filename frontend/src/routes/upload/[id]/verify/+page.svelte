@@ -97,12 +97,9 @@
           <Button variant="ghost" href="/upload/{data.photo.id}/caption">Edit caption →</Button>
           <Button variant="primary" type="submit" disabled={isProcessing}>Save changes</Button>
         {:else}
-          <Button
-            variant="ghost"
-            type="submit"
-            formaction="?/save_draft"
-            disabled={isProcessing}
-          >Save as draft</Button>
+          <Button variant="ghost" type="submit" formaction="?/save_draft" disabled={isProcessing}
+            >Save as draft</Button
+          >
           <Button variant="primary" type="submit" disabled={isProcessing}>Continue →</Button>
         {/if}
       </div>

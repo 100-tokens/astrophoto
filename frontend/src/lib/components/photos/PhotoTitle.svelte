@@ -18,11 +18,23 @@
 {/if}
 
 <style>
-  .title { color: var(--fg-primary); }
-  .title.size-sm { font-size: 14px; }
-  .title.size-md { font-size: 18px; }
-  .title.size-lg { font-family: var(--font-display); font-size: 36px; }
-  .untitled { font-style: italic; color: var(--fg-secondary); }
+  .title {
+    color: var(--fg-primary);
+  }
+  .title.size-sm {
+    font-size: 14px;
+  }
+  .title.size-md {
+    font-size: 18px;
+  }
+  .title.size-lg {
+    font-family: var(--font-display);
+    font-size: 36px;
+  }
+  .untitled {
+    font-style: italic;
+    color: var(--fg-secondary);
+  }
   .untitled-chip {
     display: inline-block;
     margin-left: 8px;

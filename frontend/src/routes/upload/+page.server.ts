@@ -20,11 +20,16 @@ export const actions: Actions = {
     }
     const forwarded = new FormData();
     forwarded.append('file', file, file.name);
-    const cookie = cookies.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
     let res: Response;
     try {
       res = await fetch(`${API}/api/photos`, {
-        method: 'POST', headers: { Cookie: cookie }, body: forwarded
+        method: 'POST',
+        headers: { Cookie: cookie },
+        body: forwarded
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Network error';

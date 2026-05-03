@@ -12,7 +12,13 @@
     commentCount?: number;
   }
 
-  let { photoId, initialCount, initialAppreciated = false, variant = 'inline', commentCount = 0 }: Props = $props();
+  let {
+    photoId,
+    initialCount,
+    initialAppreciated = false,
+    variant = 'inline',
+    commentCount = 0
+  }: Props = $props();
 
   let count = $state(untrack(() => initialCount));
   let appreciated = $state(untrack(() => initialAppreciated));
@@ -43,7 +49,11 @@
 
   async function share() {
     if (typeof navigator !== 'undefined' && navigator.share) {
-      try { await navigator.share({ url: location.href }); } catch { /* user cancelled */ }
+      try {
+        await navigator.share({ url: location.href });
+      } catch {
+        /* user cancelled */
+      }
     }
   }
 </script>
@@ -64,12 +74,23 @@
   </button>
 {:else}
   <div class="mobile-sticky" role="toolbar" aria-label="Photo actions">
-    <button type="button" class="pill" class:on={appreciated} aria-pressed={appreciated} disabled={pending} onclick={toggle}>
+    <button
+      type="button"
+      class="pill"
+      class:on={appreciated}
+      aria-pressed={appreciated}
+      disabled={pending}
+      onclick={toggle}
+    >
       <span aria-hidden="true">{appreciated ? '♥' : '♡'}</span>
       <span class="num">{count}</span>
     </button>
-    <a href="#comments" class="pill"><span aria-hidden="true">💬</span><span class="num">{commentCount}</span></a>
-    <button type="button" class="pill" onclick={share} aria-label="Share"><span aria-hidden="true">↗</span></button>
+    <a href="#comments" class="pill"
+      ><span aria-hidden="true">💬</span><span class="num">{commentCount}</span></a
+    >
+    <button type="button" class="pill" onclick={share} aria-label="Share"
+      ><span aria-hidden="true">↗</span></button
+    >
   </div>
 {/if}
 

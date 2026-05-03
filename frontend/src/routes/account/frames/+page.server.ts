@@ -8,11 +8,16 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
   const filter = (url.searchParams.get('filter') ?? 'all') as 'all' | 'published' | 'drafts';
   const sort = (url.searchParams.get('sort') ?? 'newest') as 'newest' | 'oldest';
   const view = (url.searchParams.get('view') ?? 'list') as 'list' | 'grid';
-  const cookie = cookies.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+  const cookie = cookies
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
 
   const [stats, published, drafts] = await Promise.all([
     fetch(`${API}/api/me/stats`, { headers: { Cookie: cookie } }).then((r) => r.json()),
-    fetch(`${API}/api/photos?owner_id=${locals.user.id}`, { headers: { Cookie: cookie } }).then((r) => r.json()),
+    fetch(`${API}/api/photos?owner_id=${locals.user.id}`, { headers: { Cookie: cookie } }).then(
+      (r) => r.json()
+    ),
     fetch(`${API}/api/photos?drafts=true`, { headers: { Cookie: cookie } }).then((r) => r.json())
   ]);
 
@@ -27,9 +32,14 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
 
   // Cast appreciation_count on each photo row (PhotoDetail has bigint appreciation_count).
   type PhotoRow = {
-    id: string; target?: string | null; original_name: string;
-    taken_at?: string | null; exposure_s?: number | null;
-    is_draft: boolean; status: string; appreciation_count: number;
+    id: string;
+    target?: string | null;
+    original_name: string;
+    taken_at?: string | null;
+    exposure_s?: number | null;
+    is_draft: boolean;
+    status: string;
+    appreciation_count: number;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,9 +51,11 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
   const draftsPhotos: PhotoRow[] = (drafts.photos ?? []).map(normalisePhoto);
 
   let rows: PhotoRow[] =
-    filter === 'drafts' ? draftsPhotos :
-    filter === 'published' ? publishedPhotos :
-    [...draftsPhotos, ...publishedPhotos];
+    filter === 'drafts'
+      ? draftsPhotos
+      : filter === 'published'
+        ? publishedPhotos
+        : [...draftsPhotos, ...publishedPhotos];
   if (sort === 'oldest') rows = [...rows].reverse();
 
   return {

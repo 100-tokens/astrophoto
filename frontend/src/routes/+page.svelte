@@ -41,7 +41,9 @@
   <div class="hero-copy">
     <div style="margin-bottom: 16px;">
       {#if data.user && data.following_count > 0}
-        <span class="t-eyebrow accent">● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span>
+        <span class="t-eyebrow accent"
+          >● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span
+        >
       {:else}
         <span class="t-eyebrow">● 14 March 2026 · Friday</span>
       {/if}
@@ -145,7 +147,8 @@
           </div>
         </a>
         <div class="photo-meta-row">
-          <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span>
+          <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+          >
           <span class="photo-integration">{photo.integration}</span>
         </div>
         <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>

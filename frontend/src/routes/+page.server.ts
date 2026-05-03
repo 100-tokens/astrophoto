@@ -11,7 +11,6 @@ type RealPhoto = {
   owner_id?: string;
 };
 
-
 export const load: PageServerLoad = async ({ fetch, locals, request }) => {
   let realPhotos: RealPhoto[] = [];
 

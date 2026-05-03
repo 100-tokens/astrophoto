@@ -1,5 +1,10 @@
 <script lang="ts">
-  let { active, counts, sort, view }: {
+  let {
+    active,
+    counts,
+    sort,
+    view
+  }: {
     active: 'all' | 'published' | 'drafts';
     counts: { all: number; published: number; drafts: number };
     sort: 'newest' | 'oldest';
@@ -37,9 +42,32 @@
 </div>
 
 <style>
-  .filter-bar { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border-subtle); }
-  .chips { display: flex; gap: 12px; }
-  .chips a { padding: 6px 12px; border: 1px solid var(--border-default); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--fg-secondary); text-decoration: none; }
-  .chips a.on { color: var(--fg-primary); border-color: var(--accent); }
-  .controls { display: flex; gap: 16px; }
+  .filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .chips {
+    display: flex;
+    gap: 12px;
+  }
+  .chips a {
+    padding: 6px 12px;
+    border: 1px solid var(--border-default);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--fg-secondary);
+    text-decoration: none;
+  }
+  .chips a.on {
+    color: var(--fg-primary);
+    border-color: var(--accent);
+  }
+  .controls {
+    display: flex;
+    gap: 16px;
+  }
 </style>

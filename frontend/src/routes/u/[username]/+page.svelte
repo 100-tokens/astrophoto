@@ -124,7 +124,11 @@
       <div class="photo-grid">
         {#each photos as photo}
           <div class="grid-item">
-            <a href="/photo/{photo.slug}" class="grid-photo-link" aria-label={photo.target ?? 'Untitled'}>
+            <a
+              href="/photo/{photo.slug}"
+              class="grid-photo-link"
+              aria-label={photo.target ?? 'Untitled'}
+            >
               <div class="grid-photo-inner">
                 <Photo
                   target={photo.target ?? ''}
@@ -134,7 +138,9 @@
               </div>
             </a>
             <div class="grid-caption">
-              <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span>
+              <span class="photo-target"
+                ><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+              >
               <span class="photo-integration">{photo.integration}</span>
             </div>
           </div>

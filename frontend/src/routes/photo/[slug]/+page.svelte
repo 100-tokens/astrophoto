@@ -46,8 +46,7 @@
 
   function continueHref() {
     const ls = data.photo.last_step;
-    if (!ls || ls === 'upload' || ls === 'verify')
-      return `/upload/${data.photo.id}/verify`;
+    if (!ls || ls === 'upload' || ls === 'verify') return `/upload/${data.photo.id}/verify`;
     return `/upload/${data.photo.id}/caption`;
   }
 
@@ -58,7 +57,8 @@
   }
 
   function formatRange(a: string, b: string): string {
-    const da = new Date(a), db = new Date(b);
+    const da = new Date(a),
+      db = new Date(b);
     const sameYear = da.getFullYear() === db.getFullYear();
     const fmtShort = { day: '2-digit', month: 'short' } as const;
     const fmtLong = { day: '2-digit', month: 'short', year: 'numeric' } as const;
@@ -107,7 +107,6 @@
         ).filter((r) => r.value)
       : (data.exifRows ?? [])
   );
-
 </script>
 
 <div class="desktop-only"><AppHeader active="Gallery" /></div>
@@ -211,11 +210,22 @@
         <button class="btn btn-ghost btn-sm" style="margin-left: auto;">↗ Share</button>
         {#if isOwner}
           <div class="action-menu">
-            <button class="btn btn-ghost btn-sm" onclick={() => (menuOpen = !menuOpen)} aria-label="Actions">⋯</button>
+            <button
+              class="btn btn-ghost btn-sm"
+              onclick={() => (menuOpen = !menuOpen)}
+              aria-label="Actions">⋯</button
+            >
             {#if menuOpen}
               <ul class="menu-popover">
                 <li><a href="/upload/{data.photo.id}/verify">Edit metadata</a></li>
-                <li><button onclick={() => { replaceOpen = true; menuOpen = false; }}>Replace image…</button></li>
+                <li>
+                  <button
+                    onclick={() => {
+                      replaceOpen = true;
+                      menuOpen = false;
+                    }}>Replace image…</button
+                  >
+                </li>
                 <li>
                   {#if data.photo.is_draft}
                     <button onclick={discard}>Discard draft</button>
@@ -269,7 +279,11 @@
 </div>
 
 {#if data.photo.id}
-  <ReplaceModal bind:open={replaceOpen} photoId={data.photo.id} onreplaced={() => invalidateAll()} />
+  <ReplaceModal
+    bind:open={replaceOpen}
+    photoId={data.photo.id}
+    onreplaced={() => invalidateAll()}
+  />
 {/if}
 
 <style>
