@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into handle_redirects (old_handle, user_id, released_at) values ($1, $2, now() + interval '90 days') on conflict (old_handle) do update set user_id = excluded.user_id, released_at = excluded.released_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a55a359f857d3cdcc07811d787168316063df1b8b7e39161f64ab9860b98c23b"
+}

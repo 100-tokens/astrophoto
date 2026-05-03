@@ -1,6 +1,7 @@
 pub mod deletion;
 pub mod export;
 pub mod get;
+pub mod handle;
 pub mod preferences;
 pub mod profile;
 pub mod queries;

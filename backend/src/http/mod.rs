@@ -176,5 +176,9 @@ pub fn router(
         .route("/api/me/photos/count", get(crate::photos::count::handler))
         .route("/api/me/stats", get(crate::users::stats::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
+        .route(
+            "/api/me/handle",
+            axum::routing::post(crate::users::handle::rename),
+        )
         .with_state(state)
 }
