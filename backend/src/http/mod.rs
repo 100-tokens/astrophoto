@@ -109,6 +109,14 @@ pub fn router(
             axum::routing::get(crate::users::get::handler),
         )
         .route(
+            "/api/users/by-handle/:handle",
+            axum::routing::get(crate::users::by_handle::handler),
+        )
+        .route(
+            "/api/handles/redirect/:handle",
+            axum::routing::get(crate::users::redirect_lookup::handler),
+        )
+        .route(
             "/api/photos/:id/appreciate",
             axum::routing::post(crate::engagement::appreciations::appreciate)
                 .delete(crate::engagement::appreciations::unappreciate),

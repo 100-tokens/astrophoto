@@ -1,4 +1,5 @@
 pub mod bio;
+pub mod by_handle;
 pub mod deletion;
 pub mod export;
 pub mod get;
@@ -6,6 +7,7 @@ pub mod handle;
 pub mod preferences;
 pub mod profile;
 pub mod queries;
+pub mod redirect_lookup;
 pub mod sessions;
 pub mod stats;
 
