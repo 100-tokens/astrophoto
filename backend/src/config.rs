@@ -18,6 +18,10 @@ pub struct Config {
 
     pub cdn_base_url: String,
 
+    /// Allowed CORS origin for browser clients (e.g. the SvelteKit app).
+    /// Defaults to `http://localhost:5173` when unset (dev mode).
+    pub cors_origin: Option<String>,
+
     #[serde(default)]
     pub oauth_google_client_id: String,
     #[serde(default)]

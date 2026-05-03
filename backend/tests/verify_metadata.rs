@@ -42,6 +42,7 @@ fn config_for(url: &str) -> Config {
         s3_secret_key: "s".into(),
         s3_path_style: true,
         cdn_base_url: "http://localhost:0/cdn".into(),
+        cors_origin: None,
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
