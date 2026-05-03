@@ -106,7 +106,8 @@ fn handle_from_email(email: &str) -> String {
 
 async fn signup(app: &axum::Router, email: &str, password: &str) {
     let handle = handle_from_email(email);
-    let body = json!({"email": email, "password": password, "display_name": "Marie", "handle": handle});
+    let body =
+        json!({"email": email, "password": password, "display_name": "Marie", "handle": handle});
     let resp = app
         .clone()
         .oneshot(
