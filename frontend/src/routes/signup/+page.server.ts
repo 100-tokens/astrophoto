@@ -9,14 +9,16 @@ export const actions: Actions = {
     const email = String(data.get('email') ?? '');
     const password = String(data.get('password') ?? '');
     const display_name = String(data.get('display_name') ?? '');
+    const handle = String(data.get('handle') ?? '').trim();
 
-    if (!email || !password || !display_name) {
-      return fail(400, { email, display_name, message: 'All fields are required.' });
+    if (!email || !password || !display_name || !handle) {
+      return fail(400, { email, display_name, handle, message: 'All fields are required.' });
     }
     if (password.length < 10) {
       return fail(400, {
         email,
         display_name,
+        handle,
         message: 'Password must be at least 10 characters.'
       });
     }
@@ -31,26 +33,40 @@ export const actions: Actions = {
           'User-Agent': request.headers.get('user-agent') ?? '',
           'X-Forwarded-For': getClientAddress()
         },
-        body: JSON.stringify({ email, password, display_name })
+        body: JSON.stringify({ email, password, display_name, handle })
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Network error.';
-      return fail(503, { email, display_name, message: `Backend unreachable: ${msg}` });
+      return fail(503, { email, display_name, handle, message: `Backend unreachable: ${msg}` });
     }
 
     if (!res.ok) {
       if (res.status === 409) {
+        // Backend returns {"error":"conflict","message":"conflict: handle already taken"}
+        // or {"error":"conflict","message":"conflict: email already in use"}.
+        // Disambiguate by inspecting the message text.
+        const body = await res.json().catch(() => ({})) as { message?: unknown };
+        const msg = String(body.message ?? '');
+        if (msg.includes('handle')) {
+          return fail(409, {
+            email,
+            display_name,
+            handle,
+            handleError: 'That handle is already taken.'
+          });
+        }
         return fail(409, {
           email,
           display_name,
+          handle,
           message: 'An account with that email already exists.'
         });
       }
       if (res.status === 422) {
-        return fail(422, { email, display_name, message: 'Please check your inputs.' });
+        return fail(422, { email, display_name, handle, message: 'Please check your inputs.' });
       }
       const txt = await res.text();
-      return fail(500, { email, display_name, message: `Sign-up failed: ${txt}` });
+      return fail(500, { email, display_name, handle, message: `Sign-up failed: ${txt}` });
     }
 
     // Forward the session cookie from the backend to the browser.
