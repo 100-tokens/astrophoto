@@ -3,15 +3,17 @@
     photo,
     size = 'md'
   }: {
-    photo: { target?: string | null; original_name: string };
+    photo: { target?: string | null; original_name?: string | null };
     size?: 'sm' | 'md' | 'lg';
   } = $props();
 </script>
 
 {#if photo.target}
   <span class="title size-{size}">{photo.target}</span>
-{:else}
+{:else if photo.original_name}
   <span class="title untitled size-{size}">{photo.original_name}</span>
+  <em class="untitled-chip">UNTITLED</em>
+{:else}
   <em class="untitled-chip">UNTITLED</em>
 {/if}
 

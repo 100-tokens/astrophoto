@@ -161,7 +161,7 @@
       {/if}
 
       <h1 class="photo-title">
-        <PhotoTitle photo={{ target: p.target, original_name: p.target }} size="lg" />
+        <PhotoTitle photo={{ target: p.target }} size="lg" />
         {#if p.targetSubtitle}
           <br />{p.targetSubtitle}
         {/if}

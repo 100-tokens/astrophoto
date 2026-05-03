@@ -11,6 +11,7 @@ type RealPhoto = {
   owner_id?: string;
 };
 
+
 export const load: PageServerLoad = async ({ fetch, locals, request }) => {
   let realPhotos: RealPhoto[] = [];
 
@@ -52,14 +53,14 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
     const [hero, ...rest] = realPhotos as [RealPhoto, ...RealPhoto[]];
     return {
       heroPhoto: {
-        target: hero.target ?? 'Untitled',
+        target: hero.target,
         integration: '',
         photographer: ''
       },
       heroSrc: `${API}/api/photos/${hero.id}/thumb/1200`,
       photos: rest.map((p) => ({
         slug: p.id,
-        target: p.target ?? 'Untitled',
+        target: p.target,
         ratio: p.width && p.height ? p.width / p.height : 1.5,
         integration: '',
         photographer: '',
