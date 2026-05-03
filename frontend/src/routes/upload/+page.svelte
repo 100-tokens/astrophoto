@@ -37,7 +37,7 @@
         file,
         hash: '',
         // thumbDataUrl intentionally omitted — set after preflight completes.
-        progress: { state: 'hashing', pct: 0 },
+        progress: { state: 'hashing', pct: 0 }
       };
       newSlots.push(slot);
     }
@@ -129,7 +129,7 @@
           <UploadFileRow
             name={slot.name}
             size={slot.size}
-            {...(slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {})}
+            {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
             progress={slot.progress}
           />
         {/each}

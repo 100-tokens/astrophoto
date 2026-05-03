@@ -12,7 +12,7 @@
     name,
     kind,
     value = $bindable(''),
-    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   }: Props = $props();
 
   type Item = { canonical_name: string; display_name: string; usage_count: number };
@@ -34,7 +34,7 @@
     const t = setTimeout(async () => {
       try {
         const r = await fetch(
-          `${api}/api/equipment/autocomplete?kind=${encodeURIComponent(kind)}&q=${encodeURIComponent(value)}`,
+          `${api}/api/equipment/autocomplete?kind=${encodeURIComponent(kind)}&q=${encodeURIComponent(value)}`
         );
         if (r.ok && myId === reqId) {
           items = (await r.json()).items;
@@ -74,7 +74,10 @@
 
   function onBlur() {
     // Small delay so onmousedown={e.preventDefault()} on <li> can fire first.
-    setTimeout(() => { items = []; highlighted = -1; }, 120);
+    setTimeout(() => {
+      items = [];
+      highlighted = -1;
+    }, 120);
   }
 </script>
 
@@ -103,7 +106,9 @@
           class:ac-highlighted={i === highlighted}
           onmousedown={(e) => e.preventDefault()}
           onclick={() => select(item)}
-          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') select(item); }}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') select(item);
+          }}
         >
           {item.display_name}
         </li>
@@ -113,7 +118,9 @@
 </div>
 
 <style>
-  .ac { position: relative; }
+  .ac {
+    position: relative;
+  }
   .ac-list {
     position: absolute;
     top: 100%;

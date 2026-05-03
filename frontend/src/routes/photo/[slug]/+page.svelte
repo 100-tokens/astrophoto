@@ -184,7 +184,10 @@
           <a
             href={p.photographer.id
               ? `/u/${p.photographer.id}`
-              : `/u/${p.photographer.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
+              : `/u/${p.photographer.name
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-|-$/g, '')}`}
             class="btn btn-secondary btn-sm"
             style="margin-left: auto;"
           >

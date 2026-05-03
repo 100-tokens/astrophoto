@@ -4,10 +4,7 @@
     value?: string;
   }
 
-  let {
-    name = 'category',
-    value = $bindable('other'),
-  }: Props = $props();
+  let { name = 'category', value = $bindable('other') }: Props = $props();
 
   const opts = ['dso', 'planetary', 'lunar', 'solar', 'wide_field', 'nightscape', 'other'] as const;
 </script>
@@ -28,7 +25,7 @@
       {o.replace('_', ' ')}
     </button>
   {/each}
-  <input type="hidden" {name} value={value} />
+  <input type="hidden" {name} {value} />
 </div>
 
 <style>

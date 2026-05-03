@@ -5,11 +5,7 @@
     overQuota?: boolean;
   }
 
-  let {
-    onFiles,
-    tierMax = 50 * 1024 * 1024,
-    overQuota = false,
-  }: Props = $props();
+  let { onFiles, tierMax = 50 * 1024 * 1024, overQuota = false }: Props = $props();
 
   let dragOver = $state(false);
   let inputEl: HTMLInputElement;
@@ -39,8 +35,13 @@
   class="dz"
   class:dz-drag={dragOver}
   class:dz-disabled={overQuota}
-  ondragover={(e) => { e.preventDefault(); dragOver = true; }}
-  ondragleave={() => { dragOver = false; }}
+  ondragover={(e) => {
+    e.preventDefault();
+    dragOver = true;
+  }}
+  ondragleave={() => {
+    dragOver = false;
+  }}
   ondrop={handleDrop}
   onclick={openPicker}
   onkeydown={handleKeydown}
@@ -70,7 +71,9 @@
     border: 1px dashed var(--border-default);
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
     border-radius: var(--r-md, 4px);
     outline-offset: 2px;
   }

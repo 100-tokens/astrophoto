@@ -4,17 +4,17 @@
     value?: string[];
   }
 
-  let {
-    name = 'tags',
-    value = $bindable<string[]>([]),
-  }: Props = $props();
+  let { name = 'tags', value = $bindable<string[]>([]) }: Props = $props();
 
   let buf = $state('');
 
   function commit() {
     const s = buf.trim().toLowerCase();
     if (!s) return;
-    if (value.includes(s)) { buf = ''; return; }
+    if (value.includes(s)) {
+      buf = '';
+      return;
+    }
     if (value.length >= 8) return;
     value = [...value, s];
     buf = '';
@@ -40,8 +40,8 @@
       <button
         type="button"
         onclick={() => (value = value.filter((x) => x !== t))}
-        aria-label={`remove ${t}`}
-      >×</button>
+        aria-label={`remove ${t}`}>×</button
+      >
     </span>
   {/each}
   <input

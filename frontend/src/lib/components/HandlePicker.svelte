@@ -8,7 +8,7 @@
   let {
     name = 'handle',
     value = $bindable(''),
-    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   }: Props = $props();
 
   type Status = 'empty' | 'checking' | 'available' | 'taken' | 'invalid' | 'reserved';
@@ -38,12 +38,12 @@
   });
 
   const messages: Record<Status, string> = {
-    empty:     '',
-    checking:  '…',
+    empty: '',
+    checking: '…',
     available: 'Available.',
-    taken:     'Already taken.',
-    invalid:   'Use 3–30 lowercase letters, numbers, "-", or "_".',
-    reserved:  'Reserved — please choose another.',
+    taken: 'Already taken.',
+    invalid: 'Use 3–30 lowercase letters, numbers, "-", or "_".',
+    reserved: 'Reserved — please choose another.'
   };
 </script>
 
@@ -68,13 +68,25 @@
 </div>
 
 <style>
-  .hp { position: relative; }
-  .at { position: absolute; left: 12px; top: 9px; color: var(--fg-muted); font-family: var(--font-mono); }
-  .hp-input { padding-left: 28px; }
-  .hp-status[data-status="available"] { color: var(--success); }
-  .hp-status[data-status="taken"],
-  .hp-status[data-status="reserved"],
-  .hp-status[data-status="invalid"] {
+  .hp {
+    position: relative;
+  }
+  .at {
+    position: absolute;
+    left: 12px;
+    top: 9px;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+  }
+  .hp-input {
+    padding-left: 28px;
+  }
+  .hp-status[data-status='available'] {
+    color: var(--success);
+  }
+  .hp-status[data-status='taken'],
+  .hp-status[data-status='reserved'],
+  .hp-status[data-status='invalid'] {
     color: var(--danger);
   }
 </style>

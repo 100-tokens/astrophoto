@@ -9,7 +9,7 @@
   let { open = $bindable(false), onClose }: Props = $props();
 </script>
 
-<Modal bind:open title="Upgrade tier" {...(onClose ? { onclose: onClose } : {})}>
+<Modal bind:open title="Upgrade tier" {...onClose ? { onclose: onClose } : {}}>
   <p class="t-eyebrow">● UPGRADE · UPLOAD LARGER MASTERS</p>
   <h2 class="t-display t-display-i">Need <em>more headroom</em>?</h2>
   <p>Subscribers can upload 16-bit TIFFs up to <strong>200 MB</strong>.</p>
@@ -38,9 +38,7 @@
     >
       Maybe later
     </button>
-    <button class="btn btn-primary" disabled aria-disabled="true">
-      Upgrade — coming soon
-    </button>
+    <button class="btn btn-primary" disabled aria-disabled="true"> Upgrade — coming soon </button>
   </div>
 </Modal>
 

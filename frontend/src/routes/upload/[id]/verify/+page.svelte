@@ -24,14 +24,14 @@
   };
   const sp: ShowcasePhoto = data.photo as ShowcasePhoto;
 
-  let target   = $state<string>(sp.target   ?? '');
-  let camera   = $state<string>(sp.camera   ?? '');
-  let tags     = $state<string[]>([]);
+  let target = $state<string>(sp.target ?? '');
+  let camera = $state<string>(sp.camera ?? '');
+  let tags = $state<string[]>([]);
   let category = $state<string>(sp.category ?? 'other');
-  let scope    = $state<string>(sp.scope    ?? '');
-  let mount    = $state<string>(sp.mount    ?? '');
-  let filters  = $state<string>(sp.filters  ?? '');
-  let guiding  = $state<string>(sp.guiding  ?? '');
+  let scope = $state<string>(sp.scope ?? '');
+  let mount = $state<string>(sp.mount ?? '');
+  let filters = $state<string>(sp.filters ?? '');
+  let guiding = $state<string>(sp.guiding ?? '');
   // TODO(P2): load existing tags from photo_tags join in the load function.
 
   let isPublished = $derived(!data.photo.is_draft);

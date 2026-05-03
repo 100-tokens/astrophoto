@@ -20,7 +20,7 @@
     sizes = '(max-width: 640px) 100vw, 800px',
     blurhash,
     aspectRatio,
-    class: cls = '',
+    class: cls = ''
   }: Props = $props();
 
   const widths = [w, w * 2, w * 3];

@@ -8,7 +8,7 @@
   let {
     name = 'target',
     value = $bindable(''),
-    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   }: Props = $props();
 
   type Target = { slug: string; canonical_name: string; kind: string };
@@ -29,9 +29,7 @@
     const myId = ++reqId;
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(
-          `${api}/api/targets/autocomplete?q=${encodeURIComponent(value)}`,
-        );
+        const r = await fetch(`${api}/api/targets/autocomplete?q=${encodeURIComponent(value)}`);
         if (r.ok && myId === reqId) {
           suggestions = (await r.json()).targets;
           highlighted = -1;
@@ -70,7 +68,10 @@
 
   function onBlur() {
     // Small delay so onmousedown={e.preventDefault()} on <li> can fire first.
-    setTimeout(() => { suggestions = []; highlighted = -1; }, 120);
+    setTimeout(() => {
+      suggestions = [];
+      highlighted = -1;
+    }, 120);
   }
 </script>
 
@@ -100,7 +101,9 @@
           class:ac-highlighted={i === highlighted}
           onmousedown={(e) => e.preventDefault()}
           onclick={() => select(s)}
-          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') select(s); }}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') select(s);
+          }}
         >
           <span class="t-mono">{s.slug}</span> · {s.canonical_name}
         </li>
@@ -110,7 +113,9 @@
 </div>
 
 <style>
-  .ac { position: relative; }
+  .ac {
+    position: relative;
+  }
   .ac-list {
     position: absolute;
     top: 100%;

@@ -8,12 +8,7 @@
     progress: SlotProgress;
   }
 
-  let {
-    name,
-    size,
-    thumbDataUrl,
-    progress,
-  }: Props = $props();
+  let { name, size, thumbDataUrl, progress }: Props = $props();
 
   const sizeMb = $derived((size / 1024 / 1024).toFixed(1));
 </script>
@@ -36,13 +31,22 @@
     {:else if progress.state === 'hashing'}
       <p class="t-meta status-muted">hashing…</p>
     {:else if progress.state === 'uploading'}
-      <div class="bar" role="progressbar" aria-valuenow={progress.pct} aria-valuemin={0} aria-valuemax={100} aria-label="Upload progress">
+      <div
+        class="bar"
+        role="progressbar"
+        aria-valuenow={progress.pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Upload progress"
+      >
         <div class="bar-fill" style:width={`${progress.pct}%`}></div>
       </div>
     {:else if progress.state === 'finalizing'}
       <p class="t-meta status-muted">finalizing…</p>
     {:else if progress.state === 'ready'}
-      <a class="t-meta action-link" href={`/upload/${progress.photoId}/verify`}>✓ Saved as draft · Continue to verify →</a>
+      <a class="t-meta action-link" href={`/upload/${progress.photoId}/verify`}
+        >✓ Saved as draft · Continue to verify →</a
+      >
     {:else if progress.state === 'failed'}
       <span class="chip chip-failed">
         ✗ {progress.reason ?? 'Failed'}

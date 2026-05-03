@@ -45,7 +45,7 @@ export const actions: Actions = {
         // Backend returns {"error":"conflict","message":"conflict: handle already taken"}
         // or {"error":"conflict","message":"conflict: email already in use"}.
         // Disambiguate by inspecting the message text.
-        const body = await res.json().catch(() => ({})) as { message?: unknown };
+        const body = (await res.json().catch(() => ({}))) as { message?: unknown };
         const msg = String(body.message ?? '');
         if (msg.includes('handle')) {
           return fail(409, {
