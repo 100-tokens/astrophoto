@@ -4,6 +4,7 @@ pub mod delete;
 pub mod exif;
 pub mod get;
 pub mod list;
+pub mod magic;
 pub mod metadata;
 pub mod permalink;
 pub mod pipeline;
