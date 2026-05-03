@@ -23,6 +23,25 @@ use uuid::Uuid;
 // Shared utilities (mirrored from photos.rs — not exposed as a crate item)
 // ---------------------------------------------------------------------------
 
+fn handle_from_email(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("user");
+    let mut h = local
+        .chars()
+        .map(|c| {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    h = h.trim_matches('-').to_string();
+    if h.len() < 3 {
+        h = format!("t-{h}");
+    }
+    h
+}
+
 #[allow(clippy::expect_used)]
 fn config_for(url: &str) -> Config {
     Config {
@@ -126,10 +145,12 @@ impl H {
     /// POST /api/auth/signup, returns the `set-cookie` header value.
     #[allow(clippy::unwrap_used)]
     async fn signup(&self, email: &str, password: &str, display_name: &str) -> String {
+        let handle = handle_from_email(email);
         let body = serde_json::json!({
             "email": email,
             "password": password,
             "display_name": display_name,
+            "handle": handle,
         });
         let resp = self
             .app
@@ -350,21 +371,26 @@ async fn is_visible_to_returns_true_for_published_to_anyone() {
     let (pool, _pg) = test_pool().await;
     let owner = Uuid::new_v4();
     let viewer = Uuid::new_v4();
+    let owner_handle = format!("o-{}", &owner.to_string()[..8]);
+    let viewer_handle = format!("v-{}", &viewer.to_string()[..8]);
     sqlx::query!(
-        "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O'), ($3, $4, '', 'V')",
+        "insert into users (id, email, password_hash, display_name, handle)
+         values ($1, $2, '', 'O', $5), ($3, $4, '', 'V', $6)",
         owner,
         format!("o-{owner}@e"),
         viewer,
-        format!("v-{viewer}@e")
+        format!("v-{viewer}@e"),
+        owner_handle,
+        viewer_handle,
     )
     .execute(&pool)
     .await
     .unwrap();
     let photo_id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                             status, published_at, original_uploaded_at, last_step)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'ready', now(), now(), 'caption')
+                             status, published_at, original_uploaded_at, last_step, short_id)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'ready', now(), now(), 'caption',
+                 upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         owner
     )
@@ -390,21 +416,26 @@ async fn is_visible_to_returns_false_for_draft_to_non_owner_and_anon() {
     let (pool, _pg) = test_pool().await;
     let owner = Uuid::new_v4();
     let viewer = Uuid::new_v4();
+    let owner_handle = format!("o-{}", &owner.to_string()[..8]);
+    let viewer_handle = format!("v-{}", &viewer.to_string()[..8]);
     sqlx::query!(
-        "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O'), ($3, $4, '', 'V')",
+        "insert into users (id, email, password_hash, display_name, handle)
+         values ($1, $2, '', 'O', $5), ($3, $4, '', 'V', $6)",
         owner,
         format!("o-{owner}@e"),
         viewer,
-        format!("v-{viewer}@e")
+        format!("v-{viewer}@e"),
+        owner_handle,
+        viewer_handle,
     )
     .execute(&pool)
     .await
     .unwrap();
     let photo_id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                             status, original_uploaded_at, last_step)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload')
+                             status, original_uploaded_at, last_step, short_id)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload',
+                 upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         owner
     )
@@ -434,11 +465,13 @@ async fn is_visible_to_returns_false_for_draft_to_non_owner_and_anon() {
 async fn insert_processing_sets_last_step_upload_and_published_at_null() {
     let (pool, _pg) = test_pool().await;
     let owner = Uuid::new_v4();
+    let owner_handle = format!("o-{}", &owner.to_string()[..8]);
     sqlx::query!(
-        "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O')",
+        "insert into users (id, email, password_hash, display_name, handle)
+         values ($1, $2, '', 'O', $3)",
         owner,
-        format!("o-{owner}@e")
+        format!("o-{owner}@e"),
+        owner_handle,
     )
     .execute(&pool)
     .await
@@ -682,8 +715,9 @@ async fn publish_400_when_status_processing() {
     // Insert directly (bypassing upload_draft) so no background pipeline races.
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                             status, last_step, original_uploaded_at)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', 'upload', now())
+                             status, last_step, original_uploaded_at, short_id)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', 'upload', now(),
+                 upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         alice_id
     )
@@ -799,19 +833,22 @@ async fn put_metadata_explicit_null_clears_field() {
 async fn mark_failed_records_pipeline_error_string() {
     let (pool, _pg) = test_pool().await;
     let owner = Uuid::new_v4();
+    let owner_handle = format!("o-{}", &owner.to_string()[..8]);
     sqlx::query!(
-        "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O')",
+        "insert into users (id, email, password_hash, display_name, handle)
+         values ($1, $2, '', 'O', $3)",
         owner,
-        format!("o-{owner}@e")
+        format!("o-{owner}@e"),
+        owner_handle,
     )
     .execute(&pool)
     .await
     .unwrap();
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                             status, original_uploaded_at, last_step)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload')
+                             status, original_uploaded_at, last_step, short_id)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'processing', now(), 'upload',
+                 upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         owner
     )
@@ -977,19 +1014,22 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
     let (pool, _pg) = test_pool().await;
     let storage = std::sync::Arc::new(astrophoto::storage::MemoryStorage::new());
     let owner = Uuid::new_v4();
+    let owner_handle = format!("o-{}", &owner.to_string()[..8]);
     sqlx::query!(
-        "insert into users (id, email, password_hash, display_name)
-         values ($1, $2, '', 'O')",
+        "insert into users (id, email, password_hash, display_name, handle)
+         values ($1, $2, '', 'O', $3)",
         owner,
-        format!("o-{owner}@e")
+        format!("o-{owner}@e"),
+        owner_handle,
     )
     .execute(&pool)
     .await
     .unwrap();
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                             status, original_uploaded_at, last_step)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'failed', now(), 'upload')
+                             status, original_uploaded_at, last_step, short_id)
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'failed', now(), 'upload',
+                 upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         owner
     )

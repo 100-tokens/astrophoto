@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into users (email, display_name, password_hash) values ($1, 'OAuth', null) returning id",
+  "query": "insert into users (email, display_name, password_hash, handle, pending_deletion_at)\n         values ($1, 'Marie', null, 'marie-purge', now() - interval '1 hour') returning id",
   "describe": {
     "columns": [
       {
@@ -23,5 +23,5 @@
       false
     ]
   },
-  "hash": "8eccb8a402719a4801bbc9366fb8b4b679dbbbe4831563874e13d9c97265a6a4"
+  "hash": "8f3c88fc3e269bb71b09c0254902da1a6d15cd71861ef9e98dd9c6c049a7e8f5"
 }

@@ -57,9 +57,29 @@ fn make_test_jpeg() -> Vec<u8> {
     buf.into_inner()
 }
 
+fn handle_from_email(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("user");
+    let mut h = local
+        .chars()
+        .map(|c| {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    h = h.trim_matches('-').to_string();
+    if h.len() < 3 {
+        h = format!("t-{h}");
+    }
+    h
+}
+
 async fn signup(app: &axum::Router, email: &str, name: &str) -> (String, String) {
+    let handle = handle_from_email(email);
     let body = serde_json::json!({
-        "email": email, "password": "longenoughpw", "display_name": name,
+        "email": email, "password": "longenoughpw", "display_name": name, "handle": handle,
     });
     let resp = app
         .clone()

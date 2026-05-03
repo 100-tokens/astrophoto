@@ -77,7 +77,8 @@ async fn upload_pipeline_signup_upload_thumb() {
     let signup_body = serde_json::json!({
         "email": "u@example.com",
         "password": "longenoughpw",
-        "display_name": "U"
+        "display_name": "U",
+        "handle": "t-u"
     });
     let resp = app
         .clone()
