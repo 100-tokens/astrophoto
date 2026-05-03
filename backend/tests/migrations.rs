@@ -46,3 +46,17 @@ async fn migration_0005_adds_handles_and_redirects() {
     .unwrap();
     assert!(exists);
 }
+
+#[tokio::test]
+async fn migration_0006_adds_user_tier() {
+    let pool = fresh_db().await;
+    let default_tier: String = sqlx::query_scalar(
+        "select column_default \
+         from information_schema.columns \
+         where table_name = 'users' and column_name = 'tier'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(default_tier.starts_with("'free'"));
+}
