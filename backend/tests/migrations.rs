@@ -105,3 +105,23 @@ async fn migration_0009_adds_photo_featured_and_category() {
     .unwrap();
     assert_eq!(count, 7);
 }
+
+#[tokio::test]
+async fn migration_0010_adds_targets_and_tags() {
+    let pool = fresh_db().await;
+    let messier_count: i64 = sqlx::query_scalar(
+        "select count(*) from targets where kind = 'messier'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(messier_count, 110);
+
+    let m31: String = sqlx::query_scalar(
+        "select canonical_name from targets where slug = 'm31'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(m31, "Andromeda Galaxy");
+}
