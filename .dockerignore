@@ -1,0 +1,20 @@
+# Rust build artifacts
+backend/target/
+
+# Node build artifacts and dev dependencies
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+
+# Local data / dev state
+data/
+*.env
+.env.*
+!.env.example
+
+# Test results
+frontend/test-results/
+frontend/playwright-report/
+
+# Git
+.git/
