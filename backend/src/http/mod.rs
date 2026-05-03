@@ -183,6 +183,10 @@ pub fn router(
             axum::routing::post(crate::users::handle::rename),
         )
         .route(
+            "/api/tags/autocomplete",
+            axum::routing::get(crate::photos::tags_autocomplete::handler),
+        )
+        .route(
             "/api/targets/autocomplete",
             axum::routing::get(crate::photos::targets_autocomplete::handler),
         )

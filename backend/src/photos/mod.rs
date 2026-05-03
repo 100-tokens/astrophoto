@@ -14,6 +14,7 @@ pub mod replace;
 pub mod serve;
 pub mod short_id;
 pub mod tags;
+pub mod tags_autocomplete;
 pub mod targets;
 pub mod targets_autocomplete;
 pub mod thumbs;
