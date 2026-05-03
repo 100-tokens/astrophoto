@@ -65,6 +65,7 @@
     aria-pressed={appreciated}
     disabled={pending}
     onclick={toggle}
+    data-appreciate-trigger
   >
     {#if count === 0 && !appreciated}
       ♡ Appreciate

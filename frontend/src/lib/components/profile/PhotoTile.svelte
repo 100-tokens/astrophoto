@@ -2,6 +2,7 @@
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
   import Img from '$lib/components/Img.svelte';
   import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
+  import { openLightboxOnClick } from '$lib/util/openLightbox';
 
   let {
     photo,
@@ -21,6 +22,7 @@
 </script>
 
 <a
+  use:openLightboxOnClick={{ handle, short_id: photo.short_id }}
   class="tile"
   style="width:{width}px; height:{height}px; transform: translate({left}px, {top}px);"
   href="/u/{handle}/p/{photo.short_id}"
