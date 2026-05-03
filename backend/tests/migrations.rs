@@ -125,3 +125,16 @@ async fn migration_0010_adds_targets_and_tags() {
     .unwrap();
     assert_eq!(m31, "Andromeda Galaxy");
 }
+
+#[tokio::test]
+async fn migration_0011_adds_appreciations_count() {
+    let pool = fresh_db().await;
+    let exists: bool = sqlx::query_scalar(
+        "select exists(select 1 from information_schema.columns \
+         where table_name = 'photos' and column_name = 'appreciations_count')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(exists);
+}
