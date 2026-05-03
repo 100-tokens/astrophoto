@@ -48,7 +48,7 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
     // ignore — keep default 0
   }
 
-  type ProfilePhoto = Omit<Photo, 'target'> & { target: string | null };
+  type ProfilePhoto = Omit<Photo, 'target'> & { id: string; target: string | null };
   let photos: ProfilePhoto[] = [];
   try {
     const res = await fetch(`${API}/api/photos?owner_id=${u.id}&limit=24`);
@@ -63,14 +63,14 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
         }>;
       };
       photos = body.photos.map((p) => ({
+        id: p.id,
         slug: p.short_id,
         target: p.target,
         ratio: p.width && p.height ? p.width / p.height : 1.5,
         integration: '',
         photographer: '',
         photographerSlug: '',
-        camera: '',
-        thumbSrc: `${API}/api/photos/${p.id}/thumb/400`
+        camera: ''
       }));
     }
   } catch {

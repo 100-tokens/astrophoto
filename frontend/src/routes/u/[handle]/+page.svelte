@@ -1,14 +1,15 @@
 <script lang="ts">
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
-  import Photo from '$lib/components/Photo.svelte';
+  import Img from '$lib/components/Img.svelte';
   import FollowButton from '$lib/components/FollowButton.svelte';
   import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import type { User, Photo as PhotoData } from '$lib/data/photos';
 
   interface ProfilePhoto extends Omit<PhotoData, 'target'> {
+    /** UUID of the photo — used to build CDN URLs. */
+    id: string;
     target: string | null;
-    thumbSrc?: string;
   }
 
   interface PageData {
@@ -132,10 +133,12 @@
               aria-label={photo.target ?? 'Untitled'}
             >
               <div class="grid-photo-inner">
-                <Photo
-                  target={photo.target ?? ''}
-                  src={photo.thumbSrc}
-                  style="position: absolute; inset: 0;"
+                <Img
+                  photoId={photo.id}
+                  alt={photo.target ?? 'Untitled'}
+                  w={400}
+                  aspectRatio="1/1"
+                  class="grid-photo-img"
                 />
               </div>
             </a>
@@ -285,6 +288,14 @@
     position: relative;
     aspect-ratio: 1 / 1;
     overflow: hidden;
+  }
+
+  .grid-photo-inner :global(.grid-photo-img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .grid-caption {
