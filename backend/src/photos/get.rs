@@ -99,8 +99,13 @@ pub async fn handler(
     .await?
     .count;
 
+    let row_owner = row.owner_id;
     let mut dto: PhotoDetail = row.into();
     dto.appreciation_count = appreciation_count;
     dto.comment_count = comment_count;
+    // Hide pipeline_error from non-owners — it can carry internal diagnostic strings.
+    if viewer != Some(row_owner) {
+        dto.pipeline_error = None;
+    }
     Ok(Json(dto))
 }

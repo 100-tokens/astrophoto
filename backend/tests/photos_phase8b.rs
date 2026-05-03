@@ -69,9 +69,9 @@ fn make_test_jpeg() -> Vec<u8> {
 /// lifetime; the `_` prefix suppresses the dead_code lint.
 struct H {
     app: Router,
-    // Kept for future tasks (5-11) that hit the DB layer directly.
-    #[allow(dead_code)]
     pool: PgPool,
+    /// Concrete MemoryStorage so tests can inspect S3 state directly.
+    storage: Arc<MemoryStorage>,
     _pg: testcontainers::ContainerAsync<PgImage>,
 }
 
@@ -88,9 +88,20 @@ async fn harness() -> H {
 
     let storage = Arc::new(MemoryStorage::new());
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
-    let app = http::router(pool.clone(), config_for(&url), storage, Arc::new(mailer));
+    // Arc<MemoryStorage> coerces to Arc<dyn Storage> at the call site.
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        storage.clone(),
+        Arc::new(mailer),
+    );
 
-    H { app, pool, _pg: pg }
+    H {
+        app,
+        pool,
+        storage,
+        _pg: pg,
+    }
 }
 
 impl H {
@@ -264,6 +275,22 @@ impl H {
             .await
             .unwrap();
         r.status().as_u16()
+    }
+
+    /// DELETE `path`, optionally authenticated. Returns HTTP status code only.
+    #[allow(clippy::unwrap_used, dead_code)]
+    async fn delete_status(&self, path: &str, cookie: Option<&str>) -> u16 {
+        let mut req = Request::builder().method("DELETE").uri(path);
+        if let Some(c) = cookie {
+            req = req.header(header::COOKIE, c);
+        }
+        let resp = self
+            .app
+            .clone()
+            .oneshot(req.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        resp.status().as_u16()
     }
 
     /// POST a fresh JPEG to `/api/photos/:id/replace`. Asserts 202.
@@ -1021,5 +1048,94 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
     assert!(
         storage.get("fresh-key").await.unwrap().is_some(),
         "fresh S3 object must survive"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8b final review fixes
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn delete_photo_204_for_owner_removes_row_and_s3() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+
+    // Capture the master key for the post-delete S3 check.
+    let key: String = sqlx::query_scalar!("select storage_key from photos where id=$1", id)
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
+
+    let status = h
+        .delete_status(&format!("/api/photos/{id}"), Some(&alice))
+        .await;
+    assert_eq!(status, 204);
+
+    let remaining: i64 =
+        sqlx::query_scalar!(r#"select count(*) as "c!" from photos where id=$1"#, id)
+            .fetch_one(&h.pool)
+            .await
+            .unwrap();
+    assert_eq!(remaining, 0, "photos row must be gone after DELETE");
+
+    // S3 master should be gone (MemoryStorage is in-process).
+    assert!(
+        h.storage.get(&key).await.unwrap().is_none(),
+        "S3 master object must be swept by DELETE"
+    );
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn delete_photo_403_for_non_owner() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let id = h.upload_draft(&alice).await;
+    let status = h
+        .delete_status(&format!("/api/photos/{id}"), Some(&bob))
+        .await;
+    assert_eq!(status, 403);
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn pipeline_error_hidden_from_non_owner_and_anon() {
+    let h = harness().await;
+    let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
+    let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
+    let id = h.upload_draft(&alice).await;
+    h.wait_for_ready(id).await;
+    h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
+        .await;
+    // Inject a fake pipeline_error directly into the DB.
+    sqlx::query!(
+        "update photos set status='failed', pipeline_error='internal: secret detail' where id=$1",
+        id
+    )
+    .execute(&h.pool)
+    .await
+    .unwrap();
+
+    let owner_view = h.get_json(&format!("/api/photos/{id}"), Some(&alice)).await;
+    assert_eq!(
+        owner_view["pipeline_error"].as_str(),
+        Some("internal: secret detail"),
+        "owner must see pipeline_error"
+    );
+
+    let anon_view = h.get_json(&format!("/api/photos/{id}"), None).await;
+    assert!(
+        anon_view["pipeline_error"].is_null(),
+        "anonymous viewer must not see pipeline_error"
+    );
+
+    let bob_view = h.get_json(&format!("/api/photos/{id}"), Some(&bob)).await;
+    assert!(
+        bob_view["pipeline_error"].is_null(),
+        "non-owner must not see pipeline_error"
     );
 }

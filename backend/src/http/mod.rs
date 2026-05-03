@@ -85,7 +85,9 @@ pub fn router(
         )
         .route(
             "/api/photos/:id",
-            get(crate::photos::get::handler).put(crate::photos::metadata::handler),
+            get(crate::photos::get::handler)
+                .put(crate::photos::metadata::handler)
+                .delete(crate::photos::delete::handler),
         )
         .route(
             "/api/photos/:id/publish",

@@ -40,6 +40,7 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
     is_draft: boolean;
     status: string;
     appreciation_count: number;
+    created_at: string;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,7 +57,11 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
       : filter === 'published'
         ? publishedPhotos
         : [...draftsPhotos, ...publishedPhotos];
-  if (sort === 'oldest') rows = [...rows].reverse();
+
+  // Sort by created_at so oldest/newest is coherent across the merged list.
+  // (A plain reverse() only flips the concatenation order, not the timestamp order.)
+  const dir = sort === 'newest' ? -1 : 1;
+  rows = [...rows].sort((a, b) => dir * a.created_at.localeCompare(b.created_at));
 
   return {
     stats: statsTyped,
