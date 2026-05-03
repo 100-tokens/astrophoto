@@ -7,6 +7,7 @@ use crate::AppError;
 pub struct UserRow {
     pub id: Uuid,
     pub email: String,
+    pub handle: String,
     pub display_name: String,
     pub password_hash: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -15,17 +16,19 @@ pub struct UserRow {
 pub async fn create_with_password(
     pool: &PgPool,
     email: &str,
+    handle: &str,
     display_name: &str,
     password_hash: &str,
 ) -> Result<UserRow, AppError> {
-    let row = sqlx::query_as!(
+    sqlx::query_as!(
         UserRow,
         r#"
-        insert into users (email, display_name, password_hash, password_changed_at)
-        values ($1, $2, $3, now())
-        returning id, email::text as "email!", display_name, password_hash, created_at
+        insert into users (email, handle, display_name, password_hash, password_changed_at)
+        values ($1, $2, $3, $4, now())
+        returning id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at
         "#,
         email,
+        handle,
         display_name,
         password_hash,
     )
@@ -35,16 +38,18 @@ pub async fn create_with_password(
         sqlx::Error::Database(db) if db.constraint() == Some("users_email_key") => {
             AppError::Conflict("email already in use".into())
         }
+        sqlx::Error::Database(db) if db.constraint() == Some("users_handle_uidx") => {
+            AppError::Conflict("handle already taken".into())
+        }
         _ => AppError::Database(e),
-    })?;
-    Ok(row)
+    })
 }
 
 pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<UserRow>, AppError> {
     let row = sqlx::query_as!(
         UserRow,
         r#"
-        select id, email::text as "email!", display_name, password_hash, created_at
+        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at
         from users where email = $1
         "#,
         email
@@ -58,7 +63,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<UserRow>, AppE
     let row = sqlx::query_as!(
         UserRow,
         r#"
-        select id, email::text as "email!", display_name, password_hash, created_at
+        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at
         from users where id = $1
         "#,
         id
