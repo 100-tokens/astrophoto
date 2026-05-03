@@ -1,3 +1,4 @@
+pub mod bio;
 pub mod deletion;
 pub mod export;
 pub mod get;
