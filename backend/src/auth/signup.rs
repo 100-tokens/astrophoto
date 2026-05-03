@@ -17,6 +17,7 @@ pub struct SignupBody {
     pub password: String,
     #[validate(length(min = 1, max = 100))]
     pub display_name: String,
+    pub handle: String,
 }
 
 #[allow(clippy::unwrap_used)]
@@ -27,10 +28,17 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     body.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
+    crate::auth::handle::validate(&body.handle).map_err(|e| AppError::Validation(e.to_string()))?;
 
     let hash = password::hash(body.password).await?;
-    let user =
-        queries::create_with_password(&state.pool, &body.email, &body.display_name, &hash).await?;
+    let user = queries::create_with_password(
+        &state.pool,
+        &body.email,
+        &body.handle,
+        &body.display_name,
+        &hash,
+    )
+    .await?;
 
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
     let ip: Option<IpAddr> = headers

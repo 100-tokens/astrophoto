@@ -7,6 +7,7 @@ use crate::AppError;
 pub struct PhotoRow {
     pub id: Uuid,
     pub owner_id: Uuid,
+    pub short_id: String,
     pub storage_key: String,
     pub original_name: String,
     pub bytes: i64,
@@ -41,24 +42,39 @@ pub async fn insert_processing(
     target: Option<&str>,
     caption: Option<&str>,
 ) -> Result<Uuid, AppError> {
-    let row = sqlx::query!(
-        r#"
-        insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                            target, caption, status, last_step, original_uploaded_at)
-        values ($1, $2, $3, $4, $5, $6, $7, 'processing', 'upload', now())
-        returning id
-        "#,
-        owner_id,
-        storage_key,
-        original_name,
-        bytes,
-        mime,
-        target,
-        caption,
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(row.id)
+    for _ in 0..5 {
+        let short_id = crate::photos::short_id::generate();
+        let res = sqlx::query!(
+            r#"
+            insert into photos (owner_id, storage_key, original_name, bytes, mime,
+                                target, caption, short_id, status, last_step, original_uploaded_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, 'processing', 'upload', now())
+            returning id
+            "#,
+            owner_id,
+            storage_key,
+            original_name,
+            bytes,
+            mime,
+            target,
+            caption,
+            short_id,
+        )
+        .fetch_one(pool)
+        .await;
+        match res {
+            Ok(row) => return Ok(row.id),
+            Err(sqlx::Error::Database(ref db_err))
+                if db_err.constraint() == Some("photos_short_id_uidx") =>
+            {
+                continue;
+            }
+            Err(e) => return Err(AppError::Database(e)),
+        }
+    }
+    Err(AppError::Internal(
+        "short_id collision retries exhausted".into(),
+    ))
 }
 
 pub async fn mark_ready(
@@ -105,6 +121,23 @@ pub async fn mark_ready_size_only(
         id,
         width,
         height
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn set_display_metadata(
+    pool: &PgPool,
+    id: Uuid,
+    display_key: &str,
+    blurhash: &str,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        "update photos set display_key = $2, blurhash = $3 where id = $1",
+        id,
+        display_key,
+        blurhash,
     )
     .execute(pool)
     .await?;
@@ -217,7 +250,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
     let row = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -238,7 +271,7 @@ pub async fn list_by_owner(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -259,7 +292,7 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
@@ -283,7 +316,7 @@ pub async fn list_following(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select p.id, p.owner_id, p.storage_key, p.original_name, p.bytes, p.mime,
+        select p.id, p.owner_id, p.short_id, p.storage_key, p.original_name, p.bytes, p.mime,
                p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
                p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,
                p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
@@ -334,7 +367,7 @@ pub async fn list_drafts_by_owner(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        select id, owner_id, storage_key, original_name, bytes, mime,
+        select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error

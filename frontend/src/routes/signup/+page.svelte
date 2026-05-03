@@ -3,8 +3,16 @@
   import Wordmark from '$lib/components/Wordmark.svelte';
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
+  import HandlePicker from '$lib/components/HandlePicker.svelte';
 
   let { form }: PageProps = $props();
+
+  // Preserve handle across server-side error round-trips.
+  // $derived keeps this reactive when `form` changes after a server action.
+  let handle = $state('');
+  $effect(() => {
+    if (form?.handle !== undefined) handle = form.handle;
+  });
 </script>
 
 <svelte:head>
@@ -68,6 +76,13 @@
           required
           placeholder="How others will see you"
         />
+      </div>
+
+      <div class="field">
+        <HandlePicker bind:value={handle} />
+        {#if form?.handleError}
+          <p class="t-meta form-error">{form.handleError}</p>
+        {/if}
       </div>
 
       <div class="field">

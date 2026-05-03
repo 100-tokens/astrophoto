@@ -43,8 +43,12 @@ pub fn router(
         storage,
         mailer,
     };
-    Router::new()
+    let mut router = Router::new()
         .route("/healthz", get(health::healthz))
+        .route(
+            "/api/auth/handle-check",
+            get(crate::auth::handle_check::handler),
+        )
         .route("/api/auth/signup", post(crate::auth::signup::handler))
         .route("/api/auth/login", post(crate::auth::login::handler))
         .route("/api/auth/me", get(crate::auth::me::handler))
@@ -79,9 +83,7 @@ pub fn router(
         )
         .route(
             "/api/photos",
-            post(crate::photos::upload::handler)
-                .get(crate::photos::list::handler)
-                .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
+            axum::routing::get(crate::photos::list::handler),
         )
         .route(
             "/api/photos/:id",
@@ -105,6 +107,14 @@ pub fn router(
         .route(
             "/api/users/:id",
             axum::routing::get(crate::users::get::handler),
+        )
+        .route(
+            "/api/users/by-handle/:handle",
+            axum::routing::get(crate::users::by_handle::handler),
+        )
+        .route(
+            "/api/handles/redirect/:handle",
+            axum::routing::get(crate::users::redirect_lookup::handler),
         )
         .route(
             "/api/photos/:id/appreciate",
@@ -169,8 +179,53 @@ pub fn router(
             "/api/me/delete-cancel",
             post(crate::users::deletion::cancel),
         )
+        .route(
+            "/api/photos/by-permalink/:handle/:short_id",
+            axum::routing::get(crate::photos::permalink::lookup),
+        )
+        .route(
+            "/api/photos/by-uuid/:id",
+            axum::routing::get(crate::photos::redirect::redirect_uuid_to_canonical),
+        )
         .route("/api/me/photos/count", get(crate::photos::count::handler))
         .route("/api/me/stats", get(crate::users::stats::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
-        .with_state(state)
+        .route(
+            "/api/me/handle",
+            axum::routing::post(crate::users::handle::rename),
+        )
+        .route(
+            "/api/tags/autocomplete",
+            axum::routing::get(crate::photos::tags_autocomplete::handler),
+        )
+        .route(
+            "/api/targets/autocomplete",
+            axum::routing::get(crate::photos::targets_autocomplete::handler),
+        )
+        .route(
+            "/api/equipment/autocomplete",
+            axum::routing::get(crate::equipment::autocomplete::handler),
+        )
+        .route(
+            "/api/uploads/init",
+            axum::routing::post(crate::photos::upload_init::handler),
+        )
+        .route(
+            "/api/uploads/:id/finalize",
+            axum::routing::post(crate::photos::upload_finalize::handler),
+        );
+
+    // Mount the dev CDN only when CDN_BASE_URL points back at this process.
+    // In production, CloudFront is in front and this route is not needed.
+    let mount_cdn_dev = state.config.cdn_local_fallback
+        || state.config.cdn_base_url.contains("localhost")
+        || state.config.cdn_base_url.contains("127.0.0.1");
+    if mount_cdn_dev {
+        router = router.route(
+            "/cdn/img/:id",
+            axum::routing::get(crate::storage::cdn_dev::handler),
+        );
+    }
+
+    router.with_state(state)
 }

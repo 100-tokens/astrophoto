@@ -33,6 +33,9 @@ fn config_for(url: &str) -> Config {
         s3_access_key: "a".into(),
         s3_secret_key: "s".into(),
         s3_path_style: true,
+        cdn_base_url: "http://localhost:0/cdn".into(),
+        cdn_local_fallback: false,
+        cors_origin: None,
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
@@ -84,8 +87,29 @@ fn req_with_ip(method: &str, uri: &str, body: Value) -> Request<Body> {
         .unwrap()
 }
 
+fn handle_from_email(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("user");
+    let mut h = local
+        .chars()
+        .map(|c| {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    h = h.trim_matches('-').to_string();
+    if h.len() < 3 {
+        h = format!("t-{h}");
+    }
+    h
+}
+
 async fn signup(app: &axum::Router, email: &str, password: &str) {
-    let body = json!({"email": email, "password": password, "display_name": "Marie"});
+    let handle = handle_from_email(email);
+    let body =
+        json!({"email": email, "password": password, "display_name": "Marie", "handle": handle});
     let resp = app
         .clone()
         .oneshot(
@@ -307,9 +331,10 @@ async fn password_reset_oauth_user_gets_set_password_template() {
     let (app, pool, outbox, _pg) = boot().await;
     // OAuth-only user: signup never happened; insert directly with NULL password_hash.
     sqlx::query!(
-        "insert into users (email, display_name, password_hash) values ($1, $2, null)",
+        "insert into users (email, display_name, password_hash, handle) values ($1, $2, null, $3)",
         "oauth@x.test",
-        "OAuthie"
+        "OAuthie",
+        "oauth-x-test"
     )
     .execute(&pool)
     .await
@@ -573,7 +598,7 @@ async fn email_change_oauth_only_user_blocked_400() {
     let (app, pool, _outbox, _pg) = boot().await;
     // Create OAuth-only user (no password) directly.
     let user_id: uuid::Uuid = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash) values ($1, 'OAuth', null) returning id",
+        "insert into users (email, display_name, password_hash, handle) values ($1, 'OAuth', null, 'oauth-user') returning id",
         "oauth@x.test"
     )
     .fetch_one(&pool)
@@ -952,8 +977,8 @@ async fn purge_worker_deletes_users_past_grace() {
 
     // User A: grace already elapsed — must be deleted.
     let a = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash, pending_deletion_at)
-         values ($1, 'A', null, now() - interval '1 hour') returning id",
+        "insert into users (email, display_name, password_hash, handle, pending_deletion_at)
+         values ($1, 'A', null, 'purge-a', now() - interval '1 hour') returning id",
         "purge-a@x.test"
     )
     .fetch_one(&pool)
@@ -962,8 +987,8 @@ async fn purge_worker_deletes_users_past_grace() {
 
     // User B: mid-grace — must NOT be deleted.
     let _b = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash, pending_deletion_at)
-         values ($1, 'B', null, now() + interval '6 days') returning id",
+        "insert into users (email, display_name, password_hash, handle, pending_deletion_at)
+         values ($1, 'B', null, 'purge-b', now() + interval '6 days') returning id",
         "purge-b@x.test"
     )
     .fetch_one(&pool)
@@ -992,7 +1017,7 @@ async fn purge_pseudonymises_comments_keeps_body() {
 
     // Leah owns a photo; Marie comments on it; Marie's account enters purge.
     let leah: uuid::Uuid = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash) values ($1, 'Leah', null) returning id",
+        "insert into users (email, display_name, password_hash, handle) values ($1, 'Leah', null, 'leah-purge') returning id",
         "leah@x.test"
     )
     .fetch_one(&pool)
@@ -1000,8 +1025,8 @@ async fn purge_pseudonymises_comments_keeps_body() {
     .unwrap();
 
     let marie: uuid::Uuid = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash, pending_deletion_at)
-         values ($1, 'Marie', null, now() - interval '1 hour') returning id",
+        "insert into users (email, display_name, password_hash, handle, pending_deletion_at)
+         values ($1, 'Marie', null, 'marie-purge', now() - interval '1 hour') returning id",
         "marie@x.test"
     )
     .fetch_one(&pool)
@@ -1010,8 +1035,8 @@ async fn purge_pseudonymises_comments_keeps_body() {
 
     // Insert a photo with all NOT NULL columns (bytes + mime required).
     let photo: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now()) returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at, short_id)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now(), upper(left(replace(gen_random_uuid()::text, '-', ''), 8))) returning id",
         leah
     )
     .fetch_one(&pool)
@@ -1052,20 +1077,20 @@ async fn purge_pseudonymised_comments_remain_visible_in_listing() {
 
     // Leah owns a photo; Marie comments; Marie's account is purged.
     let leah = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash) values ($1,'Leah',null) returning id",
+        "insert into users (email, display_name, password_hash, handle) values ($1,'Leah',null,'leah-list') returning id",
         "leah-list@x.test"
     ).fetch_one(&pool).await.unwrap();
     let marie = sqlx::query_scalar!(
-        "insert into users (email, display_name, password_hash, pending_deletion_at)
-         values ($1,'Marie',null, now() - interval '1 hour') returning id",
+        "insert into users (email, display_name, password_hash, handle, pending_deletion_at)
+         values ($1,'Marie',null,'marie-list', now() - interval '1 hour') returning id",
         "marie-list@x.test"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let photo: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at, published_at)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now(), now()) returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at, published_at, short_id)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now(), now(), upper(left(replace(gen_random_uuid()::text, '-', ''), 8))) returning id",
         leah
     )
     .fetch_one(&pool)
@@ -1117,8 +1142,8 @@ async fn export_json_returns_attachment_with_signed_urls() {
             .unwrap();
 
     let photo_id: uuid::Uuid = sqlx::query_scalar!(
-        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at)
-         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now()) returning id",
+        "insert into photos (owner_id, storage_key, original_name, bytes, mime, original_uploaded_at, short_id)
+         values ($1, 'k1', 'a.jpg', 100, 'image/jpeg', now(), upper(left(replace(gen_random_uuid()::text, '-', ''), 8))) returning id",
         user_id
     )
     .fetch_one(&pool)

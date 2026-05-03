@@ -46,7 +46,8 @@ async fn main() -> anyhow::Result<()> {
         None => {
             let hash = password::hash("demoaccount".into()).await?;
             let u =
-                user_q::create_with_password(&pool, demo_email, "Demo Astrographer", &hash).await?;
+                user_q::create_with_password(&pool, demo_email, "demo", "Demo Astrographer", &hash)
+                    .await?;
             tracing::info!(user_id = %u.id, "demo user created");
             u
         }

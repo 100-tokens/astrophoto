@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set display_key = $2, blurhash = $3 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "75a22e9fbacc73c92841986cff28e83ee7e91f66d3943b11991a92208c825f8c"
+}

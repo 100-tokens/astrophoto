@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into tags (slug, name) values ($1, $2)\n            on conflict (slug) do update set slug = excluded.slug\n            returning id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "863793c41428a2cfc0b69157732bc3f181526de3cd54516c340bee9d72441c9b"
+}

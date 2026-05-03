@@ -2,8 +2,26 @@
 
 Astrophoto: Rust + SvelteKit app for amateur astrophotographers to upload,
 tag, and share images. Backend: axum + sqlx + Postgres. Frontend:
-SvelteKit SSR + Svelte 5 runes. Storage: S3-compatible (Cloudflare R2 in
-prod, MinIO in dev).
+SvelteKit SSR + Svelte 5 runes. Image storage: **AWS S3** in prod/staging
+(bucket `astrophoto-images-<env>`) fronted by CloudFront + **Lambda@Edge
+(origin-request)** using sharp for on-the-fly transforms. Two dev paths
+supported, picked via `.env`: (a) MinIO + the backend's `/cdn/img/<id>`
+route for local resize (no AWS account needed); (b) real AWS S3
+(`astrophoto-images-dev`) + same local `/cdn/img/<id>` route, for
+prod-parity testing of CORS, IAM, and SigV4. CloudFront is not deployed
+in dev; use `APP_CDN_LOCAL_FALLBACK=true` to opt into the backend's
+`/cdn/img/` route on non-localhost hosts (e.g., staging before CloudFront
+is provisioned).
+
+## Staging
+
+Deployed on Koyeb. Resources as of 2026-05:
+
+- **Frontend:** `https://astrophoto-staging-web-xavyo-eadbe1f6.koyeb.app`
+- **Backend:** `https://astrophoto-staging-xavyo-008151d0.koyeb.app`
+- **CDN:** `https://ddo5booq71gbx.cloudfront.net` (CloudFront distribution
+  `E2B1QQ4K2EISGE`, S3 bucket `astrophoto-images-staging`)
+- Runbook: `docs/operations/aws-s3-cloudfront.md`
 
 For broader context: @README.md and @docs/superpowers/specs/ for design
 docs.
@@ -163,6 +181,20 @@ Frontend-only (run from `frontend/`):
   assume UTC unless the camera embeds GPS + offset.
 - MinIO (dev) does not enforce all S3 quirks. Test path-style vs
   virtual-hosted addressing with `aws-sdk-s3` config matching prod.
+  When in doubt, switch the worktree's `.env` to the AWS-S3 dev path
+  (`APP_S3_BUCKET=astrophoto-images-dev`, `APP_S3_REGION=ap-southeast-1`,
+  `APP_S3_ENDPOINT` removed entirely, `APP_S3_PATH_STYLE=false`,
+  credentials from the `astrophoto-dev-uploader` IAM user) and re-run.
+- Display master pattern: every photo has both an
+  `originals/<id>.<ext>` (archival) and `display/<id>.jpg` (4096 px /
+  q=85 — what the CDN transforms). Never plumb originals through the
+  CDN.
+- Presigned PUT signs the EXACT body byte count. Calling
+  `Storage::presigned_put` with anything other than the file's real
+  size will produce URLs that S3 rejects with `SignatureDoesNotMatch`.
+  Tier limits are enforced in the upload-init handler before signing,
+  not via the signed `content-length`. (Discovered the hard way during
+  Batch C smoke-testing — fixed in commit 4a382cc.)
 - Session cookie is `__Host-session` in prod (HTTPS) and plain
   `session` in dev (HTTP). The `__Host-` prefix is browser-enforced
   to require `Secure`, so dev over plain HTTP must drop the prefix
@@ -172,6 +204,14 @@ Frontend-only (run from `frontend/`):
   flow; do not change without reading `auth/oauth_google.rs`.
 - Argon2 password verification is CPU-bound: always inside
   `spawn_blocking`. Same for image decode.
+- CDN transform uses **Lambda@Edge (origin-request)**, not a Lambda
+  Function URL. Lambda Function URL Block Public Access (FUBPA) silently
+  blocks Function URLs in this AWS account since 2024-Q4. See
+  `docs/operations/aws-s3-cloudfront.md` for the full architecture.
+- `APP_CDN_LOCAL_FALLBACK=true` opts into the backend's `/cdn/img/`
+  route even on non-localhost hosts. Use this in staging when CloudFront
+  is not yet provisioned, or in prod for emergency CDN bypass. Leave
+  unset in normal operation.
 
 ---
 

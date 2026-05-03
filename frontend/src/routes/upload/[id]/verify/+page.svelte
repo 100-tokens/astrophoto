@@ -2,11 +2,43 @@
   import { invalidateAll } from '$app/navigation';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
+  import CategorySegmented from '$lib/components/CategorySegmented.svelte';
+  import EquipmentAutocomplete from '$lib/components/EquipmentAutocomplete.svelte';
   import Input from '$lib/components/Input.svelte';
+  import TagInput from '$lib/components/TagInput.svelte';
+  import TargetPicker from '$lib/components/TargetPicker.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
   let polling = $state<number | null>(null);
+
+  // The generated PhotoDetail type doesn't yet include the showcase fields
+  // (category, scope, mount, filters, guiding). Cast inline to access them.
+  // TODO: re-run `just types` once backend exports these fields via ts-rs.
+  type ShowcasePhoto = typeof data.photo & {
+    category?: string | null;
+    scope?: string | null;
+    mount?: string | null;
+    filters?: string | null;
+    guiding?: string | null;
+  };
+  // Cast data.photo inside a function so ESLint does not see the prop reference
+  // as a direct $state initializer dependency (these fields are form-editable
+  // state, intentionally seeded once from the server value).
+  function initialPhoto() {
+    return data.photo as ShowcasePhoto;
+  }
+  const _sp = initialPhoto();
+
+  let target = $state<string>(_sp.target ?? '');
+  let camera = $state<string>(_sp.camera ?? '');
+  let tags = $state<string[]>([]);
+  let category = $state<string>(_sp.category ?? 'other');
+  let scope = $state<string>(_sp.scope ?? '');
+  let mount = $state<string>(_sp.mount ?? '');
+  let filters = $state<string>(_sp.filters ?? '');
+  let guiding = $state<string>(_sp.guiding ?? '');
+  // TODO(P2): load existing tags from photo_tags join in the load function.
 
   let isPublished = $derived(!data.photo.is_draft);
   let isProcessing = $derived(data.photo.status === 'processing');
@@ -52,15 +84,17 @@
       class="metadata-form"
     >
       <fieldset disabled={isProcessing}>
+        <!-- Row 1: target + category (full-width each) -->
+        <div class="field-full">
+          <TargetPicker bind:value={target} />
+        </div>
+
+        <div class="field-full">
+          <CategorySegmented bind:value={category} />
+        </div>
+
+        <!-- Row 2: numeric EXIF fields in 2-col grid -->
         <div class="grid">
-          <label>
-            <span class="t-label">TARGET</span>
-            <Input name="target" value={data.photo.target ?? ''} placeholder="M31, NGC 7000…" />
-          </label>
-          <label>
-            <span class="t-label">CAMERA</span>
-            <Input name="camera" value={data.photo.camera ?? ''} />
-          </label>
           <label>
             <span class="t-label">LENS</span>
             <Input name="lens" value={data.photo.lens ?? ''} />
@@ -82,6 +116,30 @@
             <span class="t-label">FOCAL (MM)</span>
             <Input type="number" name="focal_mm" value={data.photo.focal_mm?.toString() ?? ''} />
           </label>
+        </div>
+
+        <!-- Row 3: equipment pickers in 2-col grid -->
+        <div class="grid equipment-grid">
+          <div class="field">
+            <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
+          </div>
+        </div>
+
+        <!-- Row 4: tags (full width) -->
+        <div class="field-full">
+          <TagInput bind:value={tags} />
         </div>
       </fieldset>
 
@@ -121,12 +179,21 @@
   .title em {
     font-style: italic;
   }
+  .field-full {
+    margin-bottom: 16px;
+  }
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px 24px;
+    margin-bottom: 16px;
   }
   .grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .equipment-grid .field {
     display: flex;
     flex-direction: column;
     gap: 6px;

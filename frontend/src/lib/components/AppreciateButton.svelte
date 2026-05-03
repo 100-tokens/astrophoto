@@ -117,7 +117,10 @@
     font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+    transition:
+      color 150ms ease,
+      border-color 150ms ease,
+      background 150ms ease;
   }
   .appreciate.on {
     color: var(--accent);

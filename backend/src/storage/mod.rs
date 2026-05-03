@@ -6,6 +6,7 @@ use bytes::Bytes;
 
 use crate::AppError;
 
+pub mod cdn_dev;
 pub mod memory;
 pub mod s3;
 
@@ -30,4 +31,18 @@ pub trait Storage: Send + Sync + 'static {
     /// Maximum TTL is 7 days (604 800 s). Tests use `MemoryStorage` which returns
     /// `memory://{key}` — callers must not follow this URL.
     async fn signed_url(&self, key: &str, ttl_secs: u64) -> Result<String, AppError>;
+
+    /// Sign a PUT URL good for `ttl_secs` seconds for a body of exactly
+    /// `body_bytes` bytes. The S3 implementation signs `Content-Length` so
+    /// a PUT whose body differs from `body_bytes` is rejected by
+    /// S3/MinIO with `SignatureDoesNotMatch`. Callers must pass the exact
+    /// byte count of the body that will be PUT; tier-limit enforcement
+    /// happens before this call site (in the upload init handler).
+    async fn presigned_put(
+        &self,
+        key: &str,
+        content_type: &str,
+        body_bytes: u64,
+        ttl_secs: u64,
+    ) -> Result<String, AppError>;
 }

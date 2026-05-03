@@ -16,6 +16,21 @@ pub struct Config {
     pub s3_secret_key: String,
     pub s3_path_style: bool,
 
+    pub cdn_base_url: String,
+
+    /// When true, mount the backend's `/cdn/img/:id` route that performs
+    /// on-the-fly resize from `display/<id>.jpg` using the `image` crate.
+    /// Defaults to false (production: CloudFront fronts the bucket and
+    /// this route is not needed). Set to true on dev / staging when
+    /// CloudFront isn't deployed yet so the backend itself serves CDN
+    /// URLs. Auto-on when `cdn_base_url` contains localhost.
+    #[serde(default)]
+    pub cdn_local_fallback: bool,
+
+    /// Allowed CORS origin for browser clients (e.g. the SvelteKit app).
+    /// Defaults to `http://localhost:5173` when unset (dev mode).
+    pub cors_origin: Option<String>,
+
     #[serde(default)]
     pub oauth_google_client_id: String,
     #[serde(default)]
@@ -61,6 +76,7 @@ mod tests {
             jail.set_env("APP_S3_ACCESS_KEY", "a");
             jail.set_env("APP_S3_SECRET_KEY", "s");
             jail.set_env("APP_S3_PATH_STYLE", "true");
+            jail.set_env("APP_CDN_BASE_URL", "http://localhost:8080/cdn");
             jail.set_env("APP_SMTP_HOST", "localhost");
             jail.set_env("APP_SMTP_PORT", "1025");
             jail.set_env("APP_SMTP_USER", "");

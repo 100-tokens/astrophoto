@@ -57,6 +57,7 @@ sha2 = "0.10"
 aws-sdk-s3 = "1"
 aws-config = "1"
 async-trait = "0.1"
+blurhash = "0.2"
 bytes = "1"
 kamadak-exif = "0.5"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "tiff"] }
@@ -67,8 +68,10 @@ lettre = { version = "0.11", default-features = false, features = [
 ] }
 
 # Misc
+ammonia = "4"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+nanoid = "0.4"
 validator = { version = "0.18", features = ["derive"] }
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 woothee = "0.13"

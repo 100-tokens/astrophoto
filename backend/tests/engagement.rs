@@ -15,8 +15,7 @@ use axum::{
     http::{Request, header},
 };
 use http_body_util::BodyExt as _;
-use image::{DynamicImage, ImageFormat, RgbImage};
-use std::io::Cursor;
+use sqlx::PgPool;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
@@ -35,6 +34,9 @@ fn config_for(url: &str) -> Config {
         s3_access_key: "a".into(),
         s3_secret_key: "s".into(),
         s3_path_style: true,
+        cdn_base_url: "http://localhost:0/cdn".into(),
+        cdn_local_fallback: false,
+        cors_origin: None,
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
@@ -47,18 +49,29 @@ fn config_for(url: &str) -> Config {
     }
 }
 
-fn make_test_jpeg() -> Vec<u8> {
-    let img = DynamicImage::ImageRgb8(RgbImage::from_fn(200, 150, |x, y| {
-        image::Rgb([(x % 256) as u8, (y % 256) as u8, 64])
-    }));
-    let mut buf = Cursor::new(Vec::new());
-    img.write_to(&mut buf, ImageFormat::Jpeg).unwrap();
-    buf.into_inner()
+fn handle_from_email(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or("user");
+    let mut h = local
+        .chars()
+        .map(|c| {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+    h = h.trim_matches('-').to_string();
+    if h.len() < 3 {
+        h = format!("t-{h}");
+    }
+    h
 }
 
 async fn signup(app: &axum::Router, email: &str, name: &str) -> (String, String) {
+    let handle = handle_from_email(email);
     let body = serde_json::json!({
-        "email": email, "password": "longenoughpw", "display_name": name,
+        "email": email, "password": "longenoughpw", "display_name": name, "handle": handle,
     });
     let resp = app
         .clone()
@@ -86,38 +99,47 @@ async fn signup(app: &axum::Router, email: &str, name: &str) -> (String, String)
     (id, cookie)
 }
 
-async fn upload(app: &axum::Router, cookie: &str) -> String {
-    let boundary = "----testboundary";
-    let jpeg = make_test_jpeg();
-    let mut body = Vec::new();
-    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-    body.extend_from_slice(
-        b"Content-Disposition: form-data; name=\"file\"; filename=\"t.jpg\"\r\n",
-    );
-    body.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
-    body.extend_from_slice(&jpeg);
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
+/// Seed a ready photo for the authenticated user (identified by cookie)
+/// using direct SQL, bypassing the upload pipeline.
+/// Returns the photo id as a String.
+async fn upload(pool: &PgPool, app: &axum::Router, cookie: &str) -> String {
+    // Resolve the user id from the session.
     let resp = app
         .clone()
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri("/api/photos")
+                .uri("/api/auth/me")
                 .header(header::COOKIE, cookie)
-                .header(
-                    header::CONTENT_TYPE,
-                    format!("multipart/form-data; boundary={boundary}"),
-                )
-                .body(Body::from(body))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 202);
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    v["id"].as_str().unwrap().to_string()
+    let owner_id: uuid::Uuid = uuid::Uuid::parse_str(v["id"].as_str().unwrap()).unwrap();
+
+    let photo_id = uuid::Uuid::new_v4();
+    let storage_key = format!("originals/test-{photo_id}");
+    let short_id = format!("E{}", &photo_id.to_string().replace('-', "")[..7]);
+    sqlx::query!(
+        r#"
+        insert into photos
+            (id, owner_id, storage_key, original_name, bytes, mime,
+             short_id, status, last_step, original_uploaded_at)
+        values ($1, $2, $3, 'test.jpg', 1000, 'image/jpeg',
+                $4, 'ready', 'upload', now())
+        "#,
+        photo_id,
+        owner_id,
+        storage_key,
+        short_id,
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    photo_id.to_string()
 }
 
 async fn boot_app() -> (
@@ -176,10 +198,10 @@ async fn json_get(app: &axum::Router, uri: &str, cookie: Option<&str>) -> serde_
 
 #[tokio::test]
 async fn appreciation_toggle() {
-    let (app, _pool, _pg) = boot_app().await;
+    let (app, pool, _pg) = boot_app().await;
 
     let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
-    let photo_id = upload(&app, &owner_cookie).await;
+    let photo_id = upload(&pool, &app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         let v = json_get(
@@ -263,10 +285,10 @@ async fn appreciation_toggle() {
 
 #[tokio::test]
 async fn comment_create_list_delete_authorization() {
-    let (app, _pool, _pg) = boot_app().await;
+    let (app, pool, _pg) = boot_app().await;
 
     let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
-    let photo_id = upload(&app, &owner_cookie).await;
+    let photo_id = upload(&pool, &app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         let v = json_get(

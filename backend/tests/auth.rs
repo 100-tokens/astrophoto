@@ -24,6 +24,9 @@ fn config_for(url: &str) -> Config {
         s3_access_key: "a".into(),
         s3_secret_key: "s".into(),
         s3_path_style: true,
+        cdn_base_url: "http://localhost:0/cdn".into(),
+        cdn_local_fallback: false,
+        cors_origin: None,
         oauth_google_client_id: String::new(),
         oauth_google_client_secret: String::new(),
         oauth_google_redirect_url: String::new(),
@@ -57,7 +60,8 @@ async fn signup_login_me_logout_full_flow() {
     let signup_body = serde_json::json!({
         "email": "marie@example.com",
         "password": "verylongpassword",
-        "display_name": "Marie Dubois"
+        "display_name": "Marie Dubois",
+        "handle": "marie"
     });
     let resp = app
         .clone()
@@ -146,6 +150,64 @@ async fn signup_login_me_logout_full_flow() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
+}
+
+#[tokio::test]
+async fn signup_rejects_duplicate_handle() {
+    let pg = PgImage::default().start().await.unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+    );
+
+    let body1 = serde_json::json!({
+        "email": "a@example.com",
+        "password": "verylongpassword",
+        "display_name": "A",
+        "handle": "shared"
+    });
+    let r1 = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body1.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r1.status(), 201);
+
+    let body2 = serde_json::json!({
+        "email": "b@example.com",
+        "password": "verylongpassword",
+        "display_name": "B",
+        "handle": "shared"
+    });
+    let r2 = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body2.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r2.status(), 409);
 }
 
 #[tokio::test]

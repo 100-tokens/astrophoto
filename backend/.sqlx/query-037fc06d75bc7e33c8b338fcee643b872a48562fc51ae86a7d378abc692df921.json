@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set handle = $1 where id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "037fc06d75bc7e33c8b338fcee643b872a48562fc51ae86a7d378abc692df921"
+}

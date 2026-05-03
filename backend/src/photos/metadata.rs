@@ -46,6 +46,14 @@ pub struct MetadataUpdate {
     pub exif_json: Option<serde_json::Value>,
 
     pub last_step: Option<String>,
+
+    // Showcase Phase 1: new fields — simple Option (fill-in, not clear-able).
+    pub category: Option<String>,
+    pub scope: Option<String>,
+    pub mount: Option<String>,
+    pub filters: Option<String>,
+    pub guiding: Option<String>,
+    pub tags: Option<Vec<String>>,
 }
 
 pub async fn handler(
@@ -69,6 +77,30 @@ pub async fn handler(
         return Err(AppError::Validation(format!("bad last_step: {s}")));
     }
 
+    if let Some(c) = &patch.category
+        && !matches!(
+            c.as_str(),
+            "dso" | "planetary" | "lunar" | "solar" | "wide_field" | "nightscape" | "other"
+        )
+    {
+        return Err(AppError::Validation("invalid category".into()));
+    }
+
+    if let Some(tags) = &patch.tags
+        && tags.len() > 8
+    {
+        return Err(AppError::Validation("max 8 tags".into()));
+    }
+
+    // Extract values needed after the UPDATE before moving them into the query.
+    let target_freetext: Option<String> = patch.target.as_ref().and_then(|v| v.clone());
+    let camera_freetext: Option<String> = patch.camera.as_ref().and_then(|v| v.clone());
+    let scope_freetext = patch.scope.clone();
+    let mount_freetext = patch.mount.clone();
+    let filters_freetext = patch.filters.clone();
+    let guiding_freetext = patch.guiding.clone();
+    let tags_list = patch.tags.clone();
+
     sqlx::query!(
         r#"
         update photos set
@@ -83,7 +115,12 @@ pub async fn handler(
           ra_deg       = case when $18::bool then $19 else ra_deg end,
           dec_deg      = case when $20::bool then $21 else dec_deg end,
           exif_json    = case when $22::bool then $23 else exif_json end,
-          last_step    = coalesce($24, last_step)
+          last_step    = coalesce($24, last_step),
+          category     = coalesce($25, category),
+          scope        = coalesce($26, scope),
+          mount        = coalesce($27, mount),
+          filters      = coalesce($28, filters),
+          guiding      = coalesce($29, guiding)
         where id = $1
         "#,
         id,
@@ -110,9 +147,38 @@ pub async fn handler(
         patch.exif_json.is_some(),
         patch.exif_json,
         patch.last_step.as_deref(),
+        patch.category.as_deref(),
+        patch.scope.as_deref(),
+        patch.mount.as_deref(),
+        patch.filters.as_deref(),
+        patch.guiding.as_deref(),
     )
     .execute(&state.pool)
     .await?;
+
+    // --- post-update helpers (called after photos row is written) ---
+
+    if let Some(target) = &target_freetext {
+        crate::photos::targets::attach_primary_by_freetext(&state.pool, id, target).await?;
+    }
+
+    if let Some(tags) = &tags_list {
+        crate::photos::tags::attach(&state.pool, id, tags).await?;
+    }
+
+    for (kind, val) in [
+        ("camera", camera_freetext.as_deref()),
+        ("telescope", scope_freetext.as_deref()),
+        ("mount", mount_freetext.as_deref()),
+        ("filter", filters_freetext.as_deref()),
+        ("guiding", guiding_freetext.as_deref()),
+    ] {
+        if let Some(v) = val
+            && !v.trim().is_empty()
+        {
+            crate::equipment::upsert::upsert(&state.pool, kind, v).await?;
+        }
+    }
 
     Ok(StatusCode::OK)
 }

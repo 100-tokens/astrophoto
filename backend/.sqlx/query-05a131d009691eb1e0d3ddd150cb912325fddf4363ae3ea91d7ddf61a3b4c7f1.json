@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select owner_id as \"owner_id!\", storage_key, mime, status, display_key\n           from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "mime",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "display_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "05a131d009691eb1e0d3ddd150cb912325fddf4363ae3ea91d7ddf61a3b4c7f1"
+}

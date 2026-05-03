@@ -3,6 +3,7 @@
 export type PhotoDetail = {
   id: string;
   owner_id: string;
+  short_id: string;
   status: string;
   original_name: string;
   bytes: bigint;

@@ -32,12 +32,18 @@ async fn main() -> Result<()> {
 
     let mailer = std::sync::Arc::new(astrophoto::mail::Mailer::from_env(&cfg)?);
 
-    // Spawn the hourly purge worker before handing pool/storage to the router.
+    // Spawn background workers before handing pool/storage to the router.
     astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
+    astrophoto::jobs::orphan_reaper::spawn(pool.clone(), storage.clone());
 
-    // Allow the SvelteKit dev server to reach the backend with credentials.
-    // TODO: source allowed origin from Config in a later iteration.
-    let cors_origin: HeaderValue = "http://localhost:5173".parse().expect("valid origin");
+    // Allow the SvelteKit app to reach the backend with credentials.
+    // Reads APP_CORS_ORIGIN from the environment; falls back to the dev server.
+    let cors_origin: HeaderValue = cfg
+        .cors_origin
+        .as_deref()
+        .unwrap_or("http://localhost:5173")
+        .parse()
+        .expect("APP_CORS_ORIGIN is not a valid HTTP origin header value");
     let app = http::router(pool, cfg.clone(), storage, mailer)
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());

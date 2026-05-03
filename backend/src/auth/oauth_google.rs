@@ -207,14 +207,18 @@ async fn upsert_oauth_user(pool: &sqlx::PgPool, info: &Userinfo) -> Result<uuid:
     }
 
     // 3. Brand new account.
+    // Generate a placeholder handle in the same form used by migration 0005
+    // backfill. A real handle can be set later via the rename endpoint (Task 16).
+    let placeholder_handle = format!("u-{}", &uuid::Uuid::new_v4().simple().to_string()[..6]);
     let row = sqlx::query!(
         r#"
-        insert into users (email, display_name)
-        values ($1, $2)
+        insert into users (email, display_name, handle)
+        values ($1, $2, $3)
         returning id
         "#,
         info.email,
-        display
+        display,
+        placeholder_handle
     )
     .fetch_one(pool)
     .await?;
