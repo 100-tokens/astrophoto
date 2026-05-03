@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set featured_at = null, featured_position = null where id = any($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1bed3c3fc37fbbaf72e25dd0f236aa217aae2e83ff98e7f0b78ab0f9c7a86238"
+}

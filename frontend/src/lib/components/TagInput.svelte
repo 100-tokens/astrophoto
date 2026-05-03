@@ -49,7 +49,9 @@
     onkeydown={onKeydown}
     onblur={commit}
     class="input input-mono tags-input"
-    placeholder={value.length >= 8 ? 'limit reached — backspace to remove' : 'widefield, narrowband…'}
+    placeholder={value.length >= 8
+      ? 'limit reached — backspace to remove'
+      : 'widefield, narrowband…'}
     autocomplete="off"
   />
   <!-- JSON array string so the form action receives Vec<String> after JSON.parse -->

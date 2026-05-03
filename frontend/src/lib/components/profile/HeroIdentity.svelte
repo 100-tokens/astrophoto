@@ -1,0 +1,52 @@
+<script lang="ts">
+  import type { PublicProfile } from '$lib/api/PublicProfile';
+  import HeroAvatar from './HeroAvatar.svelte';
+  import HeroName from './HeroName.svelte';
+  import HeroTagline from './HeroTagline.svelte';
+  import HeroSocialLinks from './HeroSocialLinks.svelte';
+  import HeroActions from './HeroActions.svelte';
+
+  let {
+    profile,
+    isOwner,
+    onEditProfile
+  }: {
+    profile: PublicProfile;
+    isOwner: boolean;
+    onEditProfile: () => void;
+  } = $props();
+</script>
+
+<section class="identity">
+  <HeroAvatar handle={profile.handle} displayName={profile.display_name} />
+  <div class="middle">
+    <HeroName displayName={profile.display_name} />
+    <HeroTagline tagline={profile.tagline} {isOwner} {onEditProfile} />
+    <HeroSocialLinks links={profile.social_links} />
+  </div>
+  <HeroActions targetUserId={profile.id} {isOwner} {onEditProfile} />
+</section>
+
+<style>
+  .identity {
+    display: grid;
+    grid-template-columns: 144px 1fr auto;
+    gap: 24px;
+    align-items: start;
+    padding: 0 32px 24px;
+    margin-top: -80px;
+  }
+  .middle {
+    padding-top: 88px;
+  }
+  @media (max-width: 640px) {
+    .identity {
+      grid-template-columns: 1fr;
+      margin-top: 16px;
+      gap: 12px;
+    }
+    .middle {
+      padding-top: 0;
+    }
+  }
+</style>

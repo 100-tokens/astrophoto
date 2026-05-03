@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update photos\n           set featured_at = null, featured_position = null\n         where id = $1\n           and owner_id = $2\n           and featured_at is not null\n        returning featured_position\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "featured_position",
+        "type_info": "Int2"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "a6768ad4db2a71e0198dcc8699863992a4c413a68a90dd810fc9d1ee123b8db9"
+}

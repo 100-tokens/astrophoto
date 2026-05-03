@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from users where handle = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "490b75062d1ca41a31c17237f43feb9f8205a702486286e057d145c582b20496"
+}

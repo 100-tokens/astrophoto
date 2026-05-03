@@ -5,7 +5,9 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, Health, MeStats, PhotoDetail, Preferences, Profile, SessionRow, User, UserPublic,
+    AuthError, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
+    HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile,
+    SessionRow, SocialLink, SocialPlatform, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,11 +20,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     User::export_all_to(out_dir)?;
     AuthError::export_all_to(out_dir)?;
     UserPublic::export_all_to(out_dir)?;
-    Profile::export_all_to(out_dir)?;
     Preferences::export_all_to(out_dir)?;
     SessionRow::export_all_to(out_dir)?;
     MeStats::export_all_to(out_dir)?;
     PhotoDetail::export_all_to(out_dir)?;
+    SocialPlatform::export_all_to(out_dir)?;
+    SocialLink::export_all_to(out_dir)?;
+    EquipmentSummary::export_all_to(out_dir)?;
+    LocationSummary::export_all_to(out_dir)?;
+    Profile::export_all_to(out_dir)?;
+    HeroStats::export_all_to(out_dir)?;
+    FeaturedPhotoSummary::export_all_to(out_dir)?;
+    PublicProfile::export_all_to(out_dir)?;
+    GalleryPhoto::export_all_to(out_dir)?;
+    GalleryPage::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

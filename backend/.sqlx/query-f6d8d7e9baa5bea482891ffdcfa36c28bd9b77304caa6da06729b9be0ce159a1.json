@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select id, short_id, target, appreciations_count, blurhash, width, height\n            from photos\n            where id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "appreciations_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "blurhash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "height",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f6d8d7e9baa5bea482891ffdcfa36c28bd9b77304caa6da06729b9be0ce159a1"
+}

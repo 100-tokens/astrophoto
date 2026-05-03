@@ -1,75 +1,28 @@
 <script lang="ts">
-  import AppHeader from '$lib/components/AppHeader.svelte';
-  import AppFooter from '$lib/components/AppFooter.svelte';
-  import Img from '$lib/components/Img.svelte';
-  import type { PhotoDetail } from '$lib/api/types';
-
-  interface PageData {
-    photo: PhotoDetail;
-  }
+  import { page } from '$app/state';
+  import { goto } from '$app/navigation';
+  import Lightbox from '$lib/components/lightbox/Lightbox.svelte';
+  import PhotoDetailFull from '$lib/components/photos/PhotoDetailFull.svelte';
+  import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 
-  let title = $derived(data.photo.target ?? data.photo.original_name);
+  let asLightbox = $derived((page.state as { lightbox?: boolean } | null)?.lightbox === true);
+
+  function close() {
+    history.back();
+  }
 </script>
 
-<svelte:head>
-  <title>{title} — Astrophoto</title>
-</svelte:head>
-
-<AppHeader />
-
-<article class="photo-detail">
-  <div class="image-wrap">
-    <Img photoId={data.photo.id} alt={title} w={1200} sizes="(max-width: 1200px) 100vw, 1200px" />
-  </div>
-  <div class="info">
-    <h1 class="t-display photo-title">{title}</h1>
-    {#if data.photo.caption}
-      <p class="caption">{data.photo.caption}</p>
-    {/if}
-  </div>
-</article>
-
-<AppFooter />
-
-<style>
-  .photo-detail {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 32px 32px 64px;
-  }
-
-  .image-wrap {
-    width: 100%;
-    margin-bottom: 24px;
-  }
-
-  .image-wrap :global(img) {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  .photo-title {
-    font-size: 40px;
-    margin: 0 0 16px;
-  }
-
-  .caption {
-    font-size: 15px;
-    line-height: 1.65;
-    color: var(--fg-secondary);
-    max-width: 720px;
-  }
-
-  @media (max-width: 640px) {
-    .photo-detail {
-      padding: 16px 16px 48px;
-    }
-
-    .photo-title {
-      font-size: 28px;
-    }
-  }
-</style>
+{#if asLightbox}
+  <Lightbox
+    photo={data.photo}
+    handle={data.handle}
+    morePhotos={data.morePhotos ?? []}
+    onClose={close}
+    onPrev={data.prevShortid ? () => goto(`/u/${data.handle}/p/${data.prevShortid}`) : undefined}
+    onNext={data.nextShortid ? () => goto(`/u/${data.handle}/p/${data.nextShortid}`) : undefined}
+  />
+{:else}
+  <PhotoDetailFull {data} />
+{/if}
