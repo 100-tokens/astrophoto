@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        insert into equipment_items (kind, canonical_name, display_name, usage_count)\n            values ($1, $2, $3, 1)\n        on conflict (kind, canonical_name)\n            do update set usage_count = equipment_items.usage_count + 1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b14699c774ef8b45ad19fe62d83f3cdb3a0dd3613928b917afe55669c3c43909"
+}
