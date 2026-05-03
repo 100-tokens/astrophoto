@@ -56,15 +56,14 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
       const body = (await res.json()) as {
         photos: Array<{
           id: string;
+          short_id: string;
           target: string | null;
           width: number | null;
           height: number | null;
         }>;
       };
       photos = body.photos.map((p) => ({
-        // slug carries the UUID for now; Task 52 will switch to short_id once
-        // /api/photos surfaces that field in the list response.
-        slug: p.id,
+        slug: p.short_id,
         target: p.target,
         ratio: p.width && p.height ? p.width / p.height : 1.5,
         integration: '',

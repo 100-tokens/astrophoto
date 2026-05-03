@@ -127,7 +127,7 @@
         {#each photos as photo}
           <div class="grid-item">
             <a
-              href="/photo/{photo.slug}"
+              href="/u/{u.username}/p/{photo.slug}"
               class="grid-photo-link"
               aria-label={photo.target ?? 'Untitled'}
             >
