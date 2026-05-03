@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select tier from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tier",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fa6958e83f5a4b3097d29e0b3e7b1002b3b436f6d1682c0ea9d131dd7203c86a"
+}
