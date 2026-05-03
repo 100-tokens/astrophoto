@@ -10,11 +10,7 @@ use common::TestApp;
 async fn search_returns_targets_users_photos() {
     let app = TestApp::launch().await;
     let (_, uid) = app
-        .signup_with_handle(
-            "Andromeda Aficionado",
-            "andromeda_aficionado",
-            "a@x.test",
-        )
+        .signup_with_handle("Andromeda Aficionado", "andromeda_aficionado", "a@x.test")
         .await;
     let p = app
         .ready_photo_with(uid, "AAAA0001", Some("M31 Andromeda Galaxy"))
@@ -42,7 +38,9 @@ async fn search_returns_targets_users_photos() {
     );
     // User matches handle "andromeda_aficionado" and display_name "Andromeda Aficionado".
     assert!(
-        body.users.iter().any(|u| u.handle == "andromeda_aficionado"),
+        body.users
+            .iter()
+            .any(|u| u.handle == "andromeda_aficionado"),
         "user 'andromeda_aficionado' should appear in results"
     );
     // Photo matches target field "M31 Andromeda Galaxy".

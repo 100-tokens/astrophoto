@@ -41,10 +41,7 @@ async fn target_page_returns_meta_plus_photos() {
     assert_eq!(body.target.slug, "test-m31");
     assert_eq!(body.target.canonical_name, "M31");
     assert_eq!(body.target.kind.as_deref(), Some("messier"));
-    assert_eq!(
-        body.target.aliases,
-        vec!["Andromeda Galaxy", "NGC 224"]
-    );
+    assert_eq!(body.target.aliases, vec!["Andromeda Galaxy", "NGC 224"]);
     assert_eq!(body.target.photo_count, 1);
     assert_eq!(body.target.contributor_count, 1);
     assert_eq!(body.page.photos.len(), 1);

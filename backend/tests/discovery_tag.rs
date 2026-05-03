@@ -42,8 +42,6 @@ async fn tag_page_returns_meta_plus_photos() {
 #[allow(clippy::unwrap_used)]
 async fn tag_404_for_unknown_slug() {
     let app = TestApp::launch().await;
-    let (status, _) = app
-        .oneshot("GET", "/api/tags/notathing", None, None)
-        .await;
+    let (status, _) = app.oneshot("GET", "/api/tags/notathing", None, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }

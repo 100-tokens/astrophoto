@@ -113,9 +113,7 @@
       const target = e.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
       ) {
         return;
       }
@@ -173,7 +171,9 @@
     <SuggestionsList
       {results}
       focusedIndex={focusedIdx}
-      onFocusChange={(idx) => { focusedIdx = idx; }}
+      onFocusChange={(idx) => {
+        focusedIdx = idx;
+      }}
       onClose={closeSuggestions}
     />
   {/if}

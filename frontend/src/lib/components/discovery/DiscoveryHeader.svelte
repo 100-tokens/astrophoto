@@ -10,13 +10,7 @@
   type CategoryProps = { variant: 'category'; category: string; photoCount?: bigint };
   type SearchProps = { variant: 'search'; q: string; resultCount?: number };
 
-  type Props =
-    | ExploreProps
-    | TargetProps
-    | TagProps
-    | EquipmentProps
-    | CategoryProps
-    | SearchProps;
+  type Props = ExploreProps | TargetProps | TagProps | EquipmentProps | CategoryProps | SearchProps;
 
   let props: Props = $props();
 
@@ -46,7 +40,11 @@
 {#if props.variant === 'explore'}
   <section class="header header-explore">
     <div class="header-left">
-      <p class="eyebrow">● EXPLORE · {props.photoCount ? `${props.photoCount.toLocaleString('en-US')} PUBLISHED FRAMES · ` : ''}UPDATED LIVE</p>
+      <p class="eyebrow">
+        ● EXPLORE · {props.photoCount
+          ? `${props.photoCount.toLocaleString('en-US')} PUBLISHED FRAMES · `
+          : ''}UPDATED LIVE
+      </p>
       <h1 class="display">The <em>archive</em>, across photographers</h1>
     </div>
     <div class="header-right">
@@ -54,7 +52,6 @@
       <p class="stat-accent">● 47 NEW IN THE LAST 24 HRS</p>
     </div>
   </section>
-
 {:else if props.variant === 'target'}
   {@const meta = props.meta}
   <section class="header header-target">
@@ -84,7 +81,6 @@
       </div>
     </div>
   </section>
-
 {:else if props.variant === 'tag'}
   {@const meta = props.meta}
   <section class="header header-tag">
@@ -94,7 +90,6 @@
       <p class="sub-stat">{fmt(meta.photo_count)} photos tagged</p>
     </div>
   </section>
-
 {:else if props.variant === 'equipment'}
   {@const meta = props.meta}
   <section class="header header-equipment">
@@ -111,7 +106,6 @@
       </div>
     </div>
   </section>
-
 {:else if props.variant === 'category'}
   <section class="header header-category">
     <div>
@@ -122,7 +116,6 @@
       {/if}
     </div>
   </section>
-
 {:else if props.variant === 'search'}
   <section class="header header-search">
     <p class="eyebrow">● SEARCH</p>

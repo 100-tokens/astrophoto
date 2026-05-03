@@ -32,7 +32,9 @@ function qs(opts: Record<string, string | number | boolean | undefined>): string
 }
 
 export async function fetchExplore(f: FetchFn, opts: FeedOpts = {}): Promise<DiscoveryPage> {
-  const r = await f(`${API_BASE}/api/explore${qs(opts as Record<string, string | number | boolean | undefined>)}`);
+  const r = await f(
+    `${API_BASE}/api/explore${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
   if (!r.ok) throw new Error(`fetchExplore ${r.status}`);
   return (await r.json()) as DiscoveryPage;
 }
@@ -42,7 +44,9 @@ export async function fetchTargetPage(
   slug: string,
   opts: FeedOpts = {}
 ): Promise<TargetPage> {
-  const r = await f(`${API_BASE}/api/targets/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`);
+  const r = await f(
+    `${API_BASE}/api/targets/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
   if (r.status === 404) throw new Error('not_found');
   if (!r.ok) throw new Error(`fetchTargetPage ${r.status}`);
   return (await r.json()) as TargetPage;
@@ -53,7 +57,9 @@ export async function fetchTagPage(
   slug: string,
   opts: FeedOpts = {}
 ): Promise<TagPage> {
-  const r = await f(`${API_BASE}/api/tags/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`);
+  const r = await f(
+    `${API_BASE}/api/tags/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
   if (r.status === 404) throw new Error('not_found');
   if (!r.ok) throw new Error(`fetchTagPage ${r.status}`);
   return (await r.json()) as TagPage;
@@ -65,7 +71,9 @@ export async function fetchEquipmentPage(
   slug: string,
   opts: FeedOpts = {}
 ): Promise<EquipmentPage> {
-  const r = await f(`${API_BASE}/api/equipment/${kind}/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`);
+  const r = await f(
+    `${API_BASE}/api/equipment/${kind}/${slug}${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
   if (r.status === 404) throw new Error('not_found');
   if (!r.ok) throw new Error(`fetchEquipmentPage ${r.status}`);
   return (await r.json()) as EquipmentPage;
@@ -76,7 +84,9 @@ export async function fetchCategoryPage(
   cat: string,
   opts: FeedOpts = {}
 ): Promise<CategoryPage> {
-  const r = await f(`${API_BASE}/api/categories/${cat}${qs(opts as Record<string, string | number | boolean | undefined>)}`);
+  const r = await f(
+    `${API_BASE}/api/categories/${cat}${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
   if (r.status === 404) throw new Error('not_found');
   if (!r.ok) throw new Error(`fetchCategoryPage ${r.status}`);
   return (await r.json()) as CategoryPage;

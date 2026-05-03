@@ -70,9 +70,10 @@ pub async fn get(
     let cur_apps = cursor.as_ref().and_then(|c| c.appreciations);
 
     let rows: Vec<Row> = match sort {
-        "most-appreciated" => sqlx::query_as!(
-            Row,
-            r#"
+        "most-appreciated" => {
+            sqlx::query_as!(
+                Row,
+                r#"
             select p.id as "id!", p.short_id as "short_id!", p.target,
                    p.width, p.height, p.blurhash,
                    p.appreciations_count as "appreciations_count!",
@@ -90,18 +91,20 @@ pub async fn get(
             order by p.appreciations_count desc, p.published_at desc, p.id desc
             limit $6
             "#,
-            t.id,
-            cur_apps,
-            cur_pub,
-            cur_id,
-            category,
-            limit + 1
-        )
-        .fetch_all(&state.pool)
-        .await?,
-        _ => sqlx::query_as!(
-            Row,
-            r#"
+                t.id,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        _ => {
+            sqlx::query_as!(
+                Row,
+                r#"
             select p.id as "id!", p.short_id as "short_id!", p.target,
                    p.width, p.height, p.blurhash,
                    p.appreciations_count as "appreciations_count!",
@@ -118,14 +121,15 @@ pub async fn get(
             order by p.published_at desc, p.id desc
             limit $5
             "#,
-            t.id,
-            cur_pub,
-            cur_id,
-            category,
-            limit + 1
-        )
-        .fetch_all(&state.pool)
-        .await?,
+                t.id,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
     };
 
     let more = rows.len() as i64 > limit;

@@ -8,8 +8,8 @@ use astrophoto::api_types::{
     AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage,
     EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
     HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform,
-    TagMeta, TagPage, TargetMeta, TargetPage, User, UserPublic,
+    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform, TagMeta,
+    TagPage, TargetMeta, TargetPage, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
