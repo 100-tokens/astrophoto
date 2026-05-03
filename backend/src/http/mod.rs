@@ -187,6 +187,10 @@ pub fn router(
         .route(
             "/api/uploads/init",
             axum::routing::post(crate::photos::upload_init::handler),
+        )
+        .route(
+            "/api/uploads/:id/finalize",
+            axum::routing::post(crate::photos::upload_finalize::handler),
         );
 
     // Mount the dev CDN only when CDN_BASE_URL points back at this process.

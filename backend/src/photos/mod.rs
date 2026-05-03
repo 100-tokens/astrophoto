@@ -15,4 +15,5 @@ pub mod serve;
 pub mod short_id;
 pub mod thumbs;
 pub mod upload;
+pub mod upload_finalize;
 pub mod upload_init;

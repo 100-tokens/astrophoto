@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select display_key from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "bc0b2f355b9f8a3dd66083d4f476cccca8c220dd6c8bea7f824b72e193500810"
+}
