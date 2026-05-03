@@ -73,3 +73,20 @@ async fn migration_0007_adds_photo_short_id() {
     .unwrap();
     assert!(exists);
 }
+
+#[tokio::test]
+async fn migration_0008_adds_user_profile_fields() {
+    let pool = fresh_db().await;
+    let count: i64 = sqlx::query_scalar(
+        "select count(*) from information_schema.columns \
+         where table_name = 'users' \
+         and column_name in ('tagline','bio_html','cover_photo_id', \
+             'equipment_telescope','equipment_camera','equipment_mount', \
+             'equipment_filters','equipment_guiding', \
+             'location_text','bortle_class','sqm','social_links')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 12);
+}
