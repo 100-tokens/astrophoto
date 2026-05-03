@@ -1,7 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  // Already authenticated → no need to see the signup form.
+  if (locals.user) throw redirect(303, '/');
+  return {};
+};
 
 export const actions: Actions = {
   default: async ({ request, fetch, cookies, getClientAddress }) => {
