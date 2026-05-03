@@ -146,6 +146,27 @@ From the spec's Phase 1 acceptance section. All confirmed:
 - `users.tier` defaults to `'free'`; promoting users to `'subscriber'`
   is a manual DB UPDATE for Phase 1 (no billing UI; deferred).
 
+## Staging deployment smoke (post Lambda@Edge pivot)
+
+After the architecture pivot from Lambda Function URL to Lambda@Edge
+(documented in `docs/operations/aws-s3-cloudfront.md`), the staging
+deployment was re-verified end-to-end on 2026-05-03 against the live
+CloudFront distribution `ddo5booq71gbx.cloudfront.net` and the Koyeb
+backend:
+
+| Check | Result |
+|---|---|
+| `GET /img/<id>?w=400&fm=jpeg` (cold) | 200, image/jpeg 7673 B, 400×300 progressive JPEG, `x-cache: Miss from cloudfront` |
+| Same URL repeated (warm) | 200, `x-cache: Hit from cloudfront` |
+| `GET /img/<id>?w=800&fm=jpeg` (separate cache key) | 200, image/jpeg 16 767 B, 800×600 progressive JPEG, fresh Miss |
+| `GET /healthz` on Koyeb backend | 200 `{"status":"ok","db":"ok"}` |
+
+All three CloudFront smoke assertions from §5 of the runbook pass:
+HTTP 200, second request warm-hits the cache, and distinct `w` values
+populate distinct cache entries. An earlier 502 observed immediately
+after the distribution status flipped to `Deployed` was transient
+edge-propagation lag — there is no remaining Lambda@Edge defect.
+
 ## Pre-existing items observed during P1 work, not addressed here
 
 - `Modal.svelte` has a single `a11y_no_static_element_interactions`
