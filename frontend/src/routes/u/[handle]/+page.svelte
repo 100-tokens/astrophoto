@@ -14,6 +14,8 @@
   interface PageData {
     profile: User;
     photos: ProfilePhoto[];
+    /** UUID of the profile owner — used by FollowButton and follow/self checks. */
+    userId: string;
     isFollowing?: boolean;
     isSelf?: boolean;
   }
@@ -74,7 +76,7 @@
   <!-- Right column: actions + location -->
   <div class="profile-actions">
     {#if !data.isSelf}
-      <FollowButton userId={data.profile.username} initialFollowing={data.isFollowing ?? false} />
+      <FollowButton userId={data.userId} initialFollowing={data.isFollowing ?? false} />
     {/if}
     <button class="btn btn-secondary">Message</button>
     {#if u.bortle > 0}
