@@ -1,6 +1,7 @@
 //! Migration smoke tests. Each new schema bump gets a check that the
 //! migrations apply cleanly to a fresh DB and the new schema objects
 //! exist with the expected names.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use sqlx::Row;
 use testcontainers::runners::AsyncRunner;

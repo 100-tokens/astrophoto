@@ -1,4 +1,8 @@
-use axum::{extract::{Path, State}, response::IntoResponse, Json};
+use axum::{
+    Json,
+    extract::{Path, State},
+    response::IntoResponse,
+};
 
 use crate::error::AppError;
 use crate::http::AppState;

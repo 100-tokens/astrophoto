@@ -6,6 +6,7 @@ use bytes::Bytes;
 
 use crate::AppError;
 
+pub mod cdn_dev;
 pub mod memory;
 pub mod s3;
 

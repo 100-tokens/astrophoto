@@ -88,10 +88,8 @@ async fn resolve_permalink_returns_photo_id() {
         .unwrap();
 
     assert_eq!(r.status(), 200);
-    let body: serde_json::Value = serde_json::from_slice(
-        &axum::body::to_bytes(r.into_body(), 8192).await.unwrap(),
-    )
-    .unwrap();
+    let body: serde_json::Value =
+        serde_json::from_slice(&axum::body::to_bytes(r.into_body(), 8192).await.unwrap()).unwrap();
     assert_eq!(body["id"], photo_id.to_string());
 }
 

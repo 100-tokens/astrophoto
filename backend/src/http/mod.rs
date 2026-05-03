@@ -43,7 +43,7 @@ pub fn router(
         storage,
         mailer,
     };
-    Router::new()
+    let mut router = Router::new()
         .route("/healthz", get(health::healthz))
         .route(
             "/api/auth/handle-check",
@@ -183,6 +183,18 @@ pub fn router(
         .route(
             "/api/me/handle",
             axum::routing::post(crate::users::handle::rename),
-        )
-        .with_state(state)
+        );
+
+    // Mount the dev CDN only when CDN_BASE_URL points back at this process.
+    // In production, CloudFront is in front and this route is not needed.
+    if state.config.cdn_base_url.contains("localhost")
+        || state.config.cdn_base_url.contains("127.0.0.1")
+    {
+        router = router.route(
+            "/cdn/img/:id",
+            axum::routing::get(crate::storage::cdn_dev::handler),
+        );
+    }
+
+    router.with_state(state)
 }
