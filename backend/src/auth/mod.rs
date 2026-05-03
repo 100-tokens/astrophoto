@@ -1,5 +1,6 @@
 pub mod email_change;
 pub mod handle;
+pub mod handle_check;
 pub mod login;
 pub mod logout;
 pub mod me;

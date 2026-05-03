@@ -45,6 +45,10 @@ pub fn router(
     };
     Router::new()
         .route("/healthz", get(health::healthz))
+        .route(
+            "/api/auth/handle-check",
+            get(crate::auth::handle_check::handler),
+        )
         .route("/api/auth/signup", post(crate::auth::signup::handler))
         .route("/api/auth/login", post(crate::auth::login::handler))
         .route("/api/auth/me", get(crate::auth::me::handler))
