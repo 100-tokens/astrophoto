@@ -240,3 +240,119 @@ pub struct GalleryPage {
     /// Opaque cursor; pass back as `?cursor=` to load the next page. `None` when exhausted.
     pub next_cursor: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DiscoveryPhoto.ts")]
+pub struct DiscoveryPhoto {
+    pub id: Uuid,
+    pub short_id: String,
+    pub target: Option<String>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub blurhash: Option<String>,
+    pub appreciations_count: i32,
+    pub published_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub author_id: Uuid,
+    pub author_handle: String,
+    pub author_display_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DiscoveryPage.ts")]
+pub struct DiscoveryPage {
+    pub photos: Vec<DiscoveryPhoto>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetMeta.ts")]
+pub struct TargetMeta {
+    pub slug: String,
+    pub canonical_name: String,
+    pub aliases: Vec<String>,
+    pub kind: Option<String>,
+    pub photo_count: i64,
+    pub contributor_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetPage.ts")]
+pub struct TargetPage {
+    pub target: TargetMeta,
+    pub page: DiscoveryPage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TagMeta.ts")]
+pub struct TagMeta {
+    pub slug: String,
+    pub name: String,
+    pub photo_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TagPage.ts")]
+pub struct TagPage {
+    pub tag: TagMeta,
+    pub page: DiscoveryPage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentMeta.ts")]
+pub struct EquipmentMeta {
+    pub kind: String,
+    pub slug: String,
+    pub canonical_name: String,
+    pub display_name: String,
+    pub photo_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentPaired.ts")]
+pub struct EquipmentPaired {
+    pub kind: String,
+    pub slug: String,
+    pub display_name: String,
+    pub shared_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentPage.ts")]
+pub struct EquipmentPage {
+    pub equipment: EquipmentMeta,
+    pub paired: Vec<EquipmentPaired>,
+    pub page: DiscoveryPage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "CategoryPage.ts")]
+pub struct CategoryPage {
+    pub category: String,
+    pub photo_count: i64,
+    pub page: DiscoveryPage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SearchTargetHit.ts")]
+pub struct SearchTargetHit {
+    pub slug: String,
+    pub canonical_name: String,
+    pub photo_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SearchUserHit.ts")]
+pub struct SearchUserHit {
+    pub id: Uuid,
+    pub handle: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SearchResults.ts")]
+pub struct SearchResults {
+    pub q: String,
+    pub targets: Vec<SearchTargetHit>,
+    pub users: Vec<SearchUserHit>,
+    pub photos: Vec<DiscoveryPhoto>,
+}

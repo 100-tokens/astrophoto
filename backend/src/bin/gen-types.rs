@@ -5,9 +5,11 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
+    AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage,
+    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
     HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile,
-    SessionRow, SocialLink, SocialPlatform, User, UserPublic,
+    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform,
+    TagMeta, TagPage, TargetMeta, TargetPage, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -34,6 +36,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     PublicProfile::export_all_to(out_dir)?;
     GalleryPhoto::export_all_to(out_dir)?;
     GalleryPage::export_all_to(out_dir)?;
+    DiscoveryPhoto::export_all_to(out_dir)?;
+    DiscoveryPage::export_all_to(out_dir)?;
+    TargetMeta::export_all_to(out_dir)?;
+    TargetPage::export_all_to(out_dir)?;
+    TagMeta::export_all_to(out_dir)?;
+    TagPage::export_all_to(out_dir)?;
+    EquipmentMeta::export_all_to(out_dir)?;
+    EquipmentPaired::export_all_to(out_dir)?;
+    EquipmentPage::export_all_to(out_dir)?;
+    CategoryPage::export_all_to(out_dir)?;
+    SearchTargetHit::export_all_to(out_dir)?;
+    SearchUserHit::export_all_to(out_dir)?;
+    SearchResults::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())
