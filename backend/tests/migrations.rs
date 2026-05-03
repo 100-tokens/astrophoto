@@ -28,7 +28,7 @@ async fn migration_0005_adds_handles_and_redirects() {
     let row = sqlx::query(
         "select column_name, is_nullable
            from information_schema.columns
-          where table_name = 'users' and column_name = 'handle'"
+          where table_name = 'users' and column_name = 'handle'",
     )
     .fetch_one(&pool)
     .await
@@ -39,7 +39,7 @@ async fn migration_0005_adds_handles_and_redirects() {
     // handle_redirects table exists
     let exists: bool = sqlx::query_scalar(
         "select exists(select 1 from information_schema.tables \
-         where table_name = 'handle_redirects')"
+         where table_name = 'handle_redirects')",
     )
     .fetch_one(&pool)
     .await
@@ -53,7 +53,7 @@ async fn migration_0006_adds_user_tier() {
     let default_tier: String = sqlx::query_scalar(
         "select column_default \
          from information_schema.columns \
-         where table_name = 'users' and column_name = 'tier'"
+         where table_name = 'users' and column_name = 'tier'",
     )
     .fetch_one(&pool)
     .await
@@ -66,7 +66,7 @@ async fn migration_0007_adds_photo_short_id() {
     let pool = fresh_db().await;
     let exists: bool = sqlx::query_scalar(
         "select exists(select 1 from information_schema.columns \
-         where table_name = 'photos' and column_name = 'short_id')"
+         where table_name = 'photos' and column_name = 'short_id')",
     )
     .fetch_one(&pool)
     .await
@@ -83,7 +83,7 @@ async fn migration_0008_adds_user_profile_fields() {
          and column_name in ('tagline','bio_html','cover_photo_id', \
              'equipment_telescope','equipment_camera','equipment_mount', \
              'equipment_filters','equipment_guiding', \
-             'location_text','bortle_class','sqm','social_links')"
+             'location_text','bortle_class','sqm','social_links')",
     )
     .fetch_one(&pool)
     .await
@@ -98,7 +98,7 @@ async fn migration_0009_adds_photo_featured_and_category() {
         "select count(*) from information_schema.columns \
          where table_name = 'photos' \
          and column_name in ('featured_at','featured_position','category', \
-             'scope','mount','filters','guiding')"
+             'scope','mount','filters','guiding')",
     )
     .fetch_one(&pool)
     .await
@@ -109,20 +109,17 @@ async fn migration_0009_adds_photo_featured_and_category() {
 #[tokio::test]
 async fn migration_0010_adds_targets_and_tags() {
     let pool = fresh_db().await;
-    let messier_count: i64 = sqlx::query_scalar(
-        "select count(*) from targets where kind = 'messier'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let messier_count: i64 =
+        sqlx::query_scalar("select count(*) from targets where kind = 'messier'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(messier_count, 110);
 
-    let m31: String = sqlx::query_scalar(
-        "select canonical_name from targets where slug = 'm31'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let m31: String = sqlx::query_scalar("select canonical_name from targets where slug = 'm31'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(m31, "Andromeda Galaxy");
 }
 
@@ -131,7 +128,7 @@ async fn migration_0011_adds_appreciations_count() {
     let pool = fresh_db().await;
     let exists: bool = sqlx::query_scalar(
         "select exists(select 1 from information_schema.columns \
-         where table_name = 'photos' and column_name = 'appreciations_count')"
+         where table_name = 'photos' and column_name = 'appreciations_count')",
     )
     .fetch_one(&pool)
     .await
@@ -144,7 +141,7 @@ async fn migration_0012_adds_equipment_items_and_indexes() {
     let pool = fresh_db().await;
     let exists: bool = sqlx::query_scalar(
         "select exists(select 1 from information_schema.tables \
-         where table_name = 'equipment_items')"
+         where table_name = 'equipment_items')",
     )
     .fetch_one(&pool)
     .await

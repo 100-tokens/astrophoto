@@ -28,8 +28,7 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     body.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
-    crate::auth::handle::validate(&body.handle)
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    crate::auth::handle::validate(&body.handle).map_err(|e| AppError::Validation(e.to_string()))?;
 
     let hash = password::hash(body.password).await?;
     let user = queries::create_with_password(
