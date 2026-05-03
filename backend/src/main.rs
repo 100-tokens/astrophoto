@@ -32,8 +32,9 @@ async fn main() -> Result<()> {
 
     let mailer = std::sync::Arc::new(astrophoto::mail::Mailer::from_env(&cfg)?);
 
-    // Spawn the hourly purge worker before handing pool/storage to the router.
+    // Spawn background workers before handing pool/storage to the router.
     astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
+    astrophoto::jobs::orphan_reaper::spawn(pool.clone(), storage.clone());
 
     // Allow the SvelteKit dev server to reach the backend with credentials.
     // TODO: source allowed origin from Config in a later iteration.
