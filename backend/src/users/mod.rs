@@ -1,5 +1,6 @@
 pub mod bio;
 pub mod by_handle;
+pub mod featured;
 pub mod cover;
 pub mod deletion;
 pub mod export;

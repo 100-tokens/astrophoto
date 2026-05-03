@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select coalesce(min(p), 0)::int8 as next_pos\n        from generate_series(1, $1::int8) as g(p)\n        where not exists (\n            select 1 from photos\n            where owner_id = $2\n              and featured_position = g.p\n              and featured_at is not null\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "next_pos",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "db80b3b72811a2a8a5c54416910cdef4fdf9a28e85f2154583a8d66d244a52d8"
+}
