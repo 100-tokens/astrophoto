@@ -111,6 +111,23 @@ pub async fn mark_ready_size_only(
     Ok(())
 }
 
+pub async fn set_display_metadata(
+    pool: &PgPool,
+    id: Uuid,
+    display_key: &str,
+    blurhash: &str,
+) -> Result<(), AppError> {
+    sqlx::query!(
+        "update photos set display_key = $2, blurhash = $3 where id = $1",
+        id,
+        display_key,
+        blurhash,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn mark_failed(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), AppError> {
     sqlx::query!(
         "update photos set status='failed', pipeline_error=$2 where id=$1",

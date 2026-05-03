@@ -1,7 +1,7 @@
 //! Photo processing pipeline. Used by both the HTTP upload handler and
 //! the seed binary. Synchronous (awaits each step). The HTTP handler
 //! splits the synchronous insert (returns id quickly) from the
-//! background `finalize` (EXIF + thumbs).
+//! background `finalize` (EXIF + thumbs + display master + blurhash).
 
 use std::sync::Arc;
 
@@ -14,6 +14,48 @@ use crate::photos::{exif, queries, thumbs};
 use crate::storage::Storage;
 
 const THUMB_SIZES: &[u32] = &[400, 1200];
+
+const DISPLAY_MASTER_LONG_EDGE: u32 = 4096;
+const DISPLAY_MASTER_QUALITY: u8 = 85;
+
+/// Resize to at most `DISPLAY_MASTER_LONG_EDGE` on the long side, encode as
+/// JPEG q85. ICC and EXIF metadata are stripped by the encode round-trip.
+fn derive_display_master_blocking(bytes: &[u8]) -> Result<Bytes, AppError> {
+    let img = image::load_from_memory(bytes)
+        .map_err(|e| AppError::Internal(format!("display decode: {e}")))?;
+    let (w, h) = (img.width(), img.height());
+    let scale = if w.max(h) > DISPLAY_MASTER_LONG_EDGE {
+        DISPLAY_MASTER_LONG_EDGE as f32 / w.max(h) as f32
+    } else {
+        1.0
+    };
+    let target_w = (w as f32 * scale) as u32;
+    let target_h = (h as f32 * scale) as u32;
+    let resized = if scale < 1.0 {
+        img.resize(target_w, target_h, image::imageops::FilterType::Lanczos3)
+    } else {
+        img
+    };
+    let mut out = Vec::with_capacity(256 * 1024);
+    let mut enc =
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, DISPLAY_MASTER_QUALITY);
+    enc.encode_image(&resized)
+        .map_err(|e| AppError::Internal(format!("display encode: {e}")))?;
+    Ok(Bytes::from(out))
+}
+
+/// Compute a blurhash string using 4×3 components from a 32×32 downsample.
+fn derive_blurhash_blocking(bytes: &[u8]) -> Result<String, AppError> {
+    let img = image::load_from_memory(bytes)
+        .map_err(|e| AppError::Internal(format!("blurhash decode: {e}")))?;
+    let small = img.resize(32, 32, image::imageops::FilterType::Triangle);
+    let rgba = small.to_rgba8();
+    let (w, h) = (rgba.width(), rgba.height());
+    let pixels = rgba.into_raw();
+    let hash = blurhash::encode(4, 3, w, h, &pixels)
+        .map_err(|e| AppError::Internal(format!("blurhash: {e}")))?;
+    Ok(hash)
+}
 
 /// Controls which fields `finalize` writes back after image processing.
 #[derive(Clone, Copy, Debug)]
@@ -62,8 +104,9 @@ pub async fn process(
     Ok(photo_id)
 }
 
-/// Just the EXIF parse + thumb generation steps. The HTTP handler runs
-/// this in `tokio::spawn` after the original is uploaded synchronously.
+/// EXIF parse + thumbnail generation + display-master derivation + blurhash.
+/// The HTTP handler runs this in `tokio::spawn` after the original is
+/// uploaded synchronously.
 pub async fn finalize(
     pool: &PgPool,
     storage: Arc<dyn Storage>,
@@ -78,12 +121,14 @@ pub async fn finalize(
         for size in THUMB_SIZES {
             generated.push(thumbs::generate_blocking(&bytes_for_blocking, *size)?);
         }
-        Ok::<_, AppError>((exif_data, generated))
+        let display = derive_display_master_blocking(&bytes_for_blocking)?;
+        let blurhash = derive_blurhash_blocking(&bytes_for_blocking)?;
+        Ok::<_, AppError>((exif_data, generated, display, blurhash))
     })
     .await
     .map_err(|e| AppError::Internal(format!("spawn_blocking join: {e}")))??;
 
-    let (exif_data, generated) = parsed;
+    let (exif_data, generated, display_bytes, blurhash) = parsed;
     let (full_w, full_h) = generated
         .iter()
         .max_by_key(|t| t.size)
@@ -96,6 +141,14 @@ pub async fn finalize(
         storage.put(&key, "image/jpeg", thumb.bytes).await?;
         queries::insert_thumbnail(pool, photo_id, thumb.size as i32, &key, len).await?;
     }
+
+    // Upload the display master and persist metadata before marking the photo
+    // ready so readers never observe status='ready' with a null display_key.
+    let display_key = format!("display/{photo_id}.jpg");
+    storage
+        .put(&display_key, "image/jpeg", display_bytes)
+        .await?;
+    queries::set_display_metadata(pool, photo_id, &display_key, &blurhash).await?;
 
     match options {
         PipelineOptions::Initial => {
@@ -134,4 +187,18 @@ pub async fn finalize(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn display_master_clamps_long_edge() {
+        let big = include_bytes!("../../tests/fixtures/wide_5000.jpg");
+        let out = derive_display_master_blocking(big).unwrap();
+        let img = image::load_from_memory(&out).unwrap();
+        assert!(img.width().max(img.height()) <= 4096);
+    }
 }
