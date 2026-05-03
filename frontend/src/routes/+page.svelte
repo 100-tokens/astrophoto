@@ -101,7 +101,9 @@
     <div class="fotw-tag">
       <div style="color: var(--accent)">FRAME OF THE WEEK</div>
       {#if data.isReal}
-        <div style="color: var(--fg-primary)">{data.heroPhoto.target ?? 'Untitled'}</div>
+        <div style="color: var(--fg-primary)">
+          <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
+        </div>
       {:else}
         <div style="color: var(--fg-primary)">
           {data.heroPhoto.target} · {data.heroPhoto.integration}
