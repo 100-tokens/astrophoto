@@ -60,3 +60,16 @@ async fn migration_0006_adds_user_tier() {
     .unwrap();
     assert!(default_tier.starts_with("'free'"));
 }
+
+#[tokio::test]
+async fn migration_0007_adds_photo_short_id() {
+    let pool = fresh_db().await;
+    let exists: bool = sqlx::query_scalar(
+        "select exists(select 1 from information_schema.columns \
+         where table_name = 'photos' and column_name = 'short_id')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(exists);
+}
