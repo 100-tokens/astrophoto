@@ -15,6 +15,9 @@ COPY backend/clippy.toml ./clippy.toml
 COPY backend/.sqlx ./.sqlx
 COPY backend/src ./src
 COPY backend/migrations ./migrations
+# include_str! targets embedded at compile time
+COPY backend/data ./data
+COPY backend/assets ./assets
 
 # Use the offline sqlx cache — .sqlx/ is committed and covers all query! macros.
 ENV SQLX_OFFLINE=true
