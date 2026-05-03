@@ -138,3 +138,16 @@ async fn migration_0011_adds_appreciations_count() {
     .unwrap();
     assert!(exists);
 }
+
+#[tokio::test]
+async fn migration_0012_adds_equipment_items_and_indexes() {
+    let pool = fresh_db().await;
+    let exists: bool = sqlx::query_scalar(
+        "select exists(select 1 from information_schema.tables \
+         where table_name = 'equipment_items')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(exists);
+}
