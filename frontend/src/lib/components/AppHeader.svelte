@@ -3,6 +3,7 @@
   import MarkReticle from './MarkReticle.svelte';
   import Wordmark from './Wordmark.svelte';
   import AvatarMenu from './AvatarMenu.svelte';
+  import SearchBar from './discovery/SearchBar.svelte';
   import { cls } from '$lib/utils/cls';
 
   interface Props {
@@ -48,27 +49,8 @@
 
   <!-- Right: search + auth -->
   <div style="display: flex; align-items: center; gap: 12px;">
-    <!-- Search field -->
-    <div
-      style="display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 32px; border: 1px solid var(--border-default); border-radius: 2px; color: var(--fg-muted); font-family: var(--font-mono); font-size: 12px; width: 220px;"
-      role="search"
-    >
-      <!-- Magnifying glass icon (inline SVG, no external dep) -->
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.2"
-        aria-hidden="true"
-      >
-        <circle cx="7" cy="7" r="5" />
-        <line x1="11" y1="11" x2="14" y2="14" />
-      </svg>
-      <span>search the archive…</span>
-      <span style="margin-left: auto; font-size: 10px; letter-spacing: 0.1em;">⌘K</span>
-    </div>
+    <!-- Search bar (⌘K focusable, debounced autocomplete) -->
+    <SearchBar />
 
     {#if user}
       <a href="/upload" class="btn btn-secondary btn-sm">Upload</a>
