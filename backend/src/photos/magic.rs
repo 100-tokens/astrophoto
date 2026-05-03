@@ -28,12 +28,12 @@ pub fn sniff(bytes: &[u8]) -> SniffResult {
 }
 
 pub fn matches_mime(s: SniffResult, mime: &str) -> bool {
-    match (s, mime) {
-        (SniffResult::Jpeg, "image/jpeg") => true,
-        (SniffResult::Png, "image/png") => true,
-        (SniffResult::Tiff, "image/tiff") => true,
-        _ => false,
-    }
+    matches!(
+        (s, mime),
+        (SniffResult::Jpeg, "image/jpeg")
+            | (SniffResult::Png, "image/png")
+            | (SniffResult::Tiff, "image/tiff")
+    )
 }
 
 #[cfg(test)]

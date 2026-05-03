@@ -37,6 +37,7 @@ fn config_for(url: &str) -> Config {
     }
 }
 
+#[allow(clippy::unwrap_used)]
 async fn signup_and_get_cookie(app: &axum::Router, email: &str) -> String {
     let body = serde_json::json!({
         "email": email,
@@ -65,6 +66,7 @@ async fn signup_and_get_cookie(app: &axum::Router, email: &str) -> String {
         .to_string()
 }
 
+#[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn upload_init_signs_url_and_dedups() {
     let pg = PgImage::default().start().await.unwrap();
