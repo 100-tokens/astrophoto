@@ -12,6 +12,11 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load .env from the workspace root for dev convenience. In prod / staging
+    // (Koyeb, CI), env vars are injected by the runtime and dotenvy is a no-op.
+    let _ = dotenvy::from_path("../.env");
+    let _ = dotenvy::dotenv();
+
     let cfg = Config::from_env();
     init_tracing(&cfg.log);
 

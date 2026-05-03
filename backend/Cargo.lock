@@ -78,6 +78,7 @@ dependencies = [
  "blurhash",
  "bytes",
  "chrono",
+ "dotenvy",
  "figment",
  "http-body-util",
  "hyper 1.9.0",
