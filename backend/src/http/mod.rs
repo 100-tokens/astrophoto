@@ -153,7 +153,9 @@ pub fn router(
         )
         .route(
             "/api/me/profile",
-            axum::routing::get(crate::users::profile::get).put(crate::users::profile::put),
+            axum::routing::get(crate::users::profile::get)
+                .put(crate::users::profile::put)
+                .patch(crate::users::profile::put),
         )
         .route(
             "/api/me/preferences",

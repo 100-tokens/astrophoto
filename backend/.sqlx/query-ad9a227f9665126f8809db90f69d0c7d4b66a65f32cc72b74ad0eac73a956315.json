@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update users set\n                equipment_telescope = $1,\n                equipment_camera    = $2,\n                equipment_mount     = $3,\n                equipment_filters   = $4,\n                equipment_guiding   = $5\n            where id = $6\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad9a227f9665126f8809db90f69d0c7d4b66a65f32cc72b74ad0eac73a956315"
+}
