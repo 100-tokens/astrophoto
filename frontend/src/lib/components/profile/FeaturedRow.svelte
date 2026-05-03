@@ -2,17 +2,20 @@
   import type { FeaturedPhotoSummary } from '$lib/api/FeaturedPhotoSummary';
   import { unpinFeatured, reorderFeatured } from '$lib/api/profileClient';
   import FeaturedTile from './FeaturedTile.svelte';
+  import FeaturedPinModal from './editor/FeaturedPinModal.svelte';
 
   let {
     items: incoming,
     handle,
     isOwner,
-    editorMode = false
+    editorMode = false,
+    onPinned = () => {}
   }: {
     items: FeaturedPhotoSummary[];
     handle: string;
     isOwner: boolean;
     editorMode?: boolean;
+    onPinned?: (photoId: string) => void;
   } = $props();
 
   let local = $state<FeaturedPhotoSummary[]>([...incoming]);
@@ -20,6 +23,7 @@
     local = [...incoming];
   });
 
+  let pinOpen = $state(false);
   let placeholders = $derived(isOwner ? Array.from({ length: 6 - local.length }, (_, i) => i) : []);
 
   async function unpin(id: string) {
@@ -72,9 +76,21 @@
     {#each placeholders as i}
       <div class="slot">
         <span class="lab">SLOT {String(local.length + i + 1).padStart(2, '0')}</span>
+        {#if i === 0 && editorMode}
+          <button type="button" class="pin" onclick={() => (pinOpen = true)}>+ Pin a photo</button>
+        {/if}
       </div>
     {/each}
   </section>
+{/if}
+
+{#if editorMode}
+  <FeaturedPinModal
+    bind:open={pinOpen}
+    {handle}
+    excludeIds={local.map((p) => p.id)}
+    onPinned={(id) => onPinned(id)}
+  />
 {/if}
 
 <style>
@@ -120,6 +136,15 @@
     color: var(--fg-muted);
     font-family: var(--font-mono);
     font-size: 11px;
+  }
+  .pin {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
   }
   @media (max-width: 640px) {
     .row {
