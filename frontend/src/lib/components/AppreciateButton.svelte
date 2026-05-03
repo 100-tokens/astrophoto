@@ -95,19 +95,29 @@
 {/if}
 
 <style>
-  /* ── Inline variant ───────────────────────────────────────── */
+  /* ── Inline variant ───────────────────────────────────────────
+     Match the .btn-ghost.btn-sm visual weight of the sibling
+     Comments / Share / ⋯ actions in the photo-detail action row.
+     A visible border on Appreciate alone made it read as a different
+     shape and pulled the eye away from the rest of the row. The
+     active (.on) state still uses accent color so the toggle remains
+     obvious without making the resting state heavier than its peers. */
   .appreciate {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
     background: transparent;
     color: var(--fg-secondary);
-    border: 1px solid var(--border-strong);
+    border: 1px solid transparent;
     padding: 0 12px;
     height: 28px;
     border-radius: 2px;
     font-family: var(--font-ui);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 150ms ease;
+    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
   }
   .appreciate.on {
     color: var(--accent);
@@ -119,7 +129,7 @@
     cursor: progress;
   }
   .appreciate:hover:not(:disabled) {
-    border-color: var(--accent);
+    color: var(--accent);
   }
 
   /* ── Mobile-sticky variant ────────────────────────────────── */
