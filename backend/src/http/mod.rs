@@ -83,9 +83,7 @@ pub fn router(
         )
         .route(
             "/api/photos",
-            post(crate::photos::upload::handler)
-                .get(crate::photos::list::handler)
-                .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
+            axum::routing::get(crate::photos::list::handler),
         )
         .route(
             "/api/photos/:id",

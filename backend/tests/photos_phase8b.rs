@@ -174,42 +174,42 @@ impl H {
             .to_string()
     }
 
-    /// POST a minimal JPEG multipart to /api/photos (draft upload).
-    /// Returns the new photo id.
+    /// Seed a ready photo directly via SQL + MemoryStorage for the given user
+    /// (identified by their session cookie). Returns the new photo id.
+    ///
+    /// The photo is seeded in `status='ready'` with `published_at IS NULL` so
+    /// it behaves as a draft: visible only to the owner, not publicly listed.
+    /// `wait_for_ready` calls on the returned id are instant no-ops.
     #[allow(clippy::unwrap_used)]
-    async fn upload_draft(&self, cookie: &str) -> Uuid {
-        let boundary = "----phase8btestboundary";
+    async fn seed_photo(&self, cookie: &str) -> Uuid {
+        let user_id = self.user_id(cookie).await;
+        let photo_id = Uuid::new_v4();
+        let storage_key = format!("originals/test-{photo_id}");
+        // Use a unique short_id per photo to avoid collisions across tests.
+        let short_id = format!("T{}", &photo_id.to_string().replace('-', "")[..7]);
+        sqlx::query!(
+            r#"
+            insert into photos
+                (id, owner_id, storage_key, original_name, bytes, mime,
+                 short_id, status, last_step, original_uploaded_at)
+            values ($1, $2, $3, 'draft.jpg', 1000, 'image/jpeg',
+                    $4, 'ready', 'upload', now())
+            "#,
+            photo_id,
+            user_id,
+            storage_key,
+            short_id,
+        )
+        .execute(&self.pool)
+        .await
+        .unwrap();
+        // Seed a JPEG into storage so S3 checks in replace/delete tests work.
         let jpeg = make_test_jpeg();
-        let mut body: Vec<u8> = Vec::new();
-        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        body.extend_from_slice(
-            b"Content-Disposition: form-data; name=\"file\"; filename=\"draft.jpg\"\r\n",
-        );
-        body.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
-        body.extend_from_slice(&jpeg);
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
-        let resp = self
-            .app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .method("POST")
-                    .uri("/api/photos")
-                    .header(header::COOKIE, cookie)
-                    .header(
-                        header::CONTENT_TYPE,
-                        format!("multipart/form-data; boundary={boundary}"),
-                    )
-                    .body(Body::from(body))
-                    .unwrap(),
-            )
+        self.storage
+            .put(&storage_key, "image/jpeg", bytes::Bytes::from(jpeg))
             .await
             .unwrap();
-        assert_eq!(resp.status(), 202, "upload_draft returned non-202");
-        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        Uuid::parse_str(v["id"].as_str().unwrap()).unwrap()
+        photo_id
     }
 
     /// GET /api/auth/me with the given cookie, returns `user.id` as Uuid.
@@ -514,8 +514,8 @@ async fn list_drafts_returns_only_callers_drafts() {
     let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
 
-    let alice_draft_id = h.upload_draft(&alice).await;
-    h.upload_draft(&bob).await; // draft for bob
+    let alice_draft_id = h.seed_photo(&alice).await;
+    h.seed_photo(&bob).await; // draft for bob
 
     let body = h.get_json("/api/photos?drafts=true", Some(&alice)).await;
     let photos = body["photos"].as_array().unwrap();
@@ -554,7 +554,7 @@ async fn get_draft_returns_404_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("bob@e.com", "longenoughpw", "Bob").await;
-    let photo_id = h.upload_draft(&alice).await;
+    let photo_id = h.seed_photo(&alice).await;
 
     let status = h
         .get_status(&format!("/api/photos/{photo_id}"), Some(&bob))
@@ -570,7 +570,7 @@ async fn get_draft_returns_404_for_non_owner() {
 async fn get_draft_returns_200_with_is_draft_for_owner() {
     let h = harness().await;
     let alice = h.signup("alice@e.com", "longenoughpw", "Alice").await;
-    let photo_id = h.upload_draft(&alice).await;
+    let photo_id = h.seed_photo(&alice).await;
 
     let body = h
         .get_json(&format!("/api/photos/{photo_id}"), Some(&alice))
@@ -590,7 +590,7 @@ async fn appreciation_count_on_draft_404s_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let photo_id = h.upload_draft(&alice).await;
+    let photo_id = h.seed_photo(&alice).await;
 
     let status = h
         .get_status(
@@ -612,7 +612,7 @@ async fn appreciate_a_draft_returns_404() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let photo_id = h.upload_draft(&alice).await;
+    let photo_id = h.seed_photo(&alice).await;
 
     let status = h
         .post_status(
@@ -630,7 +630,7 @@ async fn comment_list_on_draft_404s_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let photo_id = h.upload_draft(&alice).await;
+    let photo_id = h.seed_photo(&alice).await;
 
     let status = h
         .get_status(&format!("/api/photos/{photo_id}/comments"), Some(&bob))
@@ -647,7 +647,7 @@ async fn comment_list_on_draft_404s_for_non_owner() {
 async fn publish_sets_published_at_and_last_step_caption() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
 
     let status = h
@@ -667,7 +667,7 @@ async fn publish_sets_published_at_and_last_step_caption() {
 async fn publish_is_idempotent() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
         .await;
@@ -698,7 +698,7 @@ async fn publish_403_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     let status = h
         .post_status(&format!("/api/photos/{id}/publish"), None, Some(&bob))
@@ -712,7 +712,7 @@ async fn publish_400_when_status_processing() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let alice_id = h.user_id(&alice).await;
-    // Insert directly (bypassing upload_draft) so no background pipeline races.
+    // Insert directly (bypassing seed_photo) so no background pipeline races.
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, last_step, original_uploaded_at, short_id)
@@ -740,7 +740,7 @@ async fn publish_400_when_status_processing() {
 async fn put_metadata_works_on_draft_and_published() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let draft = h.upload_draft(&alice).await;
+    let draft = h.seed_photo(&alice).await;
     h.wait_for_ready(draft).await;
 
     let body = serde_json::json!({
@@ -785,7 +785,7 @@ async fn put_metadata_403_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     let body = serde_json::json!({ "target": "hijack" });
     let status = h
         .put_status(&format!("/api/photos/{id}"), &body, Some(&bob))
@@ -798,7 +798,7 @@ async fn put_metadata_403_for_non_owner() {
 async fn put_metadata_explicit_null_clears_field() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
 
     // Set target to a value
@@ -879,7 +879,7 @@ async fn mark_failed_records_pipeline_error_string() {
 async fn replace_swaps_storage_key_keeps_metadata() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     h.put_status(
         &format!("/api/photos/{id}"),
@@ -938,7 +938,7 @@ async fn replace_403_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     let status = h.replace_status(id, &bob).await;
     assert_eq!(status, 403);
@@ -949,7 +949,7 @@ async fn replace_403_for_non_owner() {
 async fn replace_400_when_pipeline_busy() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     sqlx::query!("update photos set status='processing' where id=$1", id)
         .execute(&h.pool)
@@ -968,15 +968,15 @@ async fn replace_400_when_pipeline_busy() {
 async fn me_stats_counts_published_and_drafts_separately() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let p1 = h.upload_draft(&alice).await;
+    let p1 = h.seed_photo(&alice).await;
     h.wait_for_ready(p1).await;
     h.post_status(&format!("/api/photos/{p1}/publish"), None, Some(&alice))
         .await;
-    let p2 = h.upload_draft(&alice).await;
+    let p2 = h.seed_photo(&alice).await;
     h.wait_for_ready(p2).await;
     h.post_status(&format!("/api/photos/{p2}/publish"), None, Some(&alice))
         .await;
-    let draft = h.upload_draft(&alice).await;
+    let draft = h.seed_photo(&alice).await;
 
     // Set exposure_s on photos to exercise integration_secs calculation
     h.put_status(
@@ -1101,7 +1101,7 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
 async fn delete_photo_204_for_owner_removes_row_and_s3() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
 
     // Capture the master key for the post-delete S3 check.
@@ -1135,7 +1135,7 @@ async fn delete_photo_403_for_non_owner() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     let status = h
         .delete_status(&format!("/api/photos/{id}"), Some(&bob))
         .await;
@@ -1148,7 +1148,7 @@ async fn pipeline_error_hidden_from_non_owner_and_anon() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let bob = h.signup("b@e.com", "longenoughpw", "Bob").await;
-    let id = h.upload_draft(&alice).await;
+    let id = h.seed_photo(&alice).await;
     h.wait_for_ready(id).await;
     h.post_status(&format!("/api/photos/{id}/publish"), None, Some(&alice))
         .await;

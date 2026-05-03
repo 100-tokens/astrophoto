@@ -1,25 +1,25 @@
-//! End-to-end upload flow integration test.
+//! End-to-end upload flow integration test (new init + finalize path).
 //!
 //! 1. testcontainers Postgres on a random port
 //! 2. astrophoto::storage::MemoryStorage in lieu of S3 (no MinIO container needed)
-//! 3. signup → upload a synthetic JPEG (200×150 pixels) → poll until status=ready
-//! 4. assert thumbnails are 400 and 1200 entries; assert /thumb/400 returns valid bytes
+//! 3. signup → POST /api/uploads/init → seed bytes into MemoryStorage →
+//!    POST /api/uploads/:id/finalize → GET /api/photos/:id until ready
+//! 4. assert GET /api/photos/:id/thumb/400 returns valid JPEG bytes
 
 use std::sync::Arc;
-use std::time::Duration;
 
-use astrophoto::storage::MemoryStorage;
+use astrophoto::storage::{MemoryStorage, Storage};
 use astrophoto::{Config, db, http};
 use axum::{
     body::Body,
     http::{Request, header},
 };
+use bytes::Bytes;
 use http_body_util::BodyExt as _;
-use image::{DynamicImage, ImageFormat, RgbImage};
-use std::io::Cursor;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 #[allow(clippy::expect_used)]
 fn config_for(url: &str) -> Config {
@@ -49,16 +49,6 @@ fn config_for(url: &str) -> Config {
     }
 }
 
-#[allow(clippy::unwrap_used)]
-fn make_test_jpeg() -> Vec<u8> {
-    let img = DynamicImage::ImageRgb8(RgbImage::from_fn(200, 150, |x, y| {
-        image::Rgb([(x % 256) as u8, (y % 256) as u8, 64])
-    }));
-    let mut buf = Cursor::new(Vec::new());
-    img.write_to(&mut buf, ImageFormat::Jpeg).unwrap();
-    buf.into_inner()
-}
-
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn upload_pipeline_signup_upload_thumb() {
@@ -71,7 +61,12 @@ async fn upload_pipeline_signup_upload_thumb() {
 
     let storage = Arc::new(MemoryStorage::new());
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
-    let app = http::router(pool.clone(), config_for(&url), storage, Arc::new(mailer));
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        storage.clone(),
+        Arc::new(mailer),
+    );
 
     // 1. Signup
     let signup_body = serde_json::json!({
@@ -101,71 +96,88 @@ async fn upload_pipeline_signup_upload_thumb() {
         .unwrap()
         .to_string();
 
-    // 2. Upload — manual multipart body
-    let boundary = "----astrophototestboundary";
-    let jpeg = make_test_jpeg();
-    let mut body = Vec::new();
-    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-    body.extend_from_slice(
-        b"Content-Disposition: form-data; name=\"file\"; filename=\"test.jpg\"\r\n",
-    );
-    body.extend_from_slice(b"Content-Type: image/jpeg\r\n\r\n");
-    body.extend_from_slice(&jpeg);
-    body.extend_from_slice(format!("\r\n--{boundary}\r\n").as_bytes());
-    body.extend_from_slice(b"Content-Disposition: form-data; name=\"target\"\r\n\r\n");
-    body.extend_from_slice(b"M31");
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
+    // 2. Init: declare the file to get a photo_id and presigned PUT URL.
+    let jpeg_bytes = Bytes::from_static(include_bytes!("fixtures/sample.jpg"));
+    let init_body = serde_json::json!({
+        "files": [{
+            "name": "test.jpg",
+            "size": jpeg_bytes.len(),
+            "mime": "image/jpeg",
+            "hash": "photos-rs-e2e-unique-hash"
+        }]
+    });
     let resp = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/api/photos")
+                .uri("/api/uploads/init")
+                .header(header::CONTENT_TYPE, "application/json")
                 .header(header::COOKIE, &cookie)
-                .header(
-                    header::CONTENT_TYPE,
-                    format!("multipart/form-data; boundary={boundary}"),
-                )
-                .body(Body::from(body))
+                .body(Body::from(init_body.to_string()))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 202);
-    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    let photo_id = v["id"].as_str().unwrap().to_string();
-    assert_eq!(v["status"], "processing");
+    assert_eq!(resp.status(), 200, "init should return 200");
+    let init_raw = resp.into_body().collect().await.unwrap().to_bytes();
+    let init_v: serde_json::Value = serde_json::from_slice(&init_raw).unwrap();
+    let photo_id_str = init_v["files"][0]["photo_id"].as_str().unwrap().to_string();
+    let photo_id: Uuid = Uuid::parse_str(&photo_id_str).unwrap();
 
-    // 3. Poll until ready (max ~3s)
-    // Owner cookie is required: drafts are only visible to their owner.
-    let mut ready = false;
-    for _ in 0..30 {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let resp = app
-            .clone()
-            .oneshot(
-                Request::builder()
-                    .uri(format!("/api/photos/{photo_id}"))
-                    .header(header::COOKIE, &cookie)
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(resp.status(), 200);
-        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        if v["status"] == "ready" {
-            ready = true;
-            assert_eq!(v["target"], "M31");
-            break;
-        }
-    }
-    assert!(ready, "photo never reached ready state");
+    // 3. Seed bytes into MemoryStorage.
+    //    MemoryStorage presigned URLs are stubs; look up the storage_key from the DB.
+    let storage_key: String = sqlx::query_scalar!(
+        r#"select storage_key as "storage_key!" from photos where id = $1"#,
+        photo_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    storage
+        .put(&storage_key, "image/jpeg", jpeg_bytes)
+        .await
+        .unwrap();
 
-    // 4. GET thumb/400 returns JPEG bytes
+    // 4. Finalize: trigger the pipeline.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/uploads/{photo_id}/finalize"))
+                .header(header::COOKIE, &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "finalize should return 200");
+    let fin_raw = resp.into_body().collect().await.unwrap().to_bytes();
+    let fin_v: serde_json::Value = serde_json::from_slice(&fin_raw).unwrap();
+    assert_eq!(
+        fin_v["status"], "ready",
+        "finalize must return status=ready"
+    );
+
+    // 5. GET /api/photos/:id and confirm status.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/photos/{photo_id}"))
+                .header(header::COOKIE, &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let detail_raw = resp.into_body().collect().await.unwrap().to_bytes();
+    let detail: serde_json::Value = serde_json::from_slice(&detail_raw).unwrap();
+    assert_eq!(detail["status"], "ready");
+
+    // 6. GET /api/photos/:id/thumb/400 returns valid JPEG bytes.
     let resp = app
         .oneshot(
             Request::builder()
@@ -176,10 +188,10 @@ async fn upload_pipeline_signup_upload_thumb() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
-    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let thumb_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     assert!(
-        bytes.starts_with(b"\xff\xd8"),
+        thumb_bytes.starts_with(b"\xff\xd8"),
         "not a JPEG: {:?}",
-        &bytes[..bytes.len().min(8)]
+        &thumb_bytes[..thumb_bytes.len().min(8)]
     );
 }
