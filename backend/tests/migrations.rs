@@ -90,3 +90,18 @@ async fn migration_0008_adds_user_profile_fields() {
     .unwrap();
     assert_eq!(count, 12);
 }
+
+#[tokio::test]
+async fn migration_0009_adds_photo_featured_and_category() {
+    let pool = fresh_db().await;
+    let count: i64 = sqlx::query_scalar(
+        "select count(*) from information_schema.columns \
+         where table_name = 'photos' \
+         and column_name in ('featured_at','featured_position','category', \
+             'scope','mount','filters','guiding')"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 7);
+}
