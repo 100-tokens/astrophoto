@@ -406,9 +406,18 @@ aws lambda update-function-code \
 ### 2.4 Handler pseudocode (function-URL shape)
 
 The handler is adapted from the old project's Lambda@Edge
-`image-transformer.js`. The transform logic (sharp params, format
-negotiation via `Accept` header) is preserved; the event shape and S3
-fetch are rewritten for the function-URL pattern.
+`image-transformer.js`. The event shape and S3 fetch are rewritten for
+the function-URL pattern.
+
+**Important: `fm` is a required parameter.** The cache policy
+(`HeaderBehavior: none`) does not include the `Accept` header in the
+cache key. If the handler fell back to `Accept`-based format
+negotiation when `fm` is absent, the first browser to request a URL
+without `fm` would write its preferred format (AVIF, WebP, JPEG) into
+CloudFront's cache for all subsequent browsers — a correctness bug. The
+frontend `<Img>` component must always emit an explicit `fm` value
+(e.g. `fm=webp` or `fm=jpeg`). The handler rejects requests without a
+valid `fm` to enforce this contract.
 
 ```javascript
 // index.js — Lambda function URL handler (Node 20 + sharp + @aws-sdk/client-s3)
@@ -418,12 +427,18 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 const s3 = new S3Client({ region: process.env.REGION });
 const BUCKET = process.env.BUCKET;
 const MAX_DIM = 4096;
+const VALID_FORMATS = ['jpeg', 'webp', 'avif'];
 
 export const handler = async (event) => {
   // Path: /img/<photo-id>  (CloudFront strips the /img prefix if configured)
   const photoId = event.rawPath.replace(/^\/img\//, '').replace(/[^a-zA-Z0-9_-]/g, '');
   const q = event.queryStringParameters ?? {};
-  const accept = (event.headers?.accept ?? '');
+
+  // fm is required — see note above on cache correctness.
+  const fmt = (q.fm ?? '').toLowerCase();
+  if (!VALID_FORMATS.includes(fmt)) {
+    return { statusCode: 400, body: 'fm param required (jpeg|webp|avif)' };
+  }
 
   // Fetch display master from S3
   let s3Body;
@@ -434,15 +449,13 @@ export const handler = async (event) => {
     }));
     s3Body = Buffer.from(await resp.Body.transformToByteArray());
   } catch (err) {
-    return { statusCode: 404, body: 'not found' };
+    // Short TTL on 404 to avoid caching a miss during a backfill window.
+    return {
+      statusCode: 404,
+      headers: { 'Cache-Control': 'public, max-age=60' },
+      body: 'not found',
+    };
   }
-
-  // Determine output format (fm param or Accept-header negotiation)
-  const fmParam = (q.fm ?? '').toLowerCase();
-  const fmt = ['jpeg','webp','avif'].includes(fmParam) ? fmParam
-    : accept.includes('image/avif') ? 'avif'
-    : accept.includes('image/webp') ? 'webp'
-    : 'jpeg';
 
   const w = Math.min(parseInt(q.w, 10) || 0, MAX_DIM) || undefined;
   const h = Math.min(parseInt(q.h, 10) || 0, MAX_DIM) || undefined;
@@ -460,9 +473,8 @@ export const handler = async (event) => {
   return {
     statusCode: 200,
     headers: {
-      'Content-Type': `image/${fmt === 'jpeg' ? 'jpeg' : fmt}`,
+      'Content-Type': `image/${fmt}`,
       'Cache-Control': `public, max-age=${cacheMaxAge}, immutable`,
-      'Vary': 'Accept',
     },
     body: buf.toString('base64'),
     isBase64Encoded: true,
@@ -559,6 +571,11 @@ first (Step 3), then come back and run this command.
 
 Write `dist-config.json` (replace placeholder values):
 
+**`CallerReference` must be unique per attempt.** It is an idempotency
+key — reuse it only if you're retrying an in-flight request. If this
+create call failed and you're re-running it, change the value (e.g.
+`"astrophoto-prod-cf-2"`).
+
 ```json
 {
   "CallerReference": "astrophoto-prod-cf-1",
@@ -611,10 +628,16 @@ Notes on the config:
   (e.g. `abcdef1234567890.lambda-url.us-east-1.on.aws`). Do not
   include `https://` or a trailing slash.
 - `LAMBDA_OAC_ID`: the `Id` from the OAC you created in Step 1.
+  `OriginAccessControlOriginType: "lambda"` is the correct value for
+  CF→Lambda-URL OAC (as of mid-2024). If the API rejects this value,
+  check the current AWS docs linked in §5 — the enum may have been
+  renamed. Do not confuse with `s3` (used for CF→S3 OAC).
 - `OriginRequestPolicyId`: `b689b0a8-53d0-40ab-baf2-68738e2966ac` is
-  the AWS managed policy `AllViewerExceptHostHeader`. This forwards the
-  `Accept` header and query strings to Lambda without forwarding the
-  `Host` header (which would confuse Lambda function URL routing).
+  the AWS managed policy `AllViewerExceptHostHeader`. This forwards
+  query strings to Lambda without forwarding the `Host` header (which
+  would confuse Lambda function URL routing). Verify this ID in the
+  AWS console before applying — managed policy IDs are stable but can
+  change across partition updates.
 - `CUSTOM_CACHE_POLICY_ID`: see §2.7 below.
 
 ```bash
@@ -660,9 +683,11 @@ aws cloudfront create-cache-policy \
   }'
 ```
 
-The `Vary: Accept` header on Lambda responses handles AVIF/WebP format
-negotiation within a given `fm` param (or absent `fm`). Use the `Id`
-returned here as `CUSTOM_CACHE_POLICY_ID` in the distribution config.
+The cache policy includes `HeaderBehavior: none` — the `Accept` header
+is intentionally excluded from the cache key. Format selection is
+driven entirely by the `fm` query param (see §2.4 on why `fm` is
+required). Use the `Id` returned here as `CUSTOM_CACHE_POLICY_ID` in
+the distribution config.
 
 **Note:** The old project used `[width, format, quality]` as the
 whitelist keys. The new URL shape uses `[w, h, fit, q, fm]` — use the
