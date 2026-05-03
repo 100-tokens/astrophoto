@@ -173,6 +173,10 @@ pub fn router(
             "/api/me/delete-cancel",
             post(crate::users::deletion::cancel),
         )
+        .route(
+            "/api/photos/by-permalink/:handle/:short_id",
+            axum::routing::get(crate::photos::permalink::lookup),
+        )
         .route("/api/me/photos/count", get(crate::photos::count::handler))
         .route("/api/me/stats", get(crate::users::stats::handler))
         .route("/api/me/export.json", get(crate::users::export::handler))
