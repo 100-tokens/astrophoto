@@ -9,6 +9,7 @@ pub mod profile;
 pub mod queries;
 pub mod redirect_lookup;
 pub mod sessions;
+pub mod social_links;
 pub mod stats;
 
 use crate::api_types::User;

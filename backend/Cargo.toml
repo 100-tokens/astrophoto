@@ -75,6 +75,7 @@ nanoid = "0.4"
 validator = { version = "0.18", features = ["derive"] }
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 woothee = "0.13"
+url = "2"
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["env", "toml", "test"] }
