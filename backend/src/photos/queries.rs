@@ -41,24 +41,39 @@ pub async fn insert_processing(
     target: Option<&str>,
     caption: Option<&str>,
 ) -> Result<Uuid, AppError> {
-    let row = sqlx::query!(
-        r#"
-        insert into photos (owner_id, storage_key, original_name, bytes, mime,
-                            target, caption, status, last_step, original_uploaded_at)
-        values ($1, $2, $3, $4, $5, $6, $7, 'processing', 'upload', now())
-        returning id
-        "#,
-        owner_id,
-        storage_key,
-        original_name,
-        bytes,
-        mime,
-        target,
-        caption,
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(row.id)
+    for _ in 0..5 {
+        let short_id = crate::photos::short_id::generate();
+        let res = sqlx::query!(
+            r#"
+            insert into photos (owner_id, storage_key, original_name, bytes, mime,
+                                target, caption, short_id, status, last_step, original_uploaded_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, 'processing', 'upload', now())
+            returning id
+            "#,
+            owner_id,
+            storage_key,
+            original_name,
+            bytes,
+            mime,
+            target,
+            caption,
+            short_id,
+        )
+        .fetch_one(pool)
+        .await;
+        match res {
+            Ok(row) => return Ok(row.id),
+            Err(sqlx::Error::Database(ref db_err))
+                if db_err.constraint() == Some("photos_short_id_uidx") =>
+            {
+                continue;
+            }
+            Err(e) => return Err(AppError::Database(e)),
+        }
+    }
+    Err(AppError::Internal(
+        "short_id collision retries exhausted".into(),
+    ))
 }
 
 pub async fn mark_ready(
