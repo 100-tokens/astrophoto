@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select 1 as ok\n            from photos\n            where id = $1\n              and owner_id = $2\n              and published_at is not null\n              and status = 'ready'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ok",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4cb9efc11bc7b09cb15699d9048005a0396fc20ef6baf2f70694d589f5295977"
+}

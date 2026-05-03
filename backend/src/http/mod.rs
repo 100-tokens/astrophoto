@@ -152,6 +152,10 @@ pub fn router(
             axum::routing::get(crate::engagement::follows::following_count),
         )
         .route(
+            "/api/me/cover",
+            axum::routing::post(crate::users::cover::set),
+        )
+        .route(
             "/api/me/profile",
             axum::routing::get(crate::users::profile::get)
                 .put(crate::users::profile::put)
