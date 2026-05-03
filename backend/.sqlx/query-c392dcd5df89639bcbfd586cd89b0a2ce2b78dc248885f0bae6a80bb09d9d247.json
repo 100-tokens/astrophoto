@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select id, short_id, target, width, height, blurhash, appreciations_count, published_at\n                from photos\n                where owner_id = $1\n                  and published_at is not null\n                  and status = 'ready'\n                  and ($2::int4 is null or appreciations_count < $2 or\n                       (appreciations_count = $2 and (published_at, id) < ($3, $4)))\n                order by appreciations_count desc, published_at desc, id desc\n                limit $5\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "height",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "blurhash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "appreciations_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "c392dcd5df89639bcbfd586cd89b0a2ce2b78dc248885f0bae6a80bb09d9d247"
+}

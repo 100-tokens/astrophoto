@@ -113,6 +113,10 @@ pub fn router(
             axum::routing::get(crate::users::public_profile::get),
         )
         .route(
+            "/api/users/by-handle/:handle/photos",
+            axum::routing::get(crate::users::photos_feed::get),
+        )
+        .route(
             "/api/users/by-handle/:handle",
             axum::routing::get(crate::users::by_handle::handler),
         )

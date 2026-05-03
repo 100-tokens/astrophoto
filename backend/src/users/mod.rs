@@ -1,5 +1,6 @@
 pub mod bio;
 pub mod by_handle;
+pub mod photos_feed;
 pub mod public_profile;
 pub mod featured;
 pub mod cover;
