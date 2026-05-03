@@ -46,7 +46,16 @@ export default ts.config(
       'src/lib/components/profile/editor/EquipmentSection.svelte',
       'src/lib/components/profile/editor/IdentitySection.svelte',
       'src/lib/components/profile/editor/LocationSection.svelte',
-      'src/lib/components/profile/editor/SocialLinksSection.svelte'
+      'src/lib/components/profile/editor/SocialLinksSection.svelte',
+      // Discovery pages seed cursor $state from the SSR page data once on mount;
+      // the $effect keeps it in sync on filter navigation. This is intentional.
+      'src/routes/explore/+page.svelte',
+      'src/routes/t/\\[slug\\]/+page.svelte',
+      'src/routes/tag/\\[slug\\]/+page.svelte',
+      'src/routes/equip/\\[kind\\]/\\[slug\\]/+page.svelte',
+      'src/routes/c/\\[cat\\]/+page.svelte',
+      // DiscoveryHeader uses a discriminated-union $props() type; not a custom element.
+      'src/lib/components/discovery/DiscoveryHeader.svelte'
     ],
     rules: {
       // The "seed local $state from prop once" pattern is intentional in
