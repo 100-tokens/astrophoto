@@ -27,7 +27,7 @@ pub async fn handler(
         "id":           row.id,
         "handle":       row.handle,
         "display_name": row.display_name,
-        "created_at":   row.created_at,
+        "created_at":   row.created_at.to_rfc3339(),
         "photo_count":  row.photo_count,
     })))
 }
