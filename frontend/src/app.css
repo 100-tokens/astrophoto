@@ -41,6 +41,19 @@
   --danger: #a8453a;
   --info: #6b7d8e;
 
+  /* Tinted surfaces — semantic backgrounds at low opacity for callouts and banners. */
+  --bg-accent-tint: rgba(232, 164, 58, 0.07);
+  --bg-success-tint: rgba(107, 142, 78, 0.10);
+  --bg-warning-tint: rgba(201, 137, 32, 0.09);
+  --bg-danger-tint: rgba(168, 69, 58, 0.10);
+  --bg-info-tint: rgba(107, 125, 142, 0.10);
+
+  /* Border accents for the same callouts */
+  --border-success: rgba(107, 142, 78, 0.35);
+  --border-warning: rgba(201, 137, 32, 0.35);
+  --border-danger: rgba(168, 69, 58, 0.35);
+  --border-info: rgba(107, 125, 142, 0.35);
+
   /* Star/data palette — for charts, badges, target dots */
   --star-O: #aac4ff; /* hot blue */
   --star-G: #fff4d8; /* sun-like */
