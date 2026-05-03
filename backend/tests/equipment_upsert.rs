@@ -74,6 +74,9 @@ async fn canonical_match_preserves_first_seen_display() {
     .await
     .unwrap();
     assert_eq!(count, 1, "should be exactly one row");
-    assert_eq!(display, "ZWO ASI2600MC", "display_name should be first-seen");
+    assert_eq!(
+        display, "ZWO ASI2600MC",
+        "display_name should be first-seen"
+    );
     assert_eq!(usage, 2, "usage_count should be 2");
 }
