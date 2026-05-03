@@ -10,6 +10,7 @@ pub mod permalink;
 pub mod pipeline;
 pub mod publish;
 pub mod queries;
+pub mod redirect;
 pub mod replace;
 pub mod serve;
 pub mod short_id;
