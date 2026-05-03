@@ -2,8 +2,14 @@
 
 Astrophoto: Rust + SvelteKit app for amateur astrophotographers to upload,
 tag, and share images. Backend: axum + sqlx + Postgres. Frontend:
-SvelteKit SSR + Svelte 5 runes. Storage: S3-compatible (Cloudflare R2 in
-prod, MinIO in dev).
+SvelteKit SSR + Svelte 5 runes. Image storage: **AWS S3** in prod (bucket
+`astrophoto-images-<env>`) fronted by CloudFront with a Lambda function
+URL (sharp) for on-the-fly transforms. Two dev paths supported, picked
+via `.env`: (a) MinIO + the backend's `/cdn/img/<id>` route for local
+resize (no AWS account needed); (b) real AWS S3 (`astrophoto-images-dev`)
++ same local `/cdn/img/<id>` route, for prod-parity testing of CORS,
+IAM, and SigV4. CloudFront itself is mocked locally in both dev paths
+until the Lambda transformer ships.
 
 For broader context: @README.md and @docs/superpowers/specs/ for design
 docs.
@@ -163,6 +169,20 @@ Frontend-only (run from `frontend/`):
   assume UTC unless the camera embeds GPS + offset.
 - MinIO (dev) does not enforce all S3 quirks. Test path-style vs
   virtual-hosted addressing with `aws-sdk-s3` config matching prod.
+  When in doubt, switch the worktree's `.env` to the AWS-S3 dev path
+  (`APP_S3_BUCKET=astrophoto-images-dev`, `APP_S3_REGION=ap-southeast-1`,
+  `APP_S3_ENDPOINT` removed entirely, `APP_S3_PATH_STYLE=false`,
+  credentials from the `astrophoto-dev-uploader` IAM user) and re-run.
+- Display master pattern: every photo has both an
+  `originals/<id>.<ext>` (archival) and `display/<id>.jpg` (4096 px /
+  q=85 — what the CDN transforms). Never plumb originals through the
+  CDN.
+- Presigned PUT signs the EXACT body byte count. Calling
+  `Storage::presigned_put` with anything other than the file's real
+  size will produce URLs that S3 rejects with `SignatureDoesNotMatch`.
+  Tier limits are enforced in the upload-init handler before signing,
+  not via the signed `content-length`. (Discovered the hard way during
+  Batch C smoke-testing — fixed in commit 4a382cc.)
 - Session cookie is `__Host-session` in prod (HTTPS) and plain
   `session` in dev (HTTP). The `__Host-` prefix is browser-enforced
   to require `Secure`, so dev over plain HTTP must drop the prefix
