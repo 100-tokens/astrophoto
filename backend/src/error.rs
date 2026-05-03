@@ -31,6 +31,24 @@ pub enum AppError {
     #[error("too many requests: {0}")]
     TooManyRequests(String),
 
+    #[error("rate limited")]
+    RateLimited,
+
+    #[error("quota exceeded: {0}")]
+    QuotaExceeded(String),
+
+    #[error("payload too large: {0}")]
+    PayloadTooLarge(String),
+
+    #[error("magic byte mismatch: {0}")]
+    MagicByteMismatch(String),
+
+    #[error("pending finalize stuck: {0}")]
+    PendingFinalizeStuck(String),
+
+    #[error("unsupported format: {0}")]
+    UnsupportedFormat(String),
+
     #[error(transparent)]
     Database(#[from] sqlx::Error),
 
@@ -71,6 +89,12 @@ impl AppError {
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
+            AppError::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            AppError::QuotaExceeded(_) => StatusCode::PAYLOAD_TOO_LARGE,
+            AppError::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+            AppError::MagicByteMismatch(_) => StatusCode::BAD_REQUEST,
+            AppError::PendingFinalizeStuck(_) => StatusCode::REQUEST_TIMEOUT,
+            AppError::UnsupportedFormat(_) => StatusCode::BAD_REQUEST,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -85,6 +109,12 @@ impl AppError {
             AppError::Validation(_) => "validation",
             AppError::Conflict(_) => "conflict",
             AppError::TooManyRequests(_) => "too-many-requests",
+            AppError::RateLimited => "rate-limited",
+            AppError::QuotaExceeded(_) => "quota-exceeded",
+            AppError::PayloadTooLarge(_) => "payload-too-large",
+            AppError::MagicByteMismatch(_) => "magic-byte-mismatch",
+            AppError::PendingFinalizeStuck(_) => "pending-finalize-stuck",
+            AppError::UnsupportedFormat(_) => "unsupported-format",
             AppError::Database(_) | AppError::Internal(_) => "internal",
         }
     }
