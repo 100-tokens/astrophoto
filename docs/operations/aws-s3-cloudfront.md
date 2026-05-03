@@ -3,6 +3,16 @@
 Runbook for provisioning the photo-storage and CDN infrastructure for
 the Astrophoto Phase 1 (Photographer Showcase) deployment.
 
+**Architecture pivot:** commit `1837d0a` documented a CloudFront →
+Lambda Function URL pattern. That pattern was invalidated in this AWS
+account because Lambda Function URL Block Public Access (FUBPA) — a
+feature AWS rolled out in late 2024 — silently blocks public access to
+Function URLs, breaking unauthenticated CloudFront→Lambda invocations
+even when `AuthType: NONE`. The confirmed-working pattern, validated
+end-to-end against real AWS in the staging deployment, is
+**CloudFront + Lambda@Edge (origin-request)**. This runbook reflects
+that architecture.
+
 ---
 
 ## Overview
@@ -17,58 +27,100 @@ Each photo produces two objects in S3:
 
 The display master is derived once at upload finalize time by the
 backend's `spawn_blocking` pipeline. Every browser request afterwards
-fetches the small JPEG from the Lambda, not the raw original. This
-decouples the CDN resizer from heavy source formats (16-bit TIFF at
-200 MB), cuts Lambda memory / cold-start cost, and keeps transform
-logic simple.
+fetches the display master through the Lambda transformer, not the raw
+original. This decouples the CDN resizer from heavy source formats
+(16-bit TIFF at 200 MB), cuts Lambda memory / cold-start cost, and
+keeps transform logic simple.
 
 **Traffic path:**
 
 ```
 Browser
-  └─► CloudFront (cdn.astrophoto.pics)
-        └─► Lambda function URL (Node 20 + sharp)
-              └─► S3  display/<photo-id>.jpg
+  └─► CloudFront  (ddo5booq71gbx.cloudfront.net in staging)
+        ├── Lambda@Edge (origin-request)
+        │     ├── matches /img/<photo-id>
+        │     ├── fetches display/<photo-id>.jpg from S3 via execution role
+        │     ├── sharp-transforms per query params (w, h, fit, q, fm)
+        │     └── returns custom response; CloudFront caches per cache-key
+        └── S3 origin (OAC, signing service "s3")
+              └── fallback: non-/img/* paths passed through to S3 directly
 ```
 
-CloudFront caches responses keyed on the full URL including query
-string (`w`, `h`, `fit`, `q`, `fm`). Lambda fetches the display
-master from S3 on a cache miss, transforms it, and returns the result.
-The backend (`astrophoto-prod-uploader` IAM user) writes both
-`originals/` and `display/` directly via `PutObject`. Browsers never
-reach S3 — all read traffic goes through CloudFront.
+CloudFront caches responses keyed on the query string (`w`, `h`,
+`fit`, `q`, `fm`). On a cache miss the Lambda@Edge function fires as
+an origin-request trigger, fetches the display master, transforms it,
+and returns a synthetic response. The backend
+(`astrophoto-staging-uploader` / `astrophoto-prod-uploader` IAM user)
+writes both `originals/` and `display/` directly via `PutObject`.
+Browsers never reach S3 — all read traffic goes through CloudFront.
 
-**This is NOT the Lambda@Edge pattern** from the previous project. The
-old project used Lambda@Edge as an origin-response trigger: CloudFront
-fetched from S3 first, then Lambda mutated the body. The new pattern
-uses a Lambda function URL as the CloudFront origin: Lambda fetches
-from S3 itself via its execution role, transforms, and returns. This
-avoids Lambda@Edge constraints (max 10 MB response, 30 s timeout, no
-native deps compiled for the Lambda machine, restricted regions) and
-simplifies deploys to a standard regional Lambda.
+---
+
+## Architecture: why Lambda@Edge, not Function URL
+
+**Lambda Function URL Block Public Access (FUBPA)** was rolled out by
+AWS in 2024-Q4. In accounts where FUBPA is active, Function URLs with
+`AuthType: NONE` are silently blocked. CloudFront→Lambda Function URL
+with OAC (`AuthType: AWS_IAM`) is the documented workaround, but
+requires `lambda:InvokeFunctionUrl` permission scoped to the
+distribution — a circular dependency: you need the distribution ARN
+before creating it, and the permission before CloudFront can route to
+it. In practice, FUBPA + IAM auth on Function URLs adds fragility
+without meaningful security benefit over Lambda@Edge + S3 OAC.
+
+**Lambda@Edge (origin-request)** is the recommended pattern for
+CloudFront image transforms:
+
+- The Lambda runs at CloudFront edge locations as part of the request
+  lifecycle — no separate origin to secure.
+- S3 access is via execution role + S3 OAC bucket policy; no Function
+  URL plumbing.
+- Deploys are slower (version publish + distribution update), but the
+  architecture is simple: CloudFront → S3 bucket (OAC), Lambda@Edge
+  intercepts origin-request events and replaces the response.
+
+**Constraints to keep in mind (see also Gotchas below):**
+
+- Lambda must be deployed in `us-east-1` (Lambda@Edge requirement).
+- Lambda@Edge cannot have environment variables. Bucket name must be
+  baked in at build time.
+- Use `EventType: origin-request` (not `origin-response`).
+  `IncludeBody: true` is only valid on viewer-request or
+  origin-request; origin-response + `IncludeBody` is rejected by AWS.
+- Each Lambda code change requires `publish-version` and a distribution
+  update pointing to the new versioned ARN.
+
+The canonical reference implementation is the old project's
+Lambda@Edge handler:
+`/Volumes/Pascal4Tb/Projects/claude/astrophoto/main/lambda-deploy/image-transformer.js`
+
+The staging deployment artefact (NOT committed to this repo) is at
+`/tmp/astrophoto-staging-lambda/index.cjs` on the provisioning
+machine.
 
 ---
 
 ## Environments
 
-| env     | bucket                    | region         | CDN host                                     |
-|---------|---------------------------|----------------|----------------------------------------------|
+| env     | bucket                    | region    | CDN host                                       |
+|---------|---------------------------|-----------|------------------------------------------------|
 | dev     | astrophoto-images-dev     | ap-southeast-1 | `http://localhost:8080/cdn/img` (backend route) |
-| staging | astrophoto-images-staging | us-east-1      | `https://cdn-staging.astrophoto.pics`        |
-| prod    | astrophoto-images-prod    | us-east-1      | `https://cdn.astrophoto.pics`                |
+| staging | astrophoto-images-staging | us-east-1 | `https://ddo5booq71gbx.cloudfront.net`         |
+| prod    | astrophoto-images-prod    | us-east-1 | `https://cdn.astrophoto.pics`                  |
 
-**Why `us-east-1` for prod/staging?** ACM certificates attached to
-CloudFront distributions must be provisioned in `us-east-1` regardless
-of where CloudFront POPs are. Placing the S3 bucket in the same region
-as the certificate removes a cross-region S3 round-trip from every
-Lambda cold-path fetch. `us-east-1` also carries the lowest S3 data
-transfer pricing to CloudFront.
+**Why `us-east-1` for prod/staging?** Lambda@Edge functions must be
+deployed in `us-east-1`. Placing the S3 bucket in the same region
+avoids a cross-region round-trip on every origin-request cache miss.
+`us-east-1` also carries the lowest S3 data transfer pricing to
+CloudFront.
 
 **Dev asymmetry is intentional.** The `astrophoto-images-dev` bucket
 was provisioned earlier in `ap-southeast-1` and is the proven IAM /
 bucket-policy template for this runbook. The CDN layer is not deployed
 in dev; the backend exposes `GET /cdn/img/<photo-id>?w=&h=...` which
-performs equivalent transforms using the Rust `image` crate.
+performs equivalent transforms using the Rust `image` crate. Staging
+can bypass CloudFront entirely by setting `APP_CDN_LOCAL_FALLBACK=true`
+(see §3.1).
 
 ---
 
@@ -98,9 +150,9 @@ aws s3api head-bucket --bucket "$BUCKET"
 
 ### 1.2 Block all public access
 
-CloudFront reads the bucket through the Lambda execution role. No
-object should ever be directly public. Enforce this at the bucket level
-so it cannot be overridden by a future ACL or policy mistake:
+CloudFront reads the bucket via S3 OAC. No object should ever be
+directly public. Enforce this at the bucket level so it cannot be
+overridden by a future ACL or policy mistake:
 
 ```bash
 aws s3api put-public-access-block \
@@ -118,8 +170,8 @@ All four fields must be `true`.
 
 ### 1.3 Bucket ownership controls
 
-Disable ACLs. Modern S3 best practice: bucket owner enforced means
-`PutObjectAcl` is not needed and cannot be used to make objects public:
+Disable ACLs. Bucket owner enforced means `PutObjectAcl` is not
+needed and cannot be used to make objects public:
 
 ```bash
 aws s3api put-bucket-ownership-controls \
@@ -154,9 +206,9 @@ aws s3api put-bucket-lifecycle-configuration \
 
 ### 1.5 CORS
 
-The browser PUTs directly to S3 via presigned URL. CORS must allow the
-production origin to PUT and read the `ETag` response header (used for
-dedup confirmation).
+The browser PUTs directly to S3 via presigned URL. CORS must allow
+the production origin to PUT and read the `ETag` response header
+(used for dedup confirmation).
 
 Write `cors.json`:
 
@@ -185,52 +237,10 @@ aws s3api put-bucket-cors \
   --cors-configuration file://cors.json
 ```
 
-### 1.6 Bucket policy: grant Lambda execution role read on `display/*`
-
-The Lambda function that backs the CloudFront origin reads
-`display/<photo-id>.jpg` using its IAM execution role. The bucket
-policy grants `s3:GetObject` on that prefix to the role ARN.
-
-Replace `ACCOUNT_ID` and `DISTRIBUTION_ID` with real values.
-
-Write `bucket-policy.json`:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowLambdaExecutionRoleReadDisplay",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::ACCOUNT_ID:role/astrophoto-image-transformer-role"
-      },
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::astrophoto-images-prod/display/*"
-    }
-  ]
-}
-```
-
-Apply:
-
-```bash
-aws s3api put-bucket-policy \
-  --bucket "$BUCKET" \
-  --policy file://bucket-policy.json
-```
-
-**Note:** This policy does NOT grant `s3:GetObject` on `originals/*`.
-The Lambda only needs display masters. The backend IAM user
-(`astrophoto-prod-uploader`) has `GetObject` on `/*` for its own
-operations (HEAD, finalize verification) but browsers never hit S3
-directly.
-
-### 1.7 IAM user for backend (`astrophoto-prod-uploader`)
+### 1.6 IAM user for backend (`astrophoto-prod-uploader`)
 
 The backend needs to write originals and display masters, read objects
 for HEAD verification, and delete objects when a photo is removed.
-This mirrors the `astrophoto-dev-uploader` setup used for dev.
 
 **Create the user:**
 
@@ -281,64 +291,206 @@ aws iam create-access-key --user-name astrophoto-prod-uploader
 ```
 
 Store the `AccessKeyId` and `SecretAccessKey` in your secrets manager
-(AWS Secrets Manager, Doppler, or the prod environment's secret store).
-Do not log them.
+(AWS Secrets Manager, Doppler, or the prod environment's secret
+store). Do not log them.
 
 ---
 
-## 2. Lambda function URL (image transformer)
+## 2. CloudFront + Lambda@Edge
 
-### 2.1 Why Lambda function URL, not Lambda@Edge
+### 2.1 Lambda@Edge handler
 
-Lambda@Edge runs at CloudFront edge locations and has hard constraints
-that make it unsuitable here:
+The handler is a CommonJS module (Lambda@Edge runs Node 20; the `.cjs`
+extension is explicit to avoid ESM parsing issues when bundled with
+CommonJS `require`s).
 
-- Max response payload: 1 MB for origin-response triggers (display
-  masters can be several MB).
-- Max timeout: 30 s (cold starts with native binaries can exceed this).
-- Cannot use native binary dependencies compiled for the Lambda
-  execution environment without careful bundling.
-- Deploys are replicated to every edge region; rollbacks are slow.
+**URL contract:** CloudFront routes `/img/<photo-id>` to the
+distribution. The Lambda@Edge function receives the `origin-request`
+event, matches the URI pattern, fetches `display/<photo-id>.jpg` from
+S3, transforms it, and returns a synthetic response. Any URI that does
+not match `/img/<photo-id>` is returned as-is so CloudFront proxies it
+to S3 (or returns 403/404 per the bucket policy).
 
-A Lambda function URL is a regional HTTPS endpoint for a single Lambda
-function. CloudFront uses it as a custom origin. Characteristics:
+```javascript
+// index.cjs — Lambda@Edge origin-request handler
+// Node 20 + sharp + @aws-sdk/client-s3 (CommonJS, no env vars)
+'use strict';
 
-- Timeout: up to 15 minutes (10 s is ample for image transforms).
-- Memory: up to 10 GB.
-- Native `sharp` binary installed in the same region as the function —
-  no cross-region complications.
-- Standard Lambda deployment / versioning / rollback.
-- Can set `AuthType: AWS_IAM` and restrict invocation to the
-  CloudFront distribution via OAC (see §2.3).
+const sharp = require('sharp');
+const querystring = require('querystring');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 
-### 2.2 Create the Lambda execution role
+// Lambda@Edge has no env vars — bucket name is baked in at build time.
+// Separate Lambda functions are required for staging vs prod.
+const BUCKET = 'astrophoto-images-prod';   // change to -staging for staging build
+const REGION = 'us-east-1';
+const s3 = new S3Client({ region: REGION });
+
+exports.handler = async (event) => {
+  const { request } = event.Records[0].cf;
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return request;
+  }
+
+  // Match /img/<photo-id>; pass through anything else.
+  const m = request.uri.match(/^\/img\/([0-9a-f-]+)$/i);
+  if (!m) return request;
+  const photoId = m[1];
+  const key = `display/${photoId}.jpg`;
+
+  const params = querystring.parse(request.querystring);
+  const w = params.w ? Math.min(parseInt(params.w, 10), 4096) : undefined;
+  const h = params.h ? Math.min(parseInt(params.h, 10), 4096) : undefined;
+  const q = params.q ? Math.min(Math.max(parseInt(params.q, 10), 1), 100) : 85;
+  const fit = ['cover', 'contain', 'fill', 'inside', 'outside'].includes(params.fit)
+    ? params.fit : 'inside';
+  const fm = (params.fm || 'jpeg').toLowerCase();
+
+  try {
+    const out = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    const chunks = [];
+    for await (const c of out.Body) chunks.push(c);
+    const inputBuf = Buffer.concat(chunks);
+
+    let pipeline = sharp(inputBuf, { failOnError: false });
+    if (w || h) {
+      pipeline = pipeline.resize({ width: w, height: h, fit, withoutEnlargement: true });
+    }
+
+    let outputBuf, contentType;
+    if (fm === 'webp') {
+      outputBuf = await pipeline.webp({ quality: q }).toBuffer();
+      contentType = 'image/webp';
+    } else if (fm === 'avif') {
+      outputBuf = await pipeline.avif({ quality: q }).toBuffer();
+      contentType = 'image/avif';
+    } else if (fm === 'png') {
+      outputBuf = await pipeline.png({ quality: q }).toBuffer();
+      contentType = 'image/png';
+    } else {
+      outputBuf = await pipeline.jpeg({ quality: q, mozjpeg: true }).toBuffer();
+      contentType = 'image/jpeg';
+    }
+
+    return {
+      status: '200',
+      statusDescription: 'OK',
+      headers: {
+        'content-type':  [{ key: 'Content-Type',  value: contentType }],
+        'cache-control': [{ key: 'Cache-Control',
+                            value: 'public, max-age=31536000, immutable' }],
+      },
+      body: outputBuf.toString('base64'),
+      bodyEncoding: 'base64',
+    };
+  } catch (e) {
+    // On any error, fall through to origin (CloudFront serves S3 or 404).
+    console.error('image-transformer error:', e && e.message);
+    return request;
+  }
+};
+```
+
+**Key differences from the Function URL handler** (commit `1837d0a`):
+- Event shape is `event.Records[0].cf.request` (Lambda@Edge), not
+  `event.rawPath` (Function URL).
+- Response shape uses `status` (string), `headers` (array-of-objects),
+  `bodyEncoding: 'base64'` (Lambda@Edge), not `statusCode` (number),
+  `headers` (plain object), `isBase64Encoded` (Function URL).
+- No env vars; `BUCKET` is a constant.
+
+**`fm` is required from the frontend.** The cache policy
+(`HeaderBehavior: none`) does not include the `Accept` header in the
+cache key. If the handler fell back to `Accept`-based format
+negotiation when `fm` is absent, the first browser to request a URL
+without `fm` would write its preferred format into CloudFront's cache
+for all subsequent browsers — a correctness bug. The frontend
+`<Img>` component must always emit an explicit `fm` value. The handler
+defaults to `jpeg` when `fm` is absent (safe for the cache key
+because the default is deterministic).
+
+**Lambda@Edge response size limit:** the generated response body must
+be ≤ 1 MB for `origin-request` triggers. Display masters at
+4096 px / q=85 are typically under 1 MB but large TIFF-sourced masters
+can approach it. The `withoutEnlargement: true` option prevents
+upscaling. Monitor CloudWatch logs on staging after uploading large
+images to confirm.
+
+### 2.2 Packaging sharp for Linux x86_64
+
+`sharp` requires native binaries compiled for the Lambda runtime. Build
+on a Linux x86_64 host or use the npm platform flags:
+
+```bash
+# From the Lambda source directory
+npm install --cpu=x64 --os=linux --include=optional
+
+# zip the handler + node_modules
+zip -r function.zip index.cjs node_modules/
+```
+
+If building on macOS or Windows, use a Docker build matching the
+Lambda runtime:
+
+```bash
+docker run --rm \
+  -v "$PWD":/var/task \
+  -w /var/task \
+  public.ecr.aws/lambda/nodejs:20 \
+  npm install --cpu=x64 --os=linux --include=optional
+
+zip -r function.zip index.cjs node_modules/
+```
+
+The staging deployment at `/tmp/astrophoto-staging-lambda/` was built
+with `npm install --cpu=x64 --os=linux --include=optional` on macOS
+and the binary worked correctly in Lambda@Edge (Node 20, x86_64).
+
+### 2.3 Lambda execution role
+
+The execution role must include BOTH `lambda.amazonaws.com` AND
+`edgelambda.amazonaws.com` as trusted principals. Without the
+`edgelambda.amazonaws.com` principal, CloudFront cannot replicate the
+function to edge locations.
+
+**Create the role:**
 
 ```bash
 aws iam create-role \
-  --role-name astrophoto-image-transformer-role \
+  --role-name astrophoto-staging-lambda-exec \
   --assume-role-policy-document '{
     "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Principal": { "Service": "lambda.amazonaws.com" },
-      "Action": "sts:AssumeRole"
-    }]
-  }'
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Service": [
+            "lambda.amazonaws.com",
+            "edgelambda.amazonaws.com"
+          ]
+        },
+        "Action": "sts:AssumeRole"
+      }
+    ]
+  }' \
+  --region us-east-1
 ```
 
 Attach the AWS-managed basic execution policy (CloudWatch Logs):
 
 ```bash
 aws iam attach-role-policy \
-  --role-name astrophoto-image-transformer-role \
+  --role-name astrophoto-staging-lambda-exec \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 ```
 
-Attach an inline policy for S3 read on `display/*`:
+The Lambda function reads S3 via execution role. Grant `s3:GetObject`
+on `display/*`:
 
 ```bash
 aws iam put-role-policy \
-  --role-name astrophoto-image-transformer-role \
+  --role-name astrophoto-staging-lambda-exec \
   --policy-name s3-display-read \
   --policy-document '{
     "Version": "2012-10-17",
@@ -350,320 +502,91 @@ aws iam put-role-policy \
   }'
 ```
 
-After creating this role, go back to §1.6 and fill in the role ARN in
-the bucket policy, then re-apply `put-bucket-policy`.
+Use `astrophoto-prod-lambda-exec` and `astrophoto-images-prod` for
+prod.
 
-### 2.3 Deploy the Lambda function
+### 2.4 Deploy the Lambda function
 
-The production Lambda code lives in a separate repo or `infra/lambda/`
-directory. For reference, the handler is a function-URL style handler
-(NOT Lambda@Edge). The function-URL event shape and the ported
-transform logic from the old project's `image-transformer.js` are
-documented below (§2.4).
-
-**Create the function** (after bundling `index.js` + `node_modules`
-into `function.zip`):
+**Create the function** (after building `function.zip` per §2.2):
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/astrophoto-image-transformer-role"
+ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/astrophoto-staging-lambda-exec"
 
 aws lambda create-function \
-  --function-name astrophoto-image-transformer \
+  --function-name astrophoto-staging-image-transformer \
   --runtime nodejs20.x \
   --role "$ROLE_ARN" \
   --handler index.handler \
   --zip-file fileb://function.zip \
   --timeout 10 \
   --memory-size 1024 \
-  --environment "Variables={BUCKET=astrophoto-images-prod,REGION=us-east-1}" \
   --region us-east-1
 ```
 
-**Create the function URL** with IAM auth (CloudFront OAC will sign
-requests; this prevents direct invocation without CloudFront):
-
-```bash
-aws lambda create-function-url-config \
-  --function-name astrophoto-image-transformer \
-  --auth-type AWS_IAM \
-  --region us-east-1
-```
-
-Note the `FunctionUrl` in the output (e.g.,
-`https://abcdef1234567890.lambda-url.us-east-1.on.aws/`). You will
-need it when configuring the CloudFront origin in §2.5.
+**No `--environment` flag.** Lambda@Edge does not support environment
+variables. The bucket name must be baked into the handler code (see
+§2.1).
 
 **Update the function** (subsequent deploys):
 
 ```bash
 aws lambda update-function-code \
-  --function-name astrophoto-image-transformer \
+  --function-name astrophoto-staging-image-transformer \
   --zip-file fileb://function.zip \
   --region us-east-1
 ```
 
-### 2.4 Handler pseudocode (function-URL shape)
+### 2.5 Publish a version (required for Lambda@Edge)
 
-The handler is adapted from the old project's Lambda@Edge
-`image-transformer.js`. The event shape and S3 fetch are rewritten for
-the function-URL pattern.
-
-**Important: `fm` is a required parameter.** The cache policy
-(`HeaderBehavior: none`) does not include the `Accept` header in the
-cache key. If the handler fell back to `Accept`-based format
-negotiation when `fm` is absent, the first browser to request a URL
-without `fm` would write its preferred format (AVIF, WebP, JPEG) into
-CloudFront's cache for all subsequent browsers — a correctness bug. The
-frontend `<Img>` component must always emit an explicit `fm` value
-(e.g. `fm=webp` or `fm=jpeg`). The handler rejects requests without a
-valid `fm` to enforce this contract.
-
-```javascript
-// index.js — Lambda function URL handler (Node 20 + sharp + @aws-sdk/client-s3)
-import sharp from 'sharp';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-
-const s3 = new S3Client({ region: process.env.REGION });
-const BUCKET = process.env.BUCKET;
-const MAX_DIM = 4096;
-const VALID_FORMATS = ['jpeg', 'webp', 'avif'];
-
-export const handler = async (event) => {
-  // Path: /img/<photo-id>  (CloudFront strips the /img prefix if configured)
-  const photoId = event.rawPath.replace(/^\/img\//, '').replace(/[^a-zA-Z0-9_-]/g, '');
-  const q = event.queryStringParameters ?? {};
-
-  // fm is required — see note above on cache correctness.
-  const fmt = (q.fm ?? '').toLowerCase();
-  if (!VALID_FORMATS.includes(fmt)) {
-    return { statusCode: 400, body: 'fm param required (jpeg|webp|avif)' };
-  }
-
-  // Fetch display master from S3
-  let s3Body;
-  try {
-    const resp = await s3.send(new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: `display/${photoId}.jpg`,
-    }));
-    s3Body = Buffer.from(await resp.Body.transformToByteArray());
-  } catch (err) {
-    // Short TTL on 404 to avoid caching a miss during a backfill window.
-    return {
-      statusCode: 404,
-      headers: { 'Cache-Control': 'public, max-age=60' },
-      body: 'not found',
-    };
-  }
-
-  const w = Math.min(parseInt(q.w, 10) || 0, MAX_DIM) || undefined;
-  const h = Math.min(parseInt(q.h, 10) || 0, MAX_DIM) || undefined;
-  const fit = ['cover','contain','fill','inside','outside'].includes(q.fit)
-    ? q.fit : 'inside';
-  const quality = Math.min(Math.max(parseInt(q.q, 10) || 85, 1), 100);
-
-  const buf = await sharp(s3Body, { failOnError: false })
-    .resize({ width: w, height: h, fit, withoutEnlargement: true,
-              background: { r: 0, g: 0, b: 0, alpha: 1 } })
-    .toFormat(fmt, { quality, mozjpeg: fmt === 'jpeg' })
-    .toBuffer();
-
-  const cacheMaxAge = (w ?? 0) <= 400 ? 31536000 : (w ?? 0) <= 1200 ? 2592000 : 604800;
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': `image/${fmt}`,
-      'Cache-Control': `public, max-age=${cacheMaxAge}, immutable`,
-    },
-    body: buf.toString('base64'),
-    isBase64Encoded: true,
-  };
-};
-```
-
-**Packaging note:** `sharp` requires native binaries. Build inside a
-Lambda-compatible environment:
+Lambda@Edge requires a versioned ARN — the `$LATEST` alias is not
+accepted. After every code change, publish a new version:
 
 ```bash
-# From your lambda source directory
-npm ci --omit=dev --platform=linux --arch=x64 --libc=glibc
-zip -r function.zip index.js node_modules/
-```
-
-Or use a Docker build matching the Lambda runtime:
-
-```bash
-docker run --rm -v "$PWD":/var/task \
-  public.ecr.aws/lambda/nodejs:20 \
-  npm ci --omit=dev
-zip -r function.zip index.js node_modules/
-```
-
-### 2.5 ACM certificate
-
-CloudFront requires an ACM certificate in `us-east-1` for custom
-domains, regardless of where other resources are.
-
-```bash
-# Request a certificate covering both apex and www
-aws acm request-certificate \
-  --domain-name cdn.astrophoto.pics \
-  --subject-alternative-names "*.astrophoto.pics" \
-  --validation-method DNS \
+aws lambda publish-version \
+  --function-name astrophoto-staging-image-transformer \
   --region us-east-1
 ```
 
-Complete DNS validation by adding the CNAME records shown in the ACM
-console to your DNS provider. Wait until the certificate status is
-`ISSUED` before creating the CloudFront distribution.
+Note the `Version` number in the output. The versioned ARN is:
 
-```bash
-# Check status
-aws acm describe-certificate \
-  --certificate-arn arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID \
-  --region us-east-1 \
-  --query 'Certificate.Status'
 ```
+arn:aws:lambda:us-east-1:<ACCOUNT_ID>:function:astrophoto-staging-image-transformer:<VERSION>
+```
+
+This ARN is what goes into the CloudFront distribution config.
+Updating the distribution to point at the new versioned ARN after each
+republish is mandatory.
 
 ### 2.6 CloudFront distribution
 
-**Step 1 — Create an OAC for CF→Lambda signing**
+**Step 1 — Create an S3 OAC**
 
-This OAC signs CloudFront requests to the Lambda function URL with
-SigV4. Combined with `AuthType: AWS_IAM` on the function URL, it
-prevents anyone from invoking the Lambda directly without going through
-CloudFront.
+This OAC grants CloudFront signed read access to the S3 bucket. Use
+`OriginAccessControlOriginType: "s3"` (not `"lambda"` — that was for
+the Function URL pattern in the old runbook).
 
 ```bash
 aws cloudfront create-origin-access-control \
   --origin-access-control-config '{
-    "Name": "astrophoto-lambda-oac",
-    "Description": "Signs CF requests to the image transformer Lambda function URL",
+    "Name": "astrophoto-s3-oac",
+    "Description": "Signs CF requests to the S3 bucket via OAC",
     "SigningProtocol": "sigv4",
     "SigningBehavior": "always",
-    "OriginAccessControlOriginType": "lambda"
+    "OriginAccessControlOriginType": "s3"
   }'
 ```
 
-Note the `Id` in the output (e.g., `E3ABCDEF12345`). You need it
-below.
+Note the `Id` in the output (`EXZAEKMIK0D15` in staging). You need
+it in the distribution config.
 
-**Step 2 — Grant CloudFront permission to invoke the function**
-
-After you know the distribution ARN (created in the next step), run:
-
-```bash
-aws lambda add-permission \
-  --function-name astrophoto-image-transformer \
-  --statement-id allow-cloudfront-invoke \
-  --action lambda:InvokeFunctionUrl \
-  --principal cloudfront.amazonaws.com \
-  --source-arn "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID" \
-  --function-url-auth-type AWS_IAM \
-  --region us-east-1
-```
-
-If you don't yet have the distribution ARN, create the distribution
-first (Step 3), then come back and run this command.
-
-**Step 3 — Create the distribution**
-
-Write `dist-config.json` (replace placeholder values):
-
-**`CallerReference` must be unique per attempt.** It is an idempotency
-key — reuse it only if you're retrying an in-flight request. If this
-create call failed and you're re-running it, change the value (e.g.
-`"astrophoto-prod-cf-2"`).
-
-```json
-{
-  "CallerReference": "astrophoto-prod-cf-1",
-  "Comment": "Astrophoto prod image CDN",
-  "Enabled": true,
-  "HttpVersion": "http2and3",
-  "IsIPV6Enabled": true,
-  "PriceClass": "PriceClass_100",
-  "Aliases": {
-    "Quantity": 1,
-    "Items": ["cdn.astrophoto.pics"]
-  },
-  "ViewerCertificate": {
-    "ACMCertificateArn": "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID",
-    "SSLSupportMethod": "sni-only",
-    "MinimumProtocolVersion": "TLSv1.2_2021"
-  },
-  "Origins": {
-    "Quantity": 1,
-    "Items": [
-      {
-        "Id": "lambda-image-transformer",
-        "DomainName": "FUNCTION_URL_DOMAIN",
-        "CustomOriginConfig": {
-          "HTTPSPort": 443,
-          "OriginProtocolPolicy": "https-only",
-          "OriginSSLProtocols": { "Quantity": 1, "Items": ["TLSv1.2"] }
-        },
-        "OriginAccessControlId": "LAMBDA_OAC_ID"
-      }
-    ]
-  },
-  "DefaultCacheBehavior": {
-    "TargetOriginId": "lambda-image-transformer",
-    "ViewerProtocolPolicy": "redirect-to-https",
-    "AllowedMethods": {
-      "Quantity": 2,
-      "Items": ["GET", "HEAD"],
-      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
-    },
-    "Compress": true,
-    "CachePolicyId": "CUSTOM_CACHE_POLICY_ID",
-    "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac"
-  }
-}
-```
-
-Notes on the config:
-- `FUNCTION_URL_DOMAIN`: the hostname part of the Lambda function URL
-  (e.g. `abcdef1234567890.lambda-url.us-east-1.on.aws`). Do not
-  include `https://` or a trailing slash.
-- `LAMBDA_OAC_ID`: the `Id` from the OAC you created in Step 1.
-  `OriginAccessControlOriginType: "lambda"` is the correct value for
-  CF→Lambda-URL OAC (as of mid-2024). If the API rejects this value,
-  check the current AWS docs linked in §5 — the enum may have been
-  renamed. Do not confuse with `s3` (used for CF→S3 OAC).
-- `OriginRequestPolicyId`: `b689b0a8-53d0-40ab-baf2-68738e2966ac` is
-  the AWS managed policy `AllViewerExceptHostHeader`. This forwards
-  query strings to Lambda without forwarding the `Host` header (which
-  would confuse Lambda function URL routing). Verify this ID in the
-  AWS console before applying — managed policy IDs are stable but can
-  change across partition updates.
-- `CUSTOM_CACHE_POLICY_ID`: see §2.7 below.
-
-```bash
-aws cloudfront create-distribution \
-  --distribution-config file://dist-config.json
-```
-
-Add a CNAME or ALIAS record in your DNS:
-```
-cdn.astrophoto.pics  CNAME  <CloudFront domain>.cloudfront.net
-```
-
-### 2.7 Custom cache policy (query-string keyed)
-
-**Do not use** `Managed-CachingOptimized` — it strips query strings
-from the cache key, so `?w=400` and `?w=800` would return the same
-cached object.
-
-Create a custom cache policy that includes the five query params used
-by the transformer:
+**Step 2 — Create the cache policy**
 
 ```bash
 aws cloudfront create-cache-policy \
   --cache-policy-config '{
     "Name": "astrophoto-image-transformer-cache",
-    "Comment": "Includes w, h, fit, q, fm in cache key",
+    "Comment": "Includes w, h, fit, q, fm in cache key; no headers/cookies",
     "DefaultTTL": 86400,
     "MaxTTL": 31536000,
     "MinTTL": 1,
@@ -683,37 +606,204 @@ aws cloudfront create-cache-policy \
   }'
 ```
 
-The cache policy includes `HeaderBehavior: none` — the `Accept` header
-is intentionally excluded from the cache key. Format selection is
-driven entirely by the `fm` query param (see §2.4 on why `fm` is
-required). Use the `Id` returned here as `CUSTOM_CACHE_POLICY_ID` in
-the distribution config.
+Note the `Id` in the output (`c80acb91-dc64-4019-ada6-09ff3d2098be`
+in staging). Use it as `CACHE_POLICY_ID` below.
 
-**Note:** The old project used `[width, format, quality]` as the
-whitelist keys. The new URL shape uses `[w, h, fit, q, fm]` — use the
-new names.
+The cache policy includes `HeaderBehavior: none` — the `Accept`
+header is intentionally excluded from the cache key. Format selection
+is driven entirely by the `fm` query param (see §2.1 on cache
+correctness). **Do not use** `Managed-CachingOptimized` — it strips
+query strings from the cache key.
 
-### 2.8 Smoke test
+**Step 3 — Create the distribution**
 
-After DNS propagates and the distribution deploys (allow up to 15 min):
+Write `dist-config.json` (replace placeholder values; `ACCOUNT_ID`,
+`VERSIONED_LAMBDA_ARN`, `S3_OAC_ID`, `CACHE_POLICY_ID`):
 
-```bash
-# First request — should be a cache miss, returns 200 image/jpeg
-curl -I "https://cdn.astrophoto.pics/img/<known-photo-id>?w=400"
+**`CallerReference` must be unique per attempt.** It is an idempotency
+key — change it if you're re-running after a failed create.
 
-# Second request — should hit CloudFront cache
-curl -I "https://cdn.astrophoto.pics/img/<known-photo-id>?w=400"
-# Expect: x-cache: Hit from cloudfront
+```json
+{
+  "CallerReference": "astrophoto-prod-cf-1",
+  "Comment": "Astrophoto prod image CDN",
+  "Enabled": true,
+  "HttpVersion": "http2and3",
+  "IsIPV6Enabled": true,
+  "PriceClass": "PriceClass_100",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "s3-display-origin",
+        "DomainName": "astrophoto-images-prod.s3.us-east-1.amazonaws.com",
+        "S3OriginConfig": { "OriginAccessIdentity": "" },
+        "OriginAccessControlId": "S3_OAC_ID"
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "s3-display-origin",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"],
+      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+    },
+    "Compress": true,
+    "CachePolicyId": "CACHE_POLICY_ID",
+    "LambdaFunctionAssociations": {
+      "Quantity": 1,
+      "Items": [
+        {
+          "LambdaFunctionARN": "VERSIONED_LAMBDA_ARN",
+          "EventType": "origin-request",
+          "IncludeBody": false
+        }
+      ]
+    }
+  }
+}
 ```
 
-Check that different `w` values produce different cached objects:
+Notes on the config:
+- `DomainName`: the S3 bucket's regional endpoint. Use the full
+  regional form `<bucket>.s3.<region>.amazonaws.com`.
+- `S3OriginConfig: { "OriginAccessIdentity": "" }`: the empty string
+  is required when using OAC (not OAI). Setting it to empty opts into
+  the newer OAC path; `OriginAccessControlId` on the origin item
+  specifies the actual OAC.
+- `LambdaFunctionARN`: must be the versioned ARN (e.g.,
+  `arn:aws:lambda:us-east-1:123456:function:name:1`). `$LATEST` is
+  rejected by CloudFront.
+- `EventType: "origin-request"`: this is the correct event type for a
+  transform-and-replace handler. Do NOT use `origin-response` — AWS
+  now rejects distributions with `origin-response` + `IncludeBody: true`.
+- The distribution does NOT need a custom domain for staging. For prod,
+  add `Aliases`, `ViewerCertificate` (ACM cert in `us-east-1`), and
+  a DNS CNAME.
 
 ```bash
-curl -I "https://cdn.astrophoto.pics/img/<known-photo-id>?w=400"
-curl -I "https://cdn.astrophoto.pics/img/<known-photo-id>?w=800"
-# Both should return 200; the second should be a separate cache miss
-# on first hit, showing the cache policy is keying on w correctly.
+aws cloudfront create-distribution \
+  --distribution-config file://dist-config.json
 ```
+
+Note the `Id` (`E2B1QQ4K2EISGE` in staging) and `DomainName`
+(`ddo5booq71gbx.cloudfront.net` in staging).
+
+### 2.7 S3 bucket policy: grant CloudFront OAC read on `display/*`
+
+The bucket policy grants `s3:GetObject` to `cloudfront.amazonaws.com`
+conditioned on the OAC's source ARN (the distribution ARN). This is
+the OAC pattern — do NOT grant the Lambda execution role directly in
+the bucket policy; the Lambda reads S3 via its own IAM role.
+
+Replace `ACCOUNT_ID`, `DISTRIBUTION_ID`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCloudFrontOACReadDisplay",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+      },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::astrophoto-images-prod/display/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceArn": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+        }
+      }
+    }
+  ]
+}
+```
+
+Apply:
+
+```bash
+aws s3api put-bucket-policy \
+  --bucket astrophoto-images-prod \
+  --policy file://bucket-policy.json
+```
+
+**Note:** The Lambda function reads S3 via its own execution role
+(`astrophoto-staging-lambda-exec` / `astrophoto-prod-lambda-exec`),
+not through CloudFront OAC. The role policy in §2.3 covers that path.
+The bucket policy above covers CloudFront proxying non-`/img/*` paths
+through to S3.
+
+### 2.8 ACM certificate (prod only)
+
+For a custom CDN hostname (`cdn.astrophoto.pics`), an ACM certificate
+in `us-east-1` is required. Staging uses the raw CloudFront domain
+(`*.cloudfront.net`) and does not need a certificate.
+
+```bash
+aws acm request-certificate \
+  --domain-name cdn.astrophoto.pics \
+  --subject-alternative-names "*.astrophoto.pics" \
+  --validation-method DNS \
+  --region us-east-1
+```
+
+Complete DNS validation and wait for `ISSUED` status before creating
+the distribution.
+
+Add to `dist-config.json` for prod:
+
+```json
+"Aliases": { "Quantity": 1, "Items": ["cdn.astrophoto.pics"] },
+"ViewerCertificate": {
+  "ACMCertificateArn": "arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID",
+  "SSLSupportMethod": "sni-only",
+  "MinimumProtocolVersion": "TLSv1.2_2021"
+}
+```
+
+And add a DNS CNAME:
+```
+cdn.astrophoto.pics  CNAME  <CloudFront domain>.cloudfront.net
+```
+
+### 2.9 Updating the Lambda function
+
+Every code change requires republishing a version and updating the
+distribution:
+
+```bash
+# 1. Push the updated zip
+aws lambda update-function-code \
+  --function-name astrophoto-staging-image-transformer \
+  --zip-file fileb://function.zip \
+  --region us-east-1
+
+# 2. Publish a new version
+aws lambda publish-version \
+  --function-name astrophoto-staging-image-transformer \
+  --region us-east-1
+# Note the new Version number.
+
+# 3. Get the current distribution ETag (needed for update)
+aws cloudfront get-distribution-config \
+  --id E2B1QQ4K2EISGE \
+  --query '[ETag, DistributionConfig]' \
+  --output json > current-dist.json
+
+# 4. Edit the DistributionConfig JSON: update LambdaFunctionARN to the
+#    new versioned ARN.
+
+# 5. Apply the update
+aws cloudfront update-distribution \
+  --id E2B1QQ4K2EISGE \
+  --if-match <ETAG_FROM_STEP_3> \
+  --distribution-config file://updated-dist-config.json
+```
+
+Distribution updates take ~5 min to propagate globally.
 
 ---
 
@@ -721,10 +811,10 @@ curl -I "https://cdn.astrophoto.pics/img/<known-photo-id>?w=800"
 
 ### 3.1 Backend env vars
 
-Set these in the prod environment (`.env`, Kubernetes secret,
-Doppler, or equivalent). No `APP_S3_ENDPOINT` — that variable is only
-set in dev to point to MinIO. When unset, the `aws-sdk-s3` crate
-resolves the standard AWS endpoint automatically.
+Set these in the prod environment (`.env`, Kubernetes secret, Doppler,
+or equivalent). No `APP_S3_ENDPOINT` — that variable is only set in
+dev to point to MinIO. When unset, the `aws-sdk-s3` crate resolves
+the standard AWS endpoint automatically.
 
 ```
 APP_S3_REGION=us-east-1
@@ -736,11 +826,21 @@ APP_S3_PATH_STYLE=false
 # Do NOT set APP_S3_ENDPOINT — leave it unset for AWS endpoint resolution.
 
 APP_CDN_BASE_URL=https://cdn.astrophoto.pics
+
+# Optional — forces the backend's /cdn/img/<id> fallback route to activate
+# on non-localhost hosts. Use in staging when CloudFront isn't provisioned
+# yet, or in prod for emergency CDN bypass without a redeploy.
+# APP_CDN_LOCAL_FALLBACK=true
 ```
 
 `APP_S3_PATH_STYLE=false` enables virtual-hosted-style URLs
 (`bucket.s3.amazonaws.com`) required by AWS S3. In dev, MinIO needs
 `APP_S3_PATH_STYLE=true` because it uses path-style by default.
+
+`APP_CDN_LOCAL_FALLBACK=true` opts into the backend's `/cdn/img/`
+route even on non-localhost hosts. This is the staging bypass used
+before CloudFront was provisioned. Once CloudFront is live, leave this
+unset.
 
 ### 3.2 Frontend env vars
 
@@ -755,11 +855,8 @@ this is set to `http://localhost:8080/cdn` (the backend local route).
 
 ### 3.3 R2 → S3 migration (one-shot, conditional)
 
-The current project (Phase 1 onwards) uses AWS S3 as its canonical
-storage. This section applies only if an environment was previously
-running with Cloudflare R2.
-
-For a new prod deployment starting from Phase 1, this is a no-op —
+This section applies only if an environment was previously running
+with Cloudflare R2. For a new prod deployment starting from Phase 1,
 skip this section.
 
 **If migrating from an existing R2 deployment:**
@@ -769,78 +866,140 @@ skip this section.
 #   r2-source  — Cloudflare R2 (S3-compatible endpoint)
 #   s3-prod    — AWS S3 (standard)
 
-# Copy originals
 rclone copy r2-source:astrophoto-r2/originals/ \
   s3-prod:astrophoto-images-prod/originals/ \
-  --progress \
-  --transfers 8
+  --progress --transfers 8
 
-# Copy any existing display masters (if they were stored in R2)
 rclone copy r2-source:astrophoto-r2/display/ \
   s3-prod:astrophoto-images-prod/display/ \
-  --progress \
-  --transfers 8
-```
-
-If display masters were not stored in R2 (or if you want to regenerate
-them from originals to ensure consistency with the new 4096 px spec):
-
-```bash
-# Re-derive display masters from all originals.
-# This is a backend one-shot binary or admin endpoint — TBD as part
-# of the prod deploy tooling:
-cargo run --bin rederive-display-masters \
-  --release -- --bucket astrophoto-images-prod --region us-east-1
+  --progress --transfers 8
 ```
 
 **Decommission R2 only after:**
-1. CloudFront is serving real traffic from S3 (verify with CloudFront
-   access logs or `x-cache` headers on live traffic).
+1. CloudFront is serving real traffic from S3.
 2. All photo URLs in the database resolve correctly via the new CDN.
 3. A full backup of R2 originals is confirmed on S3.
 
 ---
 
-## 4. Verification checklist
+## 4. Gotchas
 
-- [ ] Bucket `astrophoto-images-prod` exists in `us-east-1`.
-- [ ] All four Block-Public-Access flags are `true`.
-- [ ] Bucket ownership set to `BucketOwnerEnforced` (ACLs disabled).
-- [ ] CORS allows `https://astrophoto.pics` and `https://www.astrophoto.pics` for `PUT`, `GET`, `HEAD`.
-- [ ] Lifecycle rule aborts incomplete multipart uploads after 1 day.
-- [ ] Bucket policy grants `s3:GetObject` on `display/*` to the Lambda execution role ARN.
-- [ ] IAM user `astrophoto-prod-uploader` exists with scoped policy (no `PutObjectAcl`).
-- [ ] Lambda function `astrophoto-image-transformer` deployed in `us-east-1`, runtime `nodejs20.x`.
-- [ ] Lambda function URL `AuthType: AWS_IAM`.
-- [ ] Lambda execution role has `s3:GetObject` on `display/*`.
-- [ ] ACM certificate for `cdn.astrophoto.pics` in `us-east-1` status `ISSUED`.
-- [ ] CloudFront OAC created with `OriginAccessControlOriginType: lambda`.
-- [ ] CloudFront distribution has `cdn.astrophoto.pics` as alternate domain.
-- [ ] Distribution origin domain is the Lambda function URL hostname (not an S3 bucket).
-- [ ] `lambda:InvokeFunctionUrl` permission on function scoped to distribution ARN.
-- [ ] Custom cache policy includes `w`, `h`, `fit`, `q`, `fm` in query-string whitelist.
-- [ ] Origin request policy forwards `Accept` header to Lambda.
-- [ ] DNS CNAME `cdn.astrophoto.pics` → CloudFront domain.
-- [ ] `curl -I https://cdn.astrophoto.pics/img/<id>?w=400` returns `HTTP/2 200`.
-- [ ] Second identical request returns `x-cache: Hit from cloudfront`.
-- [ ] Backend env: `APP_S3_ENDPOINT` is **unset**.
-- [ ] Backend env: `APP_S3_PATH_STYLE=false`.
-- [ ] Backend env: `APP_CDN_BASE_URL=https://cdn.astrophoto.pics`.
-- [ ] Frontend env: `PUBLIC_CDN_BASE_URL=https://cdn.astrophoto.pics`.
+- **`origin-response` + `IncludeBody: true` is rejected.** AWS now
+  rejects CloudFront distributions that set `EventType: origin-response`
+  with `IncludeBody: true` on update. Transform-and-replace handlers
+  must use `EventType: origin-request`. The old project's config used
+  origin-response; this project uses origin-request.
+
+- **No env vars on Lambda@Edge.** The `--environment` flag is silently
+  ignored (or rejected) for Lambda@Edge. The bucket name must be baked
+  into the handler at build time. Staging and prod require separate
+  Lambda functions (`astrophoto-staging-image-transformer`,
+  `astrophoto-prod-image-transformer`) with different hardcoded bucket
+  names.
+
+- **Lambda must be in `us-east-1`.** Lambda@Edge is only supported for
+  functions deployed in `us-east-1`. Functions in other regions cannot
+  be attached to CloudFront distributions.
+
+- **Trust policy must include `edgelambda.amazonaws.com`.** Without
+  this principal, CloudFront cannot assume the role to replicate the
+  function. The role creation in §2.3 includes both `lambda.amazonaws.com`
+  and `edgelambda.amazonaws.com`.
+
+- **Every code change requires `publish-version`.** Lambda@Edge uses
+  versioned ARNs. `$LATEST` is not accepted. After each code update:
+  `update-function-code` → `publish-version` → update distribution
+  with the new versioned ARN → wait ~5 min for propagation.
+
+- **FUBPA blocks Function URLs.** Lambda Function URL Block Public
+  Access (FUBPA) is active in this AWS account. Function URLs with
+  `AuthType: NONE` are silently inaccessible. The deleted function URL
+  (`vmt44kiqpygriigehgzorzflyy0wbpgp.lambda-url.us-east-1.on.aws`) is
+  documented here as a historical reference — do not recreate it.
+
+- **S3 OAC vs Lambda OAC.** The S3 OAC uses `OriginAccessControlOriginType: "s3"`.
+  The old runbook (commit `1837d0a`) used `OriginAccessControlOriginType: "lambda"`
+  for a Lambda Function URL origin. These are different; using the wrong type
+  causes CloudFront to use the wrong signing method.
+
+- **Display master response size.** Lambda@Edge origin-request
+  generated responses are capped at 1 MB. Display masters at 4096 px
+  / q=85 are typically under 1 MB but can approach it for very
+  detailed images. If the Lambda returns the `request` object on error
+  (fall-through path), CloudFront will fetch from S3 directly and the
+  client sees the untransformed display master.
 
 ---
 
-## 5. References
+## 5. Verification checklist
+
+- [ ] Bucket exists in `us-east-1`.
+- [ ] All four Block-Public-Access flags are `true`.
+- [ ] Bucket ownership set to `BucketOwnerEnforced` (ACLs disabled).
+- [ ] CORS allows the prod origin for `PUT`, `GET`, `HEAD`.
+- [ ] Lifecycle rule aborts incomplete multipart uploads after 1 day.
+- [ ] Bucket policy grants `s3:GetObject` on `display/*` to
+      `cloudfront.amazonaws.com` with `aws:SourceArn` condition
+      matching the distribution ARN.
+- [ ] IAM user `astrophoto-prod-uploader` exists with scoped policy.
+- [ ] Lambda function `astrophoto-prod-image-transformer` deployed in
+      `us-east-1`, runtime `nodejs20.x`.
+- [ ] Lambda function has **no** `--environment` variables.
+- [ ] Lambda execution role trust policy includes BOTH
+      `lambda.amazonaws.com` AND `edgelambda.amazonaws.com`.
+- [ ] Lambda execution role has `s3:GetObject` on
+      `astrophoto-images-prod/display/*`.
+- [ ] Lambda version published (`publish-version`); versioned ARN
+      noted.
+- [ ] CloudFront OAC created with `OriginAccessControlOriginType: "s3"`.
+- [ ] Distribution origin is the S3 bucket regional endpoint (not a
+      Lambda function URL).
+- [ ] `DefaultCacheBehavior.LambdaFunctionAssociations` uses
+      `EventType: "origin-request"` with the versioned Lambda ARN.
+- [ ] Custom cache policy whitelists `w`, `h`, `fit`, `q`, `fm`.
+- [ ] (Prod only) ACM certificate in `us-east-1` status `ISSUED`.
+- [ ] (Prod only) Distribution `Aliases` includes `cdn.astrophoto.pics`.
+- [ ] (Prod only) DNS CNAME `cdn.astrophoto.pics` → CloudFront domain.
+- [ ] `curl -s -o /dev/null -w "%{http_code}" "https://<CF_DOMAIN>/img/<id>?w=400&fm=jpeg"` returns `200`.
+- [ ] Second identical request returns `x-cache: Hit from cloudfront`.
+- [ ] Different `w` values are cached separately (cache policy test).
+- [ ] Backend env: `APP_S3_ENDPOINT` is **unset**.
+- [ ] Backend env: `APP_S3_PATH_STYLE=false`.
+- [ ] Backend env: `APP_CDN_BASE_URL` points at the CloudFront domain.
+- [ ] Frontend env: `PUBLIC_CDN_BASE_URL` points at the CloudFront domain.
+
+---
+
+## 6. References
 
 - Spec: `docs/superpowers/specs/2026-05-03-photographer-showcase-design.md`
 - Plan: `docs/superpowers/plans/2026-05-03-photographer-showcase-p1-foundations.md`
-- Dev bucket reference: `astrophoto-images-dev` in `ap-southeast-1`
-- Old project image-transformer source (Lambda@Edge shape, for transform logic only):
-  `/Volumes/Pascal4Tb/Projects/claude/astrophoto/dev/current-lambda/image-transformer.js`
-- AWS docs — Lambda function URLs:
-  https://docs.aws.amazon.com/lambda/latest/dg/lambda-urls.html
-- AWS docs — CloudFront OAC for Lambda function URLs:
-  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda.html
-- AWS Solutions Library — Serverless Image Handler (alternative to this
-  custom implementation; evaluating it is outside Phase 1 scope):
-  https://aws.amazon.com/solutions/implementations/serverless-image-handler/
+- Old project canonical Lambda@Edge source:
+  `/Volumes/Pascal4Tb/Projects/claude/astrophoto/main/lambda-deploy/image-transformer.js`
+- Staging Lambda artefact (not committed; on provisioning machine):
+  `/tmp/astrophoto-staging-lambda/index.cjs`
+- AWS docs — Lambda@Edge:
+  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-at-the-edge.html
+- AWS docs — CloudFront OAC for S3:
+  https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html
+
+### Staged deployment reference (staging, 2026-05)
+
+Actual resource IDs from the validated staging deployment:
+
+| resource                 | ID / ARN                                                          |
+|--------------------------|-------------------------------------------------------------------|
+| S3 bucket                | `astrophoto-images-staging` (us-east-1)                          |
+| IAM user                 | `astrophoto-staging-uploader`                                    |
+| Lambda role              | `astrophoto-staging-lambda-exec`                                  |
+| Lambda function          | `astrophoto-staging-image-transformer:1`                         |
+| CloudFront distribution  | `E2B1QQ4K2EISGE` → `ddo5booq71gbx.cloudfront.net`               |
+| CloudFront S3 OAC        | `EXZAEKMIK0D15`                                                  |
+| Cache policy             | `c80acb91-dc64-4019-ada6-09ff3d2098be`                          |
+| Koyeb backend            | `https://astrophoto-staging-xavyo-008151d0.koyeb.app`           |
+| Koyeb frontend           | `https://astrophoto-staging-web-xavyo-eadbe1f6.koyeb.app`       |
+
+The deleted Function URL
+(`vmt44kiqpygriigehgzorzflyy0wbpgp.lambda-url.us-east-1.on.aws`) was
+created and then deleted after the architecture pivot to Lambda@Edge.
+Do not recreate it.

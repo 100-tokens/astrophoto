@@ -2,14 +2,26 @@
 
 Astrophoto: Rust + SvelteKit app for amateur astrophotographers to upload,
 tag, and share images. Backend: axum + sqlx + Postgres. Frontend:
-SvelteKit SSR + Svelte 5 runes. Image storage: **AWS S3** in prod (bucket
-`astrophoto-images-<env>`) fronted by CloudFront with a Lambda function
-URL (sharp) for on-the-fly transforms. Two dev paths supported, picked
-via `.env`: (a) MinIO + the backend's `/cdn/img/<id>` route for local
-resize (no AWS account needed); (b) real AWS S3 (`astrophoto-images-dev`)
-+ same local `/cdn/img/<id>` route, for prod-parity testing of CORS,
-IAM, and SigV4. CloudFront itself is mocked locally in both dev paths
-until the Lambda transformer ships.
+SvelteKit SSR + Svelte 5 runes. Image storage: **AWS S3** in prod/staging
+(bucket `astrophoto-images-<env>`) fronted by CloudFront + **Lambda@Edge
+(origin-request)** using sharp for on-the-fly transforms. Two dev paths
+supported, picked via `.env`: (a) MinIO + the backend's `/cdn/img/<id>`
+route for local resize (no AWS account needed); (b) real AWS S3
+(`astrophoto-images-dev`) + same local `/cdn/img/<id>` route, for
+prod-parity testing of CORS, IAM, and SigV4. CloudFront is not deployed
+in dev; use `APP_CDN_LOCAL_FALLBACK=true` to opt into the backend's
+`/cdn/img/` route on non-localhost hosts (e.g., staging before CloudFront
+is provisioned).
+
+## Staging
+
+Deployed on Koyeb. Resources as of 2026-05:
+
+- **Frontend:** `https://astrophoto-staging-web-xavyo-eadbe1f6.koyeb.app`
+- **Backend:** `https://astrophoto-staging-xavyo-008151d0.koyeb.app`
+- **CDN:** `https://ddo5booq71gbx.cloudfront.net` (CloudFront distribution
+  `E2B1QQ4K2EISGE`, S3 bucket `astrophoto-images-staging`)
+- Runbook: `docs/operations/aws-s3-cloudfront.md`
 
 For broader context: @README.md and @docs/superpowers/specs/ for design
 docs.
@@ -192,6 +204,14 @@ Frontend-only (run from `frontend/`):
   flow; do not change without reading `auth/oauth_google.rs`.
 - Argon2 password verification is CPU-bound: always inside
   `spawn_blocking`. Same for image decode.
+- CDN transform uses **Lambda@Edge (origin-request)**, not a Lambda
+  Function URL. Lambda Function URL Block Public Access (FUBPA) silently
+  blocks Function URLs in this AWS account since 2024-Q4. See
+  `docs/operations/aws-s3-cloudfront.md` for the full architecture.
+- `APP_CDN_LOCAL_FALLBACK=true` opts into the backend's `/cdn/img/`
+  route even on non-localhost hosts. Use this in staging when CloudFront
+  is not yet provisioned, or in prod for emergency CDN bypass. Leave
+  unset in normal operation.
 
 ---
 
