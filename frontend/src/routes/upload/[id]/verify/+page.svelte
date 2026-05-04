@@ -4,9 +4,11 @@
   import Button from '$lib/components/Button.svelte';
   import CategorySegmented from '$lib/components/CategorySegmented.svelte';
   import EquipmentAutocomplete from '$lib/components/EquipmentAutocomplete.svelte';
+  import Img from '$lib/components/Img.svelte';
   import Input from '$lib/components/Input.svelte';
   import TagInput from '$lib/components/TagInput.svelte';
   import TargetPicker from '$lib/components/TargetPicker.svelte';
+  import UploadStepper from '$lib/components/UploadStepper.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -44,6 +46,28 @@
   let isProcessing = $derived(data.photo.status === 'processing');
   let isFailed = $derived(data.photo.status === 'failed');
 
+  // Count fields the upload pipeline recovered from EXIF for the
+  // "● N fields recovered" badge in the design handoff.
+  let recoveredCount = $derived.by(() => {
+    const p = data.photo;
+    let n = 0;
+    if (p.target) n += 1;
+    if (p.taken_at) n += 1;
+    if (p.camera) n += 1;
+    if (p.lens) n += 1;
+    if (p.iso != null) n += 1;
+    if (p.exposure_s != null) n += 1;
+    if (p.focal_mm != null) n += 1;
+    if (p.ra_deg != null && p.dec_deg != null) n += 1;
+    return n;
+  });
+  let dimensionLabel = $derived(
+    data.photo.width && data.photo.height ? `${data.photo.width} × ${data.photo.height}` : null
+  );
+  let bytesLabel = $derived(
+    data.photo.bytes ? `${(data.photo.bytes / (1024 * 1024)).toFixed(1)} MB` : null
+  );
+
   $effect(() => {
     if (isProcessing && polling === null) {
       polling = window.setInterval(() => invalidateAll(), 2000);
@@ -62,8 +86,15 @@
 <AppHeader active="Gallery" />
 
 <div class="verify-page">
-  <div class="t-eyebrow">{isPublished ? 'EDIT METADATA' : 'NEW FRAME · STEP 02'}</div>
+  <div class="t-eyebrow">{isPublished ? 'EDIT METADATA' : 'NEW FRAME'}</div>
   <h1 class="title">Verify the <em>data</em>.</h1>
+  {#if !isPublished}
+    <UploadStepper currentStep={2} />
+    <p class="lede">
+      We've read what your file knew. Correct anything that's wrong — every field is editable, none
+      are required.
+    </p>
+  {/if}
 
   {#if isFailed}
     <div class="panel-failed">
@@ -78,106 +109,254 @@
       </div>
     </div>
   {:else}
-    <form
-      method="POST"
-      action={isPublished ? '?/save_changes_published' : '?/save_continue'}
-      class="metadata-form"
-    >
-      <fieldset disabled={isProcessing}>
-        <!-- Row 1: target + category (full-width each) -->
-        <div class="field-full">
-          <TargetPicker bind:value={target} />
+    <div class="layout">
+      <aside class="preview" aria-label="Your upload">
+        <div class="t-label">YOUR UPLOAD</div>
+        <div class="preview-frame">
+          {#if isProcessing}
+            <div class="processing-overlay">
+              <div class="processing-eyebrow">● PROCESSING THUMBNAILS</div>
+              <div class="processing-bar" aria-hidden="true"><span></span></div>
+            </div>
+          {/if}
+          <Img
+            photoId={data.photo.id}
+            w={1200}
+            alt={data.photo.target ?? data.photo.original_name}
+            class="preview-img"
+          />
         </div>
-
-        <div class="field-full">
-          <CategorySegmented bind:value={category} />
+        <div class="preview-meta">
+          <span class="filename">{data.photo.original_name}</span>
+          <span class="dim">
+            {#if bytesLabel}{bytesLabel}{/if}
+            {#if bytesLabel && dimensionLabel}
+              ·
+            {/if}
+            {#if dimensionLabel}{dimensionLabel}{/if}
+          </span>
         </div>
-
-        <!-- Row 2: numeric EXIF fields in 2-col grid -->
-        <div class="grid">
-          <label>
-            <span class="t-label">LENS</span>
-            <Input name="lens" value={data.photo.lens ?? ''} />
-          </label>
-          <label>
-            <span class="t-label">ISO</span>
-            <Input type="number" name="iso" value={data.photo.iso?.toString() ?? ''} />
-          </label>
-          <label>
-            <span class="t-label">EXPOSURE (S)</span>
-            <Input
-              type="number"
-              step="0.01"
-              name="exposure_s"
-              value={data.photo.exposure_s?.toString() ?? ''}
-            />
-          </label>
-          <label>
-            <span class="t-label">FOCAL (MM)</span>
-            <Input type="number" name="focal_mm" value={data.photo.focal_mm?.toString() ?? ''} />
-          </label>
-        </div>
-
-        <!-- Row 3: equipment pickers in 2-col grid -->
-        <div class="grid equipment-grid">
-          <div class="field">
-            <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
-          </div>
-          <div class="field">
-            <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
-          </div>
-          <div class="field">
-            <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
-          </div>
-          <div class="field">
-            <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
-          </div>
-          <div class="field">
-            <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
-          </div>
-        </div>
-
-        <!-- Row 4: tags (full width) -->
-        <div class="field-full">
-          <TagInput bind:value={tags} />
-        </div>
-      </fieldset>
-
-      {#if isProcessing}
-        <p class="t-meta">● PROCESSING THUMBNAILS — polling every 2 s</p>
-      {/if}
-      {#if form?.error}
-        <p class="t-meta form-error">{form.error}</p>
-      {/if}
-
-      <div class="actions">
-        {#if isPublished}
-          <Button variant="ghost" href="/upload/{data.photo.id}/caption">Edit caption →</Button>
-          <Button variant="primary" type="submit" disabled={isProcessing}>Save changes</Button>
-        {:else}
-          <Button variant="ghost" type="submit" formaction="?/save_draft" disabled={isProcessing}
-            >Save as draft</Button
-          >
-          <Button variant="primary" type="submit" disabled={isProcessing}>Continue →</Button>
+        {#if !isPublished}
+          <a class="replace-link" href="/upload" data-sveltekit-reload>← Replace file</a>
         {/if}
-      </div>
-    </form>
+      </aside>
+
+      <form
+        method="POST"
+        action={isPublished ? '?/save_changes_published' : '?/save_continue'}
+        class="metadata-form"
+      >
+        <div class="form-status">
+          <span class="t-label">DETECTED FROM YOUR FILE</span>
+          <span class="t-meta status-accent">
+            ● {recoveredCount === 0
+              ? 'No EXIF fields detected'
+              : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
+          </span>
+        </div>
+        <fieldset disabled={isProcessing}>
+          <!-- Row 1: target + category (full-width each) -->
+          <div class="field-full">
+            <TargetPicker bind:value={target} />
+          </div>
+
+          <div class="field-full">
+            <CategorySegmented bind:value={category} />
+          </div>
+
+          <!-- Row 2: numeric EXIF fields in 2-col grid -->
+          <div class="grid">
+            <label>
+              <span class="t-label">LENS</span>
+              <Input name="lens" value={data.photo.lens ?? ''} />
+            </label>
+            <label>
+              <span class="t-label">ISO</span>
+              <Input type="number" name="iso" value={data.photo.iso?.toString() ?? ''} />
+            </label>
+            <label>
+              <span class="t-label">EXPOSURE (S)</span>
+              <Input
+                type="number"
+                step="0.01"
+                name="exposure_s"
+                value={data.photo.exposure_s?.toString() ?? ''}
+              />
+            </label>
+            <label>
+              <span class="t-label">FOCAL (MM)</span>
+              <Input type="number" name="focal_mm" value={data.photo.focal_mm?.toString() ?? ''} />
+            </label>
+          </div>
+
+          <!-- Row 3: equipment pickers in 2-col grid -->
+          <div class="grid equipment-grid">
+            <div class="field">
+              <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
+            </div>
+            <div class="field">
+              <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
+            </div>
+            <div class="field">
+              <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
+            </div>
+            <div class="field">
+              <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
+            </div>
+            <div class="field">
+              <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
+            </div>
+          </div>
+
+          <!-- Row 4: tags (full width) -->
+          <div class="field-full">
+            <TagInput bind:value={tags} />
+          </div>
+        </fieldset>
+
+        {#if isProcessing}
+          <p class="t-meta">● PROCESSING THUMBNAILS — polling every 2 s</p>
+        {/if}
+        {#if form?.error}
+          <p class="t-meta form-error">{form.error}</p>
+        {/if}
+
+        <div class="actions">
+          {#if isPublished}
+            <Button variant="ghost" href="/upload/{data.photo.id}/caption">Edit caption →</Button>
+            <Button variant="primary" type="submit" disabled={isProcessing}>Save changes</Button>
+          {:else}
+            <Button variant="ghost" type="submit" formaction="?/save_draft" disabled={isProcessing}
+              >Save as draft</Button
+            >
+            <Button variant="primary" type="submit" disabled={isProcessing}>Continue →</Button>
+          {/if}
+        </div>
+      </form>
+    </div>
   {/if}
 </div>
 
 <style>
   .verify-page {
-    padding: 40px 64px;
-    max-width: 960px;
+    padding: 40px 64px 64px;
+    max-width: 1440px;
     margin: 0 auto;
   }
   .title {
     font-family: var(--font-display);
     font-size: 44px;
-    margin: 8px 0 32px;
+    margin: 8px 0 12px;
   }
   .title em {
     font-style: italic;
+  }
+  .lede {
+    color: var(--fg-secondary);
+    font-size: 13px;
+    max-width: 64ch;
+    margin: 24px 0 32px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 560px 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+  .preview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .preview-frame {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: var(--bg-elevated);
+    overflow: hidden;
+  }
+  .preview :global(.preview-img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .processing-overlay {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 1;
+    padding: 8px 12px;
+    background: rgba(12, 10, 8, 0.85);
+    border: 1px solid var(--border-default);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-secondary);
+  }
+  .processing-eyebrow {
+    color: var(--accent);
+  }
+  .processing-bar {
+    margin-top: 6px;
+    height: 2px;
+    background: var(--border-default);
+    position: relative;
+    overflow: hidden;
+  }
+  .processing-bar > span {
+    position: absolute;
+    inset: 0;
+    width: 35%;
+    background: var(--accent);
+    animation: bar-slide 1.2s linear infinite;
+  }
+  @keyframes bar-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(280%);
+    }
+  }
+  .preview-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+    letter-spacing: 0.04em;
+  }
+  .filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60%;
+  }
+  .replace-link {
+    align-self: flex-start;
+    color: var(--fg-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    margin-top: 8px;
+    border: 1px solid var(--border-default);
+    padding: 6px 12px;
+  }
+  .replace-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .form-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    gap: 16px;
+  }
+  .status-accent {
+    color: var(--accent);
   }
   .field-full {
     margin-bottom: 16px;
@@ -214,6 +393,11 @@
   }
   .form-error {
     color: var(--danger);
+  }
+  @media (max-width: 1024px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
   }
   @media (max-width: 768px) {
     .verify-page {

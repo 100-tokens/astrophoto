@@ -2,6 +2,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
   import Textarea from '$lib/components/Textarea.svelte';
+  import UploadStepper from '$lib/components/UploadStepper.svelte';
   import type { PageProps } from './$types';
 
   let { data, form }: PageProps = $props();
@@ -12,8 +13,11 @@
 <AppHeader active="Gallery" />
 
 <div class="caption-page">
-  <div class="t-eyebrow">{isPublished ? 'EDIT CAPTION' : 'NEW FRAME · STEP 03'}</div>
+  <div class="t-eyebrow">{isPublished ? 'EDIT CAPTION' : 'NEW FRAME'}</div>
   <h1 class="title">{isPublished ? 'Edit the caption.' : 'Add a caption.'}</h1>
+  {#if !isPublished}
+    <UploadStepper currentStep={3} />
+  {/if}
 
   <div class="recap">
     <div><span class="t-label">TARGET</span> {data.photo.target ?? '—'}</div>
@@ -47,14 +51,14 @@
   .title {
     font-family: var(--font-display);
     font-size: 44px;
-    margin: 8px 0 32px;
+    margin: 8px 0 12px;
   }
   .recap {
     display: flex;
     gap: 32px;
     padding: 16px;
     background: var(--bg-surface);
-    margin-bottom: 24px;
+    margin: 32px 0 24px;
   }
   .recap > div {
     display: flex;

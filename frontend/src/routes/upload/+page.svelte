@@ -2,6 +2,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import UploadDropzone from '$lib/components/UploadDropzone.svelte';
   import UploadFileRow from '$lib/components/UploadFileRow.svelte';
+  import UploadStepper from '$lib/components/UploadStepper.svelte';
   import TierUpgradeModal from '$lib/components/TierUpgradeModal.svelte';
   import { preflight } from '$lib/upload/preflight';
   import { uploadAll, type FileSlot, type SlotProgress } from '$lib/upload/presigned';
@@ -101,21 +102,7 @@
     <div class="t-eyebrow">NEW FRAME</div>
     <h1 class="page-title">Add a <em>frame</em> to your archive</h1>
 
-    <!-- 3-step stepper (visual chrome — step 1 active) -->
-    <div class="stepper">
-      <div class="step step-active">
-        <span class="step-n">01</span>
-        <span>UPLOAD</span>
-      </div>
-      <div class="step">
-        <span class="step-n">02</span>
-        <span>VERIFY DATA</span>
-      </div>
-      <div class="step">
-        <span class="step-n">03</span>
-        <span>CAPTION & PUBLISH</span>
-      </div>
-    </div>
+    <UploadStepper currentStep={1} />
   </section>
 
   <!-- Dropzone + file list -->
@@ -158,39 +145,6 @@
     line-height: 1;
   }
 
-  /* ── Stepper ────────────────────────────────────────────── */
-  .stepper {
-    display: flex;
-    margin-top: 32px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .step {
-    flex: 1;
-    padding: 16px 0;
-    border-top: 2px solid var(--border-default);
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    color: var(--fg-muted);
-  }
-
-  .step-active {
-    border-top-color: var(--accent);
-    color: var(--fg-primary);
-  }
-
-  .step-n {
-    color: var(--fg-faint);
-  }
-
-  .step-active .step-n {
-    color: var(--accent);
-  }
-
   /* ── Form section ───────────────────────────────────────── */
   .form-section {
     padding: 48px 64px;
@@ -214,15 +168,6 @@
 
     .page-title {
       font-size: 32px;
-    }
-
-    .stepper {
-      font-size: 9px;
-      margin-top: 20px;
-    }
-
-    .step {
-      gap: 6px;
     }
 
     .form-section {
