@@ -9,15 +9,17 @@
   let {
     profile,
     isOwner,
+    hasCover,
     onEditProfile
   }: {
     profile: PublicProfile;
     isOwner: boolean;
+    hasCover: boolean;
     onEditProfile: () => void;
   } = $props();
 </script>
 
-<section class="identity">
+<section class="identity" class:identity--no-cover={!hasCover}>
   <HeroAvatar handle={profile.handle} displayName={profile.display_name} />
   <div class="middle">
     <HeroName displayName={profile.display_name} />
@@ -35,6 +37,16 @@
     align-items: start;
     padding: 0 32px 24px;
     margin-top: -80px;
+  }
+  /* Spec line 562: cover is "omitted entirely when empty for visitors".
+     Without that banner above, the -80px overlap pulls the avatar into
+     the navbar. Drop the negative margin so the avatar lands cleanly
+     below the header. */
+  .identity.identity--no-cover {
+    margin-top: 32px;
+  }
+  .identity.identity--no-cover .middle {
+    padding-top: 0;
   }
   .middle {
     padding-top: 88px;

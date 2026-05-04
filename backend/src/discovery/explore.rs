@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::AppError;
 use crate::api_types::{DiscoveryPage, DiscoveryPhoto};
+use crate::auth::middleware::OptionalUser;
 use crate::discovery::cursor::{self, Cursor};
 use crate::http::AppState;
 
@@ -21,6 +22,7 @@ pub struct Q {
     pub sort: Option<String>,     // "newest" (default) | "most-appreciated"
     pub since: Option<String>,    // "24h" | "7d" | "30d" | "all"
     pub category: Option<String>, // dso | planetary | lunar | solar | wide_field | nightscape | other
+    pub following: Option<bool>,  // true → only photos by users the caller follows
 }
 
 struct Row {
@@ -39,6 +41,7 @@ struct Row {
 
 pub async fn get(
     State(state): State<AppState>,
+    OptionalUser(maybe_user): OptionalUser,
     Query(q): Query<Q>,
 ) -> Result<impl IntoResponse, AppError> {
     let limit = q.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
@@ -51,6 +54,19 @@ pub async fn get(
         Some(_) => return Err(AppError::bad_request("since_invalid")),
     };
     let category = q.category.as_deref();
+    // following=true with no session → empty page (the filter is "people you
+    // follow", and an anonymous caller follows nobody). following=true with a
+    // session → restrict to photos whose owner the caller follows.
+    let following_user_id: Option<Uuid> = match (q.following.unwrap_or(false), &maybe_user) {
+        (true, None) => {
+            return Ok(Json(DiscoveryPage {
+                photos: vec![],
+                next_cursor: None,
+            }));
+        }
+        (true, Some(u)) => Some(u.id),
+        (false, _) => None,
+    };
     let cursor = q.cursor.as_deref().map(cursor::decode).transpose()?;
 
     let cur_pub = cursor.as_ref().map(|c| c.published_at);
@@ -76,14 +92,18 @@ pub async fn get(
                    (p.appreciations_count = $1 and (p.published_at, p.id) < ($2, $3)))
               and ($4::text is null or p.category = $4)
               and ($5::int8 is null or p.published_at > now() - ($5::int8 || ' seconds')::interval)
+              and ($6::uuid is null or exists (
+                    select 1 from follows f
+                    where f.follower_id = $6 and f.followed_id = p.owner_id))
             order by p.appreciations_count desc, p.published_at desc, p.id desc
-            limit $6
+            limit $7
             "#,
                 cur_apps,
                 cur_pub,
                 cur_id,
                 category,
                 since_seconds,
+                following_user_id,
                 limit + 1
             )
             .fetch_all(&state.pool)
@@ -105,13 +125,17 @@ pub async fn get(
               and ($1::timestamptz is null or (p.published_at, p.id) < ($1, $2))
               and ($3::text is null or p.category = $3)
               and ($4::int8 is null or p.published_at > now() - ($4::int8 || ' seconds')::interval)
+              and ($5::uuid is null or exists (
+                    select 1 from follows f
+                    where f.follower_id = $5 and f.followed_id = p.owner_id))
             order by p.published_at desc, p.id desc
-            limit $5
+            limit $6
             "#,
                 cur_pub,
                 cur_id,
                 category,
                 since_seconds,
+                following_user_id,
                 limit + 1
             )
             .fetch_all(&state.pool)

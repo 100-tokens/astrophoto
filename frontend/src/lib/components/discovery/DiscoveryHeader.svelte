@@ -2,6 +2,7 @@
   import type { TargetMeta } from '$lib/api/TargetMeta';
   import type { TagMeta } from '$lib/api/TagMeta';
   import type { EquipmentMeta } from '$lib/api/EquipmentMeta';
+  import { pluralize } from '$lib/util/pluralize';
 
   type ExploreProps = { variant: 'explore'; photoCount?: number };
   type TargetProps = { variant: 'target'; meta: TargetMeta };
@@ -42,14 +43,13 @@
     <div class="header-left">
       <p class="eyebrow">
         ● EXPLORE · {props.photoCount
-          ? `${props.photoCount.toLocaleString('en-US')} PUBLISHED FRAMES · `
+          ? `${pluralize(props.photoCount, 'PUBLISHED FRAME').toUpperCase()} · `
           : ''}UPDATED LIVE
       </p>
       <h1 class="display">The <em>archive</em>, across photographers</h1>
     </div>
     <div class="header-right">
       <p class="stat-label" style="color: var(--fg-muted);">NEW MOON IN 6 DAYS</p>
-      <p class="stat-accent">● 47 NEW IN THE LAST 24 HRS</p>
     </div>
   </section>
 {:else if props.variant === 'target'}
@@ -87,7 +87,7 @@
     <div>
       <p class="eyebrow">● TAG</p>
       <h1 class="display"><em>#{meta.name}</em></h1>
-      <p class="sub-stat">{fmt(meta.photo_count)} photos tagged</p>
+      <p class="sub-stat">{pluralize(meta.photo_count, 'photo')} tagged</p>
     </div>
   </section>
 {:else if props.variant === 'equipment'}
@@ -112,7 +112,7 @@
       <p class="eyebrow">● CATEGORY</p>
       <h1 class="display">{CATEGORY_LABELS[props.category] ?? props.category}</h1>
       {#if props.photoCount !== undefined}
-        <p class="sub-stat">{fmt(props.photoCount)} photos</p>
+        <p class="sub-stat">{pluralize(props.photoCount, 'photo')}</p>
       {/if}
     </div>
   </section>
@@ -121,7 +121,7 @@
     <p class="eyebrow">● SEARCH</p>
     <h1 class="display">Results for <em>"{props.q}"</em></h1>
     {#if props.resultCount !== undefined}
-      <p class="sub-stat">{props.resultCount} results</p>
+      <p class="sub-stat">{pluralize(props.resultCount, 'result')}</p>
     {/if}
   </section>
 {/if}

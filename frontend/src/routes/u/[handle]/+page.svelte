@@ -3,6 +3,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import HeroPage from '$lib/components/profile/HeroPage.svelte';
+  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import ProfileEditor from '$lib/components/profile/editor/ProfileEditor.svelte';
   import CoverPickerModal from '$lib/components/profile/editor/CoverPickerModal.svelte';
   import type { PageData } from './$types';
@@ -24,6 +25,7 @@
 <HeroPage
   profile={data.profile}
   viewMode={data.viewMode}
+  firstPage={data.firstPage}
   onEditProfile={() => (editorOpen = true)}
   onPickCover={() => (coverPickerOpen = true)}
 />
@@ -37,4 +39,5 @@
   />
 {/if}
 
+<LightboxHost />
 <AppFooter />

@@ -10,17 +10,21 @@
   import FeaturedRow from './FeaturedRow.svelte';
   import GalleryToolbar from './GalleryToolbar.svelte';
   import PhotoGrid from './PhotoGrid.svelte';
+  import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
   type ViewMode = 'visitor' | 'owner' | 'admin';
+  type FirstPage = { photos: GalleryPhoto[]; next_cursor: string | null };
 
   let {
     profile,
     viewMode = 'visitor',
+    firstPage = null,
     onEditProfile = () => {},
     onPickCover = () => {}
   }: {
     profile: PublicProfile;
     viewMode?: ViewMode;
+    firstPage?: FirstPage | null;
     onEditProfile?: () => void;
     onPickCover?: () => void;
   } = $props();
@@ -36,7 +40,12 @@
 
   <HeroCover cover={profile.cover} {isOwner} {onPickCover} />
 
-  <HeroIdentity {profile} {isOwner} {onEditProfile} />
+  <HeroIdentity
+    {profile}
+    {isOwner}
+    {onEditProfile}
+    hasCover={profile.cover !== null && profile.cover !== undefined}
+  />
 
   <HeroAbout bio={profile.bio_html} {isOwner} {onEditProfile} />
 
@@ -50,7 +59,7 @@
 
   <GalleryToolbar bind:sort />
 
-  <PhotoGrid handle={profile.handle} {sort} />
+  <PhotoGrid handle={profile.handle} {sort} initial={firstPage} />
 </article>
 
 <style>

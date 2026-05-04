@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { fetchSearch } from '$lib/api/discoveryClient';
   import type { SearchResults } from '$lib/api/SearchResults';
   import SuggestionsList from './SuggestionsList.svelte';
 
@@ -34,12 +35,7 @@
 
   async function fetchResults(q: string) {
     try {
-      const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-      if (!r.ok) {
-        results = EMPTY_RESULTS;
-        return;
-      }
-      results = (await r.json()) as SearchResults;
+      results = await fetchSearch(fetch, q);
     } catch {
       results = EMPTY_RESULTS;
     }

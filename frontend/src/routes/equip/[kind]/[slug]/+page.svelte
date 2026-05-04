@@ -6,6 +6,7 @@
   import FilterPills from '$lib/components/discovery/FilterPills.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import EquipmentPairedRail from '$lib/components/discovery/EquipmentPairedRail.svelte';
+  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchEquipmentPage } from '$lib/api/discoveryClient';
   import type { PageData } from './$types';
 
@@ -68,4 +69,5 @@
   />
 {/key}
 <EquipmentPairedRail items={data.initial.paired} />
+<LightboxHost />
 <AppFooter />

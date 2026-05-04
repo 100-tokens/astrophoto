@@ -3,6 +3,8 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
+  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
+  import { pluralize } from '$lib/util/pluralize';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -33,9 +35,7 @@
           <li>
             <a href="/t/{target.slug}" class="result-link">
               <span class="result-primary">{target.canonical_name}</span>
-              <span class="result-meta"
-                >{Number(target.photo_count).toLocaleString('en-US')} photos</span
-              >
+              <span class="result-meta">{pluralize(target.photo_count, 'photo')}</span>
             </a>
           </li>
         {/each}
@@ -71,6 +71,7 @@
   {/if}
 {/if}
 
+<LightboxHost />
 <AppFooter />
 
 <style>

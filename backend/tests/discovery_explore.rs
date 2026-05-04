@@ -91,3 +91,62 @@ async fn explore_sort_most_appreciated_orders_by_count() {
     assert_eq!(body.photos[0].id, p1);
     assert_eq!(body.photos[1].id, p2);
 }
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn explore_following_unauthenticated_returns_empty() {
+    // following=true is "people you follow"; an anonymous caller follows nobody.
+    // Without this short-circuit the filter was silently ignored and the full
+    // feed leaked through.
+    let app = TestApp::launch().await;
+    let (_, uid) = app.signup_with_handle("Alice", "alice", "a@x.test").await;
+    let _ = app.ready_photo_with(uid, "AAAA0001", None).await;
+
+    let (status, body) = app
+        .oneshot_json::<DiscoveryPage>("GET", "/api/explore?following=true", None, None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body.photos.is_empty(),
+        "anonymous following=true must return empty"
+    );
+    assert!(body.next_cursor.is_none());
+}
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn explore_following_authenticated_filters_to_followed_users() {
+    let app = TestApp::launch().await;
+    let (alice_cookie, alice_id) = app
+        .signup_with_handle("Alice", "alice", "alice@x.test")
+        .await;
+    let (_, bob_id) = app.signup_with_handle("Bob", "bob", "bob@x.test").await;
+    let (_, carol_id) = app
+        .signup_with_handle("Carol", "carol", "carol@x.test")
+        .await;
+    let _alice_p = app.ready_photo_with(alice_id, "AAAA0001", None).await;
+    let bob_p = app.ready_photo_with(bob_id, "BBBB0001", None).await;
+    let _carol_p = app.ready_photo_with(carol_id, "CCCC0001", None).await;
+
+    // Alice follows Bob, but not Carol or herself.
+    sqlx::query!(
+        "insert into follows (follower_id, followed_id) values ($1, $2)",
+        alice_id,
+        bob_id
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
+
+    let (status, body) = app
+        .oneshot_json::<DiscoveryPage>(
+            "GET",
+            "/api/explore?following=true",
+            Some(&alice_cookie),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.photos.len(), 1, "only Bob's photo should match");
+    assert_eq!(body.photos[0].id, bob_p);
+}
