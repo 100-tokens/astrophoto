@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into setup_items (setup_id, role, item_id) values ($1,'filter',$2),($1,'filter',$3),($1,'filter',$4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d4dfbbcaff7bd8ce9df635bf1dbde51ba9cb53b786ce51fbff876209410430d7"
+}

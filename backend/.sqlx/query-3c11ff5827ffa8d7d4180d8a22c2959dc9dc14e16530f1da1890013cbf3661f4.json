@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select guiding from equipment_setups where id=$1 and owner_id=$2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guiding",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "3c11ff5827ffa8d7d4180d8a22c2959dc9dc14e16530f1da1890013cbf3661f4"
+}

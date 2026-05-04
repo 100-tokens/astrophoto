@@ -1,3 +1,4 @@
+pub mod apply_setup;
 pub mod cdn;
 pub mod count;
 pub mod delete;
