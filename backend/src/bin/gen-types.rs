@@ -5,11 +5,12 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage,
-    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
-    HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform, TagMeta,
-    TagPage, TargetMeta, TargetPage, User, UserPublic,
+    ApplySetupInput, AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, EquipmentItemInput,
+    EquipmentItemRef, EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSummary,
+    FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats, LocationSummary, MeStats,
+    PhotoDetail, Preferences, Profile, PublicProfile, RoleCount, SearchResults, SearchTargetHit,
+    SearchUserHit, SessionRow, SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary,
+    SocialLink, SocialPlatform, TagMeta, TagPage, TargetMeta, TargetPage, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,6 +50,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SearchTargetHit::export_all_to(out_dir)?;
     SearchUserHit::export_all_to(out_dir)?;
     SearchResults::export_all_to(out_dir)?;
+    EquipmentItemRef::export_all_to(out_dir)?;
+    SetupItem::export_all_to(out_dir)?;
+    RoleCount::export_all_to(out_dir)?;
+    SetupSummary::export_all_to(out_dir)?;
+    SetupDetail::export_all_to(out_dir)?;
+    SetupInputItem::export_all_to(out_dir)?;
+    SetupInput::export_all_to(out_dir)?;
+    EquipmentItemInput::export_all_to(out_dir)?;
+    ApplySetupInput::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

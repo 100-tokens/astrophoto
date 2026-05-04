@@ -368,3 +368,98 @@ pub struct SearchResults {
     pub users: Vec<SearchUserHit>,
     pub photos: Vec<DiscoveryPhoto>,
 }
+
+/// One canonical equipment item (used inside a setup).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentItemRef.ts")]
+pub struct EquipmentItemRef {
+    pub id: String,
+    pub kind: String, // 'telescope'|'camera'|'mount'|'filter'|'focal_modifier'
+    pub canonical_name: String,
+    pub display_name: String,
+}
+
+/// One member of a setup (link between a setup and a canonical item).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SetupItem.ts")]
+pub struct SetupItem {
+    pub role: String, // 'optical_tube'|'focal_modifier'|'main_camera'|'mount'|'filter'
+    pub item: EquipmentItemRef,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "RoleCount.ts")]
+pub struct RoleCount {
+    pub role: String,
+    pub count: i64,
+}
+
+/// Compact list-view summary — metadata + counts per role.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SetupSummary.ts")]
+pub struct SetupSummary {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub is_remote: bool,
+    pub is_default: bool,
+    pub guiding: Option<String>,
+    pub updated_at: String, // RFC3339
+    /// One entry per role with at least one item.
+    pub item_counts: Vec<RoleCount>,
+}
+
+/// Detail-view setup with full item expansion.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SetupDetail.ts")]
+pub struct SetupDetail {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub is_remote: bool,
+    pub is_default: bool,
+    pub guiding: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub items: Vec<SetupItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SetupInputItem.ts")]
+pub struct SetupInputItem {
+    pub role: String,
+    pub item_id: String,
+}
+
+/// Body for POST/PATCH /api/equipment/setups[/:id]. Items replace-all
+/// on PATCH (no merge). Unknown item_ids → 422.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SetupInput.ts")]
+pub struct SetupInput {
+    pub name: String,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub is_remote: bool,
+    pub is_default: bool,
+    pub guiding: Option<String>,
+    pub items: Vec<SetupInputItem>,
+}
+
+/// Body for POST /api/equipment/items resolve-or-create.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentItemInput.ts")]
+pub struct EquipmentItemInput {
+    pub kind: String,
+    pub display_name: String,
+}
+
+/// Body for POST /api/photos/:id/apply-setup.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "ApplySetupInput.ts")]
+pub struct ApplySetupInput {
+    pub setup_id: String,
+    /// "fill_empty" | "overwrite"
+    pub mode: String,
+}
