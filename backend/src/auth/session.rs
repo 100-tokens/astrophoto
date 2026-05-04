@@ -112,25 +112,40 @@ pub async fn delete(pool: &PgPool, cookie: &str) -> Result<(), AppError> {
 
 /// Build the `Set-Cookie` header value for a fresh session token.
 /// Caller decides Secure flag based on config.session_secure.
+///
+/// SameSite policy follows the deployment shape:
+///
+/// - `secure=true` (prod / staging over HTTPS): `SameSite=None` so the
+///   session cookie is sent on cross-origin browser→backend fetches.
+///   The frontend and backend live on different sibling subdomains
+///   (e.g. `astrophoto-staging-web-*.koyeb.app` and
+///   `astrophoto-staging-*.koyeb.app`) with no shared parent, so any
+///   client-side fetch from the SvelteKit page to the API is
+///   technically cross-site. `Lax` blocks those even with
+///   `credentials: 'include'`. Cross-site exposure is bounded by the
+///   single-origin CORS allow-list on the API.
+/// - `secure=false` (dev over HTTP): `SameSite=Lax`. `SameSite=None`
+///   requires `Secure`, which we cannot set on plain HTTP, so we keep
+///   the historical `Lax` behaviour. Dev runs on `localhost` for both
+///   frontend and backend, so cross-site is moot anyway.
 pub fn cookie_header(value: &str, secure: bool, max_age_days: i64) -> String {
-    let secure_part = if secure { "; Secure" } else { "" };
+    let secure_attr = if secure { "; Secure" } else { "" };
+    let same_site = if secure { "None" } else { "Lax" };
+    let name = cookie_name(secure);
+    let max_age = max_age_days * 86_400;
     format!(
-        "{name}={value}; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age={max_age}",
-        name = cookie_name(secure),
-        value = value,
-        secure = secure_part,
-        max_age = max_age_days * 86_400
+        "{name}={value}; HttpOnly{secure_attr}; SameSite={same_site}; Path=/; Max-Age={max_age}"
     )
 }
 
 /// Build a `Set-Cookie` header value that clears the session cookie.
+/// SameSite policy mirrors `cookie_header` so the clear directive lands
+/// on the same cookie the browser holds.
 pub fn clear_cookie_header(secure: bool) -> String {
-    let secure_part = if secure { "; Secure" } else { "" };
-    format!(
-        "{name}=; HttpOnly{secure}; SameSite=Lax; Path=/; Max-Age=0",
-        name = cookie_name(secure),
-        secure = secure_part,
-    )
+    let secure_attr = if secure { "; Secure" } else { "" };
+    let same_site = if secure { "None" } else { "Lax" };
+    let name = cookie_name(secure);
+    format!("{name}=; HttpOnly{secure_attr}; SameSite={same_site}; Path=/; Max-Age=0")
 }
 
 /// Create a fresh session for `user_id` and return the full `Set-Cookie`
@@ -167,7 +182,10 @@ mod tests {
         assert!(h.starts_with("__Host-session=abc"), "got: {h}");
         assert!(h.contains("HttpOnly"));
         assert!(h.contains("Secure"));
-        assert!(h.contains("SameSite=Lax"));
+        // SameSite=None is required so the cross-origin frontend in
+        // staging/prod can submit the cookie on browser→backend fetches.
+        assert!(h.contains("SameSite=None"), "got: {h}");
+        assert!(!h.contains("SameSite=Lax"), "got: {h}");
         assert!(h.contains("Path=/"));
         assert!(h.contains("Max-Age=2592000"));
     }
@@ -179,7 +197,21 @@ mod tests {
         assert!(h.starts_with("session=abc"), "got: {h}");
         assert!(!h.contains("__Host-"));
         assert!(!h.contains("Secure"));
+        // Dev keeps SameSite=Lax — None requires Secure (which we drop on HTTP).
+        assert!(h.contains("SameSite=Lax"), "got: {h}");
         assert!(h.contains("Max-Age=86400"));
+    }
+
+    #[test]
+    fn clear_cookie_header_uses_same_attrs_as_set() {
+        let secure = clear_cookie_header(true);
+        assert!(secure.contains("Secure"), "got: {secure}");
+        assert!(secure.contains("SameSite=None"), "got: {secure}");
+        assert!(secure.contains("Max-Age=0"));
+
+        let dev = clear_cookie_header(false);
+        assert!(!dev.contains("Secure"), "got: {dev}");
+        assert!(dev.contains("SameSite=Lax"), "got: {dev}");
     }
 
     #[test]
