@@ -27,3 +27,6 @@
 
 # Local data volumes from compose
 /data/
+
+# Worktrees (subagent-driven-development isolation)
+/.worktrees/
