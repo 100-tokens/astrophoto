@@ -34,6 +34,9 @@ pub struct AuthError {
 #[ts(export, export_to = "UserPublic.ts")]
 pub struct UserPublic {
     pub id: String,
+    /// URL-safe handle (e.g. `marie`). Used to build canonical
+    /// `/u/<handle>` URLs from a known user id.
+    pub handle: String,
     pub display_name: String,
     pub created_at: String,
     pub photo_count: i64,

@@ -20,6 +20,7 @@ pub async fn handler(
     let count = photo_q::count_by_owner(&state.pool, id).await?;
     Ok(Json(UserPublic {
         id: user.id.to_string(),
+        handle: user.handle,
         display_name: user.display_name,
         created_at: user.created_at.to_rfc3339(),
         photo_count: count,

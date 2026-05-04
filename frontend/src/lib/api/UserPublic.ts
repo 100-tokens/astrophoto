@@ -2,6 +2,11 @@
 
 export type UserPublic = {
   id: string;
+  /**
+   * URL-safe handle (e.g. `marie`). Used to build canonical
+   * `/u/<handle>` URLs from a known user id.
+   */
+  handle: string;
   display_name: string;
   created_at: string;
   photo_count: bigint;

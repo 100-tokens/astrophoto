@@ -4,8 +4,24 @@ import { fetchPublicProfile, fetchPhotosFeed } from '$lib/api/profileClient';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
+// RFC 4122 UUID. Used to spot when someone fed `/u/<id>` instead of
+// `/u/<handle>` so we can redirect to the canonical URL.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const load: PageServerLoad = async ({ params, fetch, locals }) => {
   const { handle } = params;
+
+  // If the slug looks like a UUID, this is almost certainly a user id pasted
+  // into the URL rather than a real handle. Look the user up by id and 301
+  // to their canonical handle URL instead of throwing 404.
+  if (UUID_RE.test(handle)) {
+    const r = await fetch(`${API}/api/users/${handle}`);
+    if (r.ok) {
+      const { handle: target } = (await r.json()) as { handle: string };
+      throw redirect(301, `/u/${target}`);
+    }
+    // Fall through to the not-found path below if the id matches no user.
+  }
 
   let profile;
   try {
