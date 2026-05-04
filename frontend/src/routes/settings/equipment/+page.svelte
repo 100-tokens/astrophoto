@@ -126,11 +126,8 @@
             >
           {/if}
           <a href={`/settings/equipment/${s.id}/edit`} class="btn ghost">Edit</a>
-          <button
-            type="button"
-            class="btn danger"
-            onclick={() => del(s)}
-            disabled={acting === s.id}>Delete</button
+          <button type="button" class="btn danger" onclick={() => del(s)} disabled={acting === s.id}
+            >Delete</button
           >
         </div>
       </li>
@@ -139,23 +136,101 @@
 {/if}
 
 <style>
-  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-  .card { border: 1px solid var(--border, #ccc); border-radius: 6px; padding: 1rem; }
-  .card.busy { opacity: 0.5; pointer-events: none; }
-  .head { display: flex; justify-content: space-between; align-items: baseline; }
-  .badges { display: flex; gap: 0.25rem; }
-  .badge { font-size: 0.75em; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--chip-bg, #eee); }
-  .badge.default { background: var(--primary, #0a6); color: white; }
-  .desc { color: var(--muted, #666); margin: 0.5rem 0; }
-  .counts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
-  .count { background: var(--chip-bg, #eee); padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.85em; }
-  .updated { color: var(--muted, #666); font-size: 0.85em; margin: 0.25rem 0; }
-  .actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  .btn { padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 0.9em; display: inline-flex; align-items: center; }
-  .btn.primary { background: var(--primary, #0a6); color: white; border: none; }
-  .btn.ghost { background: transparent; border: 1px solid var(--border, #ccc); color: inherit; }
-  .btn.danger { background: transparent; border: 1px solid var(--error, #c00); color: var(--error, #c00); }
-  .empty { color: var(--muted, #666); }
-  .form-error { color: var(--error, #c00); }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .card {
+    border: 1px solid var(--border, #ccc);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  .card.busy {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .badges {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .badge {
+    font-size: 0.75em;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--chip-bg, #eee);
+  }
+  .badge.default {
+    background: var(--primary, #0a6);
+    color: white;
+  }
+  .desc {
+    color: var(--muted, #666);
+    margin: 0.5rem 0;
+  }
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+  }
+  .count {
+    background: var(--chip-bg, #eee);
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  .updated {
+    color: var(--muted, #666);
+    font-size: 0.85em;
+    margin: 0.25rem 0;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn.primary {
+    background: var(--primary, #0a6);
+    color: white;
+    border: none;
+  }
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid var(--border, #ccc);
+    color: inherit;
+  }
+  .btn.danger {
+    background: transparent;
+    border: 1px solid var(--error, #c00);
+    color: var(--error, #c00);
+  }
+  .empty {
+    color: var(--muted, #666);
+  }
+  .form-error {
+    color: var(--error, #c00);
+  }
 </style>

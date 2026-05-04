@@ -305,7 +305,11 @@
               <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
             </div>
             <div class="field">
-              <EquipmentAutocomplete name="focal_modifier" kind="focal_modifier" bind:value={focal_modifier} />
+              <EquipmentAutocomplete
+                name="focal_modifier"
+                kind="focal_modifier"
+                bind:value={focal_modifier}
+              />
             </div>
             <div class="field">
               <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />

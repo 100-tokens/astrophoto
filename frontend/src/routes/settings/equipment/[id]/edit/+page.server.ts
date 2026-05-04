@@ -6,7 +6,10 @@ const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http:/
 
 export const load: PageServerLoad = async ({ params, locals, fetch, cookies }) => {
   if (!locals.user) redirect(303, '/signin');
-  const cookie = cookies.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+  const cookie = cookies
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
   const r = await fetch(`${API}/api/equipment/setups/${params.id}`, {
     headers: { Cookie: cookie }
   });

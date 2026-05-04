@@ -1,6 +1,10 @@
 //! PATCH /api/equipment/setups/:id — meta + items replace-all.
 
-use axum::{Json, extract::{Path, State}, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Path, State},
+    response::IntoResponse,
+};
 use uuid::Uuid;
 
 use crate::api_types::SetupInput;
@@ -32,7 +36,8 @@ pub async fn handler(
     // Confirm ownership and lock the row.
     let exists = sqlx::query_scalar!(
         "select id from equipment_setups where id = $1 and owner_id = $2 for update",
-        id, user.0.id
+        id,
+        user.0.id
     )
     .fetch_optional(&mut *tx)
     .await?;
@@ -44,7 +49,8 @@ pub async fn handler(
         sqlx::query!(
             "update equipment_setups set is_default = false
              where owner_id = $1 and is_default and id <> $2",
-            user.0.id, id
+            user.0.id,
+            id
         )
         .execute(&mut *tx)
         .await?;
@@ -56,20 +62,28 @@ pub async fn handler(
                   is_remote=$4, is_default=$5, guiding=$6,
                   updated_at=now()
             where id=$7"#,
-        input.name.trim(), input.description.as_deref(), input.location.as_deref(),
-        input.is_remote, input.is_default, input.guiding.as_deref(), id
+        input.name.trim(),
+        input.description.as_deref(),
+        input.location.as_deref(),
+        input.is_remote,
+        input.is_default,
+        input.guiding.as_deref(),
+        id
     )
     .execute(&mut *tx)
     .await
     .map_err(unique_conflict_to_422)?;
 
     sqlx::query!("delete from setup_items where setup_id=$1", id)
-        .execute(&mut *tx).await?;
+        .execute(&mut *tx)
+        .await?;
 
     for (i, it) in input.items.iter().enumerate() {
         sqlx::query!(
             "insert into setup_items (setup_id, role, item_id) values ($1,$2,$3)",
-            id, it.role, item_uuids[i]
+            id,
+            it.role,
+            item_uuids[i]
         )
         .execute(&mut *tx)
         .await

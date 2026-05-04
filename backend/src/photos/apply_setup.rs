@@ -5,7 +5,12 @@
 //! In both modes, setup_id on the photo is set unconditionally — the FK
 //! records origin, not equality with the setup's current state.
 
-use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -36,9 +41,11 @@ pub async fn apply(
     let mode_overwrite = match input.mode.as_str() {
         "fill_empty" => false,
         "overwrite" => true,
-        _ => return Err(AppError::Validation(
-            "mode must be 'fill_empty' or 'overwrite'".into(),
-        )),
+        _ => {
+            return Err(AppError::Validation(
+                "mode must be 'fill_empty' or 'overwrite'".into(),
+            ));
+        }
     };
 
     let mut tx = state.pool.begin().await?;
@@ -46,15 +53,21 @@ pub async fn apply(
     // Confirm setup belongs to caller. 404 if not.
     let setup = sqlx::query!(
         "select guiding from equipment_setups where id=$1 and owner_id=$2",
-        setup_uuid, user.0.id
-    ).fetch_optional(&mut *tx).await?
-        .ok_or_else(|| AppError::NotFound("setup not found".into()))?;
+        setup_uuid,
+        user.0.id
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or_else(|| AppError::NotFound("setup not found".into()))?;
 
     // Confirm photo belongs to caller AND lock the row.
     let owns_photo = sqlx::query_scalar!(
         "select id from photos where id=$1 and owner_id=$2 for update",
-        photo_id, user.0.id
-    ).fetch_optional(&mut *tx).await?;
+        photo_id,
+        user.0.id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
     if owns_photo.is_none() {
         return Err(AppError::NotFound("photo not found".into()));
     }
@@ -67,7 +80,9 @@ pub async fn apply(
             where si.setup_id = $1
             order by si.role, ei.canonical_name"#,
         setup_uuid
-    ).fetch_all(&mut *tx).await?;
+    )
+    .fetch_all(&mut *tx)
+    .await?;
 
     let mut scope: Option<String> = None;
     let mut focal_mod: Option<String> = None;
@@ -84,7 +99,9 @@ pub async fn apply(
             _ => {}
         }
     }
-    let filters = if filters_buf.is_empty() { None } else {
+    let filters = if filters_buf.is_empty() {
+        None
+    } else {
         Some(filters_buf.join(", "))
     };
     let guiding = setup.guiding;
@@ -111,10 +128,18 @@ pub async fn apply(
          where id = $1
        returning setup_id, scope, focal_modifier, camera, mount, filters, guiding
         "#,
-        photo_id, mode_overwrite,
-        scope, focal_mod, camera, mount, filters, guiding,
+        photo_id,
+        mode_overwrite,
+        scope,
+        focal_mod,
+        camera,
+        mount,
+        filters,
+        guiding,
         setup_uuid
-    ).fetch_one(&mut *tx).await?;
+    )
+    .fetch_one(&mut *tx)
+    .await?;
 
     tx.commit().await?;
 
@@ -136,8 +161,11 @@ pub async fn detach(
 ) -> Result<impl IntoResponse, AppError> {
     let res = sqlx::query!(
         "update photos set setup_id=null where id=$1 and owner_id=$2",
-        photo_id, user.0.id
-    ).execute(&state.pool).await?;
+        photo_id,
+        user.0.id
+    )
+    .execute(&state.pool)
+    .await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("photo not found".into()));
     }

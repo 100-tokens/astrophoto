@@ -4,7 +4,10 @@
 use std::sync::Arc;
 
 use astrophoto::{Config, db, http, storage::MemoryStorage};
-use axum::{body::Body, http::{Request, header}};
+use axum::{
+    body::Body,
+    http::{Request, header},
+};
 use http_body_util::BodyExt as _;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
@@ -48,7 +51,12 @@ async fn make_app_and_pool() -> (axum::Router, sqlx::PgPool) {
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
     std::mem::forget(pg);
-    let router = http::router(pool.clone(), config_for(&url), Arc::new(MemoryStorage::new()), Arc::new(mailer));
+    let router = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+    );
     (router, pool)
 }
 
@@ -59,29 +67,46 @@ async fn signup_and_cookie(app: &axum::Router, email: &str, handle: &str) -> Str
         "display_name": "Test User",
         "handle": handle
     });
-    let resp = app.clone().oneshot(
-        Request::builder()
-            .method("POST")
-            .uri("/api/auth/signup")
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(Body::from(body.to_string())).unwrap()
-    ).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(resp.status(), 201, "signup failed");
-    resp.headers().get("set-cookie").unwrap().to_str().unwrap().to_string()
+    resp.headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
 }
 
 #[tokio::test]
 async fn insert_on_miss_returns_row_with_zero_count() {
     let (app, pool) = make_app_and_pool().await;
     let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
-    let r = app.clone().oneshot(
-        Request::builder()
-            .method("POST")
-            .uri("/api/equipment/items")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header(header::COOKIE, &cookie)
-            .body(Body::from(r#"{"kind":"telescope","display_name":"Sky-Watcher 200P"}"#)).unwrap()
-    ).await.unwrap();
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{"kind":"telescope","display_name":"Sky-Watcher 200P"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
     let bytes = r.into_body().collect().await.unwrap().to_bytes();
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
@@ -101,15 +126,25 @@ async fn idempotent_on_hit_does_not_increment() {
     sqlx::query!(
         "insert into equipment_items (kind, canonical_name, display_name, usage_count)
          values ('telescope', 'celestron c8', 'Celestron C8', 7)"
-    ).execute(&pool).await.unwrap();
-    let r = app.clone().oneshot(
-        Request::builder()
-            .method("POST")
-            .uri("/api/equipment/items")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header(header::COOKIE, &cookie)
-            .body(Body::from(r#"{"kind":"telescope","display_name":"Celestron C8"}"#)).unwrap()
-    ).await.unwrap();
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{"kind":"telescope","display_name":"Celestron C8"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
     let count: i32 = sqlx::query_scalar!(
         "select usage_count from equipment_items where kind='telescope' and canonical_name='celestron c8'"
@@ -121,13 +156,18 @@ async fn idempotent_on_hit_does_not_increment() {
 async fn invalid_kind_returns_422() {
     let (app, _pool) = make_app_and_pool().await;
     let cookie = signup_and_cookie(&app, "carol@example.com", "carol1").await;
-    let r = app.clone().oneshot(
-        Request::builder()
-            .method("POST")
-            .uri("/api/equipment/items")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header(header::COOKIE, &cookie)
-            .body(Body::from(r#"{"kind":"banana","display_name":"x"}"#)).unwrap()
-    ).await.unwrap();
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"kind":"banana","display_name":"x"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(r.status(), 422);
 }

@@ -23,9 +23,16 @@
 
   const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
 
-  let selected = $state(currentSetupId ?? '');
-  let lastConfirmed = $state(currentSetupId ?? '');
+  let selected = $state('');
+  let lastConfirmed = $state('');
   let busy = $state(false);
+
+  // Sync local UI state when the parent passes a different currentSetupId
+  // (e.g., after onapply mutates photo_setup_id, or on initial mount).
+  $effect(() => {
+    selected = currentSetupId ?? '';
+    lastConfirmed = currentSetupId ?? '';
+  });
 
   function projectFromDetail(d: SetupDetail): Current {
     let scope = '';
@@ -65,7 +72,12 @@
 
   function conflictCount(target: Current): number {
     const fields: (keyof Current)[] = [
-      'scope', 'focal_modifier', 'camera', 'mount', 'filters', 'guiding'
+      'scope',
+      'focal_modifier',
+      'camera',
+      'mount',
+      'filters',
+      'guiding'
     ];
     let n = 0;
     for (const f of fields) {
@@ -147,11 +159,39 @@
 </div>
 
 <style>
-  .setup-picker { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
-  .picker-label { display: flex; flex-direction: column; gap: 0.25rem; min-width: 18rem; }
-  .t-label { font-size: 0.85em; color: var(--muted, #666); text-transform: uppercase; letter-spacing: 0.05em; }
-  select { padding: 0.5rem; font-size: 1rem; }
-  .btn { padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; }
-  .btn.ghost { background: transparent; border: 1px solid var(--border, #ccc); color: inherit; }
-  .busy { color: var(--muted, #666); }
+  .setup-picker {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 18rem;
+  }
+  .t-label {
+    font-size: 0.85em;
+    color: var(--muted, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  select {
+    padding: 0.5rem;
+    font-size: 1rem;
+  }
+  .btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid var(--border, #ccc);
+    color: inherit;
+  }
+  .busy {
+    color: var(--muted, #666);
+  }
 </style>

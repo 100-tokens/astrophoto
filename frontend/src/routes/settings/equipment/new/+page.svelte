@@ -57,7 +57,15 @@
 </div>
 
 <style>
-  .header { margin-bottom: 1rem; }
-  .saving { opacity: 0.6; pointer-events: none; }
-  .form-error { color: var(--error, #c00); margin-bottom: 0.5rem; }
+  .header {
+    margin-bottom: 1rem;
+  }
+  .saving {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .form-error {
+    color: var(--error, #c00);
+    margin-bottom: 0.5rem;
+  }
 </style>

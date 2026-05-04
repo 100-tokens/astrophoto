@@ -182,10 +182,7 @@
 
     <label class="field">
       <span class="t-label">Guiding</span>
-      <input
-        bind:value={guiding}
-        placeholder="e.g., ASI120MM Mini + 60mm guide scope"
-      />
+      <input bind:value={guiding} placeholder="e.g., ASI120MM Mini + 60mm guide scope" />
       <small class="hint">Free text. Not auto-completed.</small>
     </label>
   </fieldset>
@@ -194,28 +191,89 @@
 
   <div class="actions">
     {#if oncancel}
-      <button type="button" class="btn ghost" onclick={() => oncancel?.()}
-        >Cancel</button
-      >
+      <button type="button" class="btn ghost" onclick={() => oncancel?.()}>Cancel</button>
     {/if}
     <button type="submit" class="btn primary">{submitLabel}</button>
   </div>
 </form>
 
 <style>
-  .setup-form { display: flex; flex-direction: column; gap: 1rem; }
-  .field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .row { display: flex; gap: 1.5rem; }
-  .check { display: flex; gap: 0.5rem; align-items: center; }
-  .equipment { border: 1px solid var(--border, #ccc); padding: 1rem; border-radius: 4px; }
-  .chips { list-style: none; padding: 0; margin: 0 0 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .chip { background: var(--chip-bg, #eee); padding: 0.15rem 0.5rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.25rem; }
-  .chip-x { border: none; background: transparent; cursor: pointer; padding: 0 0.25rem; }
-  .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-  .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-  .btn.primary { background: var(--primary, #0a6); color: white; border: none; }
-  .btn.ghost { background: transparent; border: 1px solid var(--border, #ccc); }
-  .hint { color: var(--muted, #666); font-size: 0.85em; }
-  .form-error { color: var(--error, #c00); }
-  .t-label { font-size: 0.85em; color: var(--muted, #666); text-transform: uppercase; letter-spacing: 0.05em; }
+  .setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .row {
+    display: flex;
+    gap: 1.5rem;
+  }
+  .check {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .equipment {
+    border: 1px solid var(--border, #ccc);
+    padding: 1rem;
+    border-radius: 4px;
+  }
+  .chips {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .chip {
+    background: var(--chip-bg, #eee);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .chip-x {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0 0.25rem;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--primary, #0a6);
+    color: white;
+    border: none;
+  }
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid var(--border, #ccc);
+  }
+  .hint {
+    color: var(--muted, #666);
+    font-size: 0.85em;
+  }
+  .form-error {
+    color: var(--error, #c00);
+  }
+  .t-label {
+    font-size: 0.85em;
+    color: var(--muted, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 </style>

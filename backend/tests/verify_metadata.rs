@@ -452,8 +452,7 @@ async fn focal_modifier_round_trip_via_put_and_get() {
         .get_json(&format!("/api/photos/{photo_id}"), &cookie)
         .await;
     assert_eq!(
-        detail["focal_modifier"],
-        "Antares 0.7x Reducer",
+        detail["focal_modifier"], "Antares 0.7x Reducer",
         "focal_modifier not returned in GET response"
     );
 

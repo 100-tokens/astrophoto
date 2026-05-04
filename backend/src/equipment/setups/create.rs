@@ -45,9 +45,13 @@ pub async fn handler(
             (owner_id, name, description, location, is_remote, is_default, guiding)
             values ($1,$2,$3,$4,$5,$6,$7)
             returning id"#,
-        user.0.id, input.name.trim(),
-        input.description.as_deref(), input.location.as_deref(),
-        input.is_remote, input.is_default, input.guiding.as_deref()
+        user.0.id,
+        input.name.trim(),
+        input.description.as_deref(),
+        input.location.as_deref(),
+        input.is_remote,
+        input.is_default,
+        input.guiding.as_deref()
     )
     .fetch_one(&mut *tx)
     .await
@@ -57,7 +61,9 @@ pub async fn handler(
     for (i, it) in input.items.iter().enumerate() {
         sqlx::query!(
             "insert into setup_items (setup_id, role, item_id) values ($1,$2,$3)",
-            setup_id, it.role, item_uuids[i]
+            setup_id,
+            it.role,
+            item_uuids[i]
         )
         .execute(&mut *tx)
         .await
