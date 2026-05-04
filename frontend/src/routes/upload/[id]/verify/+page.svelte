@@ -6,12 +6,18 @@
   import EquipmentAutocomplete from '$lib/components/EquipmentAutocomplete.svelte';
   import Img from '$lib/components/Img.svelte';
   import Input from '$lib/components/Input.svelte';
+  import SetupPicker from '$lib/components/SetupPicker.svelte';
   import TagInput from '$lib/components/TagInput.svelte';
   import TargetPicker from '$lib/components/TargetPicker.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
+  import type { SetupSummary } from '$lib/api/SetupSummary';
   import type { PageProps } from './$types';
 
+  const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+
   let { data, form }: PageProps = $props();
+  // Silence unused-import warning: SetupSummary is used only for the type cast below.
+  type _SetupSummary = SetupSummary;
   let polling = $state<number | null>(null);
 
   // The generated PhotoDetail type still doesn't include the per-photo
@@ -19,6 +25,7 @@
   // those are written via the metadata patch but not echoed back in
   // PhotoDetail. Cast inline so we can seed the form from the server value.
   type ShowcasePhoto = typeof data.photo & {
+    setup_id?: string | null;
     category?: string | null;
     scope?: string | null;
     focal_modifier?: string | null;
@@ -43,7 +50,39 @@
   let mount = $state<string>(_sp.mount ?? '');
   let filters = $state<string>(_sp.filters ?? '');
   let guiding = $state<string>(_sp.guiding ?? '');
+  let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
   // TODO(P2): load existing tags from photo_tags join in the load function.
+
+  async function onApplySetup(req: { setup_id: string; mode: 'fill_empty' | 'overwrite' }) {
+    const r = await fetch(`${API}/api/photos/${data.photo.id}/apply-setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(req)
+    });
+    if (!r.ok) return;
+    const out = await r.json();
+    // The backend returns the canonical denormalized columns; sync them
+    // back into the form state so the user sees the change immediately.
+    scope = out.scope ?? '';
+    focal_modifier = out.focal_modifier ?? '';
+    camera = out.camera ?? '';
+    mount = out.mount ?? '';
+    filters = out.filters ?? '';
+    guiding = out.guiding ?? '';
+    photo_setup_id = out.setup_id ?? null;
+  }
+
+  async function onDetachSetup() {
+    const r = await fetch(`${API}/api/photos/${data.photo.id}/detach-setup`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (r.ok) {
+      photo_setup_id = null;
+      // Denormalized columns intentionally NOT cleared per spec.
+    }
+  }
 
   let isPublished = $derived(!data.photo.is_draft);
   let isProcessing = $derived(data.photo.status === 'processing');
@@ -249,6 +288,15 @@
           </div>
 
           <!-- Row 3: equipment pickers in 2-col grid -->
+          <div class="setup-row">
+            <SetupPicker
+              setups={data.setups}
+              currentSetupId={photo_setup_id}
+              current={{ scope, focal_modifier, camera, mount, filters, guiding }}
+              onapply={onApplySetup}
+              ondetach={onDetachSetup}
+            />
+          </div>
           <div class="grid equipment-grid">
             <div class="field">
               <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
@@ -458,6 +506,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .setup-row {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #ccc);
   }
   .actions {
     display: flex;

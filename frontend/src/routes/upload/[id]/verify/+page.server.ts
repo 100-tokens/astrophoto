@@ -9,12 +9,41 @@ export const load: PageServerLoad = async ({ params, locals, fetch, cookies }) =
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join('; ');
-  const r = await fetch(`${API}/api/photos/${params.id}`, { headers: { Cookie: cookie } });
+
+  let r = await fetch(`${API}/api/photos/${params.id}`, {
+    headers: { Cookie: cookie }
+  });
   if (r.status === 404) error(404, 'Photo not found');
   if (!r.ok) error(500, 'Backend error');
-  const photo = await r.json();
+  let photo = await r.json();
   if (photo.owner_id !== locals.user.id) error(404, 'Not found');
-  return { photo };
+
+  // Fetch the user's setups list.
+  const sr = await fetch(`${API}/api/equipment/setups`, {
+    headers: { Cookie: cookie }
+  });
+  const setups = sr.ok ? await sr.json() : [];
+
+  // Auto-apply default setup if the photo doesn't already reference one.
+  if (!photo.setup_id) {
+    const def = setups.find((s: { is_default: boolean }) => s.is_default);
+    if (def) {
+      const ar = await fetch(`${API}/api/photos/${params.id}/apply-setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ setup_id: def.id, mode: 'fill_empty' })
+      });
+      if (ar.ok) {
+        // Re-read the photo so the form has the merged columns and setup_id.
+        r = await fetch(`${API}/api/photos/${params.id}`, {
+          headers: { Cookie: cookie }
+        });
+        if (r.ok) photo = await r.json();
+      }
+    }
+  }
+
+  return { photo, setups };
 };
 
 async function callPut(
