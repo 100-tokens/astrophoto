@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, description, location, is_remote, is_default,\n                  guiding, created_at, updated_at\n             from equipment_setups\n            where id = $1 and owner_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "location",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_remote",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_default",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "guiding",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "e02b819d61bf57765d916073570ea0671db68101831c1f1f41df277705d9fee9"
+}

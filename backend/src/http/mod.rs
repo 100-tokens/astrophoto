@@ -240,7 +240,8 @@ pub fn router(
         )
         .route(
             "/api/equipment/setups",
-            axum::routing::get(crate::equipment::setups::list::handler),
+            axum::routing::get(crate::equipment::setups::list::handler)
+                .post(crate::equipment::setups::create::handler),
         )
         .route(
             "/api/uploads/init",

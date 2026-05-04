@@ -151,3 +151,92 @@ async fn list_returns_owner_setups_only_with_role_counts() {
     let travel_counts = travel["item_counts"].as_array().unwrap();
     assert_eq!(travel_counts.len(), 0, "no items → empty array");
 }
+
+#[tokio::test]
+async fn create_persists_setup_with_items_and_clears_other_default() {
+    let (app, pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_id = lookup_user_id(&pool, "alice@example.com").await;
+
+    sqlx::query!(
+        "insert into equipment_setups (owner_id, name, is_default) values ($1,'Old default',true)",
+        alice_id
+    ).execute(&pool).await.unwrap();
+    let scope_id = sqlx::query_scalar!(
+        "insert into equipment_items (kind,canonical_name,display_name,usage_count)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+    ).fetch_one(&pool).await.unwrap();
+
+    let body = serde_json::json!({
+        "name": "Backyard rig",
+        "description": null,
+        "location": "Paris",
+        "is_remote": false,
+        "is_default": true,
+        "guiding": null,
+        "items": [{ "role": "optical_tube", "item_id": scope_id.to_string() }]
+    });
+    let r = app.clone().oneshot(
+        Request::builder()
+            .method("POST")
+            .uri("/api/equipment/setups")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &cookie)
+            .body(Body::from(body.to_string())).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 201, "expected 201 Created");
+
+    let n_default: i64 = sqlx::query_scalar!(
+        "select count(*) from equipment_setups where owner_id=$1 and is_default", alice_id
+    ).fetch_one(&pool).await.unwrap().unwrap();
+    assert_eq!(n_default, 1, "exactly one default per user");
+
+    let backyard_default: bool = sqlx::query_scalar!(
+        "select is_default from equipment_setups where owner_id=$1 and name='Backyard rig'",
+        alice_id
+    ).fetch_one(&pool).await.unwrap();
+    assert!(backyard_default, "the new setup is the default");
+}
+
+#[tokio::test]
+async fn create_unknown_item_id_returns_422() {
+    let (app, _pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let body = serde_json::json!({
+        "name": "x", "description": null, "location": null,
+        "is_remote": false, "is_default": false, "guiding": null,
+        "items": [{ "role": "optical_tube",
+                    "item_id": "00000000-0000-0000-0000-000000000000" }]
+    });
+    let r = app.clone().oneshot(
+        Request::builder()
+            .method("POST")
+            .uri("/api/equipment/setups")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &cookie)
+            .body(Body::from(body.to_string())).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 422);
+}
+
+#[tokio::test]
+async fn create_duplicate_name_returns_422() {
+    let (app, _pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    for expected in [201, 422] {
+        let body = serde_json::json!({
+            "name": "DupeName", "description": null, "location": null,
+            "is_remote": false, "is_default": false, "guiding": null,
+            "items": []
+        });
+        let r = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/setups")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(body.to_string())).unwrap()
+        ).await.unwrap();
+        assert_eq!(r.status(), expected);
+    }
+}

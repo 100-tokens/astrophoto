@@ -24,3 +24,23 @@ pub fn validate_role(role: &str) -> Result<(), crate::error::AppError> {
         )))
     }
 }
+
+pub(super) fn unique_conflict_to_422(e: sqlx::Error) -> crate::error::AppError {
+    if let Some(db) = e.as_database_error() {
+        if db.code().as_deref() == Some("23505") {
+            return crate::error::AppError::Validation(
+                "a setup with this name already exists".into(),
+            );
+        }
+    }
+    e.into()
+}
+
+pub(super) fn unknown_item_to_422(e: sqlx::Error) -> crate::error::AppError {
+    if let Some(db) = e.as_database_error() {
+        if db.code().as_deref() == Some("23503") {
+            return crate::error::AppError::Validation("unknown item_id".into());
+        }
+    }
+    e.into()
+}
