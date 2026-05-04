@@ -21,6 +21,7 @@
   type ShowcasePhoto = typeof data.photo & {
     category?: string | null;
     scope?: string | null;
+    focal_modifier?: string | null;
     mount?: string | null;
     filters?: string | null;
     guiding?: string | null;
@@ -38,6 +39,7 @@
   let tags = $state<string[]>([]);
   let category = $state<string>(_sp.category ?? 'other');
   let scope = $state<string>(_sp.scope ?? '');
+  let focal_modifier = $state<string>(_sp.focal_modifier ?? '');
   let mount = $state<string>(_sp.mount ?? '');
   let filters = $state<string>(_sp.filters ?? '');
   let guiding = $state<string>(_sp.guiding ?? '');
@@ -253,6 +255,9 @@
             </div>
             <div class="field">
               <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
+            </div>
+            <div class="field">
+              <EquipmentAutocomplete name="focal_modifier" kind="focal_modifier" bind:value={focal_modifier} />
             </div>
             <div class="field">
               <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />

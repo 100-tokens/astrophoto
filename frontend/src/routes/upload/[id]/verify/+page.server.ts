@@ -66,6 +66,7 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     dec_deg: numOrNull('dec_deg'),
     category: strOrNull('category'),
     scope: strOrNull('scope'),
+    focal_modifier: strOrNull('focal_modifier'),
     mount: strOrNull('mount'),
     filters: strOrNull('filters'),
     guiding: strOrNull('guiding'),
