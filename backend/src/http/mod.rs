@@ -235,6 +235,10 @@ pub fn router(
             axum::routing::get(crate::equipment::autocomplete::handler),
         )
         .route(
+            "/api/equipment/items",
+            axum::routing::post(crate::equipment::items_create::handler),
+        )
+        .route(
             "/api/uploads/init",
             axum::routing::post(crate::photos::upload_init::handler),
         )

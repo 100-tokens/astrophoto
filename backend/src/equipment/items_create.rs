@@ -1,0 +1,74 @@
+//! POST /api/equipment/items
+//!
+//! Resolve-or-create one canonical equipment item. Returns the existing
+//! row on hit (no usage_count bump — that counter remains photo-save
+//! driven via `crate::equipment::upsert`) or inserts on miss with
+//! usage_count = 0. Authenticated users only.
+
+use axum::{Json, extract::State, response::IntoResponse};
+use serde::Serialize;
+
+use crate::api_types::EquipmentItemInput;
+use crate::auth::middleware::CurrentUser;
+use crate::error::AppError;
+use crate::http::AppState;
+
+const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "focal_modifier"];
+
+#[derive(Serialize)]
+pub struct Out {
+    pub id: String,
+    pub kind: String,
+    pub canonical_name: String,
+    pub display_name: String,
+    pub usage_count: i32,
+}
+
+pub async fn handler(
+    State(state): State<AppState>,
+    _user: CurrentUser,
+    Json(input): Json<EquipmentItemInput>,
+) -> Result<impl IntoResponse, AppError> {
+    if !VALID_KINDS.contains(&input.kind.as_str()) {
+        return Err(AppError::Validation(
+            "kind must be telescope|camera|mount|filter|focal_modifier".into(),
+        ));
+    }
+    let display = input.display_name.trim();
+    if display.is_empty() {
+        return Err(AppError::Validation("display_name is required".into()));
+    }
+    let canonical = display.to_lowercase();
+
+    let row = sqlx::query!(
+        r#"
+        with ins as (
+            insert into equipment_items (kind, canonical_name, display_name, usage_count)
+                 values ($1, $2, $3, 0)
+            on conflict (kind, canonical_name) do nothing
+            returning id, kind, canonical_name, display_name, usage_count
+        )
+        select id as "id!", kind as "kind!", canonical_name as "canonical_name!",
+               display_name as "display_name!", usage_count as "usage_count!"
+          from ins
+         union all
+        select id, kind, canonical_name, display_name, usage_count
+          from equipment_items
+         where kind = $1 and canonical_name = $2
+         limit 1
+        "#,
+        input.kind,
+        canonical,
+        display
+    )
+    .fetch_one(&state.pool)
+    .await?;
+
+    Ok(Json(Out {
+        id: row.id.to_string(),
+        kind: row.kind,
+        canonical_name: row.canonical_name,
+        display_name: row.display_name,
+        usage_count: row.usage_count,
+    }))
+}

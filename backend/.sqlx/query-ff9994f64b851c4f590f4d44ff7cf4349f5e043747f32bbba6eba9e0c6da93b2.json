@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count)\n         values ('telescope', 'celestron c8', 'Celestron C8', 7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "ff9994f64b851c4f590f4d44ff7cf4349f5e043747f32bbba6eba9e0c6da93b2"
+}
