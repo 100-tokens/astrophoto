@@ -8,33 +8,32 @@
   let { onFiles, overQuota = false }: Props = $props();
 
   let dragOver = $state(false);
-  let inputEl: HTMLInputElement;
+  // Stable id so the wrapping <label> can target the hidden input even when
+  // multiple <UploadDropzone> instances coexist on a page.
+  const inputId = `upload-dz-input-${crypto.randomUUID()}`;
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
+    if (overQuota) return;
     const files = Array.from(e.dataTransfer?.files ?? []);
     if (files.length) onFiles(files);
   }
-
-  function openPicker() {
-    // Clear value so re-selecting the same file re-fires onchange.
-    inputEl.value = '';
-    inputEl.click();
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      openPicker();
-    }
-  }
 </script>
 
-<div
+<!--
+  Wrapping the surface in a <label for=…> is the most reliable way to
+  forward a click anywhere inside the dropzone to the hidden file input.
+  The previous implementation called inputEl.click() from an onclick on a
+  <div role="button"> — Chrome/Safari sometimes refuse to open the OS file
+  dialog from a synthetic click on a `display:none` input under strict
+  user-activation rules. The label-based pattern sidesteps that entirely.
+-->
+<label
   class="dz"
   class:dz-drag={dragOver}
   class:dz-disabled={overQuota}
+  for={inputId}
   ondragover={(e) => {
     e.preventDefault();
     dragOver = true;
@@ -43,30 +42,34 @@
     dragOver = false;
   }}
   ondrop={handleDrop}
-  onclick={openPicker}
-  onkeydown={handleKeydown}
-  role="button"
-  tabindex="0"
-  aria-label="Drop photos to upload"
   aria-disabled={overQuota}
 >
-  <p class="dz-headline t-display">↑ Drop photos here, or click</p>
-  <p class="t-meta">JPEG · PNG · TIFF · up to 50 MB (free) · Subscribers up to 200 MB</p>
+  <span class="dz-headline t-display">↑ Drop photos here, or click</span>
+  <span class="t-meta">JPEG · PNG · TIFF · up to 50 MB (free) · Subscribers up to 200 MB</span>
   <input
-    bind:this={inputEl}
+    id={inputId}
     type="file"
     multiple
     accept="image/jpeg,image/png,image/tiff"
-    style="display:none"
+    class="dz-input"
+    disabled={overQuota}
     onchange={(e) => {
-      const fs = Array.from((e.target as HTMLInputElement).files ?? []);
+      const target = e.target as HTMLInputElement;
+      const fs = Array.from(target.files ?? []);
+      // Reset so re-selecting the same file re-fires onchange.
+      target.value = '';
       if (fs.length) onFiles(fs);
     }}
   />
-</div>
+</label>
 
 <style>
   .dz {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     padding: 64px 32px;
     border: 1px dashed var(--border-default);
     text-align: center;
@@ -78,8 +81,22 @@
     outline-offset: 2px;
   }
 
-  .dz:focus-visible {
+  .dz:focus-within {
     outline: 2px solid var(--accent);
+  }
+
+  /* Visually-hidden but focusable + activatable; the wrapping <label> fully
+     forwards clicks. `display: none` would break the click forwarding. */
+  .dz-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .dz-drag {
@@ -96,6 +113,5 @@
   .dz-headline {
     font-size: 22px;
     font-style: italic;
-    margin: 0 0 8px;
   }
 </style>
