@@ -198,3 +198,30 @@ async fn all_valid_kinds_accepted() {
         );
     }
 }
+
+/// focal_modifier kind is supported and returns matching items.
+#[tokio::test]
+async fn focal_modifier_kind_is_supported() {
+    let (app, pool) = make_app().await;
+    sqlx::query!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('focal_modifier','antares 0.7x reducer','Antares 0.7x Reducer',3)"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let resp = get_response(app, "/api/equipment/autocomplete?kind=focal_modifier&q=red").await;
+    assert_eq!(resp.status(), 200);
+    let bytes = axum::body::to_bytes(resp.into_body(), 65_536)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let names: Vec<String> = body["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["display_name"].as_str().unwrap().to_string())
+        .collect();
+    assert!(names.iter().any(|n| n == "Antares 0.7x Reducer"));
+}

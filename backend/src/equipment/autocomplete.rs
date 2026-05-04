@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::AppError;
 use crate::http::AppState;
 
-const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "guiding"];
+const VALID_KINDS: &[&str] =
+    &["telescope", "camera", "mount", "filter", "focal_modifier", "guiding"];
 
 #[derive(Deserialize)]
 pub struct Q {
@@ -42,7 +43,7 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     if !VALID_KINDS.contains(&qs.kind.as_str()) {
         return Err(AppError::Validation(
-            "kind must be telescope|camera|mount|filter|guiding".into(),
+            "kind must be telescope|camera|mount|filter|focal_modifier|guiding".into(),
         ));
     }
     let q = qs.q.trim();
