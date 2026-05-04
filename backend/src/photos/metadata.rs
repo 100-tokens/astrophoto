@@ -43,6 +43,20 @@ pub struct MetadataUpdate {
     #[serde(default, with = "::serde_with::rust::double_option")]
     pub dec_deg: Option<Option<f64>>,
 
+    // Migration 0013: extended acquisition fields. Clearable (double-Option)
+    // because users edit them via the verify form and need to remove a value.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub aperture_f: Option<Option<f32>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub gain: Option<Option<i16>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub sensor_temp_c: Option<Option<f32>>,
+
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub sessions: Option<Option<i16>>,
+
     pub exif_json: Option<serde_json::Value>,
 
     pub last_step: Option<String>,
@@ -104,23 +118,27 @@ pub async fn handler(
     sqlx::query!(
         r#"
         update photos set
-          target       = case when $2::bool then $3 else target end,
-          caption      = case when $4::bool then $5 else caption end,
-          taken_at     = case when $6::bool then $7 else taken_at end,
-          camera       = case when $8::bool then $9 else camera end,
-          lens         = case when $10::bool then $11 else lens end,
-          iso          = case when $12::bool then $13 else iso end,
-          exposure_s   = case when $14::bool then $15 else exposure_s end,
-          focal_mm     = case when $16::bool then $17 else focal_mm end,
-          ra_deg       = case when $18::bool then $19 else ra_deg end,
-          dec_deg      = case when $20::bool then $21 else dec_deg end,
-          exif_json    = case when $22::bool then $23 else exif_json end,
-          last_step    = coalesce($24, last_step),
-          category     = coalesce($25, category),
-          scope        = coalesce($26, scope),
-          mount        = coalesce($27, mount),
-          filters      = coalesce($28, filters),
-          guiding      = coalesce($29, guiding)
+          target        = case when $2::bool  then $3  else target end,
+          caption       = case when $4::bool  then $5  else caption end,
+          taken_at      = case when $6::bool  then $7  else taken_at end,
+          camera        = case when $8::bool  then $9  else camera end,
+          lens          = case when $10::bool then $11 else lens end,
+          iso           = case when $12::bool then $13 else iso end,
+          exposure_s    = case when $14::bool then $15 else exposure_s end,
+          focal_mm      = case when $16::bool then $17 else focal_mm end,
+          ra_deg        = case when $18::bool then $19 else ra_deg end,
+          dec_deg       = case when $20::bool then $21 else dec_deg end,
+          exif_json     = case when $22::bool then $23 else exif_json end,
+          aperture_f    = case when $30::bool then $31 else aperture_f end,
+          gain          = case when $32::bool then $33 else gain end,
+          sensor_temp_c = case when $34::bool then $35 else sensor_temp_c end,
+          sessions      = case when $36::bool then $37 else sessions end,
+          last_step     = coalesce($24, last_step),
+          category      = coalesce($25, category),
+          scope         = coalesce($26, scope),
+          mount         = coalesce($27, mount),
+          filters       = coalesce($28, filters),
+          guiding       = coalesce($29, guiding)
         where id = $1
         "#,
         id,
@@ -152,6 +170,14 @@ pub async fn handler(
         patch.mount.as_deref(),
         patch.filters.as_deref(),
         patch.guiding.as_deref(),
+        patch.aperture_f.is_some(),
+        patch.aperture_f.flatten(),
+        patch.gain.is_some(),
+        patch.gain.flatten(),
+        patch.sensor_temp_c.is_some(),
+        patch.sensor_temp_c.flatten(),
+        patch.sessions.is_some(),
+        patch.sessions.flatten(),
     )
     .execute(&state.pool)
     .await?;

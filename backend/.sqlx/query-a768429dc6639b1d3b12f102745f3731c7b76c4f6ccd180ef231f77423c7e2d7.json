@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos where id = $1\n        ",
+  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where owner_id = $1 and published_at is null\n        order by created_at desc\n        limit $2\n        ",
   "describe": {
     "columns": [
       {
@@ -80,53 +80,84 @@
       },
       {
         "ordinal": 15,
+        "name": "aperture_f",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 16,
+        "name": "gain",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 17,
+        "name": "sensor_temp_c",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 18,
+        "name": "sessions",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 19,
+        "name": "ra_deg",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 20,
+        "name": "dec_deg",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 21,
         "name": "target",
         "type_info": "Text"
       },
       {
-        "ordinal": 16,
+        "ordinal": 22,
         "name": "caption",
         "type_info": "Text"
       },
       {
-        "ordinal": 17,
+        "ordinal": 23,
         "name": "status",
         "type_info": "Text"
       },
       {
-        "ordinal": 18,
+        "ordinal": 24,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 19,
+        "ordinal": 25,
         "name": "published_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 20,
+        "ordinal": 26,
         "name": "replaced_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 21,
+        "ordinal": 27,
         "name": "original_uploaded_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 22,
+        "ordinal": 28,
         "name": "last_step",
         "type_info": "Text"
       },
       {
-        "ordinal": 23,
+        "ordinal": 29,
         "name": "pipeline_error",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
@@ -147,6 +178,12 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
       false,
       false,
       true,
@@ -156,5 +193,5 @@
       true
     ]
   },
-  "hash": "41ff6101050655087e9d1f22a6ba2dc6b7ad65a68b8d4871fa79de1e219fa074"
+  "hash": "a768429dc6639b1d3b12f102745f3731c7b76c4f6ccd180ef231f77423c7e2d7"
 }

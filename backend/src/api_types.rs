@@ -87,6 +87,15 @@ pub struct PhotoDetail {
     pub iso: Option<i32>,
     pub exposure_s: Option<f64>,
     pub focal_mm: Option<f64>,
+    /// Migration 0013: extended acquisition fields surfaced on the verify form.
+    pub aperture_f: Option<f32>,
+    pub gain: Option<i16>,
+    pub sensor_temp_c: Option<f32>,
+    pub sessions: Option<i16>,
+    /// Plate-solving result. Today filled manually on the verify form;
+    /// a future plate-solve job will populate these from astrometry.
+    pub ra_deg: Option<f64>,
+    pub dec_deg: Option<f64>,
     pub target: Option<String>,
     pub caption: Option<String>,
     pub taken_at: Option<String>,

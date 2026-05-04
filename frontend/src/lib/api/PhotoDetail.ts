@@ -15,6 +15,19 @@ export type PhotoDetail = {
   iso: number | null;
   exposure_s: number | null;
   focal_mm: number | null;
+  /**
+   * Migration 0013: extended acquisition fields surfaced on the verify form.
+   */
+  aperture_f: number | null;
+  gain: number | null;
+  sensor_temp_c: number | null;
+  sessions: number | null;
+  /**
+   * Plate-solving result. Today filled manually on the verify form;
+   * a future plate-solve job will populate these from astrometry.
+   */
+  ra_deg: number | null;
+  dec_deg: number | null;
   target: string | null;
   caption: string | null;
   taken_at: string | null;

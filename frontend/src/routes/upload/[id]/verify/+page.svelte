@@ -14,9 +14,10 @@
   let { data, form }: PageProps = $props();
   let polling = $state<number | null>(null);
 
-  // The generated PhotoDetail type doesn't yet include the showcase fields
-  // (category, scope, mount, filters, guiding). Cast inline to access them.
-  // TODO: re-run `just types` once backend exports these fields via ts-rs.
+  // The generated PhotoDetail type still doesn't include the per-photo
+  // equipment freetext fields (category, scope, mount, filters, guiding) —
+  // those are written via the metadata patch but not echoed back in
+  // PhotoDetail. Cast inline so we can seed the form from the server value.
   type ShowcasePhoto = typeof data.photo & {
     category?: string | null;
     scope?: string | null;
@@ -58,6 +59,7 @@
     if (p.iso != null) n += 1;
     if (p.exposure_s != null) n += 1;
     if (p.focal_mm != null) n += 1;
+    if (p.aperture_f != null) n += 1;
     if (p.ra_deg != null && p.dec_deg != null) n += 1;
     return n;
   });
@@ -65,7 +67,7 @@
     data.photo.width && data.photo.height ? `${data.photo.width} × ${data.photo.height}` : null
   );
   let bytesLabel = $derived(
-    data.photo.bytes ? `${(data.photo.bytes / (1024 * 1024)).toFixed(1)} MB` : null
+    Number(data.photo.bytes) ? `${(Number(data.photo.bytes) / (1024 * 1024)).toFixed(1)} MB` : null
   );
 
   $effect(() => {
@@ -187,6 +189,61 @@
               <span class="t-label">FOCAL (MM)</span>
               <Input type="number" name="focal_mm" value={data.photo.focal_mm?.toString() ?? ''} />
             </label>
+            <label>
+              <span class="t-label">APERTURE (f/)</span>
+              <Input
+                type="number"
+                step="0.1"
+                name="aperture_f"
+                value={data.photo.aperture_f?.toString() ?? ''}
+              />
+            </label>
+            <label>
+              <span class="t-label">SESSIONS</span>
+              <Input type="number" name="sessions" value={data.photo.sessions?.toString() ?? ''} />
+            </label>
+            <label>
+              <span class="t-label">GAIN</span>
+              <Input type="number" name="gain" value={data.photo.gain?.toString() ?? ''} />
+            </label>
+            <label>
+              <span class="t-label">SENSOR TEMP (°C)</span>
+              <Input
+                type="number"
+                step="0.1"
+                name="sensor_temp_c"
+                value={data.photo.sensor_temp_c?.toString() ?? ''}
+              />
+            </label>
+            <label>
+              <span class="t-label">RA (DEG)</span>
+              <Input
+                type="number"
+                step="0.0001"
+                name="ra_deg"
+                value={data.photo.ra_deg?.toString() ?? ''}
+              />
+            </label>
+            <label>
+              <span class="t-label">DEC (DEG)</span>
+              <Input
+                type="number"
+                step="0.0001"
+                name="dec_deg"
+                value={data.photo.dec_deg?.toString() ?? ''}
+              />
+            </label>
+          </div>
+
+          <!-- Optional plate-solve hint per design handoff. The action is a
+               placeholder until the plate-solve worker is built — it just
+               surfaces the affordance so users know it's coming. -->
+          <div class="plate-solve">
+            <span class="t-label plate-solve-label">OPTIONAL · PLATE SOLVE</span>
+            <p class="plate-solve-body">
+              Run plate-solving to recover RA/Dec, scale, and rotation precisely. Takes ~30 s.
+              <span class="plate-solve-soon">(coming soon)</span>
+            </p>
           </div>
 
           <!-- Row 3: equipment pickers in 2-col grid -->
@@ -357,6 +414,26 @@
   }
   .status-accent {
     color: var(--accent);
+  }
+  .plate-solve {
+    margin-top: 16px;
+    margin-bottom: 24px;
+    padding: 16px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-base, var(--bg-canvas));
+  }
+  .plate-solve-label {
+    color: var(--accent);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .plate-solve-body {
+    margin: 0;
+    font-size: 12px;
+    color: var(--fg-secondary);
+  }
+  .plate-solve-soon {
+    color: var(--fg-muted);
   }
   .field-full {
     margin-bottom: 16px;

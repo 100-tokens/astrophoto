@@ -15,6 +15,8 @@ pub struct ExifData {
     pub iso: Option<i32>,
     pub exposure_s: Option<f64>,
     pub focal_mm: Option<f64>,
+    /// FNumber tag, e.g. f/5.0. Stored as the raw f-number (5.0).
+    pub aperture_f: Option<f32>,
     pub taken_at: Option<DateTime<Utc>>,
     pub width: Option<i32>,
     pub height: Option<i32>,
@@ -41,6 +43,7 @@ pub fn parse_blocking(bytes: &[u8]) -> Result<ExifData, AppError> {
         data.iso = read_int(reader, exif::Tag::PhotographicSensitivity);
         data.exposure_s = read_rational(reader, exif::Tag::ExposureTime);
         data.focal_mm = read_rational(reader, exif::Tag::FocalLength);
+        data.aperture_f = read_rational(reader, exif::Tag::FNumber).map(|v| v as f32);
         data.taken_at = read_datetime(reader, exif::Tag::DateTimeOriginal);
         data.width = read_int(reader, exif::Tag::PixelXDimension);
         data.height = read_int(reader, exif::Tag::PixelYDimension);

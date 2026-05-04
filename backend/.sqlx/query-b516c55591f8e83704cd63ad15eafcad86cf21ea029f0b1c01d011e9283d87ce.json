@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update photos set\n            status='ready', pipeline_error=null,\n            width=$2, height=$3,\n            taken_at=$4, camera=$5, lens=$6, iso=$7,\n            exposure_s=$8, focal_mm=$9,\n            aperture_f = coalesce($10, aperture_f),\n            exif_json=$11\n        where id=$1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Int4",
+        "Float8",
+        "Float8",
+        "Float4",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b516c55591f8e83704cd63ad15eafcad86cf21ea029f0b1c01d011e9283d87ce"
+}

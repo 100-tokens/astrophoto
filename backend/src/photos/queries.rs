@@ -20,6 +20,12 @@ pub struct PhotoRow {
     pub iso: Option<i32>,
     pub exposure_s: Option<f64>,
     pub focal_mm: Option<f64>,
+    pub aperture_f: Option<f32>,
+    pub gain: Option<i16>,
+    pub sensor_temp_c: Option<f32>,
+    pub sessions: Option<i16>,
+    pub ra_deg: Option<f64>,
+    pub dec_deg: Option<f64>,
     pub target: Option<String>,
     pub caption: Option<String>,
     pub status: String,
@@ -91,7 +97,8 @@ pub async fn mark_ready(
             width=$2, height=$3,
             taken_at=$4, camera=$5, lens=$6, iso=$7,
             exposure_s=$8, focal_mm=$9,
-            exif_json=$10
+            aperture_f = coalesce($10, aperture_f),
+            exif_json=$11
         where id=$1
         "#,
         id,
@@ -103,6 +110,7 @@ pub async fn mark_ready(
         exif.iso,
         exif.exposure_s,
         exif.focal_mm,
+        exif.aperture_f,
         exif.raw,
     )
     .execute(pool)
@@ -252,6 +260,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
         r#"
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
+               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos where id = $1
@@ -273,6 +282,7 @@ pub async fn list_by_owner(
         r#"
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
+               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
@@ -294,6 +304,7 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
         r#"
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
+               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos
@@ -318,7 +329,9 @@ pub async fn list_following(
         r#"
         select p.id, p.owner_id, p.short_id, p.storage_key, p.original_name, p.bytes, p.mime,
                p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
-               p.exposure_s, p.focal_mm, p.target, p.caption, p.status, p.created_at,
+               p.exposure_s, p.focal_mm,
+               p.aperture_f, p.gain, p.sensor_temp_c, p.sessions, p.ra_deg, p.dec_deg,
+               p.target, p.caption, p.status, p.created_at,
                p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
         from photos p
         join follows f on f.followed_id = p.owner_id
@@ -369,6 +382,7 @@ pub async fn list_drafts_by_owner(
         r#"
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
+               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
         from photos

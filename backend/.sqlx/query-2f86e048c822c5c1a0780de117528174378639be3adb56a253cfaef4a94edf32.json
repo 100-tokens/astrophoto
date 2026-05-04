@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update photos set\n          target        = case when $2::bool  then $3  else target end,\n          caption       = case when $4::bool  then $5  else caption end,\n          taken_at      = case when $6::bool  then $7  else taken_at end,\n          camera        = case when $8::bool  then $9  else camera end,\n          lens          = case when $10::bool then $11 else lens end,\n          iso           = case when $12::bool then $13 else iso end,\n          exposure_s    = case when $14::bool then $15 else exposure_s end,\n          focal_mm      = case when $16::bool then $17 else focal_mm end,\n          ra_deg        = case when $18::bool then $19 else ra_deg end,\n          dec_deg       = case when $20::bool then $21 else dec_deg end,\n          exif_json     = case when $22::bool then $23 else exif_json end,\n          aperture_f    = case when $30::bool then $31 else aperture_f end,\n          gain          = case when $32::bool then $33 else gain end,\n          sensor_temp_c = case when $34::bool then $35 else sensor_temp_c end,\n          sessions      = case when $36::bool then $37 else sessions end,\n          last_step     = coalesce($24, last_step),\n          category      = coalesce($25, category),\n          scope         = coalesce($26, scope),\n          mount         = coalesce($27, mount),\n          filters       = coalesce($28, filters),\n          guiding       = coalesce($29, guiding)\n        where id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Text",
+        "Bool",
+        "Text",
+        "Bool",
+        "Timestamptz",
+        "Bool",
+        "Text",
+        "Bool",
+        "Text",
+        "Bool",
+        "Int4",
+        "Bool",
+        "Float8",
+        "Bool",
+        "Float8",
+        "Bool",
+        "Float8",
+        "Bool",
+        "Float8",
+        "Bool",
+        "Jsonb",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Float4",
+        "Bool",
+        "Int2",
+        "Bool",
+        "Float4",
+        "Bool",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2f86e048c822c5c1a0780de117528174378639be3adb56a253cfaef4a94edf32"
+}

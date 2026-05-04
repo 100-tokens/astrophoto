@@ -310,6 +310,83 @@ async fn other_user_forbidden() {
     assert_eq!(status, 403, "expected 403, got {status}");
 }
 
+/// PUT with the migration 0013 extended fields persists them and the
+/// follow-up GET echoes them back. Round-trips both new acquisition
+/// fields and the (already-stored-but-newly-exposed) RA/Dec.
+#[tokio::test]
+async fn extended_exif_round_trip() {
+    let h = harness().await;
+    let cookie = h.signup("nora@example.com", "correcthorsebattery").await;
+    let photo_id = h.seed_photo(&cookie).await;
+
+    let body = serde_json::json!({
+        "aperture_f": 5.0,
+        "gain": 100,
+        "sensor_temp_c": -10.5,
+        "sessions": 4,
+        "ra_deg": 314.7,
+        "dec_deg": 44.33,
+    });
+
+    let status = h
+        .put_status(&format!("/api/photos/{photo_id}"), &body, &cookie)
+        .await;
+    assert_eq!(status, 200, "expected 200, got {status}");
+
+    let row = sqlx::query!(
+        "select aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg \
+         from photos where id = $1",
+        photo_id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+
+    assert!((row.aperture_f.unwrap() - 5.0).abs() < 0.001);
+    assert_eq!(row.gain, Some(100));
+    assert!((row.sensor_temp_c.unwrap() - (-10.5)).abs() < 0.001);
+    assert_eq!(row.sessions, Some(4));
+    assert!((row.ra_deg.unwrap() - 314.7).abs() < 0.0001);
+    assert!((row.dec_deg.unwrap() - 44.33).abs() < 0.0001);
+}
+
+/// Clearing an extended field is a JSON `null` in the patch.
+#[tokio::test]
+async fn extended_exif_clearing() {
+    let h = harness().await;
+    let cookie = h.signup("ophelia@example.com", "correcthorsebattery").await;
+    let photo_id = h.seed_photo(&cookie).await;
+
+    // Set values.
+    let set_body = serde_json::json!({
+        "aperture_f": 4.0,
+        "gain": 50,
+    });
+    h.put_status(&format!("/api/photos/{photo_id}"), &set_body, &cookie)
+        .await;
+
+    // Clear by sending JSON nulls.
+    let clear_body = serde_json::json!({
+        "aperture_f": null,
+        "gain": null,
+    });
+    let status = h
+        .put_status(&format!("/api/photos/{photo_id}"), &clear_body, &cookie)
+        .await;
+    assert_eq!(status, 200, "expected 200, got {status}");
+
+    let row = sqlx::query!(
+        "select aperture_f, gain from photos where id = $1",
+        photo_id
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap();
+
+    assert!(row.aperture_f.is_none(), "aperture_f should be cleared");
+    assert!(row.gain.is_none(), "gain should be cleared");
+}
+
 /// PUT with no target sends no photo_targets row.
 #[tokio::test]
 async fn no_target_no_photo_targets_row() {
