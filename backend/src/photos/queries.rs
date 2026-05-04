@@ -35,6 +35,9 @@ pub struct PhotoRow {
     pub original_uploaded_at: DateTime<Utc>,
     pub last_step: Option<String>,
     pub pipeline_error: Option<String>,
+    // Migration 0014: equipment setup link + per-photo focal modifier.
+    pub setup_id: Option<uuid::Uuid>,
+    pub focal_modifier: Option<String>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -262,7 +265,8 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
-               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
+               setup_id, focal_modifier
         from photos where id = $1
         "#,
         id
@@ -284,7 +288,8 @@ pub async fn list_by_owner(
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
-               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
+               setup_id, focal_modifier
         from photos
         where owner_id = $1 and published_at is not null
         order by published_at desc
@@ -306,7 +311,8 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
-               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
+               setup_id, focal_modifier
         from photos
         where published_at is not null
         order by published_at desc
@@ -332,7 +338,8 @@ pub async fn list_following(
                p.exposure_s, p.focal_mm,
                p.aperture_f, p.gain, p.sensor_temp_c, p.sessions, p.ra_deg, p.dec_deg,
                p.target, p.caption, p.status, p.created_at,
-               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error
+               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error,
+               p.setup_id, p.focal_modifier
         from photos p
         join follows f on f.followed_id = p.owner_id
         where f.follower_id = $1 and p.published_at is not null
@@ -384,7 +391,8 @@ pub async fn list_drafts_by_owner(
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
                target, caption, status, created_at,
-               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error
+               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
+               setup_id, focal_modifier
         from photos
         where owner_id = $1 and published_at is null
         order by created_at desc

@@ -39,4 +39,9 @@ export type PhotoDetail = {
   replaced_at: string | null;
   original_uploaded_at: string;
   pipeline_error: string | null;
+  /**
+   * Migration 0014: equipment setup link + per-photo focal modifier.
+   */
+  setup_id: string | null;
+  focal_modifier: string | null;
 };

@@ -68,6 +68,8 @@ pub struct MetadataUpdate {
     pub filters: Option<String>,
     pub guiding: Option<String>,
     pub tags: Option<Vec<String>>,
+    // Migration 0014: per-photo focal modifier (fill-in, not clear-able via this route).
+    pub focal_modifier: Option<String>,
 }
 
 pub async fn handler(
@@ -113,6 +115,7 @@ pub async fn handler(
     let mount_freetext = patch.mount.clone();
     let filters_freetext = patch.filters.clone();
     let guiding_freetext = patch.guiding.clone();
+    let focal_modifier_freetext = patch.focal_modifier.clone();
     let tags_list = patch.tags.clone();
 
     sqlx::query!(
@@ -133,12 +136,13 @@ pub async fn handler(
           gain          = case when $32::bool then $33 else gain end,
           sensor_temp_c = case when $34::bool then $35 else sensor_temp_c end,
           sessions      = case when $36::bool then $37 else sessions end,
-          last_step     = coalesce($24, last_step),
-          category      = coalesce($25, category),
-          scope         = coalesce($26, scope),
-          mount         = coalesce($27, mount),
-          filters       = coalesce($28, filters),
-          guiding       = coalesce($29, guiding)
+          last_step      = coalesce($24, last_step),
+          category       = coalesce($25, category),
+          scope          = coalesce($26, scope),
+          mount          = coalesce($27, mount),
+          filters        = coalesce($28, filters),
+          guiding        = coalesce($29, guiding),
+          focal_modifier = coalesce($38, focal_modifier)
         where id = $1
         "#,
         id,
@@ -178,6 +182,7 @@ pub async fn handler(
         patch.sensor_temp_c.flatten(),
         patch.sessions.is_some(),
         patch.sessions.flatten(),
+        patch.focal_modifier.as_deref(),
     )
     .execute(&state.pool)
     .await?;
@@ -198,6 +203,7 @@ pub async fn handler(
         ("mount", mount_freetext.as_deref()),
         ("filter", filters_freetext.as_deref()),
         ("guiding", guiding_freetext.as_deref()),
+        ("focal_modifier", focal_modifier_freetext.as_deref()),
     ] {
         if let Some(v) = val
             && !v.trim().is_empty()

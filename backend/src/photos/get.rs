@@ -46,6 +46,9 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
+    // Migration 0014: equipment setup link + per-photo focal modifier.
+    pub setup_id: Option<String>,
+    pub focal_modifier: Option<String>,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -82,6 +85,8 @@ impl From<PhotoRow> for PhotoDetail {
             replaced_at: p.replaced_at.map(|d| d.to_rfc3339()),
             original_uploaded_at: p.original_uploaded_at.to_rfc3339(),
             pipeline_error: p.pipeline_error,
+            setup_id: p.setup_id.map(|u| u.to_string()),
+            focal_modifier: p.focal_modifier,
         }
     }
 }

@@ -149,6 +149,28 @@ impl H {
         photo_id
     }
 
+    /// GET a path with a session cookie. Returns the parsed JSON body.
+    async fn get_json(&self, path: &str, cookie: &str) -> serde_json::Value {
+        let resp = self
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(path)
+                    .header(header::COOKIE, cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(resp.status().is_success(), "GET {path} → {}", resp.status());
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
     /// PUT /api/photos/:id with a JSON body. Returns HTTP status.
     async fn put_status(&self, path: &str, body: &serde_json::Value, cookie: &str) -> u16 {
         let resp = self
@@ -409,4 +431,40 @@ async fn no_target_no_photo_targets_row() {
     .unwrap()
     .unwrap_or(0);
     assert_eq!(count, 0, "expected no photo_targets rows");
+}
+
+/// PUT focal_modifier, GET it back, confirm equipment_items fan-out.
+#[tokio::test]
+async fn focal_modifier_round_trip_via_put_and_get() {
+    let h = harness().await;
+    let cookie = h.signup("zara@example.com", "correcthorsebattery").await;
+    let photo_id = h.seed_photo(&cookie).await;
+
+    // PUT focal_modifier
+    let body = serde_json::json!({ "focal_modifier": "Antares 0.7x Reducer" });
+    let status = h
+        .put_status(&format!("/api/photos/{photo_id}"), &body, &cookie)
+        .await;
+    assert_eq!(status, 200, "expected 200, got {status}");
+
+    // GET and confirm it round-trips
+    let detail = h
+        .get_json(&format!("/api/photos/{photo_id}"), &cookie)
+        .await;
+    assert_eq!(
+        detail["focal_modifier"],
+        "Antares 0.7x Reducer",
+        "focal_modifier not returned in GET response"
+    );
+
+    // The fan-out should have created an equipment_items row.
+    let count: i64 = sqlx::query_scalar!(
+        "select count(*) from equipment_items \
+         where kind = 'focal_modifier' and canonical_name = 'antares 0.7x reducer'"
+    )
+    .fetch_one(&h.pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(count, 1, "expected equipment_items row for focal_modifier");
 }

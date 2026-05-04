@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error\n        from photos\n        where owner_id = $1 and published_at is not null\n        order by published_at desc\n        limit $2\n        ",
+  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,\n               setup_id, focal_modifier\n        from photos\n        where published_at is not null\n        order by published_at desc\n        limit $1\n        ",
   "describe": {
     "columns": [
       {
@@ -152,11 +152,20 @@
         "ordinal": 29,
         "name": "pipeline_error",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 30,
+        "name": "setup_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 31,
+        "name": "focal_modifier",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Int8"
       ]
     },
@@ -190,8 +199,10 @@
       true,
       false,
       true,
+      true,
+      true,
       true
     ]
   },
-  "hash": "836354475bec84707071eb892b42f478f441c3bb3f60e9f95046bfb20463cb54"
+  "hash": "2d0e88fdcf1110592ef191228057390c21ad98d8e5c6c4f22af0c819020b6714"
 }
