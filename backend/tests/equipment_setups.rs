@@ -240,3 +240,56 @@ async fn create_duplicate_name_returns_422() {
         assert_eq!(r.status(), expected);
     }
 }
+
+#[tokio::test]
+async fn get_one_returns_full_expansion() {
+    let (app, pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_id = lookup_user_id(&pool, "alice@example.com").await;
+    let setup_id = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name) values ($1,'Backyard rig') returning id",
+        alice_id
+    ).fetch_one(&pool).await.unwrap();
+    let scope_id = sqlx::query_scalar!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+    ).fetch_one(&pool).await.unwrap();
+    sqlx::query!(
+        "insert into setup_items (setup_id, role, item_id) values ($1,'optical_tube',$2)",
+        setup_id, scope_id
+    ).execute(&pool).await.unwrap();
+
+    let r = app.clone().oneshot(
+        Request::builder()
+            .uri(&format!("/api/equipment/setups/{setup_id}"))
+            .header(header::COOKIE, &cookie)
+            .body(Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 200);
+    let bytes = r.into_body().collect().await.unwrap().to_bytes();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(body["name"], "Backyard rig");
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["role"], "optical_tube");
+    assert_eq!(items[0]["item"]["display_name"], "Sky-Watcher 200P");
+}
+
+#[tokio::test]
+async fn get_one_returns_404_for_other_user() {
+    let (app, pool) = make_app_and_pool().await;
+    let alice_cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let bob_id = create_other_user(&pool, "bob@example.com").await;
+    let bob_setup = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name) values ($1,'Bob rig') returning id",
+        bob_id
+    ).fetch_one(&pool).await.unwrap();
+
+    let r = app.clone().oneshot(
+        Request::builder()
+            .uri(&format!("/api/equipment/setups/{bob_setup}"))
+            .header(header::COOKIE, &alice_cookie)
+            .body(Body::empty()).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 404);
+}

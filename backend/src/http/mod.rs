@@ -244,6 +244,10 @@ pub fn router(
                 .post(crate::equipment::setups::create::handler),
         )
         .route(
+            "/api/equipment/setups/:id",
+            axum::routing::get(crate::equipment::setups::get::handler),
+        )
+        .route(
             "/api/uploads/init",
             axum::routing::post(crate::photos::upload_init::handler),
         )

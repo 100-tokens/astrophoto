@@ -1,16 +1,22 @@
 //! GET /api/equipment/setups/:id — full setup detail with item expansion.
-//! Handler comes in Task 8; this file holds the shared `load()` used
-//! by create/update/get.
+//! Handler delegates to the `load()` helper used by create/update too.
 
-use axum::response::IntoResponse;
+use axum::{Json, extract::{Path, State}, response::IntoResponse};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::api_types::{EquipmentItemRef, SetupDetail, SetupItem};
+use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
+use crate::http::AppState;
 
-pub async fn handler() -> Result<impl IntoResponse, AppError> {
-    Err::<(), _>(AppError::Validation("not yet implemented".into()))
+pub async fn handler(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, AppError> {
+    let detail = load(&state.pool, user.0.id, id).await?;
+    Ok(Json(detail))
 }
 
 pub async fn load(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<SetupDetail, AppError> {
