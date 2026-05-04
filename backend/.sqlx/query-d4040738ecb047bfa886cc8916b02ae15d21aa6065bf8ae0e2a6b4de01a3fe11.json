@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from equipment_setups where id=$1 and owner_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d4040738ecb047bfa886cc8916b02ae15d21aa6065bf8ae0e2a6b4de01a3fe11"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photos\n              (owner_id, storage_key, original_name, bytes, mime,\n               original_uploaded_at, short_id, last_step,\n               setup_id, scope)\n            values ($1, 'k', 'orig.jpg', 1000, 'image/jpeg',\n                   now(), gen_random_uuid()::text, 'caption',\n                   $2, $3)\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c6b5e0bf87cc95ee07f434a494c0c0e0c342a3361d7150fd55475b46bd8e8cb8"
+}
