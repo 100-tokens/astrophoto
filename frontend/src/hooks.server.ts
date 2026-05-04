@@ -14,7 +14,16 @@ function parseCookie(header: string, name: string): string | null {
 
 export const handle: Handle = async ({ event, resolve }) => {
   const cookie = event.request.headers.get('cookie') ?? '';
-  if (SESSION_COOKIE_RE.test(cookie)) {
+
+  // Short-circuit auth lookup on /api/* requests. Those are handled by the
+  // SvelteKit reverse proxy at routes/api/[...rest]/+server.ts which calls
+  // the backend directly with the original cookie — re-running api.me here
+  // would mean handle() → api.me → event.fetch('/api/auth/me') → handle()
+  // again (subrequests re-enter the hook), an unbounded recursion that
+  // hangs every request.
+  const isApiPath = event.url.pathname.startsWith('/api/');
+
+  if (!isApiPath && SESSION_COOKIE_RE.test(cookie)) {
     try {
       const user = await api.me({ fetch: event.fetch, cookie });
       event.locals.user = {
