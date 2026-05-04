@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select s.id, s.name, s.description, s.location,\n               s.is_remote, s.is_default, s.guiding, s.updated_at,\n               coalesce(\n                 (select json_agg(json_build_object('role', si.role, 'count', si.cnt))\n                    from (\n                      select role, count(*) as cnt\n                        from setup_items\n                       where setup_id = s.id\n                       group by role\n                    ) as si),\n                 '[]'::json\n               ) as \"item_counts!: serde_json::Value\"\n          from equipment_setups s\n         where s.owner_id = $1\n         order by s.updated_at desc\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "location",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_remote",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_default",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "guiding",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "item_counts!: serde_json::Value",
+        "type_info": "Json"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "f1899142d98bcd95349ae01c228af84d6384beecc11501d4fc90896082e9c50b"
+}
