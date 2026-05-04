@@ -2,6 +2,7 @@ pub mod api_types;
 pub mod auth;
 pub mod config;
 pub mod db;
+pub mod discovery;
 pub mod engagement;
 pub mod equipment;
 pub mod error;

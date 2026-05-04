@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.id as \"id!\", t.slug as \"slug!\", t.name as \"name!\",\n               (select count(*) from photo_tags pt join photos p on p.id = pt.photo_id\n                where pt.tag_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"photo_count!\"\n        from tags t\n        where t.slug = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "648c91456d2f394ace5964bebd5ac19311b935d00a30fcfdd12795be9c3fe299"
+}

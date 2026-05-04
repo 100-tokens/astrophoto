@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select id as \"id!\", kind as \"kind!\", canonical_name as \"canonical_name!\",\n               display_name as \"display_name!\", usage_count as \"usage_count!\"\n        from equipment_items\n        where kind = $1 and canonical_name = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8702a1d322908e6814d39bd9764341778faa9df77b5e4b8d173c4b16cf2cfe98"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*)::int8 as \"c!\" from photos\n               where published_at is not null and status = 'ready'\n               and lower(filters) = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c6f8134d84a7819f615f59a9c102d795193afc5c1c9a8aa7cc355ae4a3f808ac"
+}

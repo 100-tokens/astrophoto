@@ -1,0 +1,500 @@
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    response::IntoResponse,
+};
+use serde::Deserialize;
+use uuid::Uuid;
+
+use crate::AppError;
+use crate::api_types::{
+    DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage, EquipmentPaired,
+};
+use crate::discovery::cursor::{self, Cursor};
+use crate::http::AppState;
+
+const DEFAULT_LIMIT: i64 = 24;
+const MAX_LIMIT: i64 = 60;
+
+/// Whitelist of accepted kind values.
+const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "guiding"];
+
+#[derive(Deserialize)]
+pub struct Q {
+    pub cursor: Option<String>,
+    pub limit: Option<i64>,
+    pub sort: Option<String>, // "newest" (default) | "most-appreciated"
+    pub category: Option<String>,
+}
+
+struct PairedRow {
+    kind: String,
+    slug: String,
+    display_name: String,
+    shared_count: i64,
+}
+
+struct Row {
+    id: Uuid,
+    short_id: String,
+    target: Option<String>,
+    width: Option<i32>,
+    height: Option<i32>,
+    blurhash: Option<String>,
+    appreciations_count: i32,
+    published_at: Option<chrono::DateTime<chrono::Utc>>,
+    owner_id: Uuid,
+    handle: String,
+    display_name: String,
+}
+
+pub async fn get(
+    State(state): State<AppState>,
+    Path((kind, slug)): Path<(String, String)>,
+    Query(q): Query<Q>,
+) -> Result<impl IntoResponse, AppError> {
+    // Validate kind — any other value is a "page doesn't exist" 404.
+    if !VALID_KINDS.contains(&kind.as_str()) {
+        return Err(AppError::not_found("equipment_kind"));
+    }
+
+    // Look up the equipment_items row. 404 if not found.
+    let item = sqlx::query!(
+        r#"
+        select id as "id!", kind as "kind!", canonical_name as "canonical_name!",
+               display_name as "display_name!", usage_count as "usage_count!"
+        from equipment_items
+        where kind = $1 and canonical_name = $2
+        "#,
+        kind,
+        slug
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+
+    let Some(item) = item else {
+        return Err(AppError::not_found("equipment"));
+    };
+
+    // Count photos that use this equipment item (across both legacy and — if present — modern field).
+    // The photos table has: camera (0001), scope/mount/filters/guiding (0009).
+    // There are no photos.equipment_* columns — only users.equipment_* which we don't use here.
+    let photo_count: i64 = match kind.as_str() {
+        "telescope" => {
+            sqlx::query_scalar!(
+                r#"select count(*)::int8 as "c!" from photos
+               where published_at is not null and status = 'ready'
+               and lower(scope) = $1"#,
+                slug
+            )
+            .fetch_one(&state.pool)
+            .await?
+        }
+        "camera" => {
+            sqlx::query_scalar!(
+                r#"select count(*)::int8 as "c!" from photos
+               where published_at is not null and status = 'ready'
+               and lower(camera) = $1"#,
+                slug
+            )
+            .fetch_one(&state.pool)
+            .await?
+        }
+        "mount" => {
+            sqlx::query_scalar!(
+                r#"select count(*)::int8 as "c!" from photos
+               where published_at is not null and status = 'ready'
+               and lower(mount) = $1"#,
+                slug
+            )
+            .fetch_one(&state.pool)
+            .await?
+        }
+        "filter" => {
+            sqlx::query_scalar!(
+                r#"select count(*)::int8 as "c!" from photos
+               where published_at is not null and status = 'ready'
+               and lower(filters) = $1"#,
+                slug
+            )
+            .fetch_one(&state.pool)
+            .await?
+        }
+        "guiding" => {
+            sqlx::query_scalar!(
+                r#"select count(*)::int8 as "c!" from photos
+               where published_at is not null and status = 'ready'
+               and lower(guiding) = $1"#,
+                slug
+            )
+            .fetch_one(&state.pool)
+            .await?
+        }
+        _ => unreachable!("kind already validated above"),
+    };
+
+    // Paginated photos query — per-kind dispatch for compile-time column checking.
+    let limit = q.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let sort = q.sort.as_deref().unwrap_or("newest");
+    let category = q.category.as_deref();
+    let cursor = q.cursor.as_deref().map(cursor::decode).transpose()?;
+    let cur_pub = cursor.as_ref().map(|c| c.published_at);
+    let cur_id = cursor.as_ref().map(|c| c.id).unwrap_or_else(Uuid::nil);
+    let cur_apps = cursor.as_ref().and_then(|c| c.appreciations);
+
+    let rows: Vec<Row> = match (kind.as_str(), sort) {
+        ("telescope", "most-appreciated") => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.scope) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::int4 is null or p.appreciations_count < $2 or
+                      (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
+                 and ($5::text is null or p.category = $5)
+               order by p.appreciations_count desc, p.published_at desc, p.id desc
+               limit $6"#,
+                slug,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("telescope", _) => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.scope) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
+                 and ($4::text is null or p.category = $4)
+               order by p.published_at desc, p.id desc
+               limit $5"#,
+                slug,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("camera", "most-appreciated") => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.camera) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::int4 is null or p.appreciations_count < $2 or
+                      (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
+                 and ($5::text is null or p.category = $5)
+               order by p.appreciations_count desc, p.published_at desc, p.id desc
+               limit $6"#,
+                slug,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("camera", _) => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.camera) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
+                 and ($4::text is null or p.category = $4)
+               order by p.published_at desc, p.id desc
+               limit $5"#,
+                slug,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("mount", "most-appreciated") => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.mount) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::int4 is null or p.appreciations_count < $2 or
+                      (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
+                 and ($5::text is null or p.category = $5)
+               order by p.appreciations_count desc, p.published_at desc, p.id desc
+               limit $6"#,
+                slug,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("mount", _) => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.mount) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
+                 and ($4::text is null or p.category = $4)
+               order by p.published_at desc, p.id desc
+               limit $5"#,
+                slug,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("filter", "most-appreciated") => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.filters) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::int4 is null or p.appreciations_count < $2 or
+                      (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
+                 and ($5::text is null or p.category = $5)
+               order by p.appreciations_count desc, p.published_at desc, p.id desc
+               limit $6"#,
+                slug,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("filter", _) => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.filters) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
+                 and ($4::text is null or p.category = $4)
+               order by p.published_at desc, p.id desc
+               limit $5"#,
+                slug,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("guiding", "most-appreciated") => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.guiding) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::int4 is null or p.appreciations_count < $2 or
+                      (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
+                 and ($5::text is null or p.category = $5)
+               order by p.appreciations_count desc, p.published_at desc, p.id desc
+               limit $6"#,
+                slug,
+                cur_apps,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        ("guiding", _) => {
+            sqlx::query_as!(
+                Row,
+                r#"select p.id as "id!", p.short_id as "short_id!", p.target,
+                      p.width, p.height, p.blurhash,
+                      p.appreciations_count as "appreciations_count!",
+                      p.published_at,
+                      u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
+               from photos p join users u on u.id = p.owner_id
+               where lower(p.guiding) = $1
+                 and p.published_at is not null and p.status = 'ready'
+                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
+                 and ($4::text is null or p.category = $4)
+               order by p.published_at desc, p.id desc
+               limit $5"#,
+                slug,
+                cur_pub,
+                cur_id,
+                category,
+                limit + 1
+            )
+            .fetch_all(&state.pool)
+            .await?
+        }
+        _ => unreachable!("kind already validated above"),
+    };
+
+    let more = rows.len() as i64 > limit;
+    let take: Vec<_> = rows.into_iter().take(limit as usize).collect();
+    let next_cursor = if more {
+        take.last().and_then(|last| {
+            last.published_at.map(|published_at| {
+                cursor::encode(&Cursor {
+                    published_at,
+                    id: last.id,
+                    appreciations: if sort == "most-appreciated" {
+                        Some(last.appreciations_count)
+                    } else {
+                        None
+                    },
+                })
+            })
+        })
+    } else {
+        None
+    };
+
+    // "Often paired with" rail: top 4 other equipment items that co-occur
+    // most on photos that use THIS item.
+    // We join equipment_items to photos via the kind→column mapping.
+    // The photos that "use this item" are the same set as the photos query above,
+    // but we fetch them here via a subquery for the join.
+    let paired_rows = sqlx::query_as!(
+        PairedRow,
+        r#"
+        select
+            ei.kind           as "kind!",
+            ei.canonical_name as "slug!",
+            ei.display_name   as "display_name!",
+            count(*)::int8    as "shared_count!"
+        from equipment_items ei
+        join photos p on (
+            (ei.kind = 'telescope' and lower(p.scope)   = ei.canonical_name) or
+            (ei.kind = 'camera'    and lower(p.camera)  = ei.canonical_name) or
+            (ei.kind = 'mount'     and lower(p.mount)   = ei.canonical_name) or
+            (ei.kind = 'filter'    and lower(p.filters) = ei.canonical_name) or
+            (ei.kind = 'guiding'   and lower(p.guiding) = ei.canonical_name)
+        )
+        where p.published_at is not null and p.status = 'ready'
+          and not (ei.kind = $1 and ei.canonical_name = $2)
+          and exists (
+              select 1 from photos p2
+              where p2.id = p.id
+                and (
+                    ($1 = 'telescope' and lower(p2.scope)   = $2) or
+                    ($1 = 'camera'    and lower(p2.camera)  = $2) or
+                    ($1 = 'mount'     and lower(p2.mount)   = $2) or
+                    ($1 = 'filter'    and lower(p2.filters) = $2) or
+                    ($1 = 'guiding'   and lower(p2.guiding) = $2)
+                )
+          )
+        group by ei.kind, ei.canonical_name, ei.display_name
+        order by count(*) desc
+        limit 4
+        "#,
+        kind,
+        slug
+    )
+    .fetch_all(&state.pool)
+    .await?;
+
+    Ok(Json(EquipmentPage {
+        equipment: EquipmentMeta {
+            kind: item.kind,
+            slug: item.canonical_name.clone(),
+            canonical_name: item.canonical_name,
+            display_name: item.display_name,
+            photo_count,
+        },
+        paired: paired_rows
+            .into_iter()
+            .map(|r| EquipmentPaired {
+                kind: r.kind,
+                slug: r.slug,
+                display_name: r.display_name,
+                shared_count: r.shared_count,
+            })
+            .collect(),
+        page: DiscoveryPage {
+            photos: take
+                .into_iter()
+                .map(|r| DiscoveryPhoto {
+                    id: r.id,
+                    short_id: r.short_id,
+                    target: r.target,
+                    width: r.width,
+                    height: r.height,
+                    blurhash: r.blurhash,
+                    appreciations_count: r.appreciations_count,
+                    published_at: r.published_at,
+                    author_id: r.owner_id,
+                    author_handle: r.handle,
+                    author_display_name: r.display_name,
+                })
+                .collect(),
+            next_cursor,
+        },
+    }))
+}

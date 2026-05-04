@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select p.id as \"id!\", p.short_id as \"short_id!\", p.target,\n                   p.width, p.height, p.blurhash,\n                   p.appreciations_count as \"appreciations_count!\",\n                   p.published_at,\n                   u.id as \"owner_id!\", u.handle as \"handle!\", u.display_name as \"display_name!\"\n            from photos p\n            join users u on u.id = p.owner_id\n            where p.published_at is not null\n              and p.status = 'ready'\n              and ($1::timestamptz is null or (p.published_at, p.id) < ($1, $2))\n              and ($3::text is null or p.category = $3)\n              and ($4::int8 is null or p.published_at > now() - ($4::int8 || ' seconds')::interval)\n            order by p.published_at desc, p.id desc\n            limit $5\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "height",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "blurhash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "appreciations_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "owner_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "handle!",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "display_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "53c913c8eac866e4937d8df3017647e5d63477857496d918c79a4024c1a015b5"
+}
