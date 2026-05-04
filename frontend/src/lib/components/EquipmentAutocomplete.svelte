@@ -1,18 +1,31 @@
 <script lang="ts">
-  type EquipmentKind = 'telescope' | 'camera' | 'mount' | 'filter' | 'guiding';
+  type EquipmentKind = 'telescope' | 'camera' | 'mount' | 'filter' | 'focal_modifier' | 'guiding';
+
+  type Committed = { id: string; display_name: string } | null;
 
   interface Props {
     name: string;
     kind: EquipmentKind;
     value?: string;
     api?: string;
+    /**
+     * Called when the user finalizes a value: clicks a suggestion OR
+     * blurs the input with a non-empty free-typed value. The component
+     * does a `POST /api/equipment/items` resolve-or-create against the
+     * current `kind` and the typed/selected `display_name`, then emits
+     * the resulting canonical `{ id, display_name }`. Skipped when
+     * value is empty (emits `null`) and when kind is `guiding` (no
+     * canonical-items dictionary for guiding by design).
+     */
+    onCommit?: (committed: Committed) => void;
   }
 
   let {
     name,
     kind,
     value = $bindable(''),
-    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+    onCommit
   }: Props = $props();
 
   type Item = { canonical_name: string; display_name: string; usage_count: number };
@@ -47,11 +60,40 @@
     return () => clearTimeout(t);
   });
 
+  async function commit(displayName: string) {
+    if (!onCommit) return;
+    const trimmed = displayName.trim();
+    if (!trimmed) {
+      onCommit(null);
+      return;
+    }
+    // 'guiding' is intentionally non-canonical: setup form treats it as
+    // free text and never asks the autocomplete to resolve it.
+    if (kind === 'guiding') {
+      return;
+    }
+    try {
+      const r = await fetch(`${api}/api/equipment/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ kind, display_name: trimmed })
+      });
+      if (r.ok) {
+        const row = await r.json();
+        onCommit({ id: row.id, display_name: row.display_name });
+      }
+    } catch {
+      // Silent: the consumer can decide what to do if no commit fires.
+    }
+  }
+
   function select(item: Item) {
     lastSelected = item.display_name;
     value = item.display_name;
     items = [];
     highlighted = -1;
+    commit(item.display_name);
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -78,6 +120,7 @@
       items = [];
       highlighted = -1;
     }, 120);
+    commit(value);
   }
 </script>
 
