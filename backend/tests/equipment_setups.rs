@@ -293,3 +293,116 @@ async fn get_one_returns_404_for_other_user() {
     ).await.unwrap();
     assert_eq!(r.status(), 404);
 }
+
+#[tokio::test]
+async fn update_replaces_items_and_meta() {
+    let (app, pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_id = lookup_user_id(&pool, "alice@example.com").await;
+    let setup_id = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name, location)
+         values ($1,'Backyard','Paris') returning id",
+        alice_id
+    ).fetch_one(&pool).await.unwrap();
+    let i1 = sqlx::query_scalar!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+    ).fetch_one(&pool).await.unwrap();
+    let i2 = sqlx::query_scalar!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('camera','asi2600','ZWO ASI2600',0) returning id"
+    ).fetch_one(&pool).await.unwrap();
+    sqlx::query!(
+        "insert into setup_items (setup_id, role, item_id) values ($1,'optical_tube',$2)",
+        setup_id, i1
+    ).execute(&pool).await.unwrap();
+
+    let body = serde_json::json!({
+        "name": "Backyard rig v2",
+        "description": null,
+        "location": "Paris",
+        "is_remote": false,
+        "is_default": false,
+        "guiding": null,
+        "items": [
+            { "role": "optical_tube", "item_id": i1.to_string() },
+            { "role": "main_camera",  "item_id": i2.to_string() }
+        ]
+    });
+    let r = app.clone().oneshot(
+        Request::builder()
+            .method("PATCH")
+            .uri(&format!("/api/equipment/setups/{setup_id}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &cookie)
+            .body(Body::from(body.to_string())).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 200);
+
+    let n_items: i64 = sqlx::query_scalar!(
+        "select count(*) from setup_items where setup_id=$1", setup_id
+    ).fetch_one(&pool).await.unwrap().unwrap();
+    assert_eq!(n_items, 2);
+    let new_name: String = sqlx::query_scalar!(
+        "select name from equipment_setups where id=$1", setup_id
+    ).fetch_one(&pool).await.unwrap();
+    assert_eq!(new_name, "Backyard rig v2");
+}
+
+#[tokio::test]
+async fn update_promote_to_default_clears_previous() {
+    let (app, pool) = make_app_and_pool().await;
+    let cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_id = lookup_user_id(&pool, "alice@example.com").await;
+    sqlx::query!(
+        "insert into equipment_setups (owner_id, name, is_default) values ($1,'Old',true)",
+        alice_id
+    ).execute(&pool).await.unwrap();
+    let new_id = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name) values ($1,'New') returning id",
+        alice_id
+    ).fetch_one(&pool).await.unwrap();
+
+    let body = serde_json::json!({
+        "name": "New", "description": null, "location": null,
+        "is_remote": false, "is_default": true, "guiding": null,
+        "items": []
+    });
+    let r = app.clone().oneshot(
+        Request::builder()
+            .method("PATCH")
+            .uri(&format!("/api/equipment/setups/{new_id}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &cookie)
+            .body(Body::from(body.to_string())).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 200);
+    let n_default: i64 = sqlx::query_scalar!(
+        "select count(*) from equipment_setups where owner_id=$1 and is_default", alice_id
+    ).fetch_one(&pool).await.unwrap().unwrap();
+    assert_eq!(n_default, 1);
+}
+
+#[tokio::test]
+async fn update_returns_404_for_other_user() {
+    let (app, pool) = make_app_and_pool().await;
+    let alice_cookie = signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let bob_id = create_other_user(&pool, "bob@example.com").await;
+    let bob_setup = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name) values ($1,'Bob') returning id",
+        bob_id
+    ).fetch_one(&pool).await.unwrap();
+    let body = serde_json::json!({
+        "name": "Hacked", "description": null, "location": null,
+        "is_remote": false, "is_default": false, "guiding": null, "items": []
+    });
+    let r = app.clone().oneshot(
+        Request::builder()
+            .method("PATCH")
+            .uri(&format!("/api/equipment/setups/{bob_setup}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::COOKIE, &alice_cookie)
+            .body(Body::from(body.to_string())).unwrap()
+    ).await.unwrap();
+    assert_eq!(r.status(), 404);
+}

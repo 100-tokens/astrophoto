@@ -245,7 +245,8 @@ pub fn router(
         )
         .route(
             "/api/equipment/setups/:id",
-            axum::routing::get(crate::equipment::setups::get::handler),
+            axum::routing::get(crate::equipment::setups::get::handler)
+                .patch(crate::equipment::setups::update::handler),
         )
         .route(
             "/api/uploads/init",

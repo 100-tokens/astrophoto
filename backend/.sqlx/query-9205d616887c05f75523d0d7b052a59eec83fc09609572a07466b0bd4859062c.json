@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update equipment_setups set is_default = false\n             where owner_id = $1 and is_default and id <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9205d616887c05f75523d0d7b052a59eec83fc09609572a07466b0bd4859062c"
+}
