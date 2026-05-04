@@ -2,9 +2,17 @@
 # Build context: repo root.
 # Koyeb usage: --git-docker-dockerfile Dockerfile.frontend
 #
-# VITE_API_BASE_URL is baked into the JS bundle at build time (import.meta.env).
-# Pass it as a Docker build argument: --build-arg VITE_API_BASE_URL=https://...
-# PUBLIC_CDN_BASE_URL is read at runtime via SvelteKit $env/dynamic/public.
+# Runtime env vars (set on the Koyeb service, read via $env/dynamic/*):
+#   BACKEND_URL          — origin of the API service (server-only, used by
+#                          the SvelteKit `/api/[...rest]` reverse proxy)
+#   PUBLIC_CDN_BASE_URL  — public CloudFront base for image transforms
+#
+# Build-time env baked into the client bundle (import.meta.env):
+#   VITE_API_BASE_URL    — left empty so the client emits relative
+#                          `fetch('/api/...')`, which lands on the
+#                          SvelteKit catch-all proxy. Override at build
+#                          time only if the deploy is co-located on a
+#                          single origin and you want to skip the proxy.
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -20,10 +28,8 @@ RUN pnpm install --frozen-lockfile
 # Copy the rest of the frontend source
 COPY frontend/ .
 
-# Build-time env: bake the backend public URL into the client bundle.
-# Backend lives in the astrophoto-staging app at its own auto-domain.
-# Update this default if the Koyeb app is recreated.
-ARG VITE_API_BASE_URL=https://astrophoto-staging-xavyo-008151d0.koyeb.app
+# Build-time env: empty / relative API base. See header for rationale.
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN pnpm build
