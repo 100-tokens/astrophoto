@@ -5,7 +5,7 @@
 
   const items = [
     { slug: 'profile', label: 'PROFILE', enabled: true, tone: '' },
-    { slug: 'equipment', label: 'EQUIPMENT', enabled: false, tone: '' },
+    { slug: 'equipment', label: 'EQUIPMENT', enabled: true, tone: '' },
     { slug: 'notifications', label: 'NOTIFICATIONS', enabled: false, tone: '' },
     { slug: 'email', label: 'EMAIL & SECURITY', enabled: true, tone: '' },
     { slug: 'appearance', label: 'APPEARANCE', enabled: true, tone: '' },

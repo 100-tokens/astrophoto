@@ -18,6 +18,12 @@
      * canonical-items dictionary for guiding by design).
      */
     onCommit?: (committed: Committed) => void;
+    /**
+     * Override the default label (which is the upper-cased kind, e.g.
+     * 'TELESCOPE'). Set to null to suppress the label entirely — useful
+     * when a parent component already renders its own label.
+     */
+    label?: string | null;
   }
 
   let {
@@ -25,7 +31,8 @@
     kind,
     value = $bindable(''),
     api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
-    onCommit
+    onCommit,
+    label
   }: Props = $props();
 
   type Item = { canonical_name: string; display_name: string; usage_count: number };
@@ -124,7 +131,9 @@
   }
 </script>
 
-<label class="t-label" for={name}>{kind.toUpperCase()}</label>
+{#if label !== null}
+  <label class="t-label" for={name}>{label ?? kind.toUpperCase()}</label>
+{/if}
 <div class="ac">
   <input
     id={name}

@@ -124,6 +124,7 @@
         kind="telescope"
         bind:value={opticalText}
         onCommit={(c) => (optical = c)}
+        label={null}
       />
     </div>
 
@@ -134,6 +135,7 @@
         kind="focal_modifier"
         bind:value={focalText}
         onCommit={(c) => (focal = c)}
+        label={null}
       />
     </div>
 
@@ -144,6 +146,7 @@
         kind="camera"
         bind:value={cameraText}
         onCommit={(c) => (camera = c)}
+        label={null}
       />
     </div>
 
@@ -154,6 +157,7 @@
         kind="mount"
         bind:value={mountText}
         onCommit={(c) => (mount = c)}
+        label={null}
       />
     </div>
 
@@ -177,6 +181,7 @@
         kind="filter"
         bind:value={filterText}
         onCommit={addFilter}
+        label={null}
       />
     </div>
 
