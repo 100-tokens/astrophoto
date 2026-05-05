@@ -1,27 +1,23 @@
 <script lang="ts">
   import EquipmentAutocomplete from './EquipmentAutocomplete.svelte';
   import type { SetupDetail } from '$lib/api/SetupDetail';
-  import type { SetupInput } from '$lib/api/SetupInput';
-
-  type Committed = { id: string; display_name: string };
 
   interface Props {
     initial: SetupDetail | null;
+    cancelHref: string;
     submitLabel?: string;
-    onsubmit: (input: SetupInput) => void;
-    oncancel?: () => void;
   }
-  let { initial, submitLabel = 'Save', onsubmit, oncancel }: Props = $props();
+  let { initial, cancelHref, submitLabel = 'Save' }: Props = $props();
 
-  function pickItem(role: string): Committed | null {
-    if (!initial) return null;
+  function pickItem(role: string): string {
+    if (!initial) return '';
     const it = initial.items.find((x) => x.role === role);
-    return it ? { id: it.item.id, display_name: it.item.display_name } : null;
+    return it ? it.item.display_name : '';
   }
-  function pickFilters(): Committed[] {
+  function pickFilters(): string[] {
     return (initial?.items ?? [])
       .filter((x) => x.role === 'filter')
-      .map((x) => ({ id: x.item.id, display_name: x.item.display_name }));
+      .map((x) => x.item.display_name);
   }
 
   let name = $state(initial?.name ?? '');
@@ -31,85 +27,51 @@
   let is_default = $state(initial?.is_default ?? false);
   let guiding = $state(initial?.guiding ?? '');
 
-  let optical = $state<Committed | null>(pickItem('optical_tube'));
-  let focal = $state<Committed | null>(pickItem('focal_modifier'));
-  let camera = $state<Committed | null>(pickItem('main_camera'));
-  let mount = $state<Committed | null>(pickItem('mount'));
-  let filters = $state<Committed[]>(pickFilters());
+  let opticalText = $state(pickItem('optical_tube'));
+  let focalText = $state(pickItem('focal_modifier'));
+  let cameraText = $state(pickItem('main_camera'));
+  let mountText = $state(pickItem('mount'));
 
-  // Free-typed values, separate from the committed canonical id so the
-  // input box reflects what the user typed even before the commit fires.
-  let opticalText = $state(optical?.display_name ?? '');
-  let focalText = $state(focal?.display_name ?? '');
-  let cameraText = $state(camera?.display_name ?? '');
-  let mountText = $state(mount?.display_name ?? '');
+  // Filter chips: array of display-name strings; resolved server-side on submit.
+  let filterChips = $state<string[]>(pickFilters());
   let filterText = $state('');
 
-  function addFilter(c: Committed | null) {
-    if (!c) return;
-    if (filters.some((f) => f.id === c.id)) return;
-    filters = [...filters, c];
+  function addFilter(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    if (filterChips.includes(t)) return;
+    filterChips = [...filterChips, t];
     filterText = '';
   }
-  function removeFilter(id: string) {
-    filters = filters.filter((f) => f.id !== id);
-  }
-
-  let error = $state<string | null>(null);
-
-  function submit() {
-    if (!name.trim()) {
-      error = 'Name is required';
-      return;
-    }
-    error = null;
-    const items: SetupInput['items'] = [];
-    if (optical) items.push({ role: 'optical_tube', item_id: optical.id });
-    if (focal) items.push({ role: 'focal_modifier', item_id: focal.id });
-    if (camera) items.push({ role: 'main_camera', item_id: camera.id });
-    if (mount) items.push({ role: 'mount', item_id: mount.id });
-    for (const f of filters) items.push({ role: 'filter', item_id: f.id });
-    onsubmit({
-      name: name.trim(),
-      description: description.trim() || null,
-      location: location.trim() || null,
-      is_remote,
-      is_default,
-      guiding: guiding.trim() || null,
-      items
-    });
+  function removeFilter(t: string) {
+    filterChips = filterChips.filter((f) => f !== t);
   }
 </script>
 
-<form
-  onsubmit={(e) => {
-    e.preventDefault();
-    submit();
-  }}
-  class="setup-form"
->
+<!-- No <form> wrapper — parent owns the form element -->
+<div class="setup-form">
   <label class="field">
     <span class="t-label">Name</span>
-    <input bind:value={name} required />
+    <input name="name" bind:value={name} required />
   </label>
 
   <label class="field">
     <span class="t-label">Description</span>
-    <textarea bind:value={description} rows="2"></textarea>
+    <textarea name="description" bind:value={description} rows="2"></textarea>
   </label>
 
   <label class="field">
     <span class="t-label">Location</span>
-    <input bind:value={location} placeholder="e.g., Backyard observatory" />
+    <input name="location" bind:value={location} placeholder="e.g., Backyard observatory" />
   </label>
 
   <div class="row">
     <label class="check">
-      <input type="checkbox" bind:checked={is_remote} />
+      <input type="checkbox" name="is_remote" bind:checked={is_remote} />
       Remote
     </label>
     <label class="check" title="Auto-applied to new uploads">
-      <input type="checkbox" bind:checked={is_default} />
+      <input type="checkbox" name="is_default" bind:checked={is_default} />
       Default
     </label>
   </div>
@@ -120,10 +82,9 @@
     <div class="field">
       <span class="t-label">Optical tube</span>
       <EquipmentAutocomplete
-        name="optical_tube"
+        name="optical_tube_text"
         kind="telescope"
         bind:value={opticalText}
-        onCommit={(c) => (optical = c)}
         label={null}
       />
     </div>
@@ -131,10 +92,9 @@
     <div class="field">
       <span class="t-label">Focal modifier</span>
       <EquipmentAutocomplete
-        name="focal_modifier"
+        name="focal_modifier_text"
         kind="focal_modifier"
         bind:value={focalText}
-        onCommit={(c) => (focal = c)}
         label={null}
       />
     </div>
@@ -142,65 +102,64 @@
     <div class="field">
       <span class="t-label">Main camera</span>
       <EquipmentAutocomplete
-        name="main_camera"
+        name="main_camera_text"
         kind="camera"
         bind:value={cameraText}
-        onCommit={(c) => (camera = c)}
         label={null}
       />
     </div>
 
     <div class="field">
       <span class="t-label">Mount</span>
-      <EquipmentAutocomplete
-        name="mount"
-        kind="mount"
-        bind:value={mountText}
-        onCommit={(c) => (mount = c)}
-        label={null}
-      />
+      <EquipmentAutocomplete name="mount_text" kind="mount" bind:value={mountText} label={null} />
     </div>
 
     <div class="field">
       <span class="t-label">Filters</span>
+      <!-- Hidden inputs carry each chip value to the server -->
+      {#each filterChips as f (f)}
+        <input type="hidden" name="filter_text" value={f} />
+      {/each}
       <ul class="chips">
-        {#each filters as f (f.id)}
+        {#each filterChips as f (f)}
           <li class="chip">
-            {f.display_name}
+            {f}
             <button
               type="button"
               class="chip-x"
-              aria-label={`Remove ${f.display_name}`}
-              onclick={() => removeFilter(f.id)}>×</button
+              aria-label={`Remove ${f}`}
+              onclick={() => removeFilter(f)}>×</button
             >
           </li>
         {/each}
       </ul>
       <EquipmentAutocomplete
-        name="filter"
+        name="_filter_input"
         kind="filter"
         bind:value={filterText}
-        onCommit={addFilter}
+        onCommit={(c) => {
+          if (c) addFilter(c.display_name);
+        }}
         label={null}
       />
     </div>
 
     <label class="field">
       <span class="t-label">Guiding</span>
-      <input bind:value={guiding} placeholder="e.g., ASI120MM Mini + 60mm guide scope" />
+      <input
+        name="guiding"
+        bind:value={guiding}
+        placeholder="e.g., ASI120MM Mini + 60mm guide scope"
+      />
       <small class="hint">Free text. Not auto-completed.</small>
     </label>
   </fieldset>
 
-  {#if error}<p class="form-error">{error}</p>{/if}
-
   <div class="actions">
-    {#if oncancel}
-      <button type="button" class="btn ghost" onclick={() => oncancel?.()}>Cancel</button>
-    {/if}
+    <a href={cancelHref} class="btn ghost">Cancel</a>
     <button type="submit" class="btn primary">{submitLabel}</button>
   </div>
-</form>
+</div>
 
 <style>
   .setup-form {
@@ -258,6 +217,9 @@
     padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
   }
   .btn.primary {
     background: var(--primary, #0a6);
@@ -267,13 +229,11 @@
   .btn.ghost {
     background: transparent;
     border: 1px solid var(--border, #ccc);
+    color: inherit;
   }
   .hint {
     color: var(--muted, #666);
     font-size: 0.85em;
-  }
-  .form-error {
-    color: var(--error, #c00);
   }
   .t-label {
     font-size: 0.85em;

@@ -47,6 +47,10 @@ export default ts.config(
       'src/lib/components/profile/editor/IdentitySection.svelte',
       'src/lib/components/profile/editor/LocationSection.svelte',
       'src/lib/components/profile/editor/SocialLinksSection.svelte',
+      // SetupForm and SetupPicker seed local $state from props once on mount;
+      // their edits are owned locally between form submissions.
+      'src/lib/components/SetupForm.svelte',
+      'src/lib/components/SetupPicker.svelte',
       // Discovery pages seed cursor $state from the SSR page data once on mount;
       // the $effect keeps it in sync on filter navigation. This is intentional.
       'src/routes/explore/+page.svelte',

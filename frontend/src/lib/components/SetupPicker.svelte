@@ -23,16 +23,11 @@
 
   const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
 
-  let selected = $state('');
-  let lastConfirmed = $state('');
+  // Initialized once from the parent's prop. Reset imperatively on apply/detach/cancel.
+  // External prop changes never needed here: the only writers to photo_setup_id are
+  // this picker's own onapply/ondetach callbacks.
+  let selected = $state(currentSetupId ?? '');
   let busy = $state(false);
-
-  // Sync local UI state when the parent passes a different currentSetupId
-  // (e.g., after onapply mutates photo_setup_id, or on initial mount).
-  $effect(() => {
-    selected = currentSetupId ?? '';
-    lastConfirmed = currentSetupId ?? '';
-  });
 
   function projectFromDetail(d: SetupDetail): Current {
     let scope = '';
@@ -95,7 +90,6 @@
     if (!newId) {
       // "(none)" selected — same as detach.
       selected = '';
-      lastConfirmed = '';
       ondetach();
       return;
     }
@@ -106,8 +100,9 @@
     });
     if (!r.ok) {
       busy = false;
-      target.value = lastConfirmed;
-      selected = lastConfirmed;
+      // Revert to whatever the parent considers current.
+      target.value = currentSetupId ?? '';
+      selected = currentSetupId ?? '';
       return;
     }
     const detail: SetupDetail = await r.json();
@@ -116,7 +111,6 @@
     const n = conflictCount(projected);
 
     if (n === 0) {
-      lastConfirmed = newId;
       selected = newId;
       onapply({ setup_id: newId, mode: 'fill_empty' });
       return;
@@ -124,18 +118,16 @@
 
     const ok = confirm(`Replace ${n} field${n > 1 ? 's' : ''}?`);
     if (ok) {
-      lastConfirmed = newId;
       selected = newId;
       onapply({ setup_id: newId, mode: 'overwrite' });
     } else {
-      target.value = lastConfirmed;
-      selected = lastConfirmed;
+      target.value = currentSetupId ?? '';
+      selected = currentSetupId ?? '';
     }
   }
 
   function detach() {
     selected = '';
-    lastConfirmed = '';
     ondetach();
   }
 </script>

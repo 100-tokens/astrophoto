@@ -39,6 +39,8 @@
   let items = $state<Item[]>([]);
   let highlighted = $state(-1);
   let lastSelected = $state('');
+  // Tracks the last text that was committed to avoid no-op blur round-trips.
+  let lastCommitted = $state(value ?? '');
 
   // Stale-response guard — same reqId pattern as HandlePicker.
   let reqId = 0;
@@ -74,6 +76,8 @@
       onCommit(null);
       return;
     }
+    // Skip no-op blur (nothing changed since last commit).
+    if (trimmed === lastCommitted.trim()) return;
     // 'guiding' is intentionally non-canonical: setup form treats it as
     // free text and never asks the autocomplete to resolve it.
     if (kind === 'guiding') {
@@ -88,6 +92,7 @@
       });
       if (r.ok) {
         const row = await r.json();
+        lastCommitted = row.display_name;
         onCommit({ id: row.id, display_name: row.display_name });
       }
     } catch {
@@ -97,6 +102,7 @@
 
   function select(item: Item) {
     lastSelected = item.display_name;
+    lastCommitted = item.display_name;
     value = item.display_name;
     items = [];
     highlighted = -1;

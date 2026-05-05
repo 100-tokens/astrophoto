@@ -24,8 +24,10 @@ export const load: PageServerLoad = async ({ params, locals, fetch, cookies }) =
   });
   const setups = sr.ok ? await sr.json() : [];
 
-  // Auto-apply default setup if the photo doesn't already reference one.
-  if (!photo.setup_id) {
+  // Auto-apply default setup only on first visit (before the user has been
+  // through the verify step). Once last_step is 'verify' or later, respect
+  // any detach decision the user may have made.
+  if (!photo.setup_id && (photo.last_step === null || photo.last_step === 'upload')) {
     const def = setups.find((s: { is_default: boolean }) => s.is_default);
     if (def) {
       const ar = await fetch(`${API}/api/photos/${params.id}/apply-setup`, {

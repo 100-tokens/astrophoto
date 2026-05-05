@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
-  import type { SetupSummary } from '$lib/api/SetupSummary';
+  import { enhance } from '$app/forms';
+  import type { PageProps } from './$types';
 
-  let { data }: { data: { setups: SetupSummary[] } } = $props();
-
-  const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+  let { data, form }: PageProps = $props();
 
   const ROLE_LABEL: Record<string, string> = {
     optical_tube: 'Telescope',
@@ -14,63 +12,8 @@
     filter: 'Filter'
   };
 
+  // Track which row is submitting for visual feedback.
   let acting = $state<string | null>(null);
-  let actError = $state<string | null>(null);
-
-  async function setDefault(s: SetupSummary) {
-    acting = s.id;
-    actError = null;
-    // Need full detail to PATCH (the API does replace-all on items).
-    const dr = await fetch(`${API}/api/equipment/setups/${s.id}`, {
-      credentials: 'include'
-    });
-    if (!dr.ok) {
-      actError = `Could not load setup ${s.name}`;
-      acting = null;
-      return;
-    }
-    const detail = await dr.json();
-    const body = {
-      name: detail.name,
-      description: detail.description,
-      location: detail.location,
-      is_remote: detail.is_remote,
-      is_default: true,
-      guiding: detail.guiding,
-      items: detail.items.map((it: { role: string; item: { id: string } }) => ({
-        role: it.role,
-        item_id: it.item.id
-      }))
-    };
-    const r = await fetch(`${API}/api/equipment/setups/${s.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body)
-    });
-    acting = null;
-    if (r.ok) {
-      await invalidateAll();
-    } else {
-      actError = 'Could not set default';
-    }
-  }
-
-  async function del(s: SetupSummary) {
-    if (!confirm(`Delete setup "${s.name}"? This cannot be undone.`)) return;
-    acting = s.id;
-    actError = null;
-    const r = await fetch(`${API}/api/equipment/setups/${s.id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
-    acting = null;
-    if (r.status === 204) {
-      await invalidateAll();
-    } else {
-      actError = 'Could not delete';
-    }
-  }
 </script>
 
 <header class="header">
@@ -78,8 +21,8 @@
   <a href="/settings/equipment/new" class="btn primary">+ New setup</a>
 </header>
 
-{#if actError}
-  <p class="form-error">{actError}</p>
+{#if form?.error}
+  <p class="form-error">{form.error}</p>
 {/if}
 
 {#if data.setups.length === 0}
@@ -118,17 +61,42 @@
 
         <div class="actions">
           {#if !s.is_default}
-            <button
-              type="button"
-              class="btn ghost"
-              onclick={() => setDefault(s)}
-              disabled={acting === s.id}>Set as default</button
+            <form
+              method="POST"
+              action="?/setDefault"
+              use:enhance={() => {
+                acting = s.id;
+                return async ({ update }) => {
+                  await update();
+                  acting = null;
+                };
+              }}
             >
+              <input type="hidden" name="id" value={s.id} />
+              <button type="submit" class="btn ghost" disabled={acting === s.id}
+                >Set as default</button
+              >
+            </form>
           {/if}
           <a href={`/settings/equipment/${s.id}/edit`} class="btn ghost">Edit</a>
-          <button type="button" class="btn danger" onclick={() => del(s)} disabled={acting === s.id}
-            >Delete</button
+          <form
+            method="POST"
+            action="?/delete"
+            use:enhance={(e) => {
+              if (!confirm(`Delete setup "${s.name}"? This cannot be undone.`)) {
+                e.cancel();
+                return;
+              }
+              acting = s.id;
+              return async ({ update }) => {
+                await update();
+                acting = null;
+              };
+            }}
           >
+            <input type="hidden" name="id" value={s.id} />
+            <button type="submit" class="btn danger" disabled={acting === s.id}>Delete</button>
+          </form>
         </div>
       </li>
     {/each}
@@ -202,6 +170,11 @@
     display: flex;
     gap: 0.5rem;
     margin-top: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .actions form {
+    display: contents;
   }
   .btn {
     padding: 0.4rem 0.8rem;
