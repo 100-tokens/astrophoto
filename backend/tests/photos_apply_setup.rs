@@ -330,38 +330,68 @@ async fn apply_replaces_existing_setup_id_and_columns_in_overwrite_mode() {
     let setup_a = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'A') returning id",
         alice_id
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     let setup_b = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'B') returning id",
         alice_id
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     let cam_b = sqlx::query_scalar!(
         "insert into equipment_items (kind, canonical_name, display_name, usage_count)
          values ('camera','asi6200','ZWO ASI6200',0) returning id"
-    ).fetch_one(&pool).await.unwrap();
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     sqlx::query!(
         "insert into setup_items (setup_id, role, item_id) values ($1,'main_camera',$2)",
-        setup_b, cam_b
-    ).execute(&pool).await.unwrap();
+        setup_b,
+        cam_b
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Photo currently references setup_a with camera='Canon EOS 6D'.
     let photo_id = common::insert_stub_photo(
-        &pool, alice_id, Some(setup_a), None, Some("Canon EOS 6D".into())
-    ).await;
+        &pool,
+        alice_id,
+        Some(setup_a),
+        None,
+        Some("Canon EOS 6D".into()),
+    )
+    .await;
 
     // Apply setup_b in overwrite mode.
     let body = serde_json::json!({ "setup_id": setup_b.to_string(), "mode": "overwrite" });
-    let r = app.clone().oneshot(
-        axum::http::Request::builder().method("POST")
-            .uri(format!("/api/photos/{photo_id}/apply-setup"))
-            .header(axum::http::header::CONTENT_TYPE, "application/json")
-            .header(axum::http::header::COOKIE, &cookie)
-            .body(axum::body::Body::from(body.to_string())).unwrap()
-    ).await.unwrap();
+    let r = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri(format!("/api/photos/{photo_id}/apply-setup"))
+                .header(axum::http::header::CONTENT_TYPE, "application/json")
+                .header(axum::http::header::COOKIE, &cookie)
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(r.status(), 200);
 
     let row = sqlx::query!("select setup_id, camera from photos where id=$1", photo_id)
-        .fetch_one(&pool).await.unwrap();
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(row.setup_id, Some(setup_b), "setup_id replaced");
-    assert_eq!(row.camera.as_deref(), Some("ZWO ASI6200"), "camera replaced verbatim");
+    assert_eq!(
+        row.camera.as_deref(),
+        Some("ZWO ASI6200"),
+        "camera replaced verbatim"
+    );
 }

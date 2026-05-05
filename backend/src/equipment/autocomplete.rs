@@ -16,13 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::AppError;
 use crate::http::AppState;
 
-const VALID_KINDS: &[&str] = &[
-    "telescope",
-    "camera",
-    "mount",
-    "filter",
-    "focal_modifier",
-];
+const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "focal_modifier"];
 
 #[derive(Deserialize)]
 pub struct Q {
