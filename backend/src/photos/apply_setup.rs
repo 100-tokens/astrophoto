@@ -96,7 +96,7 @@ pub async fn apply(
             "main_camera" => camera = Some(r.display_name),
             "mount" => mount = Some(r.display_name),
             "filter" => filters_buf.push(r.display_name),
-            _ => {}
+            other => tracing::warn!(role = %other, "unknown setup_items role in apply-setup; ignored"),
         }
     }
     let filters = if filters_buf.is_empty() {

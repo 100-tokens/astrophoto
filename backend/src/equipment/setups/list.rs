@@ -37,18 +37,20 @@ pub async fn handler(
 
     let out: Vec<SetupSummary> = rows
         .into_iter()
-        .map(|r| SetupSummary {
-            id: r.id.to_string(),
-            name: r.name,
-            description: r.description,
-            location: r.location,
-            is_remote: r.is_remote,
-            is_default: r.is_default,
-            guiding: r.guiding,
-            updated_at: r.updated_at.to_rfc3339(),
-            item_counts: serde_json::from_value::<Vec<RoleCount>>(r.item_counts)
-                .unwrap_or_default(),
+        .map(|r| -> Result<SetupSummary, AppError> {
+            Ok(SetupSummary {
+                id: r.id.to_string(),
+                name: r.name,
+                description: r.description,
+                location: r.location,
+                is_remote: r.is_remote,
+                is_default: r.is_default,
+                guiding: r.guiding,
+                updated_at: r.updated_at.to_rfc3339(),
+                item_counts: serde_json::from_value::<Vec<RoleCount>>(r.item_counts)
+                    .map_err(|e| AppError::Internal(format!("setup item_counts decode: {e}")))?,
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(Json(out))
 }

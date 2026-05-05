@@ -114,7 +114,6 @@ pub async fn handler(
     let scope_freetext = patch.scope.clone();
     let mount_freetext = patch.mount.clone();
     let filters_freetext = patch.filters.clone();
-    let guiding_freetext = patch.guiding.clone();
     let focal_modifier_freetext = patch.focal_modifier.clone();
     let tags_list = patch.tags.clone();
 
@@ -202,7 +201,6 @@ pub async fn handler(
         ("telescope", scope_freetext.as_deref()),
         ("mount", mount_freetext.as_deref()),
         ("filter", filters_freetext.as_deref()),
-        ("guiding", guiding_freetext.as_deref()),
         ("focal_modifier", focal_modifier_freetext.as_deref()),
     ] {
         if let Some(v) = val

@@ -22,7 +22,6 @@ const VALID_KINDS: &[&str] = &[
     "mount",
     "filter",
     "focal_modifier",
-    "guiding",
 ];
 
 #[derive(Deserialize)]
@@ -49,7 +48,7 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     if !VALID_KINDS.contains(&qs.kind.as_str()) {
         return Err(AppError::Validation(
-            "kind must be telescope|camera|mount|filter|focal_modifier|guiding".into(),
+            "kind must be telescope|camera|mount|filter|focal_modifier".into(),
         ));
     }
     let q = qs.q.trim();

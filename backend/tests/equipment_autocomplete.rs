@@ -188,7 +188,7 @@ async fn results_ordered_by_usage_count_desc() {
 /// All five valid kinds are accepted (no 422).
 #[tokio::test]
 async fn all_valid_kinds_accepted() {
-    for kind in &["telescope", "camera", "mount", "filter", "guiding"] {
+    for kind in &["telescope", "camera", "mount", "filter", "focal_modifier"] {
         let (app, _pool) = make_app().await;
         let uri = format!("/api/equipment/autocomplete?kind={kind}&q=nothing");
         let v = get_json(app, &uri).await;
@@ -197,6 +197,23 @@ async fn all_valid_kinds_accepted() {
             "kind={kind} should be accepted and return items array"
         );
     }
+}
+
+/// guiding is free-text only; the autocomplete endpoint must reject it with 422.
+#[tokio::test]
+async fn guiding_kind_is_no_longer_supported() {
+    let (app, _pool) = make_app().await;
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/equipment/autocomplete?kind=guiding&q=foo")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 422);
 }
 
 /// focal_modifier kind is supported and returns matching items.
