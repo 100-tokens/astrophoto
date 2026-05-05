@@ -262,12 +262,11 @@ async fn full_verify_put_writes_all_fields() {
     .unwrap_or(0);
     assert_eq!(tag_count, 3, "expected 3 photo_tags rows");
 
-    // ---- equipment_items: telescope, mount, filter, guiding each present ----
+    // ---- equipment_items: telescope, mount, filter each present ----
     for (kind, canonical) in [
         ("telescope", "celestron edgehd 8"),
         ("mount", "sky-watcher eq6-r"),
         ("filter", "baader ha 7nm"),
-        ("guiding", "zwo oag + asi120mm"),
     ] {
         let eq_count: i64 = sqlx::query_scalar!(
             "select count(*) from equipment_items where kind = $1 and canonical_name = $2",
@@ -280,6 +279,18 @@ async fn full_verify_put_writes_all_fields() {
         .unwrap_or(0);
         assert_eq!(eq_count, 1, "expected equipment_items row for kind={kind}");
     }
+    // Guiding is intentionally non-canonical: free-text on photo only,
+    // no equipment_items entry. Confirm no row was created.
+    let guiding_count: i64 =
+        sqlx::query_scalar!("select count(*) from equipment_items where kind = 'guiding'")
+            .fetch_one(&h.pool)
+            .await
+            .unwrap()
+            .unwrap_or(0);
+    assert_eq!(
+        guiding_count, 0,
+        "guiding should not create equipment_items rows"
+    );
 }
 
 /// Sending an invalid category returns 422 / 400 (validation error).
