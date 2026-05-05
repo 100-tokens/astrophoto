@@ -56,6 +56,112 @@ pub fn config_for(url: &str) -> Config {
     }
 }
 
+/// Spin up a fresh Postgres container, run migrations, and return a
+/// (Router, PgPool) tuple. The container is leaked via `std::mem::forget`
+/// so it lives until process exit — identical to the pattern previously
+/// used inline in equipment_* and photos_apply_setup test files.
+pub async fn make_app_and_pool() -> (Router, sqlx::PgPool) {
+    use astrophoto::mail::Mailer;
+    let pg = testcontainers_modules::postgres::Postgres::default()
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = astrophoto::db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+    let (mailer, _outbox) = Mailer::for_test();
+    std::mem::forget(pg);
+    let router = astrophoto::http::router(
+        pool.clone(),
+        config_for(&url),
+        std::sync::Arc::new(astrophoto::storage::MemoryStorage::new()),
+        std::sync::Arc::new(mailer),
+    );
+    (router, pool)
+}
+
+/// POST /api/auth/signup and return the raw `set-cookie` header value.
+pub async fn signup_and_cookie(app: &Router, email: &str, handle: &str) -> String {
+    let body = serde_json::json!({
+        "email": email,
+        "password": "verylongpassword",
+        "display_name": "Test User",
+        "handle": handle,
+    });
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 201, "signup failed");
+    resp.headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
+}
+
+/// Return the UUID of the user with the given email (must already exist).
+pub async fn lookup_user_id(pool: &sqlx::PgPool, email: &str) -> Uuid {
+    sqlx::query_scalar!("select id from users where email = $1", email)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+/// Insert a second user directly via SQL (avoids a full signup round-trip).
+/// Useful for cross-user auth tests. Returns the new user's UUID.
+pub async fn create_other_user(pool: &sqlx::PgPool, email: &str) -> Uuid {
+    sqlx::query_scalar!(
+        r#"insert into users (email, password_hash, display_name, handle)
+                values ($1, '$argon2id$v=19$m=19456,t=2,p=1$AAAA$AAAA', 'Other', $2)
+           returning id"#,
+        email,
+        email.split('@').next().unwrap()
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+/// Insert a minimal photo row. `setup_id`, `scope`, and `camera` are all
+/// optional so callers can seed only what they need. Returns the photo UUID.
+pub async fn insert_stub_photo(
+    pool: &sqlx::PgPool,
+    owner_id: Uuid,
+    setup_id: Option<Uuid>,
+    scope: Option<String>,
+    camera: Option<String>,
+) -> Uuid {
+    sqlx::query_scalar!(
+        r#"insert into photos
+              (owner_id, storage_key, original_name, bytes, mime,
+               original_uploaded_at, short_id, last_step,
+               setup_id, scope, camera)
+            values ($1, 'k', 'orig.jpg', 1000, 'image/jpeg',
+                   now(), gen_random_uuid()::text, 'caption',
+                   $2, $3, $4)
+            returning id"#,
+        owner_id,
+        setup_id,
+        scope.as_deref(),
+        camera.as_deref()
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
 pub struct TestApp {
     pub app: Router,
     pub pool: sqlx::PgPool,
