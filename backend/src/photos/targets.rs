@@ -2,10 +2,18 @@
 //! writes a photo_targets row with source='manual' and is_primary=true
 //! when the user picked one explicitly.
 
+use axum::{
+    Json,
+    extract::{Path, State},
+};
+use serde::Deserialize;
 use sqlx::Postgres;
 use uuid::Uuid;
 
-use crate::error::AppError;
+use crate::AppError;
+use crate::api_types::{PatchTargetsItem, PatchTargetsResponse};
+use crate::auth::middleware::CurrentUser;
+use crate::http::AppState;
 
 /// Resolves a freetext target string (slug / alias / canonical name) and inserts
 /// or updates a single `source='manual', is_primary=true` row.
@@ -123,6 +131,64 @@ pub async fn multi_attach(
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// HTTP handler
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct PatchTargetsBody {
+    pub targets: Vec<String>,
+}
+
+pub async fn patch_targets(
+    State(state): State<AppState>,
+    CurrentUser(user): CurrentUser,
+    Path(photo_id): Path<Uuid>,
+    Json(body): Json<PatchTargetsBody>,
+) -> Result<Json<PatchTargetsResponse>, AppError> {
+    let owner: Option<Uuid> = sqlx::query_scalar!(
+        "select owner_id from photos where id = $1",
+        photo_id
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+
+    match owner {
+        Some(o) if o == user.id => {}
+        Some(_) => return Err(AppError::Forbidden),
+        None => return Err(AppError::not_found("photo")),
+    }
+
+    let mut tx = state.pool.begin().await?;
+    multi_attach(&mut tx, photo_id, &body.targets).await?;
+
+    let rows = sqlx::query!(
+        r#"
+        select t.slug, t.canonical_name, pt.is_primary
+        from photo_targets pt
+        join targets t on t.id = pt.target_id
+        where pt.photo_id = $1 and pt.source = 'manual'
+        order by pt.is_primary desc, t.slug
+        "#,
+        photo_id
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(Json(PatchTargetsResponse {
+        targets: rows
+            .into_iter()
+            .map(|r| PatchTargetsItem {
+                slug: r.slug,
+                canonical_name: r.canonical_name,
+                is_primary: r.is_primary,
+            })
+            .collect(),
+    }))
 }
 
 // ---------------------------------------------------------------------------

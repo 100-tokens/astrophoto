@@ -102,6 +102,10 @@ pub fn router(
             post(crate::photos::publish::handler),
         )
         .route(
+            "/api/photos/:id/targets",
+            axum::routing::patch(crate::photos::targets::patch_targets),
+        )
+        .route(
             "/api/photos/:id/replace",
             post(crate::photos::replace::handler)
                 .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),

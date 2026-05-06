@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.slug, t.canonical_name, pt.is_primary\n        from photo_targets pt\n        join targets t on t.id = pt.target_id\n        where pt.photo_id = $1 and pt.source = 'manual'\n        order by pt.is_primary desc, t.slug\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "is_primary",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "30d8b4f0cc88be3da3c887ebb4a01765868f440ee7e487fab9e8b53ea3b5d9b2"
+}

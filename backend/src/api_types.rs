@@ -376,3 +376,17 @@ pub struct SearchResults {
     pub users: Vec<SearchUserHit>,
     pub photos: Vec<DiscoveryPhoto>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsItem.ts")]
+pub struct PatchTargetsItem {
+    pub slug: String,
+    pub canonical_name: String,
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsResponse.ts")]
+pub struct PatchTargetsResponse {
+    pub targets: Vec<PatchTargetsItem>,
+}
