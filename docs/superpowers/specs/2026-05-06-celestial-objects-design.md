@@ -1,0 +1,545 @@
+# Celestial Objects Design — OpenNGC Catalog + Multi-Target Tagging
+
+**Date:** 2026-05-06
+**Status:** Draft — pending written-spec review
+**Author:** Pascal (with Claude)
+
+## Goal
+
+Turn the existing `targets` table from a Messier-only stub (≈120 rows,
+no astronomical metadata) into a real celestial-object catalog backed
+by **OpenNGC** (≈14 000 galaxies, nebulae, clusters with RA/Dec, type,
+constellation, magnitude, dimensions). Surface that data on
+`/t/<slug>` pages and make it useful at upload time by replacing the
+single-target picker with a **multi-target** picker that uses the
+already-existing many-to-many join.
+
+The feature ships as **one spec, one implementation plan** covering
+four tracks (D1, D2a, D2b, D2c). Aladin Lite embed, NASA/ESA gallery,
+and plate solving are explicitly deferred to D3+ — see "Out of scope".
+
+## Why now
+
+The `targets` / `photo_targets` schema and the `/t/<slug>` page were
+shipped during the photographer-showcase discovery phase
+(commits `b48df65` and `b636be0`). The infra is in place but the
+**content is starved**: only Messier 1→110 plus eight popular NGC/IC
+objects are seeded, with zero astronomical metadata. The page header
+shows just `"Messier 5 · 12 photos"` — no RA/Dec, no constellation, no
+type. And the upload picker is single-select, even though the join
+table already supports multi.
+
+Targets are the **subject** facet of a photo (vs photographer = who,
+equipment = how). After photographer-showcase (who) and equipment
+setups (how, in flight), enriching the subject facet is the natural
+next step and the strongest differentiator of an astrophotography
+platform vs a generic photo site.
+
+## Decisions
+
+| #   | Topic                              | Choice                                                                                          |
+| --- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | Catalog source                     | **OpenNGC** (`mattiaverga/OpenNGC`, CC-BY-SA 4.0). NGC.csv + addendum.csv pinned in `backend/data/openngc/`. |
+| 2   | URL scheme                         | **Keep `/t/<slug>`** — already shipped, indexed, linked. No rename.                            |
+| 3   | Tagging cardinality                | **Multi-target, optional, with free-text fallback** (max 5 per photo).                         |
+| 4   | Page content (D2)                  | **Metadata header + community grid**. No descriptions, no Wikipedia, no AI text in this slice. |
+| 5   | Import mechanism                   | **Rust binary `seed-targets` + `just seed-targets`** recipe. Not in migration. Re-runnable.    |
+| 6   | Schema strategy                    | All new astro columns **nullable**. Preserves manual rows (M40, M45) and seeds without astro metadata. |
+| 7   | Merge with existing seed           | UPSERT by slug, **never overwrite** `canonical_name` / `aliases` (manual overrides preserved). |
+| 8   | Special cases                      | `KEEP_MANUAL_META = {'m45'}` skip-list in seed binary (avoid M45 ↔ NGC 1432 "Maia Nebula" conflict). M40 handled via addendum.csv. |
+| 9   | Object-type / constellation labels | Lookup tables in frontend (`$lib/data/celestial.ts`), not stored in DB. Codes (G, GCl, AND…) stay in DB. |
+| 10  | Multi-target write API             | New `PATCH /api/photos/:id/targets`. Atomic: deletes existing `source='manual'` rows, re-inserts in priority order, first = `is_primary=true`. Preserves `source='plate_solve'` rows. |
+| 11  | Backfill of existing photos        | **`just backfill-photo-targets`** one-shot binary, dry-run by default. Run manually post-deploy on staging then prod. |
+| 12  | Index page `/t`                    | New SSR route. Filters by object_type + constellation, search across slug/canonical_name/aliases, sort by popularity / name / recent. |
+| 13  | Search implementation              | `ILIKE` over canonical_name, slug, aliases. No `pg_trgm` for now (over-engineering at 14k rows). |
+| 14  | i18n                               | French-only labels initially. When project-wide i18n lands, lookup tables migrate. |
+
+---
+
+## Architecture overview
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│ OpenNGC CSV     │────▶│ seed-targets bin │────▶│  targets table  │
+│ (pinned in repo)│     │ (UPSERT + merge) │     │  ~14k rows      │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                                                         ▲
+                                                         │
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Upload UI      │────▶│ PATCH /photos/   │────▶│ photo_targets   │
+│ TargetMulti-    │     │ :id/targets      │     │ (M2M join,      │
+│ Picker          │     │                  │     │  source=manual) │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                                                         ▲
+                                                         │
+┌─────────────────┐     ┌──────────────────┐             │
+│  /t/<slug>      │◀────│ GET /api/        │─────────────┘
+│  page (header   │     │ targets/:slug    │
+│  + photo grid)  │     │ (enriched)       │
+└─────────────────┘     └──────────────────┘
+                                                         ▲
+┌─────────────────┐     ┌──────────────────┐             │
+│  /t (index)     │◀────│ GET /api/targets │─────────────┘
+│  (browse all)   │     │ (paginated list) │
+└─────────────────┘     └──────────────────┘
+```
+
+**Components touched:**
+- New: migration `0014_targets_astro_meta.sql`, binary
+  `backend/src/bin/seed_targets.rs`, binary
+  `backend/src/bin/backfill_photo_targets.rs`,
+  `frontend/src/lib/components/TargetMultiPicker.svelte`,
+  `frontend/src/lib/data/celestial.ts`,
+  `frontend/src/lib/utils/coords.ts`,
+  `frontend/src/routes/t/+page.{svelte,server.ts}`.
+- New endpoints: `PATCH /api/photos/:id/targets`, `GET /api/targets`.
+- Modified: `discovery/target.rs` (extend `TargetMeta`), api_types,
+  `DiscoveryHeader.svelte` (variant=`target` branch),
+  `upload/[id]/verify/+page.svelte` (swap picker), justfile.
+
+---
+
+## D1.1 — Schema migration
+
+**File:** `backend/migrations/0014_targets_astro_meta.sql`
+
+```sql
+alter table targets
+  add column right_ascension   double precision,
+  add column declination       double precision,
+  add column magnitude_v       real,
+  add column object_type       text,
+  add column constellation     char(3),
+  add column major_axis_arcmin real,
+  add column minor_axis_arcmin real,
+  add column updated_at        timestamptz not null default now();
+
+create index targets_object_type_idx
+    on targets (object_type)  where object_type is not null;
+create index targets_constellation_idx
+    on targets (constellation) where constellation is not null;
+```
+
+**Notes:**
+- All astro columns nullable — OpenNGC does not cover every existing
+  row (M40 = Winnecke 4 binary, in `addendum.csv`; M45 Pleiades cluster
+  is not in NGC core).
+- `kind` (catalog provenance: messier/ngc/ic/…) stays distinct from
+  `object_type` (astronomical type: G/PN/OCl/…). They are not
+  synonymous.
+- No SQL enum for `object_type` — keeps schema flexible vs OpenNGC
+  evolution.
+- `updated_at` to track when seed last touched a row.
+- No spatial index (cube/earthdistance) yet — deferred to D6 cone search.
+
+---
+
+## D1.2 — OpenNGC import
+
+**Source files committed under `backend/data/openngc/`:**
+- `NGC.csv` — main catalog (~14k rows, ~3 MB)
+- `addendum.csv` — Messier objects not in NGC/IC (M40, M45, M24…)
+- `README.md` — version pin, source URL, license attribution
+
+**Binary:** `backend/src/bin/seed_targets.rs`. Invoked via
+`just seed-targets` which runs `cargo run --bin seed-targets --release`.
+
+**Algorithm (per CSV row):**
+
+```
+1. Parse fields: Name, M, RA, Dec, Type, Const, V-Mag, MajAx, MinAx, CommonNames
+2. Compute slug:
+   - if M is set     → "m{M}"          (e.g. m31)
+   - else if Name starts with "NGC" → "ngc-{num}"
+   - else if Name starts with "IC"  → "ic-{num}"
+   - else            → skip (rare: stars, novae)
+3. UPSERT by slug:
+   - Slugs strip OpenNGC zero-padding: "NGC0224" → "ngc-224", not
+     "ngc-0224" (matches existing seed style).
+   - INSERT ... ON CONFLICT (slug) DO UPDATE
+   - UPDATE only:  ra, dec, magnitude_v, object_type,
+                   constellation, major_axis_arcmin,
+                   minor_axis_arcmin, updated_at
+   - NEVER overwrite canonical_name (preserves manual overrides from
+                   migration 0010 like "Andromeda Galaxy" on m31).
+   - aliases are EXTENDED, never replaced: existing entries preserved,
+                   new catalog forms ("NGC 224" / "M 31" / "IC 434")
+                   appended via `array_cat` + dedup if absent.
+   - On INSERT only: canonical_name = first CommonName or `Name`,
+                     kind derived from prefix.
+4. KEEP_MANUAL_META skip-list: ['m45']
+   - For these slugs, do not UPDATE astro metadata (M45/Pleiades is
+     not the same as NGC 1432/Maia Nebula).
+5. Second pass: addendum.csv → fill rows that core CSV did not match.
+```
+
+**Idempotence:** running the binary N times converges to the same
+state. Manual edits to `canonical_name` / `aliases` survive every
+re-run.
+
+**Performance:** ~14k UPSERTs in a single transaction, batched at 500
+rows. Expected <2s on local Postgres. Not a critical path.
+
+**Tests:**
+- Unit: parser fixtures (5 representative rows: galaxy with M number,
+  IC alone, star to skip, missing V-Mag, missing dimensions).
+- Unit: merge logic — given seed-0010 state, after running the binary
+  on a 3-row fixture, M31 has `right_ascension ≈ 10.68`,
+  `object_type='G'`, `canonical_name` still `Andromeda Galaxy`.
+- Integration: testcontainer Postgres → run migrations → run binary →
+  assert `count(*) ≥ 13800`,
+  `count(*) where ra is null and slug like 'ngc-%' = 0`,
+  `m45.canonical_name = 'Pleiades'`.
+
+**License attribution:** small "Catalog data: OpenNGC (CC-BY-SA 4.0)"
+footer on `/t/<slug>` and `/t` pages, linking to the GitHub repo.
+
+---
+
+## D2a — Multi-target picker at upload
+
+### Frontend component
+
+New `frontend/src/lib/components/TargetMultiPicker.svelte`:
+
+```svelte
+<TargetMultiPicker
+  bind:targets={selectedTargets}    // Array<{ slug, canonical_name, kind }>
+  bind:primary={primarySlug}        // string | null
+  max={5}
+/>
+```
+
+Visual: stacked chips with star marker on the primary, autocomplete
+input below to add, free-text fallback input at the bottom (used only
+when the chips list is empty). Clicking a non-primary chip promotes it
+to primary.
+
+Implementation: extracts `<TargetAutocompleteInput>` from existing
+`<TargetPicker>` as a shared sub-component. `<TargetPicker>` (mono)
+keeps its current API; `<TargetMultiPicker>` wraps the autocomplete
+and manages the chip list.
+
+### Backend endpoint
+
+New: `PATCH /api/photos/:id/targets` in `photos/targets.rs`.
+
+**Request:**
+```json
+{
+  "targets": ["m42", "ngc-1977", "ic-434"],
+  "freetext_fallback": null
+}
+```
+
+**Behavior (transactional):**
+1. Verify ownership → 403 if not owner.
+2. Validate every slug exists → 400 with the offending slug if not.
+3. Reject duplicate slugs in the array → 400.
+4. Reject `targets.len() > 5` → 400.
+5. `DELETE FROM photo_targets WHERE photo_id = $1 AND source = 'manual'`
+   (preserves `source='plate_solve'` rows for D5+).
+6. Insert each slug with `source='manual'`; the **first** entry gets
+   `is_primary=true`, the rest `false`.
+7. If `freetext_fallback` provided → `UPDATE photos SET target = $1`.
+   If null and `targets` is non-empty → leave `photos.target` as-is
+   (the canonical_name of the primary is the display fallback in UI).
+
+**Response:** `200 { targets: [{ slug, canonical_name, is_primary }],
+freetext: string | null }`.
+
+### Upload flow integration
+
+`upload/[id]/verify/+page.svelte` currently uses `<TargetPicker>` bound
+to a single `target` text. Change:
+- Replace `<TargetPicker bind:value={target} />` with
+  `<TargetMultiPicker bind:targets bind:primary />`.
+- On submit, the client computes the legacy `target` text field as
+  follows: if at least one chip is selected → `target` = primary's
+  `canonical_name`; else → `target` = the free-text fallback input.
+  POST `/api/photos/:id/metadata` continues to receive a single
+  `target` text (no API change to that endpoint).
+- After metadata POST, if `targets.length > 0` the client also calls
+  `PATCH /api/photos/:id/targets` with the explicit slug list.
+- The legacy `attach_primary_by_freetext` path on metadata save stays
+  intact: it runs when only the free-text field was filled, matching
+  the text against the catalog as a best-effort.
+
+### Tests
+
+- Unit Rust: idempotent re-PATCH yields same join rows; plate_solve
+  rows preserved; primary correctly positioned.
+- Integration: 403 on wrong owner, 400 on unknown slug, 400 on
+  duplicate, 400 on >5.
+- E2E (chrome-devtools): upload → tag M42 + NGC 1977 → verify both
+  `/t/m42` and `/t/ngc-1977` list the photo.
+
+---
+
+## D2b — Enriched page header
+
+### API extension
+
+`api_types::TargetMeta` gains:
+```rust
+pub right_ascension:   Option<f64>,
+pub declination:       Option<f64>,
+pub magnitude_v:       Option<f32>,
+pub object_type:       Option<String>,
+pub constellation:     Option<String>,
+pub major_axis_arcmin: Option<f32>,
+pub minor_axis_arcmin: Option<f32>,
+```
+
+`discovery/target.rs::get` query updated to select the new columns.
+
+### Frontend
+
+`<DiscoveryHeader variant="target">` branch updated to render:
+
+```
+M31 · Andromeda Galaxy
+Galaxie  ·  Andromède  ·  RA 00ʰ42ᵐ44ˢ  ·  Dec +41°16′09″
+mag 3.4  ·  190′ × 60′  ·  alias : NGC 224, Messier 31
+
+47 photos  ·  23 photographes
+```
+
+All fields optional. If everything astro is null, only the slug,
+canonical_name, and counts render — i.e. behavior reverts to the
+current header.
+
+**New helpers:**
+- `$lib/utils/coords.ts`:
+  - `formatRA(degrees: number): string` → `"00ʰ42ᵐ44ˢ"`
+  - `formatDec(degrees: number): string` → `"+41°16′09″"` (signed, sexagesimal)
+  - Pure functions, unit-tested with 5–6 cases (M31, M42, NGC 7000,
+    deep-south negative, value near 0).
+- `$lib/data/celestial.ts`:
+  - `OBJECT_TYPE_LABELS: Record<string, string>` — all OpenNGC type
+    codes (G, GCl, OCl, PN, SNR, Neb, HII, Cl, *Ass, **, …)
+  - `CONSTELLATION_LABELS: Record<string, string>` — 88 IAU codes
+    (AND→Andromède, ORI→Orion, …).
+  - Unknown code → display the raw code (safe fallback).
+
+### Tests
+
+- Unit TS: `formatRA`/`formatDec` cases.
+- Integration Rust: `/api/targets/m31` after seed returns
+  `object_type='G'`, `constellation='AND'`, `magnitude_v ≈ 3.4`.
+- Visual check: `/t/m31` displays the new lines; `/t/m45` (skip-list)
+  shows minimal header (only slug + canonical_name + counts).
+
+---
+
+## D2c — Index page `/t`
+
+### Route
+
+New SSR route at `frontend/src/routes/t/+page.{svelte,server.ts}`,
+above the existing `/t/[slug]`.
+
+URL: `/t?object_type=G&constellation=ORI&sort=popular&q=&cursor=…`
+(query param names match the API fields below; values are OpenNGC
+codes, not localized labels.)
+
+### Backend endpoint
+
+New: `GET /api/targets` in `discovery/target_index.rs` (new file).
+
+**Query params:**
+```rust
+struct ListQ {
+    q:             Option<String>,   // search across canonical_name, slug, aliases
+    object_type:   Option<String>,   // 'G', 'PN', …
+    constellation: Option<String>,   // 'ORI', 'AND', …
+    sort:          Option<String>,   // 'popular' (default) | 'name' | 'recent'
+    cursor:        Option<String>,   // base64 (sort_value, id)
+    limit:         Option<i64>,      // default 24, max 60
+}
+```
+
+**Response:**
+```json
+{
+  "targets": [
+    {
+      "slug": "m42",
+      "canonical_name": "Orion Nebula",
+      "object_type": "Neb",
+      "constellation": "ORI",
+      "magnitude_v": 4.0,
+      "photo_count": 87,
+      "preview_thumbs": [
+        { "short_id": "abc12", "blurhash": "L6P…" },
+        { "short_id": "def34", "blurhash": "L8Q…" },
+        { "short_id": "ghi56", "blurhash": "L7R…" }
+      ]
+    }
+  ],
+  "next_cursor": "…"
+}
+```
+
+`preview_thumbs`: top-3 most-appreciated photos for that target via
+`LATERAL` subquery against `photo_targets` join. Up to 3 entries; can
+be empty for targets with zero photos.
+
+**Search query (no `pg_trgm` for now):**
+```sql
+where ($1::text is null
+       or canonical_name ilike '%' || $1 || '%'
+       or slug ilike '%' || $1 || '%'
+       or exists (select 1 from unnest(aliases) a where a ilike '%' || $1 || '%'))
+```
+
+**Cursor encoding:**
+- `popular` → `(photo_count desc, id desc)`
+- `name`    → `(canonical_name asc, id asc)`
+- `recent`  → `(updated_at desc, id desc)`
+
+### Page layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Objets célestes                            [recherche…    ] │
+│ Type: [Tous ▾] [Galaxie] [Nébuleuse] [Amas ouvert] [PN]     │
+│ Constellation: [Toutes ▾] [Orion] [Andromède] …             │
+│ Tri: [Populaire ▾] [Alphabétique] [Récent]                  │
+└─────────────────────────────────────────────────────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ ▣ ▣ ▣        │ │ ▣ ▣ ▣        │ │ ▣ ▣ ▣        │
+│ M31          │ │ M42          │ │ NGC 7000     │
+│ Andromeda    │ │ Orion Nebula │ │ N. America   │
+│ Galaxie · AND│ │ Néb · ORI    │ │ Néb · CYG    │
+│ 47 photos    │ │ 87 photos    │ │ 31 photos    │
+└──────────────┘ └──────────────┘ └──────────────┘
+                  [Charger plus]
+```
+
+Cards link to `/t/<slug>`. Mini-strip of 3 thumb placeholders renders
+from blurhash, lazy-loaded images on viewport entry. Filter pills
+reuse `<FilterPills>` adapted with `variant="target-index"`.
+
+Search input debounced 200ms; updates `?q=` query param;
+SvelteKit `goto({ replaceState, keepFocus, noScroll })` re-runs
+`load`.
+
+### Empty states
+
+- No filters, full catalog → 24 most-popular targets.
+- Filters + zero results → "Aucun objet ne correspond. [Effacer les filtres]"
+- Target with zero photos → still shown when no popularity sort,
+  thumbs strip becomes a gray placeholder, label "0 photos · Soyez le
+  premier".
+
+### SEO
+
+- `<title>`: "Objets célestes — Astrophoto"
+- `<meta name="description">`: "Explore 14 000 galaxies, nébuleuses
+  et amas photographiés par la communauté."
+- SSR-rendered (server `load`) for crawlability.
+
+### Tests
+
+- Unit Rust: cursor encode/decode for all three sort modes.
+- Integration: filter by `object_type=G` + `constellation=AND`
+  returns M31; search `q=andromed` returns M31.
+- E2E: open `/t`, type "orion", click M42 → header shows enriched
+  metadata.
+
+---
+
+## Backfill of existing photos
+
+Before D1, `attach_primary_by_freetext` could only match against ~120
+catalog rows. After D1, ~14k rows are matchable — many `photos.target`
+text values that previously fell through can now resolve.
+
+**One-shot binary `backend/src/bin/backfill_photo_targets.rs`,
+invoked via `just backfill-photo-targets`:**
+
+- Selects `photos where target is not null and target <> '' and not
+  exists (select 1 from photo_targets pt where pt.photo_id = photos.id
+  and pt.source = 'manual')`.
+- For each row, runs the same lookup as `attach_primary_by_freetext`
+  (slug exact / alias / canonical_name ilike).
+- Default mode: dry-run. Logs match / no-match / ambiguous counts.
+- `--apply` flag actually writes the join rows.
+- Idempotent: re-running with `--apply` is a no-op (the existence
+  guard skips photos that already have a manual row).
+
+**Run cadence:** manually post-deploy on staging then prod, output
+appended to `docs/operations/p?-acceptance.md`. Not part of CI.
+
+---
+
+## Rollout plan
+
+1. Land migration `0014` (additive, nullable cols → safe).
+2. Deploy backend exposing new fields and `PATCH` endpoint.
+3. Run `just seed-targets` on staging, smoke-check
+   `count(*) ≈ 13800` and `/api/targets/m31` returns enriched data.
+4. Deploy frontend (`<TargetMultiPicker>`, header, `/t` index).
+5. `just backfill-photo-targets --apply` on staging → review →
+   replay on prod.
+
+Each step is independent and observable. Rollback at any step =
+revert the deploy; nullable columns and additive endpoints leave no
+data debt behind.
+
+---
+
+## Risks
+
+- **CSV pinning drift:** OpenNGC publishes ~1–2 updates per year.
+  Stale data is not breaking, just out-of-date. Mitigation: annual
+  refresh PR, run `just seed-targets` again.
+- **M45 / Maia Nebula confusion:** mitigated by `KEEP_MANUAL_META`
+  skip-list. If new edge cases surface (M73 = asterism, M40 = double
+  star), add to skip-list.
+- **Multi-target dedup:** user picks "M42" and "NGC 1976" (same
+  object). Front dedupes by slug **after** autocomplete returns
+  canonical slugs (NGC 1976 lookup → m42). Backend rejects duplicate
+  slugs in the array as 400.
+- **`/t` index perf:** 14k rows + filters + LATERAL subquery for
+  preview thumbs. Expected <100 ms with the existing indexes. If
+  perf degrades, switch preview thumbs to a daily-refreshed
+  materialized view. Don't optimize preemptively.
+- **Backfill ambiguity:** "M5" matches Messier 5, but a user might
+  have meant "M 5" filter wheel position. Free-text matching ignores
+  whitespace differences; ambiguous matches logged as warnings,
+  human-reviewed before `--apply`. Accept 1–2% false positives —
+  the photo's free-text `target` is preserved alongside the join row,
+  so original intent is never lost.
+
+---
+
+## Out of scope (deferred)
+
+- **D3** — Aladin Lite WebGL sky-map embed on `/t/<slug>` (trivial
+  once RA/Dec are in place).
+- **D4** — NASA / ESA / JWST gallery proxy with 24h cache.
+- **D5** — Plate solving (Astrometry.net) async worker, populating
+  `photo_targets` rows with `source='plate_solve'` and `confidence`.
+- **D6** — Cone search (RA/Dec radius). Requires `cube` /
+  `earthdistance` Postgres extension and a spatial index.
+- **Object descriptions** (Wikipedia extract, AI-generated) — not
+  needed for D2 content. The enriched header already conveys context.
+- **i18n infrastructure** — `OBJECT_TYPE_LABELS` and
+  `CONSTELLATION_LABELS` ship as French-only constants. When the
+  project gets i18n, these tables move to the global system.
+- **Materialized view for preview thumbs** — only if perf demands it.
+
+---
+
+## References
+
+- OpenNGC repo — https://github.com/mattiaverga/OpenNGC (CC-BY-SA 4.0)
+- IAU constellation codes —
+  https://www.iau.org/public/themes/constellations/
+- Existing schema: `backend/migrations/0010_targets_tags.sql`
+- Existing route: `frontend/src/routes/t/[slug]/+page.svelte`
+- Existing autocomplete: `backend/src/photos/targets_autocomplete.rs`
+- Photographer-showcase discovery (origin of `/t/`):
+  `docs/superpowers/specs/2026-05-03-photographer-showcase-design.md`
