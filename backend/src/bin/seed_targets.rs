@@ -73,6 +73,223 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+pub async fn upsert_target(
+    pool: &sqlx::PgPool,
+    slug: &str,
+    row: &OpenNgcRow,
+    keep_manual_meta: &[&str],
+) -> anyhow::Result<()> {
+    let in_skip_list = keep_manual_meta.iter().any(|s| *s == slug);
+
+    // Aliases that should always be appended (idempotent dedup happens in SQL).
+    let mut alias_additions: Vec<String> = Vec::new();
+    if let Some(m) = row.messier_num {
+        alias_additions.push(format!("M {}", m));
+    }
+    if let Some(rest) = row.name.strip_prefix("NGC") {
+        if let Ok(n) = rest.parse::<u32>() {
+            alias_additions.push(format!("NGC {}", n));
+        }
+    }
+    if let Some(rest) = row.name.strip_prefix("IC") {
+        if let Ok(n) = rest.parse::<u32>() {
+            alias_additions.push(format!("IC {}", n));
+        }
+    }
+
+    let kind = if slug.starts_with('m') && !slug.starts_with("messier") {
+        "messier"
+    } else if slug.starts_with("ngc-") {
+        "ngc"
+    } else if slug.starts_with("ic-") {
+        "ic"
+    } else {
+        "other"
+    };
+
+    let canonical_on_insert = row
+        .common_names
+        .first()
+        .cloned()
+        .unwrap_or_else(|| row.name.clone());
+
+    let constellation_3 = row
+        .constellation
+        .as_deref()
+        .map(|c| c.chars().take(3).collect::<String>());
+
+    if in_skip_list {
+        // INSERT-only path: never touches astro fields on existing row; aliases still extended.
+        sqlx::query!(
+            r#"
+            insert into targets (slug, canonical_name, aliases, kind)
+            values ($1, $2, $3, $4)
+            on conflict (slug) do update set
+              aliases = (
+                select array(select distinct unnest(targets.aliases || $3))
+              )
+            "#,
+            slug,
+            canonical_on_insert,
+            &alias_additions,
+            kind,
+        )
+        .execute(pool)
+        .await?;
+        return Ok(());
+    }
+
+    sqlx::query!(
+        r#"
+        insert into targets (
+            slug, canonical_name, aliases, kind,
+            right_ascension, declination, magnitude_v, object_type,
+            constellation, major_axis_arcmin, minor_axis_arcmin, updated_at
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+        on conflict (slug) do update set
+            right_ascension   = excluded.right_ascension,
+            declination       = excluded.declination,
+            magnitude_v       = excluded.magnitude_v,
+            object_type       = excluded.object_type,
+            constellation     = excluded.constellation,
+            major_axis_arcmin = excluded.major_axis_arcmin,
+            minor_axis_arcmin = excluded.minor_axis_arcmin,
+            aliases = (
+                select array(select distinct unnest(targets.aliases || $3))
+            ),
+            updated_at = now()
+        "#,
+        slug,
+        canonical_on_insert,
+        &alias_additions,
+        kind,
+        row.ra_deg,
+        row.dec_deg,
+        row.magnitude_v,
+        row.object_type,
+        constellation_3,
+        row.major_axis_arcmin,
+        row.minor_axis_arcmin,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod upsert_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+    use sqlx::PgPool;
+    use testcontainers::runners::AsyncRunner;
+    use testcontainers_modules::postgres::Postgres as PgImage;
+
+    async fn fresh_pool() -> (PgPool, testcontainers::ContainerAsync<PgImage>) {
+        let pg = PgImage::default().start().await.unwrap();
+        let host = pg.get_host().await.unwrap();
+        let port = pg.get_host_port_ipv4(5432).await.unwrap();
+        let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&url)
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        (pool, pg)
+    }
+
+    fn fixture(name: &str, m: Option<u32>, ra: f64, dec: f64) -> OpenNgcRow {
+        OpenNgcRow {
+            name: name.into(),
+            messier_num: m,
+            ra_deg: Some(ra),
+            dec_deg: Some(dec),
+            object_type: Some("G".into()),
+            constellation: Some("And".into()),
+            magnitude_v: Some(3.4),
+            major_axis_arcmin: Some(190.0),
+            minor_axis_arcmin: Some(60.0),
+            common_names: vec!["Andromeda Galaxy".into()],
+        }
+    }
+
+    #[tokio::test]
+    async fn updates_existing_messier_keeps_canonical_name() {
+        let (pool, _pg) = fresh_pool().await;
+        // Migration 0010 already seeded m31 with canonical_name="Andromeda Galaxy".
+        let row = fixture("NGC0224", Some(31), 10.68, 41.27);
+        upsert_target(&pool, "m31", &row, &[]).await.unwrap();
+
+        let r = sqlx::query!(
+            "select canonical_name, right_ascension, object_type, aliases from targets where slug='m31'"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(r.canonical_name, "Andromeda Galaxy");
+        assert!((r.right_ascension.unwrap() - 10.68).abs() < 0.01);
+        assert_eq!(r.object_type.as_deref(), Some("G"));
+        assert!(r.aliases.iter().any(|a| a == "NGC 224"));
+    }
+
+    #[tokio::test]
+    async fn skip_list_blocks_meta_update() {
+        let (pool, _pg) = fresh_pool().await;
+        // Migration 0010 seeded m45 with canonical_name='Pleiades' and no astro fields.
+        let row = OpenNgcRow {
+            name: "M045-fake".into(),
+            messier_num: Some(45),
+            ra_deg: Some(56.6),
+            dec_deg: Some(24.1),
+            object_type: Some("HII".into()),
+            constellation: Some("Tau".into()),
+            magnitude_v: Some(1.6),
+            major_axis_arcmin: Some(110.0),
+            minor_axis_arcmin: Some(110.0),
+            common_names: vec!["Maia Nebula bogus".into()],
+        };
+        upsert_target(&pool, "m45", &row, &["m45"]).await.unwrap();
+
+        let r = sqlx::query!(
+            "select canonical_name, right_ascension, object_type from targets where slug='m45'"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(r.canonical_name, "Pleiades");
+        assert!(
+            r.right_ascension.is_none(),
+            "skip-list must block astro update"
+        );
+        assert!(r.object_type.is_none(), "skip-list must block astro update");
+    }
+
+    #[tokio::test]
+    async fn idempotent_double_run() {
+        let (pool, _pg) = fresh_pool().await;
+        let row = fixture("NGC0224", Some(31), 10.68, 41.27);
+        upsert_target(&pool, "m31", &row, &[]).await.unwrap();
+        upsert_target(&pool, "m31", &row, &[]).await.unwrap();
+
+        let count: i64 =
+            sqlx::query_scalar!("select count(*) as \"c!\" from targets where slug='m31'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 1);
+
+        let r = sqlx::query!("select aliases from targets where slug='m31'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let ngc_count = r.aliases.iter().filter(|a| *a == "NGC 224").count();
+        assert_eq!(ngc_count, 1, "alias must be deduped on idempotent re-run");
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum SlugDecision {
     Slug(String),
