@@ -48,7 +48,7 @@ platform vs a generic photo site.
 | 7   | Merge with existing seed           | UPSERT by slug, **never overwrite** `canonical_name` / `aliases` (manual overrides preserved). |
 | 8   | Special cases                      | `KEEP_MANUAL_META = {'m45'}` skip-list in seed binary (avoid M45 ↔ NGC 1432 "Maia Nebula" conflict). M40 handled via addendum.csv. |
 | 9   | Object-type / constellation labels | Lookup tables in frontend (`$lib/data/celestial.ts`), not stored in DB. Codes (G, GCl, AND…) stay in DB. |
-| 10  | Multi-target write API             | New `PATCH /api/photos/:id/targets`. Atomic: deletes existing `source='manual'` rows, re-inserts in priority order, first = `is_primary=true`. Preserves `source='plate_solve'` rows. |
+| 10  | Multi-target write API             | At upload: extend existing `POST /api/photos/:id/metadata` with optional `targets` array (single atomic call, no silent-failure window). Separate `PATCH /api/photos/:id/targets` for post-publish edits. Both delete existing `source='manual'` rows and re-insert; preserve `source='plate_solve'`. |
 | 11  | Backfill of existing photos        | **`just backfill-photo-targets`** one-shot binary, dry-run by default. Run manually post-deploy on staging then prod. |
 | 12  | Index page `/t`                    | New SSR route. Filters by object_type + constellation, search across slug/canonical_name/aliases, sort by popularity / name / recent. |
 | 13  | Search implementation              | `ILIKE` over canonical_name, slug, aliases. No `pg_trgm` for now (over-engineering at 14k rows). |
@@ -150,9 +150,14 @@ create index targets_constellation_idx
 1. Parse fields: Name, M, RA, Dec, Type, Const, V-Mag, MajAx, MinAx, CommonNames
 2. Compute slug:
    - if M is set     → "m{M}"          (e.g. m31)
-   - else if Name starts with "NGC" → "ngc-{num}"
-   - else if Name starts with "IC"  → "ic-{num}"
-   - else            → skip (rare: stars, novae)
+   - else if Name matches `^NGC(\d+)$` → "ngc-{num}" (zero-padding stripped)
+   - else if Name matches `^IC(\d+)$`  → "ic-{num}"
+   - else            → skip. This excludes:
+       * Subcomponent rows like `NGC5128A`, `NGC0292A` (galaxy
+         components / double objects). The parent NGC entry is
+         present separately.
+       * Stars, novae, non-NGC/IC catalog entries.
+   - Skipped rows are counted and logged (not silent).
 3. UPSERT by slug:
    - Slugs strip OpenNGC zero-padding: "NGC0224" → "ngc-224", not
      "ngc-0224" (matches existing seed style).
@@ -191,8 +196,13 @@ rows. Expected <2s on local Postgres. Not a critical path.
   `count(*) where ra is null and slug like 'ngc-%' = 0`,
   `m45.canonical_name = 'Pleiades'`.
 
-**License attribution:** small "Catalog data: OpenNGC (CC-BY-SA 4.0)"
-footer on `/t/<slug>` and `/t` pages, linking to the GitHub repo.
+**License attribution (CC-BY-SA 4.0 four required elements):**
+small footer on `/t/<slug>` and `/t` pages with all four:
+- Attribution: "OpenNGC by Mattia Verga and contributors"
+- License link: https://creativecommons.org/licenses/by-sa/4.0/
+- Source link: https://github.com/mattiaverga/OpenNGC
+- Change indication: "Adapted to slug format and merged with manual
+  catalog seed."
 
 ---
 
@@ -220,33 +230,55 @@ Implementation: extracts `<TargetAutocompleteInput>` from existing
 keeps its current API; `<TargetMultiPicker>` wraps the autocomplete
 and manages the chip list.
 
-### Backend endpoint
+### Backend — atomic write via existing metadata endpoint
 
-New: `PATCH /api/photos/:id/targets` in `photos/targets.rs`.
+**Critical**: the spec does **not** introduce a two-call upload flow.
+A separate PATCH after metadata POST creates a silent-failure window
+where the primary chip survives via the legacy free-text path but
+secondary chips are dropped if the second call fails.
 
-**Request:**
+Instead: extend the existing `POST /api/photos/:id/metadata` request
+to accept an **optional** `targets` array. When present, it is the
+source of truth and the legacy `attach_primary_by_freetext` is
+**suppressed** for that request.
+
+**Request body addition:**
 ```json
 {
-  "targets": ["m42", "ngc-1977", "ic-434"],
-  "freetext_fallback": null
+  "...existing fields...": "...",
+  "target": "Orion Nebula",
+  "targets": ["m42", "ngc-1977", "ic-434"]
 }
 ```
 
-**Behavior (transactional):**
-1. Verify ownership → 403 if not owner.
-2. Validate every slug exists → 400 with the offending slug if not.
-3. Reject duplicate slugs in the array → 400.
-4. Reject `targets.len() > 5` → 400.
-5. `DELETE FROM photo_targets WHERE photo_id = $1 AND source = 'manual'`
+**Behavior of metadata handler when `targets` is present (transactional
+within the existing metadata transaction):**
+1. Validate every slug exists → 400 with offending slug.
+2. Reject duplicate slugs in the array → 400.
+3. Reject `targets.len() > 5` → 400.
+4. `DELETE FROM photo_targets WHERE photo_id = $1 AND source = 'manual'`
    (preserves `source='plate_solve'` rows for D5+).
-6. Insert each slug with `source='manual'`; the **first** entry gets
+5. Insert each slug with `source='manual'`; the **first** entry gets
    `is_primary=true`, the rest `false`.
-7. If `freetext_fallback` provided → `UPDATE photos SET target = $1`.
-   If null and `targets` is non-empty → leave `photos.target` as-is
-   (the canonical_name of the primary is the display fallback in UI).
+6. **Skip** the call to `attach_primary_by_freetext` for this request.
 
-**Response:** `200 { targets: [{ slug, canonical_name, is_primary }],
-freetext: string | null }`.
+When `targets` is omitted or `null` → existing behavior unchanged
+(`attach_primary_by_freetext` runs against the `target` text field).
+
+### Separate endpoint for post-publish edits
+
+`PATCH /api/photos/:id/targets` exists for the case "user already
+published, wants to edit the target list later" (from a future photo
+edit UI, not part of this slice).
+
+Same body and behavior as the in-metadata path:
+```json
+{ "targets": ["m42", "ngc-1977"] }
+```
+
+**Response (both paths):** `200 { targets: [{ slug, canonical_name,
+is_primary }] }`. **Manual-source rows only** — plate_solve rows are
+not returned by this endpoint, even though they remain in DB.
 
 ### Upload flow integration
 
@@ -255,15 +287,23 @@ to a single `target` text. Change:
 - Replace `<TargetPicker bind:value={target} />` with
   `<TargetMultiPicker bind:targets bind:primary />`.
 - On submit, the client computes the legacy `target` text field as
-  follows: if at least one chip is selected → `target` = primary's
-  `canonical_name`; else → `target` = the free-text fallback input.
-  POST `/api/photos/:id/metadata` continues to receive a single
-  `target` text (no API change to that endpoint).
-- After metadata POST, if `targets.length > 0` the client also calls
-  `PATCH /api/photos/:id/targets` with the explicit slug list.
-- The legacy `attach_primary_by_freetext` path on metadata save stays
-  intact: it runs when only the free-text field was filled, matching
-  the text against the catalog as a best-effort.
+  follows: if at least one chip is selected → `target` =
+  primary's `canonical_name`; else → `target` = the free-text fallback
+  input.
+- The metadata POST body includes `targets: <slug array>` when chips
+  are present, `null` otherwise. **Single network call**, transactional
+  on the server side. No silent-failure window.
+
+### Multi-picker UX edge cases
+
+- **Removing the primary chip**: the next chip in list order auto-
+  promotes to primary. If the list becomes empty, `primary = null`
+  and the free-text fallback input becomes active again.
+- **Adding a chip when at max=5**: the autocomplete input becomes
+  read-only with a hint "5 sujets max". User must remove one before
+  adding another.
+- **Free-text fallback while chips are present**: input is shown but
+  disabled, with hint "Utilisé seulement si aucun objet sélectionné".
 
 ### Tests
 
@@ -353,7 +393,7 @@ struct ListQ {
     q:             Option<String>,   // search across canonical_name, slug, aliases
     object_type:   Option<String>,   // 'G', 'PN', …
     constellation: Option<String>,   // 'ORI', 'AND', …
-    sort:          Option<String>,   // 'popular' (default) | 'name' | 'recent'
+    sort:          Option<String>,   // 'popular' (default) | 'name'
     cursor:        Option<String>,   // base64 (sort_value, id)
     limit:         Option<i64>,      // default 24, max 60
 }
@@ -396,7 +436,11 @@ where ($1::text is null
 **Cursor encoding:**
 - `popular` → `(photo_count desc, id desc)`
 - `name`    → `(canonical_name asc, id asc)`
-- `recent`  → `(updated_at desc, id desc)`
+
+(No "recent" sort — `targets.updated_at` is touched on every seed
+re-run, which would make all rows tie ≈ deploy time. A "most-recently
+photographed" sort is interesting but requires a `MAX(p.published_at)`
+join; deferred to a later iteration.)
 
 ### Page layout
 
@@ -405,7 +449,7 @@ where ($1::text is null
 │ Objets célestes                            [recherche…    ] │
 │ Type: [Tous ▾] [Galaxie] [Nébuleuse] [Amas ouvert] [PN]     │
 │ Constellation: [Toutes ▾] [Orion] [Andromède] …             │
-│ Tri: [Populaire ▾] [Alphabétique] [Récent]                  │
+│ Tri: [Populaire ▾] [Alphabétique]                            │
 └─────────────────────────────────────────────────────────────┘
 ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
 │ ▣ ▣ ▣        │ │ ▣ ▣ ▣        │ │ ▣ ▣ ▣        │
@@ -442,7 +486,7 @@ SvelteKit `goto({ replaceState, keepFocus, noScroll })` re-runs
 
 ### Tests
 
-- Unit Rust: cursor encode/decode for all three sort modes.
+- Unit Rust: cursor encode/decode for both sort modes.
 - Integration: filter by `object_type=G` + `constellation=AND`
   returns M31; search `q=andromed` returns M31.
 - E2E: open `/t`, type "orion", click M42 → header shows enriched
@@ -472,6 +516,12 @@ invoked via `just backfill-photo-targets`:**
 **Run cadence:** manually post-deploy on staging then prod, output
 appended to `docs/operations/p?-acceptance.md`. Not part of CI.
 
+**Tests:**
+- Integration on testcontainer: 5-row fixture with mix of resolvable
+  and ambiguous text targets. Dry-run produces expected
+  match/no-match counts. `--apply` writes the join rows; second
+  `--apply` is a no-op (idempotent).
+
 ---
 
 ## Rollout plan
@@ -496,8 +546,14 @@ data debt behind.
   Stale data is not breaking, just out-of-date. Mitigation: annual
   refresh PR, run `just seed-targets` again.
 - **M45 / Maia Nebula confusion:** mitigated by `KEEP_MANUAL_META`
-  skip-list. If new edge cases surface (M73 = asterism, M40 = double
-  star), add to skip-list.
+  skip-list. The list must be **verified at plan-task-1** by grepping
+  the actual OpenNGC `NGC.csv`: which existing seed-0010 slugs
+  (m1..m110, ngc-7000, ngc-6960, ngc-2237, ngc-281, ngc-3324,
+  ic-1805, ic-1396, ic-434) have an OpenNGC row that would overwrite
+  the manual canonical_name with something less recognizable? Likely
+  candidates beyond M45: M40 (double star, addendum entry may differ),
+  M73 (asterism). Final skip-list is the output of that verification,
+  not assumed.
 - **Multi-target dedup:** user picks "M42" and "NGC 1976" (same
   object). Front dedupes by slug **after** autocomplete returns
   canonical slugs (NGC 1976 lookup → m42). Backend rejects duplicate
