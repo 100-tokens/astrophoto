@@ -24,7 +24,8 @@
   <p class="canonical">{target.canonical_name}</p>
   <p class="meta">
     {objectTypeLabel(target.object_type)}
-    {#if target.constellation} · {constellationLabel(target.constellation)}{/if}
+    {#if target.constellation}
+      · {constellationLabel(target.constellation)}{/if}
   </p>
   <p class="count">{String(target.photo_count)} photos</p>
 </a>

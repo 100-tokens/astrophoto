@@ -11,7 +11,7 @@
   let {
     name = 'target',
     value = $bindable(''),
-    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
+    api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
   }: Props = $props();
 
   function handlePick(t: Target) {
@@ -24,20 +24,12 @@
 {#if value}
   <div class="selected-chip">
     <span class="t-mono">{value}</span>
-    <button
-      type="button"
-      class="clear-btn"
-      aria-label="Clear target"
-      onclick={() => (value = '')}
-    >&times;</button>
+    <button type="button" class="clear-btn" aria-label="Clear target" onclick={() => (value = '')}
+      >&times;</button
+    >
   </div>
 {:else}
-  <TargetAutocompleteInput
-    id={name}
-    {api}
-    placeholder="M31, NGC 7000…"
-    onPick={handlePick}
-  />
+  <TargetAutocompleteInput id={name} {api} placeholder="M31, NGC 7000…" onPick={handlePick} />
 {/if}
 
 <style>

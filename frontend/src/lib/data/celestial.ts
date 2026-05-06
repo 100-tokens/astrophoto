@@ -1,24 +1,24 @@
 /** OpenNGC object-type codes → French labels. Unknown codes fall back to raw code. */
 export const OBJECT_TYPE_LABELS: Record<string, string> = {
-  G:       'Galaxie',
-  GPair:   'Paire de galaxies',
-  GTrpl:   'Triplet de galaxies',
-  GGroup:  'Groupe de galaxies',
-  PN:      'Nébuleuse planétaire',
-  HII:     'Région HII',
-  EmN:     'Nébuleuse en émission',
-  RfN:     'Nébuleuse par réflexion',
-  Neb:     'Nébuleuse',
-  DrkN:    'Nébuleuse obscure',
-  SNR:     'Reste de supernova',
-  GCl:     'Amas globulaire',
-  OCl:     'Amas ouvert',
-  Cl:      'Amas',
-  'Cl+N':  'Amas avec nébulosité',
-  '*':     'Étoile',
-  '**':    'Étoile double',
-  '*Ass':  'Association stellaire',
-  Other:   'Autre',
+  G: 'Galaxie',
+  GPair: 'Paire de galaxies',
+  GTrpl: 'Triplet de galaxies',
+  GGroup: 'Groupe de galaxies',
+  PN: 'Nébuleuse planétaire',
+  HII: 'Région HII',
+  EmN: 'Nébuleuse en émission',
+  RfN: 'Nébuleuse par réflexion',
+  Neb: 'Nébuleuse',
+  DrkN: 'Nébuleuse obscure',
+  SNR: 'Reste de supernova',
+  GCl: 'Amas globulaire',
+  OCl: 'Amas ouvert',
+  Cl: 'Amas',
+  'Cl+N': 'Amas avec nébulosité',
+  '*': 'Étoile',
+  '**': 'Étoile double',
+  '*Ass': 'Association stellaire',
+  Other: 'Autre'
 };
 
 export function objectTypeLabel(code: string | null | undefined): string {
@@ -115,7 +115,7 @@ export const CONSTELLATION_LABELS: Record<string, string> = {
   VEL: 'Voiles',
   VIR: 'Vierge',
   VOL: 'Poisson volant',
-  VUL: 'Petit Renard',
+  VUL: 'Petit Renard'
 };
 
 export function constellationLabel(code: string | null | undefined): string {

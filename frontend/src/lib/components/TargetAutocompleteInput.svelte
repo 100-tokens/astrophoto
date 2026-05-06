@@ -13,7 +13,7 @@
     excludeSlugs = [],
     api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
     id = undefined,
-    onPick,
+    onPick
   }: Props = $props();
 
   let query = $state('');

@@ -95,10 +95,11 @@
       {/if}
       <p class="data-attrib">
         Catalog data:
-        <a href="https://github.com/mattiaverga/OpenNGC">OpenNGC by Mattia Verga and contributors</a>
+        <a href="https://github.com/mattiaverga/OpenNGC">OpenNGC by Mattia Verga and contributors</a
+        >
         —
-        <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a>.
-        Adapted to slug format and merged with manual catalog seed.
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a>. Adapted to slug
+        format and merged with manual catalog seed.
       </p>
     </div>
     <div class="stat-block">

@@ -13,7 +13,7 @@
     targets = $bindable([]),
     primary = $bindable(null),
     freetext = $bindable(''),
-    max = 5,
+    max = 5
   }: Props = $props();
 
   const excludeSlugs = $derived(targets.map((t) => t.slug));
@@ -53,8 +53,8 @@
             class="promote-btn"
             onclick={() => promote(t.slug)}
             aria-label="Définir comme principal"
-            aria-pressed={primary === t.slug}
-          >★</button>
+            aria-pressed={primary === t.slug}>★</button
+          >
           <span class="chip-label">
             <span class="t-mono chip-slug">{t.slug.toUpperCase()}</span>
             <span class="chip-canonical">{t.canonical_name}</span>
@@ -63,8 +63,8 @@
             type="button"
             class="remove-btn"
             onclick={() => remove(t.slug)}
-            aria-label={`Retirer ${t.canonical_name}`}
-          >×</button>
+            aria-label={`Retirer ${t.canonical_name}`}>×</button
+          >
         </li>
       {/each}
     </ul>
