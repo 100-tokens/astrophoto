@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into users (email, display_name, password_hash, handle, pending_deletion_at)\n         values ($1,'Marie',null,'marie-list', now() - interval '1 hour') returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "14c528613815d9e7ae9a420de726ee7196f08acce110e3053e9ce27a36a703b6"
+}

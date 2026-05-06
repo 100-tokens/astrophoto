@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set category = 'dso' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "97811438f293b1bb1a95f70f4e42b44d1a8e9040f00aa8f36797d8f00a28416a"
+}
