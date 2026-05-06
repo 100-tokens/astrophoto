@@ -21,6 +21,10 @@ path = "src/bin/gen-types.rs"
 name = "seed"
 path = "src/bin/seed.rs"
 
+[[bin]]
+name = "seed-targets"
+path = "src/bin/seed_targets.rs"
+
 [dependencies]
 # HTTP / runtime
 axum = { version = "0.7", features = ["macros", "multipart"] }
@@ -77,6 +81,7 @@ ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 woothee = "0.13"
 url = "2"
 dotenvy = "0.15.7"
+csv = "1"
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["env", "toml", "test"] }
