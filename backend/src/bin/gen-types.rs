@@ -9,7 +9,8 @@ use astrophoto::api_types::{
     EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
     HeroStats, LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail,
     Preferences, Profile, PublicProfile, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
-    SocialLink, SocialPlatform, TagMeta, TagPage, TargetMeta, TargetPage, User, UserPublic,
+    SocialLink, SocialPlatform, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
+    TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,6 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SearchResults::export_all_to(out_dir)?;
     PatchTargetsItem::export_all_to(out_dir)?;
     PatchTargetsResponse::export_all_to(out_dir)?;
+    TargetPreviewThumb::export_all_to(out_dir)?;
+    TargetListItem::export_all_to(out_dir)?;
+    TargetIndexPage::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

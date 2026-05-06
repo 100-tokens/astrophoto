@@ -251,6 +251,10 @@ pub fn router(
             axum::routing::get(crate::discovery::explore::get),
         )
         .route(
+            "/api/targets",
+            axum::routing::get(crate::discovery::target_index::list),
+        )
+        .route(
             "/api/targets/:slug",
             axum::routing::get(crate::discovery::target::get),
         )

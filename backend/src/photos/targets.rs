@@ -83,21 +83,16 @@ pub async fn multi_attach(
     let mut seen = std::collections::HashSet::new();
     for s in slugs {
         if !seen.insert(s.as_str()) {
-            return Err(AppError::bad_request(format!(
-                "duplicate target slug: {s}"
-            )));
+            return Err(AppError::bad_request(format!("duplicate target slug: {s}")));
         }
     }
 
     // Resolve every slug to a target_id; fail fast on any unknown slug.
     let mut target_ids: Vec<Uuid> = Vec::with_capacity(slugs.len());
     for slug in slugs {
-        let id: Option<Uuid> = sqlx::query_scalar!(
-            "select id from targets where slug = $1",
-            slug
-        )
-        .fetch_optional(&mut **tx)
-        .await?;
+        let id: Option<Uuid> = sqlx::query_scalar!("select id from targets where slug = $1", slug)
+            .fetch_optional(&mut **tx)
+            .await?;
         match id {
             Some(id) => target_ids.push(id),
             None => {
@@ -148,12 +143,10 @@ pub async fn patch_targets(
     Path(photo_id): Path<Uuid>,
     Json(body): Json<PatchTargetsBody>,
 ) -> Result<Json<PatchTargetsResponse>, AppError> {
-    let owner: Option<Uuid> = sqlx::query_scalar!(
-        "select owner_id from photos where id = $1",
-        photo_id
-    )
-    .fetch_optional(&state.pool)
-    .await?;
+    let owner: Option<Uuid> =
+        sqlx::query_scalar!("select owner_id from photos where id = $1", photo_id)
+            .fetch_optional(&state.pool)
+            .await?;
 
     match owner {
         Some(o) if o == user.id => {}
@@ -302,7 +295,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(rows.len(), 2, "expected 2 rows, got {rows:?}");
-        let m42 = rows.iter().find(|(slug, _)| slug == "m42").expect("m42 missing");
+        let m42 = rows
+            .iter()
+            .find(|(slug, _)| slug == "m42")
+            .expect("m42 missing");
         let ngc = rows
             .iter()
             .find(|(slug, _)| slug == "ngc-7000")
@@ -317,11 +313,10 @@ mod tests {
         let (_, photo_id) = seed_photo(&pool).await;
 
         // Pre-insert a plate_solve row for ic-434 (seeded by migration 0010).
-        let ic434_id: Uuid =
-            sqlx::query_scalar("select id from targets where slug = 'ic-434'")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+        let ic434_id: Uuid = sqlx::query_scalar("select id from targets where slug = 'ic-434'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         sqlx::query(
             "insert into photo_targets (photo_id, target_id, source, is_primary) \
              values ($1, $2, 'plate_solve', false)",
@@ -349,7 +344,10 @@ mod tests {
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert_eq!(plate_solve_count, 1, "plate_solve row for ic-434 must be preserved");
+        assert_eq!(
+            plate_solve_count, 1,
+            "plate_solve row for ic-434 must be preserved"
+        );
 
         // m42 manual row must exist with is_primary=true.
         let manual_count: i64 = sqlx::query_scalar(
@@ -386,13 +384,9 @@ mod tests {
         let (_, photo_id) = seed_photo(&pool).await;
 
         let mut tx = pool.begin().await.unwrap();
-        let err = multi_attach(
-            &mut tx,
-            photo_id,
-            &["m42".to_string(), "m42".to_string()],
-        )
-        .await
-        .unwrap_err();
+        let err = multi_attach(&mut tx, photo_id, &["m42".to_string(), "m42".to_string()])
+            .await
+            .unwrap_err();
 
         match err {
             AppError::BadRequest(msg) => {
