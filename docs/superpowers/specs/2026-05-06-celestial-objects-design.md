@@ -622,9 +622,21 @@ data debt behind.
 
 ## Out of scope (deferred)
 
-- **D3** — Aladin Lite WebGL sky-map embed on `/t/<slug>` (trivial
-  once RA/Dec are in place).
-- **D4** — NASA / ESA / JWST gallery proxy with 24h cache.
+- ~~**D3** — Aladin Lite WebGL sky-map embed on `/t/<slug>`~~ —
+  **delivered** in this iteration: `AladinSkyMap.svelte` lazy-loads
+  Aladin Lite from CDS Strasbourg, centres on the target's RA/Dec,
+  FoV scaled from `major_axis_arcmin`. Skipped when astro meta is
+  null. DSS2 colour survey default; users can switch via the layers
+  control.
+- ~~**D4** — NASA / ESA / JWST gallery proxy with 24h cache~~ —
+  delivered as **deep-links** instead of proxy: `ExternalArchiveLinks.svelte`
+  generates URL-encoded search queries to SIMBAD, NED, ESA/Hubble,
+  ESA/Webb, and NASA Image Library, opening in new tabs. Query
+  selection prefers catalog identifiers ("M 31", "NGC 7000", "IC 434")
+  from aliases over common names — astronomical archives resolve those
+  much better. **A proxy + cache implementation is still deferred**
+  for in-page thumbnail display; the deep-link version is sufficient
+  for "see more elsewhere" without infrastructure cost.
 - **D5** — Plate solving (Astrometry.net) async worker, populating
   `photo_targets` rows with `source='plate_solve'` and `confidence`.
 - **D6** — Cone search (RA/Dec radius). Requires `cube` /
