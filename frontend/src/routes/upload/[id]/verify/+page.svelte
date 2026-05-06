@@ -7,7 +7,7 @@
   import Img from '$lib/components/Img.svelte';
   import Input from '$lib/components/Input.svelte';
   import TagInput from '$lib/components/TagInput.svelte';
-  import TargetPicker from '$lib/components/TargetPicker.svelte';
+  import TargetMultiPicker from '$lib/components/TargetMultiPicker.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
   import type { PageProps } from './$types';
 
@@ -33,7 +33,27 @@
   }
   const _sp = initialPhoto();
 
-  let target = $state<string>(_sp.target ?? '');
+  // Multi-target state.
+  // NOTE(v1): picked_targets starts empty on every page load — restoration of
+  // existing manual rows is deferred to the post-publish PATCH flow (Option C).
+  type PickedTarget = { slug: string; canonical_name: string; kind: string };
+  let pickedTargets = $state<PickedTarget[]>([]);
+  let primarySlug = $state<string | null>(null);
+  // Freetext is seeded from the existing photo.target value (legacy field).
+  let freetext = $state<string>(_sp.target ?? '');
+
+  // Computed value sent as the legacy `target` text field in the PUT body:
+  // primary chip's canonical_name when chips are present, else the freetext.
+  const targetText = $derived.by(() => {
+    if (pickedTargets.length === 0) return freetext;
+    const primary = pickedTargets.find((t) => t.slug === primarySlug);
+    return (primary ?? pickedTargets[0])!.canonical_name;
+  });
+  // JSON-encoded slug array for the `targets` field, or empty string when no chips.
+  const targetsJson = $derived(
+    pickedTargets.length > 0 ? JSON.stringify(pickedTargets.map((t) => t.slug)) : ''
+  );
+
   let camera = $state<string>(_sp.camera ?? '');
   let tags = $state<string[]>([]);
   let category = $state<string>(_sp.category ?? 'other');
@@ -156,10 +176,18 @@
               : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
           </span>
         </div>
+        <!-- Hidden inputs carry the target state into the form action. -->
+        <input type="hidden" name="target" value={targetText} />
+        <input type="hidden" name="targets_json" value={targetsJson} />
+
         <fieldset disabled={isProcessing}>
           <!-- Row 1: target + category (full-width each) -->
           <div class="field-full">
-            <TargetPicker bind:value={target} />
+            <TargetMultiPicker
+              bind:targets={pickedTargets}
+              bind:primary={primarySlug}
+              bind:freetext
+            />
           </div>
 
           <div class="field-full">

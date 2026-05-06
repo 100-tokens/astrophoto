@@ -51,6 +51,20 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
       return [];
     }
   };
+  // Parse the JSON-encoded slug array from TargetMultiPicker hidden input.
+  // Empty string → null so the backend falls back to legacy freetext resolution.
+  // Invalid JSON → null (defensive; should not happen in practice).
+  const parseTargets = (): string[] | null => {
+    const raw = fd.get('targets_json');
+    if (typeof raw !== 'string' || raw.trim() === '') return null;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return null;
+      return parsed.filter((t): t is string => typeof t === 'string');
+    } catch {
+      return null;
+    }
+  };
   return {
     target: strOrNull('target'),
     camera: strOrNull('camera'),
@@ -70,6 +84,7 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     filters: strOrNull('filters'),
     guiding: strOrNull('guiding'),
     tags: parseTags(),
+    targets: parseTargets(),
     last_step
   };
 }
