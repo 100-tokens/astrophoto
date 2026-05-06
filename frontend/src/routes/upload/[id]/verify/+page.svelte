@@ -50,9 +50,19 @@
     return (primary ?? pickedTargets[0])!.canonical_name;
   });
   // JSON-encoded slug array for the `targets` field, or empty string when no chips.
-  const targetsJson = $derived(
-    pickedTargets.length > 0 ? JSON.stringify(pickedTargets.map((t) => t.slug)) : ''
-  );
+  // Primary slug goes first — backend's multi_attach marks slugs[0] as is_primary=true,
+  // so visual promotion in the picker must be reflected here or the DB row diverges
+  // from the legacy `target` text (which uses primarySlug via canonical_name lookup).
+  const targetsJson = $derived.by(() => {
+    if (pickedTargets.length === 0) return '';
+    const ordered = primarySlug
+      ? [
+          ...pickedTargets.filter((t) => t.slug === primarySlug),
+          ...pickedTargets.filter((t) => t.slug !== primarySlug)
+        ]
+      : pickedTargets;
+    return JSON.stringify(ordered.map((t) => t.slug));
+  });
 
   let camera = $state<string>(_sp.camera ?? '');
   let tags = $state<string[]>([]);

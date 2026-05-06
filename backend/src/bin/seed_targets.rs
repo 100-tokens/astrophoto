@@ -120,7 +120,6 @@ async fn main() -> Result<()> {
         skipped_duplicate = counts.skipped_duplicate,
         "seed-targets complete"
     );
-    println!("{:#?}", counts);
     Ok(())
 }
 

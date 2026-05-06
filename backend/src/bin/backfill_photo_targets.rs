@@ -93,8 +93,13 @@ async fn main() -> Result<()> {
     let url = std::env::var("DATABASE_URL").or_else(|_| std::env::var("APP_DATABASE_URL"))?;
     let pool = sqlx::PgPool::connect(&url).await?;
     let counts = run_once(&pool, args.apply).await?;
-    println!("{:#?}", counts);
-    println!("apply={} (use --apply to write)", args.apply);
+    tracing::info!(
+        eligible_photos = counts.eligible_photos,
+        matched = counts.matched,
+        no_match = counts.no_match,
+        apply = args.apply,
+        "backfill-photo-targets complete"
+    );
     Ok(())
 }
 

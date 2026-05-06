@@ -137,6 +137,14 @@ from migration + `just seed-targets`. Screenshots in
   Passed immediately on single-suite retry. Pre-existing infra issue, not
   introduced by this branch.
 
+- **Constellation filter UI deferred:** Backend `GET /api/targets` accepts
+  `constellation=<IAU code>` and the URL params plumb through `load`,
+  but the `/t` index page only exposes `object_type` and `sort` selects.
+  88 constellations is unwieldy as a flat dropdown — a typeahead or a
+  collapsible "advanced filters" panel would be the right pattern. Manual
+  URL crafting works today (`/t?constellation=ORI`). Spec § Decisions #12
+  lists constellation as in-scope; treat as a follow-up UI ticket.
+
 - **3 Playwright spec files collected by vitest:** Pre-existing from P1.
   Fix: add `tests/e2e/**` to vitest `exclude`. Deferred chore.
 
