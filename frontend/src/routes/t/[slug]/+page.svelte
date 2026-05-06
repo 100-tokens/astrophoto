@@ -47,7 +47,7 @@
   }
 </script>
 
-<AppHeader />
+<AppHeader active="Targets" />
 <DiscoveryHeader variant="target" meta={data.initial.target} />
 <AladinSkyMap
   ra={data.initial.target.right_ascension}

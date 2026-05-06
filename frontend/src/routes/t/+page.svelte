@@ -72,7 +72,7 @@
   />
 </svelte:head>
 
-<AppHeader />
+<AppHeader active="Targets" />
 
 <main class="t-index">
   <header class="header-row">

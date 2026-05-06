@@ -21,7 +21,7 @@
     href: string;
   }> = [
     { label: 'Gallery', href: '/' },
-    { label: 'Targets', href: '/targets' },
+    { label: 'Targets', href: '/t' },
     { label: 'Photographers', href: '/photographers' },
     { label: 'About', href: '/about' }
   ];
