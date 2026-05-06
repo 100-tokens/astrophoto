@@ -73,6 +73,93 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, PartialEq)]
+pub enum SlugDecision {
+    Slug(String),
+    Skip(SkipReason),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum SkipReason {
+    SubcomponentSuffix, // Trailing letter on NGC/IC numeric portion (NGC5128A, NGC0292A)
+    UnknownPrefix,      // Not NGC/IC, no Messier number
+    Duplicate,          // OpenNGC Type='Dup' — would clobber the canonical row
+}
+
+pub fn compute_slug(row: &OpenNgcRow) -> SlugDecision {
+    // Check Type='Dup' first: M102's row has M=101 Type=Dup; skipping last
+    // would silently clobber the correct NGC5457 (Pinwheel) row.
+    if row.object_type.as_deref() == Some("Dup") {
+        return SlugDecision::Skip(SkipReason::Duplicate);
+    }
+
+    if let Some(m) = row.messier_num {
+        return SlugDecision::Slug(format!("m{}", m));
+    }
+    let n = &row.name;
+    if let Some(rest) = n.strip_prefix("NGC") {
+        return parse_numeric_suffix("ngc", rest);
+    }
+    if let Some(rest) = n.strip_prefix("IC") {
+        return parse_numeric_suffix("ic", rest);
+    }
+    SlugDecision::Skip(SkipReason::UnknownPrefix)
+}
+
+fn parse_numeric_suffix(prefix: &str, rest: &str) -> SlugDecision {
+    if !rest.chars().all(|c| c.is_ascii_digit()) {
+        return SlugDecision::Skip(SkipReason::SubcomponentSuffix);
+    }
+    match rest.parse::<u32>() {
+        Ok(n) => SlugDecision::Slug(format!("{}-{}", prefix, n)),
+        Err(_) => SlugDecision::Skip(SkipReason::UnknownPrefix),
+    }
+}
+
+#[cfg(test)]
+mod slug_tests {
+    use super::*;
+
+    fn row(name: &str, m: Option<u32>, object_type: Option<&str>) -> OpenNgcRow {
+        OpenNgcRow {
+            name: name.to_string(),
+            messier_num: m,
+            ra_deg: None, dec_deg: None,
+            object_type: object_type.map(String::from),
+            constellation: None,
+            magnitude_v: None,
+            major_axis_arcmin: None, minor_axis_arcmin: None,
+            common_names: vec![],
+        }
+    }
+
+    #[test] fn messier_slug() {
+        assert_eq!(compute_slug(&row("NGC0224", Some(31), Some("G"))), SlugDecision::Slug("m31".into()));
+    }
+    #[test] fn ngc_slug_strips_zeros() {
+        assert_eq!(compute_slug(&row("NGC0224", None, Some("G"))), SlugDecision::Slug("ngc-224".into()));
+        assert_eq!(compute_slug(&row("NGC7000", None, Some("HII"))), SlugDecision::Slug("ngc-7000".into()));
+    }
+    #[test] fn ic_slug() {
+        assert_eq!(compute_slug(&row("IC0434", None, Some("HII"))), SlugDecision::Slug("ic-434".into()));
+    }
+    #[test] fn skips_subcomponent() {
+        assert_eq!(compute_slug(&row("NGC5128A", None, Some("G"))), SlugDecision::Skip(SkipReason::SubcomponentSuffix));
+        assert_eq!(compute_slug(&row("NGC0292A", None, Some("G"))), SlugDecision::Skip(SkipReason::SubcomponentSuffix));
+    }
+    #[test] fn skips_unknown_prefix() {
+        assert_eq!(compute_slug(&row("PGC1234", None, Some("G"))), SlugDecision::Skip(SkipReason::UnknownPrefix));
+        assert_eq!(compute_slug(&row("B033", None, Some("DrkN"))), SlugDecision::Skip(SkipReason::UnknownPrefix));
+    }
+    #[test] fn skips_dup_type() {
+        // M102 in addendum: M=101, Type=Dup. Must skip BEFORE attempting slug from M=101,
+        // otherwise we'd overwrite NGC5457 (M=101, Type=G, Pinwheel Galaxy).
+        assert_eq!(compute_slug(&row("M102", Some(101), Some("Dup"))), SlugDecision::Skip(SkipReason::Duplicate));
+        // Sanity check: a Dup row without an M number still skips, regardless of name prefix.
+        assert_eq!(compute_slug(&row("NGC1234", None, Some("Dup"))), SlugDecision::Skip(SkipReason::Duplicate));
+    }
+}
+
 #[cfg(test)]
 mod parser_tests {
     use super::*;
