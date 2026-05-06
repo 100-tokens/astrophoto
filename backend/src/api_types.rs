@@ -285,6 +285,14 @@ pub struct TargetMeta {
     pub kind: Option<String>,
     pub photo_count: i64,
     pub contributor_count: i64,
+    // — additions D2b —
+    pub right_ascension:   Option<f64>,
+    pub declination:       Option<f64>,
+    pub magnitude_v:       Option<f32>,
+    pub object_type:       Option<String>,
+    pub constellation:     Option<String>,
+    pub major_axis_arcmin: Option<f32>,
+    pub minor_axis_arcmin: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
