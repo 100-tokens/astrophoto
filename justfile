@@ -54,3 +54,8 @@ types:
 # Seed the dev database with demo content. Idempotent.
 seed:
     cd backend && cargo run --bin seed
+
+# Seed/refresh the targets table from the pinned OpenNGC CSVs.
+# Idempotent. Run after migrations.
+seed-targets:
+    cd backend && cargo run --release --bin seed-targets

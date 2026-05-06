@@ -5,7 +5,7 @@ use anyhow::Result;
 
 #[derive(Debug, PartialEq)]
 pub struct OpenNgcRow {
-    pub name: String,         // e.g. "NGC0224"
+    pub name: String, // e.g. "NGC0224"
     pub messier_num: Option<u32>,
     pub ra_deg: Option<f64>,
     pub dec_deg: Option<f64>,
@@ -17,7 +17,10 @@ pub struct OpenNgcRow {
     pub common_names: Vec<String>,
 }
 
-pub fn parse_csv_row(record: &csv::StringRecord, headers: &csv::StringRecord) -> Result<OpenNgcRow> {
+pub fn parse_csv_row(
+    record: &csv::StringRecord,
+    headers: &csv::StringRecord,
+) -> Result<OpenNgcRow> {
     use anyhow::Context;
 
     let get = |col: &str| -> Option<&str> {
@@ -36,19 +39,35 @@ pub fn parse_csv_row(record: &csv::StringRecord, headers: &csv::StringRecord) ->
     let major_axis_arcmin = get("MajAx").and_then(|s| s.parse::<f32>().ok());
     let minor_axis_arcmin = get("MinAx").and_then(|s| s.parse::<f32>().ok());
     let common_names = get("Common names")
-        .map(|s| s.split(',').map(|n| n.trim().to_string()).filter(|n| !n.is_empty()).collect())
+        .map(|s| {
+            s.split(',')
+                .map(|n| n.trim().to_string())
+                .filter(|n| !n.is_empty())
+                .collect()
+        })
         .unwrap_or_default();
 
     Ok(OpenNgcRow {
-        name, messier_num, ra_deg, dec_deg, object_type, constellation,
-        magnitude_v, major_axis_arcmin, minor_axis_arcmin, common_names,
+        name,
+        messier_num,
+        ra_deg,
+        dec_deg,
+        object_type,
+        constellation,
+        magnitude_v,
+        major_axis_arcmin,
+        minor_axis_arcmin,
+        common_names,
     })
 }
 
 /// Parse "00:42:44.330" → degrees in [0, 360).
 fn parse_ra_sexagesimal(s: &str) -> Result<f64> {
     let mut parts = s.split(':');
-    let h: f64 = parts.next().ok_or_else(|| anyhow::anyhow!("RA empty"))?.parse()?;
+    let h: f64 = parts
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("RA empty"))?
+        .parse()?;
     let m: f64 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
     let sec: f64 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
     Ok((h + m / 60.0 + sec / 3600.0) * 15.0)
@@ -63,13 +82,86 @@ fn parse_dec_sexagesimal(s: &str) -> Result<f64> {
         (1.0, s.strip_prefix('+').unwrap_or(s))
     };
     let mut parts = rest.split(':');
-    let d: f64 = parts.next().ok_or_else(|| anyhow::anyhow!("Dec empty"))?.parse()?;
+    let d: f64 = parts
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("Dec empty"))?
+        .parse()?;
     let m: f64 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
     let sec: f64 = parts.next().unwrap_or("0").parse().unwrap_or(0.0);
     Ok(sign * (d + m / 60.0 + sec / 3600.0))
 }
 
-fn main() -> Result<()> {
+const KEEP_MANUAL_META: &[&str] = &["ic-434"]; // verified by Task 1 against OpenNGC
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    use std::path::PathBuf;
+    tracing_subscriber::fmt::init();
+
+    let database_url = std::env::var("DATABASE_URL")
+        .or_else(|_| std::env::var("APP_DATABASE_URL"))
+        .map_err(|_| anyhow::anyhow!("DATABASE_URL or APP_DATABASE_URL must be set"))?;
+
+    let pool = sqlx::PgPool::connect(&database_url).await?;
+
+    let data_dir = std::env::var("OPENNGC_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("data/openngc"));
+
+    let mut counts = Counts::default();
+
+    process_csv(&pool, &data_dir.join("NGC.csv"), &mut counts).await?;
+    process_csv(&pool, &data_dir.join("addendum.csv"), &mut counts).await?;
+
+    tracing::info!(
+        upserts = counts.upserts,
+        skipped_subcomponent = counts.skipped_subcomponent,
+        skipped_unknown_prefix = counts.skipped_unknown_prefix,
+        skipped_duplicate = counts.skipped_duplicate,
+        "seed-targets complete"
+    );
+    println!("{:#?}", counts);
+    Ok(())
+}
+
+#[derive(Default, Debug)]
+struct Counts {
+    upserts: usize,
+    skipped_subcomponent: usize,
+    skipped_unknown_prefix: usize,
+    skipped_duplicate: usize,
+}
+
+async fn process_csv(
+    pool: &sqlx::PgPool,
+    path: &std::path::Path,
+    counts: &mut Counts,
+) -> Result<()> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_path(path)?;
+    let headers = rdr.headers()?.clone();
+
+    for record in rdr.records() {
+        let record = record?;
+        let row = match parse_csv_row(&record, &headers) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!("parse error on row: {e}");
+                continue;
+            }
+        };
+        match compute_slug(&row) {
+            SlugDecision::Slug(slug) => {
+                upsert_target(pool, &slug, &row, KEEP_MANUAL_META).await?;
+                counts.upserts += 1;
+            }
+            SlugDecision::Skip(SkipReason::SubcomponentSuffix) => counts.skipped_subcomponent += 1,
+            SlugDecision::Skip(SkipReason::UnknownPrefix) => counts.skipped_unknown_prefix += 1,
+            SlugDecision::Skip(SkipReason::Duplicate) => counts.skipped_duplicate += 1,
+        }
+    }
     Ok(())
 }
 
@@ -79,22 +171,22 @@ pub async fn upsert_target(
     row: &OpenNgcRow,
     keep_manual_meta: &[&str],
 ) -> anyhow::Result<()> {
-    let in_skip_list = keep_manual_meta.iter().any(|s| *s == slug);
+    let in_skip_list = keep_manual_meta.contains(&slug);
 
     // Aliases that should always be appended (idempotent dedup happens in SQL).
     let mut alias_additions: Vec<String> = Vec::new();
     if let Some(m) = row.messier_num {
         alias_additions.push(format!("M {}", m));
     }
-    if let Some(rest) = row.name.strip_prefix("NGC") {
-        if let Ok(n) = rest.parse::<u32>() {
-            alias_additions.push(format!("NGC {}", n));
-        }
+    if let Some(rest) = row.name.strip_prefix("NGC")
+        && let Ok(n) = rest.parse::<u32>()
+    {
+        alias_additions.push(format!("NGC {}", n));
     }
-    if let Some(rest) = row.name.strip_prefix("IC") {
-        if let Ok(n) = rest.parse::<u32>() {
-            alias_additions.push(format!("IC {}", n));
-        }
+    if let Some(rest) = row.name.strip_prefix("IC")
+        && let Ok(n) = rest.parse::<u32>()
+    {
+        alias_additions.push(format!("IC {}", n));
     }
 
     let kind = if slug.starts_with('m') && !slug.starts_with("messier") {
@@ -341,39 +433,77 @@ mod slug_tests {
         OpenNgcRow {
             name: name.to_string(),
             messier_num: m,
-            ra_deg: None, dec_deg: None,
+            ra_deg: None,
+            dec_deg: None,
             object_type: object_type.map(String::from),
             constellation: None,
             magnitude_v: None,
-            major_axis_arcmin: None, minor_axis_arcmin: None,
+            major_axis_arcmin: None,
+            minor_axis_arcmin: None,
             common_names: vec![],
         }
     }
 
-    #[test] fn messier_slug() {
-        assert_eq!(compute_slug(&row("NGC0224", Some(31), Some("G"))), SlugDecision::Slug("m31".into()));
+    #[test]
+    fn messier_slug() {
+        assert_eq!(
+            compute_slug(&row("NGC0224", Some(31), Some("G"))),
+            SlugDecision::Slug("m31".into())
+        );
     }
-    #[test] fn ngc_slug_strips_zeros() {
-        assert_eq!(compute_slug(&row("NGC0224", None, Some("G"))), SlugDecision::Slug("ngc-224".into()));
-        assert_eq!(compute_slug(&row("NGC7000", None, Some("HII"))), SlugDecision::Slug("ngc-7000".into()));
+    #[test]
+    fn ngc_slug_strips_zeros() {
+        assert_eq!(
+            compute_slug(&row("NGC0224", None, Some("G"))),
+            SlugDecision::Slug("ngc-224".into())
+        );
+        assert_eq!(
+            compute_slug(&row("NGC7000", None, Some("HII"))),
+            SlugDecision::Slug("ngc-7000".into())
+        );
     }
-    #[test] fn ic_slug() {
-        assert_eq!(compute_slug(&row("IC0434", None, Some("HII"))), SlugDecision::Slug("ic-434".into()));
+    #[test]
+    fn ic_slug() {
+        assert_eq!(
+            compute_slug(&row("IC0434", None, Some("HII"))),
+            SlugDecision::Slug("ic-434".into())
+        );
     }
-    #[test] fn skips_subcomponent() {
-        assert_eq!(compute_slug(&row("NGC5128A", None, Some("G"))), SlugDecision::Skip(SkipReason::SubcomponentSuffix));
-        assert_eq!(compute_slug(&row("NGC0292A", None, Some("G"))), SlugDecision::Skip(SkipReason::SubcomponentSuffix));
+    #[test]
+    fn skips_subcomponent() {
+        assert_eq!(
+            compute_slug(&row("NGC5128A", None, Some("G"))),
+            SlugDecision::Skip(SkipReason::SubcomponentSuffix)
+        );
+        assert_eq!(
+            compute_slug(&row("NGC0292A", None, Some("G"))),
+            SlugDecision::Skip(SkipReason::SubcomponentSuffix)
+        );
     }
-    #[test] fn skips_unknown_prefix() {
-        assert_eq!(compute_slug(&row("PGC1234", None, Some("G"))), SlugDecision::Skip(SkipReason::UnknownPrefix));
-        assert_eq!(compute_slug(&row("B033", None, Some("DrkN"))), SlugDecision::Skip(SkipReason::UnknownPrefix));
+    #[test]
+    fn skips_unknown_prefix() {
+        assert_eq!(
+            compute_slug(&row("PGC1234", None, Some("G"))),
+            SlugDecision::Skip(SkipReason::UnknownPrefix)
+        );
+        assert_eq!(
+            compute_slug(&row("B033", None, Some("DrkN"))),
+            SlugDecision::Skip(SkipReason::UnknownPrefix)
+        );
     }
-    #[test] fn skips_dup_type() {
+    #[test]
+    fn skips_dup_type() {
         // M102 in addendum: M=101, Type=Dup. Must skip BEFORE attempting slug from M=101,
         // otherwise we'd overwrite NGC5457 (M=101, Type=G, Pinwheel Galaxy).
-        assert_eq!(compute_slug(&row("M102", Some(101), Some("Dup"))), SlugDecision::Skip(SkipReason::Duplicate));
+        assert_eq!(
+            compute_slug(&row("M102", Some(101), Some("Dup"))),
+            SlugDecision::Skip(SkipReason::Duplicate)
+        );
         // Sanity check: a Dup row without an M number still skips, regardless of name prefix.
-        assert_eq!(compute_slug(&row("NGC1234", None, Some("Dup"))), SlugDecision::Skip(SkipReason::Duplicate));
+        assert_eq!(
+            compute_slug(&row("NGC1234", None, Some("Dup"))),
+            SlugDecision::Skip(SkipReason::Duplicate)
+        );
     }
 }
 
@@ -391,8 +521,30 @@ mod parser_tests {
         // looks up columns by header name via headers.iter().position(...),
         // so the same parser handles both the 10-col fixture and the real
         // 32-col CSV. Real CSV fields beyond what we ask for are ignored.
-        let headers = rec(&["Name","Type","RA","Dec","Const","MajAx","MinAx","V-Mag","M","Common names"]);
-        let row = rec(&["NGC0224","G","00:42:44.330","+41:16:09.40","And","190.0","60.0","3.44","31","Andromeda Galaxy,M 31"]);
+        let headers = rec(&[
+            "Name",
+            "Type",
+            "RA",
+            "Dec",
+            "Const",
+            "MajAx",
+            "MinAx",
+            "V-Mag",
+            "M",
+            "Common names",
+        ]);
+        let row = rec(&[
+            "NGC0224",
+            "G",
+            "00:42:44.330",
+            "+41:16:09.40",
+            "And",
+            "190.0",
+            "60.0",
+            "3.44",
+            "31",
+            "Andromeda Galaxy,M 31",
+        ]);
         let parsed = parse_csv_row(&row, &headers).unwrap();
         assert_eq!(parsed.name, "NGC0224");
         assert_eq!(parsed.messier_num, Some(31));
@@ -406,8 +558,30 @@ mod parser_tests {
 
     #[test]
     fn handles_missing_v_mag() {
-        let headers = rec(&["Name","Type","RA","Dec","Const","MajAx","MinAx","V-Mag","M","Common names"]);
-        let row = rec(&["NGC1234","G","02:00:00","+10:00:00","Tau","","","","",""]);
+        let headers = rec(&[
+            "Name",
+            "Type",
+            "RA",
+            "Dec",
+            "Const",
+            "MajAx",
+            "MinAx",
+            "V-Mag",
+            "M",
+            "Common names",
+        ]);
+        let row = rec(&[
+            "NGC1234",
+            "G",
+            "02:00:00",
+            "+10:00:00",
+            "Tau",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]);
         let parsed = parse_csv_row(&row, &headers).unwrap();
         assert_eq!(parsed.magnitude_v, None);
         assert_eq!(parsed.major_axis_arcmin, None);
