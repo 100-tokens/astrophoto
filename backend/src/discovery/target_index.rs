@@ -175,10 +175,10 @@ pub async fn list(
     let target_ids: Vec<Uuid> = kept.iter().map(|r| r.id).collect();
     let thumb_rows = sqlx::query!(
         r#"
-        select t.id as "target_id!", p.short_id as "short_id!", p.blurhash
+        select t.id as "target_id!", p.id as "photo_id!", p.short_id as "short_id!", p.blurhash
           from unnest($1::uuid[]) as t(id)
           join lateral (
-            select p.short_id, p.blurhash, p.appreciations_count, p.published_at
+            select p.id, p.short_id, p.blurhash, p.appreciations_count, p.published_at
               from photo_targets pt
               join photos p on p.id = pt.photo_id
              where pt.target_id = t.id
@@ -200,6 +200,7 @@ pub async fn list(
             .entry(tr.target_id)
             .or_default()
             .push(TargetPreviewThumb {
+                photo_id: tr.photo_id.to_string(),
                 short_id: tr.short_id,
                 blurhash: tr.blurhash,
             });

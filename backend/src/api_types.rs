@@ -394,6 +394,9 @@ pub struct PatchTargetsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "TargetPreviewThumb.ts")]
 pub struct TargetPreviewThumb {
+    /// UUID of the photo — used to build CDN URLs via `/cdn/img/<photo_id>`.
+    pub photo_id: String,
+    /// Short human-readable ID — used to build permalink URLs `/u/<handle>/p/<short_id>`.
     pub short_id: String,
     pub blurhash: Option<String>,
 }
