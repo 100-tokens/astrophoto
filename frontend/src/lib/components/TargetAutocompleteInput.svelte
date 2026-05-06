@@ -23,6 +23,9 @@
   // Stale-response guard — increment on each new request.
   let reqId = 0;
 
+  // Stable ID for the listbox — required by the combobox ARIA pattern.
+  const listboxId = $derived(id ? `${id}-listbox` : 'target-autocomplete-listbox');
+
   $effect(() => {
     if (!query.trim()) {
       suggestions = [];
@@ -83,6 +86,7 @@
   <input
     {id}
     type="text"
+    role="combobox"
     bind:value={query}
     class="input input-mono"
     {placeholder}
@@ -92,9 +96,10 @@
     spellcheck="false"
     aria-autocomplete="list"
     aria-expanded={suggestions.length > 0}
+    aria-controls={listboxId}
   />
   {#if suggestions.length}
-    <ul class="ac-list card" role="listbox">
+    <ul id={listboxId} class="ac-list card" role="listbox">
       {#each suggestions as s, i (s.slug)}
         <!-- onmousedown prevents blur from firing before click, keeping focus intact.
              Keyboard nav (↑↓ Enter Esc) on the <input> above handles all keyboard cases. -->
