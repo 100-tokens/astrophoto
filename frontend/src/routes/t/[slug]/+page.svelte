@@ -6,6 +6,8 @@
   import FilterPills from '$lib/components/discovery/FilterPills.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
+  import AladinSkyMap from '$lib/components/discovery/AladinSkyMap.svelte';
+  import ExternalArchiveLinks from '$lib/components/discovery/ExternalArchiveLinks.svelte';
   import { fetchTargetPage } from '$lib/api/discoveryClient';
   import type { PageData } from './$types';
 
@@ -47,6 +49,12 @@
 
 <AppHeader />
 <DiscoveryHeader variant="target" meta={data.initial.target} />
+<AladinSkyMap
+  ra={data.initial.target.right_ascension}
+  dec={data.initial.target.declination}
+  majorAxisArcmin={data.initial.target.major_axis_arcmin}
+  objectName={data.initial.target.canonical_name}
+/>
 <FilterPills
   variant="target"
   sort={data.sort}
@@ -62,5 +70,10 @@
     loadMore={loadMoreFn}
   />
 {/key}
+<ExternalArchiveLinks
+  canonicalName={data.initial.target.canonical_name}
+  aliases={data.initial.target.aliases}
+  slug={data.initial.target.slug}
+/>
 <LightboxHost />
 <AppFooter />
