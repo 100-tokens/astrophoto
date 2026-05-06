@@ -129,9 +129,7 @@
       {/each}
     </ul>
     {#if cursor}
-      <button type="button" class="load-more" onclick={() => void loadMore()}>
-        Load more
-      </button>
+      <button type="button" class="load-more" onclick={() => void loadMore()}> Load more </button>
     {/if}
   {/if}
 

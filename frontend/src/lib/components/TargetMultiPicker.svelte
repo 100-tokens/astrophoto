@@ -71,11 +71,7 @@
   {/if}
 
   {#if !atMax}
-    <TargetAutocompleteInput
-      placeholder="type to add an object…"
-      {excludeSlugs}
-      onPick={add}
-    />
+    <TargetAutocompleteInput placeholder="type to add an object…" {excludeSlugs} onPick={add} />
   {:else}
     <p class="t-meta hint-max">{max} subjects max — remove a chip to add another.</p>
   {/if}
