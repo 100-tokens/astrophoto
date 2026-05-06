@@ -62,7 +62,18 @@
     display: block;
   }
   .thumb.placeholder {
-    background: var(--bg-faint, #1a1a1a);
+    /* Diagonal-stripe pattern so the empty preview reads as "no photo here yet"
+       rather than an invisible card-color rectangle. Subtle, doesn't fight the
+       layout when real thumbs land. */
+    background-color: var(--bg-faint, #141414);
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 8px,
+      rgba(255, 255, 255, 0.03) 8px,
+      rgba(255, 255, 255, 0.03) 9px
+    );
+    border: 1px solid var(--border-subtle, #2a2a2a);
   }
   h3 {
     margin: 0;

@@ -198,11 +198,16 @@ pub async fn upsert_target(
         "other"
     };
 
+    // Canonical name on insert: prefer the first common name when OpenNGC has one.
+    // Otherwise format the raw `Name` field — strip the zero-padding so "NGC0224"
+    // becomes "NGC 224" rather than displayed verbatim. The slug ("ngc-224") is
+    // already de-padded; the canonical needs the same treatment so cards look like
+    // "NGC-224 / NGC 224 / Galaxy" instead of "NGC-224 / NGC0224 / Galaxy".
     let canonical_on_insert = row
         .common_names
         .first()
         .cloned()
-        .unwrap_or_else(|| row.name.clone());
+        .unwrap_or_else(|| pretty_name_fallback(&row.name));
 
     let constellation_3 = row
         .constellation
@@ -421,6 +426,42 @@ fn parse_numeric_suffix(prefix: &str, rest: &str) -> SlugDecision {
     match rest.parse::<u32>() {
         Ok(n) => SlugDecision::Slug(format!("{}-{}", prefix, n)),
         Err(_) => SlugDecision::Skip(SkipReason::UnknownPrefix),
+    }
+}
+
+/// Format a raw OpenNGC `Name` ("NGC0224", "IC0434") into a display-friendly form
+/// ("NGC 224", "IC 434"). Used as canonical_name fallback when the row has no
+/// CommonNames. Falls through unchanged if the name doesn't match NGC/IC/M.
+fn pretty_name_fallback(name: &str) -> String {
+    for prefix in ["NGC", "IC", "M"] {
+        if let Some(rest) = name.strip_prefix(prefix)
+            && !rest.is_empty()
+            && rest.chars().all(|c| c.is_ascii_digit())
+            && let Ok(n) = rest.parse::<u32>()
+        {
+            return format!("{prefix} {n}");
+        }
+    }
+    name.to_string()
+}
+
+#[cfg(test)]
+mod pretty_name_tests {
+    use super::pretty_name_fallback;
+
+    #[test]
+    fn strips_zero_padding_ngc() {
+        assert_eq!(pretty_name_fallback("NGC0224"), "NGC 224");
+        assert_eq!(pretty_name_fallback("NGC7000"), "NGC 7000");
+    }
+    #[test]
+    fn strips_zero_padding_ic() {
+        assert_eq!(pretty_name_fallback("IC0434"), "IC 434");
+    }
+    #[test]
+    fn passes_through_non_numeric() {
+        assert_eq!(pretty_name_fallback("Mel022"), "Mel022");
+        assert_eq!(pretty_name_fallback("Cr399"), "Cr399");
     }
 }
 
