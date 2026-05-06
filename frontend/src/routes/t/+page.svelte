@@ -65,10 +65,10 @@
 </script>
 
 <svelte:head>
-  <title>Objets célestes — Astrophoto</title>
+  <title>Celestial objects — Astrophoto</title>
   <meta
     name="description"
-    content="Explorez des milliers de galaxies, nébuleuses et amas photographiés par la communauté."
+    content="Explore thousands of galaxies, nebulae, and clusters photographed by the community."
   />
 </svelte:head>
 
@@ -76,11 +76,11 @@
 
 <main class="t-index">
   <header class="header-row">
-    <h1>Objets célestes</h1>
+    <h1>Celestial objects</h1>
     <input
       type="search"
       class="input search-input"
-      placeholder="Rechercher un objet…"
+      placeholder="Search for an object…"
       value={q}
       oninput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
     />
@@ -93,33 +93,33 @@
         onchange={(e) =>
           applyFilter({ object_type: (e.target as HTMLSelectElement).value || undefined })}
       >
-        <option value="" selected={!data.object_type}>Tous</option>
-        <option value="G" selected={data.object_type === 'G'}>Galaxie</option>
-        <option value="Neb" selected={data.object_type === 'Neb'}>Nébuleuse</option>
-        <option value="OCl" selected={data.object_type === 'OCl'}>Amas ouvert</option>
-        <option value="GCl" selected={data.object_type === 'GCl'}>Amas globulaire</option>
-        <option value="PN" selected={data.object_type === 'PN'}>Nébuleuse planétaire</option>
-        <option value="HII" selected={data.object_type === 'HII'}>Région HII</option>
-        <option value="SNR" selected={data.object_type === 'SNR'}>Reste de supernova</option>
+        <option value="" selected={!data.object_type}>All</option>
+        <option value="G" selected={data.object_type === 'G'}>Galaxy</option>
+        <option value="Neb" selected={data.object_type === 'Neb'}>Nebula</option>
+        <option value="OCl" selected={data.object_type === 'OCl'}>Open cluster</option>
+        <option value="GCl" selected={data.object_type === 'GCl'}>Globular cluster</option>
+        <option value="PN" selected={data.object_type === 'PN'}>Planetary nebula</option>
+        <option value="HII" selected={data.object_type === 'HII'}>HII region</option>
+        <option value="SNR" selected={data.object_type === 'SNR'}>Supernova remnant</option>
       </select>
     </label>
     <label>
-      Tri
+      Sort
       <select onchange={(e) => applyFilter({ sort: (e.target as HTMLSelectElement).value })}>
-        <option value="popular" selected={data.sort === 'popular'}>Populaire</option>
-        <option value="name" selected={data.sort === 'name'}>Alphabétique</option>
+        <option value="popular" selected={data.sort === 'popular'}>Popular</option>
+        <option value="name" selected={data.sort === 'name'}>Alphabetical</option>
       </select>
     </label>
   </div>
 
   {#if items.length === 0}
     <p class="empty">
-      Aucun objet ne correspond.
+      No objects match.
       <button
         type="button"
         onclick={() => applyFilter({ q: '', object_type: undefined, constellation: undefined })}
       >
-        Effacer les filtres
+        Clear filters
       </button>
     </p>
   {:else}
@@ -130,7 +130,7 @@
     </ul>
     {#if cursor}
       <button type="button" class="load-more" onclick={() => void loadMore()}>
-        Charger plus
+        Load more
       </button>
     {/if}
   {/if}

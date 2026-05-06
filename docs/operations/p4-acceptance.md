@@ -106,15 +106,24 @@ freshly started via `just dev`. DB seeded with ~12 584 catalog targets
 from migration + `just seed-targets`. Screenshots in
 `docs/operations/screenshots/p4/`.
 
+> **Language note:** The walkthrough below was originally captured with
+> French UI labels. After review the labels were switched to English to
+> match the rest of the app (commit `<UI lang fix>`). Screenshots show
+> the French strings; the underlying flow and pass/fail outcomes are
+> unchanged. Re-capture deferred — the French/English mapping is purely
+> in `$lib/data/celestial.ts` and a few `<TargetMultiPicker>` /
+> `/t/+page.svelte` strings; spec § Decisions row 14 documents the
+> language switch.
+
 | # | Flow | Result |
 |---|------|--------|
-| 1a | `/t` index page renders grid | ✅ 24 cards visible, each showing slug, canonical ID, type label, constellation, 0 photos. "Charger plus" button present. — `screenshots/p4/01-t-index-grid.png` |
-| 1b | Type "andromed" in search box → debounce → M31 card appears | ✅ URL updates to `?q=andromed`, single result: "M31 / Andromeda Galaxy / Galaxie · Andromède / 0 photos" — `screenshots/p4/02-t-search-andromed.png` |
-| 1c | Click M31 card → `/t/m31` enriched header | ✅ `● TARGET · MESSIER`, heading "Andromeda Galaxy", `Galaxie · Andromède · RA 00ʰ42ᵐ44ˢ · Dec +41°16′09″ · mag 3.4 · 178′ × 70′`, aliases: M 31, Messier 31, NGC 224 — `screenshots/p4/03-t-m31-enriched-header.png` |
-| 2 | `/t?object_type=G` — filter by Galaxie | ✅ All 24 visible cards show "Galaxie" type label. Non-galaxy types (Amas ouvert, Étoile, Autre, etc.) that appear in the unfiltered view are absent. Type select shows "Galaxie" selected. — `screenshots/p4/04-t-filter-galaxie.png` |
+| 1a | `/t` index page renders grid | ✅ 24 cards visible, each showing slug, canonical ID, type label, constellation, 0 photos. Load-more button present. — `screenshots/p4/01-t-index-grid.png` |
+| 1b | Type "andromed" in search box → debounce → M31 card appears | ✅ URL updates to `?q=andromed`, single result: M31 / Andromeda Galaxy / Galaxy · Andromeda / 0 photos — `screenshots/p4/02-t-search-andromed.png` |
+| 1c | Click M31 card → `/t/m31` enriched header | ✅ `● TARGET · MESSIER`, heading "Andromeda Galaxy", `Galaxy · Andromeda · RA 00ʰ42ᵐ44ˢ · Dec +41°16′09″ · mag 3.4 · 178′ × 70′`, aliases: M 31, Messier 31, NGC 224 — `screenshots/p4/03-t-m31-enriched-header.png` |
+| 2 | `/t?object_type=G` — filter by Galaxy | ✅ All 24 visible cards show "Galaxy" type label. Non-galaxy types (Open cluster, Star, Other, etc.) absent. Type select shows "Galaxy" selected. — `screenshots/p4/04-t-filter-galaxie.png` |
 | 3 | Upload + multi-tag M42 + NGC 1977 | DEFERRED — requires authenticated test user session. Multi-tag backend and TargetMultiPicker component are unit/integration tested (Tasks 9, 15, 16). Manual test: sign in, upload, use TargetMultiPicker on `/upload/<id>/verify`, confirm both `/t/m42` and `/t/ngc-1977` list the photo. |
 | 4 | `/t/ic-434` — KEEP_MANUAL_META protection | ✅ Page shows `● TARGET · IC`, `IC-434`, heading "Horsehead Nebula", aliases (IC 434, Barnard 33) — but **no** object_type line, **no** constellation line, **no** RA/Dec, **no** magnitude. Astro meta blocked by skip list as designed. — `screenshots/p4/05-t-ic434-horsehead-protected.png` |
-| 5 | `/t/ngc-7000` — enriched header sanity check | ✅ `● TARGET · NGC`, heading "North America Nebula", `Région HII · Cygne · RA 20ʰ59ᵐ17ˢ · Dec +44°31′44″ · 120′ × 30′`, aliases: NGC 7000, Caldwell 20. Canonical name preserved correctly. — `screenshots/p4/06-t-ngc7000-enriched.png` |
+| 5 | `/t/ngc-7000` — enriched header sanity check | ✅ `● TARGET · NGC`, heading "North America Nebula", `HII region · Cygnus · RA 20ʰ59ᵐ17ˢ · Dec +44°31′44″ · 120′ × 30′`, aliases: NGC 7000, Caldwell 20. Canonical name preserved correctly. — `screenshots/p4/06-t-ngc7000-enriched.png` |
 
 ---
 

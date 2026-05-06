@@ -52,7 +52,7 @@ platform vs a generic photo site.
 | 11  | Backfill of existing photos        | **`just backfill-photo-targets`** one-shot binary, dry-run by default. Run manually post-deploy on staging then prod. |
 | 12  | Index page `/t`                    | New SSR route. Filters by object_type + constellation, search across slug/canonical_name/aliases, sort by popularity / name / recent. |
 | 13  | Search implementation              | `ILIKE` over canonical_name, slug, aliases. No `pg_trgm` for now (over-engineering at 14k rows). |
-| 14  | i18n                               | French-only labels initially. When project-wide i18n lands, lookup tables migrate. |
+| 14  | i18n                               | English-only labels (matching the rest of the app). When project-wide i18n lands, the lookup tables in `$lib/data/celestial.ts` migrate. |
 
 ---
 
@@ -632,8 +632,10 @@ data debt behind.
 - **Object descriptions** (Wikipedia extract, AI-generated) — not
   needed for D2 content. The enriched header already conveys context.
 - **i18n infrastructure** — `OBJECT_TYPE_LABELS` and
-  `CONSTELLATION_LABELS` ship as French-only constants. When the
-  project gets i18n, these tables move to the global system.
+  `CONSTELLATION_LABELS` ship as English-only constants (Latin
+  nominative for constellations, the standard form in English
+  astronomy). When the project gets i18n, these tables move to the
+  global system.
 - **Materialized view for preview thumbs** — only if perf demands it.
 
 ---

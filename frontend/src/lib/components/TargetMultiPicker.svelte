@@ -40,7 +40,7 @@
 
 <div class="multi-picker">
   <div class="picker-label">
-    <span class="t-label">Sujet(s) céleste(s)</span>
+    <span class="t-label">Celestial subject(s)</span>
     <span class="t-meta counter">[{targets.length} / {max}]</span>
   </div>
 
@@ -52,7 +52,7 @@
             type="button"
             class="promote-btn"
             onclick={() => promote(t.slug)}
-            aria-label="Définir comme principal"
+            aria-label="Set as primary"
             aria-pressed={primary === t.slug}>★</button
           >
           <span class="chip-label">
@@ -63,7 +63,7 @@
             type="button"
             class="remove-btn"
             onclick={() => remove(t.slug)}
-            aria-label={`Retirer ${t.canonical_name}`}>×</button
+            aria-label={`Remove ${t.canonical_name}`}>×</button
           >
         </li>
       {/each}
@@ -72,23 +72,23 @@
 
   {#if !atMax}
     <TargetAutocompleteInput
-      placeholder="tape pour ajouter un objet…"
+      placeholder="type to add an object…"
       {excludeSlugs}
       onPick={add}
     />
   {:else}
-    <p class="t-meta hint-max">{max} sujets max — retire un chip pour en ajouter un autre.</p>
+    <p class="t-meta hint-max">{max} subjects max — remove a chip to add another.</p>
   {/if}
 
   <div class="freetext-label">
-    <span class="t-label">Sinon, sujet libre</span>
-    <span class="t-meta hint-inline">(utilisé seulement si aucun objet sélectionné)</span>
+    <span class="t-label">Or, free-text subject</span>
+    <span class="t-meta hint-inline">(used only when no object is selected)</span>
   </div>
   <input
     type="text"
     bind:value={freetext}
     disabled={targets.length > 0}
-    placeholder="ex: Voie Lactée d'été"
+    placeholder="e.g., summer Milky Way"
     class="input freetext-input"
   />
 </div>
