@@ -1,5 +1,6 @@
 import type { Health, User } from './types';
 import type { PhotoDetail } from './PhotoDetail';
+import type { DraftListResponse } from './DraftListResponse';
 
 // ---------------------------------------------------------------------------
 // Comment DTO
@@ -202,7 +203,16 @@ export const api = {
     request<void>('POST', '/api/me/delete-cancel', undefined, opts),
 
   photosCount: (opts?: ApiCall) =>
-    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts)
+    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts),
+
+  drafts: (opts: ApiCall & { limit?: number; cursor?: string } = {}) => {
+    const { limit, cursor, ...apiOpts } = opts;
+    const qs = new URLSearchParams();
+    if (limit != null) qs.set('limit', String(limit));
+    if (cursor) qs.set('cursor', cursor);
+    const path = qs.toString() ? `/api/photos/me/drafts?${qs}` : '/api/photos/me/drafts';
+    return request<DraftListResponse>('GET', path, undefined, apiOpts);
+  }
 };
 
 // ---------------------------------------------------------------------------

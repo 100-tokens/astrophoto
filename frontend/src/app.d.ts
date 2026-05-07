@@ -7,6 +7,7 @@ declare global {
         displayName: string;
         following_ids: string[];
         pending_deletion_at: string | null;
+        tier: 'free' | 'subscriber';
       } | null;
       preferences: { theme: 'dark' | 'light'; density: 'work' | 'data' };
     }
@@ -17,6 +18,7 @@ declare global {
         displayName: string;
         following_ids: string[];
         pending_deletion_at: string | null;
+        tier: 'free' | 'subscriber';
       } | null;
     }
   }

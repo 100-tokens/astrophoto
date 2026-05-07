@@ -6,18 +6,18 @@
   import TierUpgradeModal from '$lib/components/TierUpgradeModal.svelte';
   import { preflight } from '$lib/upload/preflight';
   import { uploadAll, type FileSlot, type SlotProgress } from '$lib/upload/presigned';
+  import type { PageProps } from './$types';
 
   // Each slot gets a stable clientId so progress callbacks can find the right
   // row even when the slots array changes while a batch is in flight.
   type Slot = FileSlot & { clientId: number; thumbDataUrl?: string; progress: SlotProgress };
 
+  let { data }: PageProps = $props();
+
   let slots = $state<Slot[]>([]);
   let showUpgrade = $state(false);
 
-  // Tier limit is hardcoded to the free-tier maximum (50 MB).
-  // TODO: wire users.tier through /api/auth/me (or a dedicated endpoint) when
-  // subscriber billing ships in Phase 2 so subscribers get the 200 MB limit.
-  const TIER_MAX = 50 * 1024 * 1024;
+  const TIER_MAX = $derived(data.tier === 'subscriber' ? 200 * 1024 * 1024 : 50 * 1024 * 1024);
 
   let nextId = 0;
 
@@ -107,7 +107,10 @@
 
   <!-- Dropzone + file list -->
   <section class="form-section">
-    <UploadDropzone {onFiles} tierMax={TIER_MAX} />
+    {#if data.recentDrafts.length}
+      <!-- TODO: resume banner in T9 -->
+    {/if}
+    <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
 
     {#if slots.length}
       <div class="file-list">
