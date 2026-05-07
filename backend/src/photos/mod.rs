@@ -1,6 +1,7 @@
 pub mod cdn;
 pub mod count;
 pub mod delete;
+pub mod drafts_list;
 pub mod exif;
 pub mod get;
 pub mod list;

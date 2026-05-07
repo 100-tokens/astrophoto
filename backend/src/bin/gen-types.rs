@@ -5,11 +5,11 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage,
-    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
-    HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform, TagMeta,
-    TagPage, TargetMeta, TargetPage, User, UserPublic,
+    AuthError, CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse,
+    EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary,
+    GalleryPage, GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PhotoDetail,
+    Preferences, Profile, PublicProfile, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
+    SocialLink, SocialPlatform, TagMeta, TagPage, TargetMeta, TargetPage, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -49,6 +49,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SearchTargetHit::export_all_to(out_dir)?;
     SearchUserHit::export_all_to(out_dir)?;
     SearchResults::export_all_to(out_dir)?;
+    DraftListItem::export_all_to(out_dir)?;
+    DraftListResponse::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

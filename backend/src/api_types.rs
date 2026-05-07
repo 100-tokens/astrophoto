@@ -378,3 +378,23 @@ pub struct SearchResults {
     pub users: Vec<SearchUserHit>,
     pub photos: Vec<DiscoveryPhoto>,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListItem.ts")]
+pub struct DraftListItem {
+    pub id: String,
+    pub short_id: String,
+    pub original_name: String,
+    pub target: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    /// CDN URL for a small thumbnail.
+    pub thumb_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListResponse.ts")]
+pub struct DraftListResponse {
+    pub items: Vec<DraftListItem>,
+    pub next_cursor: Option<String>,
+}
