@@ -66,14 +66,10 @@ pub async fn handler(
     }
 
     if let Some(tags) = &body.tags {
-        if tags.is_empty() {
-            sqlx::query!(
-                "delete from photo_tags where photo_id = any($1)",
-                &body.ids
-            )
+        sqlx::query!("delete from photo_tags where photo_id = any($1)", &body.ids)
             .execute(&state.pool)
             .await?;
-        } else {
+        if !tags.is_empty() {
             for id in &body.ids {
                 crate::photos::tags::attach(&state.pool, *id, tags).await?;
             }
