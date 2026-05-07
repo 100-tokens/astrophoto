@@ -36,6 +36,15 @@
     return photo as ShowcasePhoto;
   }
   const _sp = sp();
+  function spTags() {
+    return [...initialTags];
+  }
+  const _spTags = spTags();
+  // Capture autosave at mount; parent remounts via {#key} when photo changes.
+  function spAutosave() {
+    return autosave;
+  }
+  const _autosave = spAutosave();
 
   let target = $state<string>(_sp.target ?? '');
   let category = $state<string>(_sp.category ?? 'other');
@@ -44,7 +53,7 @@
   let mount = $state<string>(_sp.mount ?? '');
   let filters = $state<string>(_sp.filters ?? '');
   let guiding = $state<string>(_sp.guiding ?? '');
-  let tags = $state<string[]>(initialTags);
+  let tags = $state<string[]>(_spTags);
   let caption = $state<string>(_sp.caption ?? '');
   let lens = $state<string>(_sp.lens ?? '');
   let iso = $state<string>(_sp.iso?.toString() ?? '');
@@ -95,12 +104,12 @@
           gain: gain === '' ? null : Number(gain),
           sensor_temp_c: sensor_temp_c === '' ? null : Number(sensor_temp_c),
           ra_deg: ra_deg === '' ? null : Number(ra_deg),
-          dec_deg: dec_deg === '' ? null : Number(dec_deg),
+          dec_deg: dec_deg === '' ? null : Number(dec_deg)
         }
       : null
   );
 
-  const saver = autosave ? useAutosave(photo.id) : null;
+  const saver = _autosave ? useAutosave(_sp.id) : null;
   $effect(() => {
     if (snapshot && saver) saver.queue(snapshot);
   });
@@ -192,11 +201,21 @@
       </div>
 
       <div class="grid equipment-grid">
-        <div class="field"><EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} /></div>
-        <div class="field"><EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} /></div>
-        <div class="field"><EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} /></div>
-        <div class="field"><EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} /></div>
-        <div class="field"><EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} /></div>
+        <div class="field">
+          <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
+        </div>
+        <div class="field">
+          <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
+        </div>
+        <div class="field">
+          <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
+        </div>
+        <div class="field">
+          <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
+        </div>
+        <div class="field">
+          <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
+        </div>
       </div>
 
       <div class="field-full"><TagInput bind:value={tags} /></div>
