@@ -74,12 +74,7 @@ async fn batch_apply_rejects_published_photos() {
 
     let body = json!({ "ids": [draft, published], "target": "M31" });
     let (status, _) = app
-        .oneshot(
-            "POST",
-            "/api/photos/batch/apply",
-            Some(&cookie),
-            Some(body),
-        )
+        .oneshot("POST", "/api/photos/batch/apply", Some(&cookie), Some(body))
         .await;
     assert_eq!(status, 400);
 }
@@ -92,12 +87,7 @@ async fn batch_apply_with_empty_string_target_is_400() {
 
     let body = json!({ "ids": [draft], "target": "" });
     let (status, _) = app
-        .oneshot(
-            "POST",
-            "/api/photos/batch/apply",
-            Some(&cookie),
-            Some(body),
-        )
+        .oneshot("POST", "/api/photos/batch/apply", Some(&cookie), Some(body))
         .await;
     assert_eq!(status, 400);
 }
@@ -111,12 +101,7 @@ async fn batch_apply_empty_tags_array_clears_tags() {
 
     let body = json!({ "ids": [draft], "tags": [] });
     let (status, _) = app
-        .oneshot(
-            "POST",
-            "/api/photos/batch/apply",
-            Some(&cookie),
-            Some(body),
-        )
+        .oneshot("POST", "/api/photos/batch/apply", Some(&cookie), Some(body))
         .await;
     assert_eq!(status, 200);
 
