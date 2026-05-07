@@ -53,7 +53,9 @@
     {:else if progress.state === 'failed'}
       <span class="chip chip-failed">✗ {progress.reason ?? 'Failed'}</span>
       {#if onRetry}
-        <button type="button" class="chip-action" onclick={onRetry} aria-label="Retry upload">↻ Retry</button>
+        <button type="button" class="chip-action" onclick={onRetry} aria-label="Retry upload"
+          >↻ Retry</button
+        >
       {/if}
     {:else if progress.state === 'cancelled'}
       <p class="t-meta status-muted">cancelled</p>
@@ -62,7 +64,13 @@
 
   <div class="row-actions">
     {#if cancellable && onCancel}
-      <button type="button" class="icon-btn" onclick={onCancel} aria-label="Cancel upload" title="Cancel">×</button>
+      <button
+        type="button"
+        class="icon-btn"
+        onclick={onCancel}
+        aria-label="Cancel upload"
+        title="Cancel">×</button
+      >
     {/if}
   </div>
 </div>

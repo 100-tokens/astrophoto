@@ -112,8 +112,10 @@ export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefin
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ files: [{ name: slot.name, size: slot.size, mime: slot.mime, hash: slot.hash }] }),
-        signal: abort.signal,
+        body: JSON.stringify({
+          files: [{ name: slot.name, size: slot.size, mime: slot.mime, hash: slot.hash }]
+        }),
+        signal: abort.signal
       });
       if (!init.ok) throw new Error(await init.text());
       const json = (await init.json()) as { files: NonNullable<SlotHandle['signed']>[] };
@@ -135,33 +137,65 @@ export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefin
 
     try {
       await xhrPut(slot, signed.presigned_put_url, abort.signal, (pct) =>
-        setProgress({ state: 'uploading', pct, photoId: signed!.photo_id, shortId: signed!.short_id })
+        setProgress({
+          state: 'uploading',
+          pct,
+          photoId: signed!.photo_id,
+          shortId: signed!.short_id
+        })
       );
     } catch (e) {
       if (abort.signal.aborted) {
-        setProgress({ state: 'cancelled', pct: 0, photoId: signed.photo_id, shortId: signed.short_id });
+        setProgress({
+          state: 'cancelled',
+          pct: 0,
+          photoId: signed.photo_id,
+          shortId: signed.short_id
+        });
       } else {
         const reason = e instanceof Error ? e.message : 'PUT failed';
-        setProgress({ state: 'failed', pct: 0, reason, photoId: signed.photo_id, shortId: signed.short_id });
+        setProgress({
+          state: 'failed',
+          pct: 0,
+          reason,
+          photoId: signed.photo_id,
+          shortId: signed.short_id
+        });
       }
       return;
     }
 
-    setProgress({ state: 'finalizing', pct: 100, photoId: signed.photo_id, shortId: signed.short_id });
+    setProgress({
+      state: 'finalizing',
+      pct: 100,
+      photoId: signed.photo_id,
+      shortId: signed.short_id
+    });
 
     try {
       const fin = await fetch(`${API}/api/uploads/${signed.photo_id}/finalize`, {
         method: 'POST',
         credentials: 'include',
-        signal: abort.signal,
+        signal: abort.signal
       });
       if (!fin.ok) throw new Error(await fin.text());
     } catch (e) {
       if (abort.signal.aborted) {
-        setProgress({ state: 'cancelled', pct: 100, photoId: signed.photo_id, shortId: signed.short_id });
+        setProgress({
+          state: 'cancelled',
+          pct: 100,
+          photoId: signed.photo_id,
+          shortId: signed.short_id
+        });
       } else {
         const reason = e instanceof Error ? e.message : 'Finalize failed';
-        setProgress({ state: 'failed', pct: 100, reason, photoId: signed.photo_id, shortId: signed.short_id });
+        setProgress({
+          state: 'failed',
+          pct: 100,
+          reason,
+          photoId: signed.photo_id,
+          shortId: signed.short_id
+        });
       }
       return;
     }

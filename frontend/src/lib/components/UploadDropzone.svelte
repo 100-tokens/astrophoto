@@ -48,7 +48,8 @@
   <span class="dz-headline t-display">↑ Drop photos here, or click</span>
   <span class="t-meta">
     JPEG · PNG · TIFF · up to {tier === 'subscriber' ? '200 MB' : '50 MB (free)'}
-    {#if tier !== 'subscriber'} · Subscribers up to 200 MB{/if}
+    {#if tier !== 'subscriber'}
+      · Subscribers up to 200 MB{/if}
   </span>
   <input
     id={inputId}

@@ -15,7 +15,7 @@ describe('Pump', () => {
         await new Promise((r) => setTimeout(r, 10));
         active--;
         calls.push(parseInt(id, 10));
-      },
+      }
     });
 
     pump.add('1');
@@ -46,7 +46,7 @@ describe('Pump', () => {
         calls.push(id);
         if (id === '1') pump.add('2');
         await Promise.resolve();
-      },
+      }
     });
     pump.add('1');
     await pump.drain();
@@ -58,7 +58,7 @@ describe('Pump', () => {
     const handle = {
       slot: { name: 'a.jpg', size: 1, mime: 'image/jpeg', hash: 'h', file: new File([], 'a.jpg') },
       abort: new AbortController(),
-      setProgress: vi.fn(),
+      setProgress: vi.fn()
     };
     handle.abort.abort();
     const runner = makeUploadRunner(() => handle);

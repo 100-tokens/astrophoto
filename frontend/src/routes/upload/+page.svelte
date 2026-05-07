@@ -6,7 +6,13 @@
   import UploadStepper from '$lib/components/UploadStepper.svelte';
   import TierUpgradeModal from '$lib/components/TierUpgradeModal.svelte';
   import { preflight } from '$lib/upload/preflight';
-  import { Pump, makeUploadRunner, type FileSlot, type SlotHandle, type SlotProgress } from '$lib/upload/pump';
+  import {
+    Pump,
+    makeUploadRunner,
+    type FileSlot,
+    type SlotHandle,
+    type SlotProgress
+  } from '$lib/upload/pump';
   import { goto } from '$app/navigation';
   import type { PageProps } from './$types';
 
@@ -24,7 +30,7 @@
     runSlot: makeUploadRunner((id) => handles.get(id)),
     onCancel: (id) => {
       handles.get(id)?.abort.abort();
-    },
+    }
   });
 
   function setProgress(clientId: string, p: SlotProgress) {
@@ -49,7 +55,7 @@
         file,
         hash: '',
         // thumbDataUrl intentionally omitted — set after preflight completes.
-        progress: { state: 'hashing', pct: 0 },
+        progress: { state: 'hashing', pct: 0 }
       };
       slots = [...slots, slot];
 
@@ -67,7 +73,7 @@
           const handle: SlotHandle = {
             slot: target,
             abort,
-            setProgress: (p) => setProgress(clientId, p),
+            setProgress: (p) => setProgress(clientId, p)
           };
           handles.set(clientId, handle);
           pump.add(clientId);
@@ -80,10 +86,13 @@
   }
 
   let readyIds = $derived(
-    slots.filter((s) => s.progress.state === 'ready' && s.progress.photoId).map((s) => s.progress.photoId!)
+    slots
+      .filter((s) => s.progress.state === 'ready' && s.progress.photoId)
+      .map((s) => s.progress.photoId!)
   );
   let allDone = $derived(
-    slots.length > 0 && slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
+    slots.length > 0 &&
+      slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
   );
 
   function cancelSlot(clientId: string) {
@@ -92,7 +101,11 @@
 
     // Confirm-on-cancel for in-flight uploads past 50%.
     if (slot.progress.state === 'uploading' && slot.progress.pct > 50) {
-      if (!confirm(`Cancel upload of ${slot.name}? ${Math.round(slot.progress.pct)}% complete will be lost.`))
+      if (
+        !confirm(
+          `Cancel upload of ${slot.name}? ${Math.round(slot.progress.pct)}% complete will be lost.`
+        )
+      )
         return;
     }
 
@@ -123,7 +136,7 @@
     handles.set(clientId, {
       slot,
       abort,
-      setProgress: (p) => setProgress(clientId, p),
+      setProgress: (p) => setProgress(clientId, p)
     });
     slot.progress = { state: 'queued', pct: 0 };
     pump.add(clientId);
@@ -221,8 +234,21 @@
   }
 
   /* ── Continue CTA ───────────────────────────────────────── */
-  .continue-cta { margin-top: 32px; display: flex; justify-content: flex-end; }
-  .btn-primary { background: var(--accent); color: var(--bg-base); padding: 12px 24px; border: 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; cursor: pointer; }
+  .continue-cta {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg-base);
+    padding: 12px 24px;
+    border: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
 
   /* ── Responsive ─────────────────────────────────────────── */
   @media (max-width: 768px) {

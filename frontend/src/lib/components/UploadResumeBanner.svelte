@@ -27,7 +27,12 @@
   }
 
   async function discardAll() {
-    if (!confirm(`Discard ${drafts.length} draft${drafts.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Discard ${drafts.length} draft${drafts.length > 1 ? 's' : ''}? This cannot be undone.`
+      )
+    )
+      return;
     await Promise.all(
       drafts.map((d) => fetch(`/api/photos/${d.id}`, { method: 'DELETE', credentials: 'include' }))
     );
@@ -36,7 +41,9 @@
 </script>
 
 <div class="banner">
-  <div class="banner-eyebrow">● {drafts.length} DRAFT{drafts.length > 1 ? 'S' : ''} IN PROGRESS</div>
+  <div class="banner-eyebrow">
+    ● {drafts.length} DRAFT{drafts.length > 1 ? 'S' : ''} IN PROGRESS
+  </div>
   <p class="banner-body">Continue verifying frames from {relTime}.</p>
   <div class="banner-actions">
     <button type="button" class="btn-ghost" onclick={discardAll}>Discard</button>
