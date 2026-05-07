@@ -16,7 +16,7 @@ pub mod sessions;
 pub mod social_links;
 pub mod stats;
 
-use crate::api_types::User;
+use crate::api_types::{User, UserTier};
 use queries::UserRow;
 
 impl From<UserRow> for User {
@@ -28,6 +28,7 @@ impl From<UserRow> for User {
             created_at: r.created_at.to_rfc3339(),
             following_ids: vec![],
             pending_deletion_at: None,
+            tier: UserTier::Free,
         }
     }
 }

@@ -21,6 +21,15 @@ pub struct User {
     pub created_at: String,
     pub following_ids: Vec<String>,
     pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
+    pub tier: UserTier,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, PartialEq, Eq, Clone, Copy)]
+#[ts(export, export_to = "UserTier.ts")]
+#[serde(rename_all = "lowercase")]
+pub enum UserTier {
+    Free,
+    Subscriber,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
