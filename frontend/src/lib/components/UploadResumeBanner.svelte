@@ -7,6 +7,10 @@
   }
   let { drafts }: Props = $props();
 
+  // Hide the banner instantly on Discard — invalidateAll() takes a few hundred
+  // milliseconds and the user shouldn't see the stale count after confirming.
+  let dismissed = $state(false);
+
   let oldest = $derived(drafts[drafts.length - 1]);
   let relTime = $derived(formatRelative(oldest?.created_at));
 
@@ -33,6 +37,7 @@
       )
     )
       return;
+    dismissed = true;
     await Promise.all(
       drafts.map((d) => fetch(`/api/photos/${d.id}`, { method: 'DELETE', credentials: 'include' }))
     );
@@ -40,16 +45,18 @@
   }
 </script>
 
-<div class="banner">
-  <div class="banner-eyebrow">
-    ● {drafts.length} DRAFT{drafts.length > 1 ? 'S' : ''} IN PROGRESS
+{#if !dismissed}
+  <div class="banner">
+    <div class="banner-eyebrow">
+      ● {drafts.length} DRAFT{drafts.length > 1 ? 'S' : ''} IN PROGRESS
+    </div>
+    <p class="banner-body">Continue verifying frames from {relTime}.</p>
+    <div class="banner-actions">
+      <button type="button" class="btn-ghost" onclick={discardAll}>Discard</button>
+      <button type="button" class="btn-primary" onclick={resume}>Resume</button>
+    </div>
   </div>
-  <p class="banner-body">Continue verifying frames from {relTime}.</p>
-  <div class="banner-actions">
-    <button type="button" class="btn-ghost" onclick={discardAll}>Discard</button>
-    <button type="button" class="btn-primary" onclick={resume}>Resume</button>
-  </div>
-</div>
+{/if}
 
 <style>
   .banner {

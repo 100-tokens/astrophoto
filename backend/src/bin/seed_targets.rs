@@ -235,6 +235,12 @@ pub async fn upsert_target(
         return Ok(());
     }
 
+    // canonical_name policy on UPSERT: keep user-curated names (e.g. "Andromeda
+    // Galaxy" set by migration 0010) and avoid downgrading to a bare catalog id.
+    // The exception is the auto-generated "Messier N" placeholder also from 0010
+    // — those should be promoted to OpenNGC's common name when one exists, so
+    // M1 displays "Crab Nebula", M81 "Bode's Galaxy", etc. The regex tests
+    // isolate exactly that placeholder; manual overrides won't match.
     sqlx::query!(
         r#"
         insert into targets (
@@ -244,6 +250,12 @@ pub async fn upsert_target(
         )
         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
         on conflict (slug) do update set
+            canonical_name = case
+                when targets.canonical_name ~ '^Messier [0-9]+$'
+                     and excluded.canonical_name !~ '^(NGC|IC) [0-9]+$'
+                then excluded.canonical_name
+                else targets.canonical_name
+            end,
             right_ascension   = excluded.right_ascension,
             declination       = excluded.declination,
             magnitude_v       = excluded.magnitude_v,

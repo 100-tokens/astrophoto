@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { getPhoto, batchPublish } from '$lib/api/client';
+import { getPhoto, batchPublish, ApiError } from '$lib/api/client';
 
 export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
   if (!locals.user) redirect(303, '/signin');
@@ -15,10 +15,21 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
     .map((c) => `${c.name}=${c.value}`)
     .join('; ');
 
-  const photos = await Promise.all(ids.map((id) => getPhoto(id, { fetch, cookie })));
+  // Backend returns 404 for photos not visible to the caller (owner-gated).
+  // Re-emit as 404 so the user sees "Not found" rather than "Unexpected error".
+  // Any non-ApiError or unexpected status falls through to a 500.
+  let photos;
+  try {
+    photos = await Promise.all(ids.map((id) => getPhoto(id, { fetch, cookie })));
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+      error(404, 'Not found');
+    }
+    throw e;
+  }
 
   for (const p of photos) {
-    if (p.owner_id !== locals.user.id) error(403, 'not owner');
+    if (p.owner_id !== locals.user.id) error(404, 'Not found');
   }
 
   const selectedParam = url.searchParams.get('selected') ?? ids[0]!;
