@@ -85,6 +85,49 @@
     slots.length > 0 && slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
   );
 
+  function cancelSlot(clientId: string) {
+    const slot = slots.find((s) => s.clientId === clientId);
+    if (!slot) return;
+
+    // Confirm-on-cancel for in-flight uploads past 50%.
+    if (slot.progress.state === 'uploading' && slot.progress.pct > 50) {
+      if (!confirm(`Cancel upload of ${slot.name}? ${Math.round(slot.progress.pct)}% complete will be lost.`))
+        return;
+    }
+
+    pump.cancel(clientId); // triggers onCancel → abort.abort()
+
+    // If we have a server-side photo row, ask the backend to clean it up.
+    const photoId = slot.progress.photoId;
+    if (photoId) {
+      void fetch(`/api/uploads/${photoId}`, { method: 'DELETE', credentials: 'include' });
+    }
+
+    slots = slots.filter((s) => s.clientId !== clientId);
+    handles.delete(clientId);
+  }
+
+  function retrySlot(clientId: string) {
+    const slot = slots.find((s) => s.clientId === clientId);
+    if (!slot || slot.progress.state !== 'failed') return;
+
+    // If there's a stale server-side photo row from the failed init/PUT, drop it
+    // so the per-owner-hash dedup doesn't reject the retry's init.
+    const oldPhotoId = slot.progress.photoId;
+    if (oldPhotoId) {
+      void fetch(`/api/uploads/${oldPhotoId}`, { method: 'DELETE', credentials: 'include' });
+    }
+
+    const abort = new AbortController();
+    handles.set(clientId, {
+      slot,
+      abort,
+      setProgress: (p) => setProgress(clientId, p),
+    });
+    slot.progress = { state: 'queued', pct: 0 };
+    pump.add(clientId);
+  }
+
   function continueToBatch() {
     if (readyIds.length === 0) return;
     if (readyIds.length === 1) {
@@ -124,6 +167,8 @@
             size={slot.size}
             {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
             progress={slot.progress}
+            onCancel={() => cancelSlot(slot.clientId)}
+            onRetry={() => retrySlot(slot.clientId)}
           />
         {/each}
       </div>
