@@ -13,18 +13,20 @@
   let selectedPhoto = $derived(data.photos.find((p) => p.id === data.selected) ?? data.photos[0]);
 
   // Poll while any photo is still being processed.
-  let polling = $state<ReturnType<typeof setInterval> | null>(null);
   let anyProcessing = $derived(data.photos.some((p) => p.status === 'processing'));
+  let pollingHandle: ReturnType<typeof setInterval> | null = null;
   $effect(() => {
-    if (anyProcessing && polling === null) {
-      polling = setInterval(() => invalidateAll(), 2000);
-    }
-    if (!anyProcessing && polling !== null) {
-      clearInterval(polling);
-      polling = null;
+    if (anyProcessing && pollingHandle === null) {
+      pollingHandle = setInterval(() => invalidateAll(), 2000);
+    } else if (!anyProcessing && pollingHandle !== null) {
+      clearInterval(pollingHandle);
+      pollingHandle = null;
     }
     return () => {
-      if (polling !== null) clearInterval(polling);
+      if (pollingHandle !== null) {
+        clearInterval(pollingHandle);
+        pollingHandle = null;
+      }
     };
   });
 
@@ -55,11 +57,7 @@
     <p class="err">{form.error}</p>
   {/if}
 
-  <form
-    method="POST"
-    action={`?/publish_all&ids=${data.ids.join(',')}`}
-    class="footer"
-  >
+  <form method="POST" action={`?/publish_all&ids=${data.ids.join(',')}`} class="footer">
     <Button variant="ghost" href={`/upload/batch?ids=${data.ids.join(',')}`}
       >← Back to apply-to-all</Button
     >

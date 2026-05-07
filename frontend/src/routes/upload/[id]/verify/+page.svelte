@@ -10,15 +10,19 @@
   let isPublished = $derived(!data.photo.is_draft);
   let isProcessing = $derived(data.photo.status === 'processing');
 
-  let polling = $state<number | null>(null);
+  let pollingHandle: ReturnType<typeof setInterval> | null = null;
   $effect(() => {
-    if (isProcessing && polling === null) polling = window.setInterval(() => invalidateAll(), 2000);
-    if (!isProcessing && polling !== null) {
-      clearInterval(polling);
-      polling = null;
+    if (isProcessing && pollingHandle === null) {
+      pollingHandle = setInterval(() => invalidateAll(), 2000);
+    } else if (!isProcessing && pollingHandle !== null) {
+      clearInterval(pollingHandle);
+      pollingHandle = null;
     }
     return () => {
-      if (polling !== null) clearInterval(polling);
+      if (pollingHandle !== null) {
+        clearInterval(pollingHandle);
+        pollingHandle = null;
+      }
     };
   });
 </script>
