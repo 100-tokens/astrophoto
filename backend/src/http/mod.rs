@@ -92,6 +92,18 @@ pub fn router(
             axum::routing::get(crate::photos::list::handler),
         )
         .route(
+            "/api/photos/me/drafts",
+            axum::routing::get(crate::photos::drafts_list::handler),
+        )
+        .route(
+            "/api/photos/batch/apply",
+            axum::routing::post(crate::photos::batch_apply::handler),
+        )
+        .route(
+            "/api/photos/batch/publish",
+            axum::routing::post(crate::photos::batch_publish::handler),
+        )
+        .route(
             "/api/photos/:id",
             get(crate::photos::get::handler)
                 .put(crate::photos::metadata::handler)
@@ -237,6 +249,10 @@ pub fn router(
         .route(
             "/api/uploads/init",
             axum::routing::post(crate::photos::upload_init::handler),
+        )
+        .route(
+            "/api/uploads/:id",
+            axum::routing::delete(crate::photos::upload_cancel::handler),
         )
         .route(
             "/api/uploads/:id/finalize",

@@ -189,6 +189,9 @@ pub async fn handler(
     }
 
     if let Some(tags) = &tags_list {
+        sqlx::query!("delete from photo_tags where photo_id = $1", id)
+            .execute(&state.pool)
+            .await?;
         crate::photos::tags::attach(&state.pool, id, tags).await?;
     }
 

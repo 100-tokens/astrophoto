@@ -2,10 +2,11 @@
   interface Props {
     onFiles: (files: File[]) => void;
     tierMax?: number;
+    tier?: 'free' | 'subscriber';
     overQuota?: boolean;
   }
 
-  let { onFiles, overQuota = false }: Props = $props();
+  let { onFiles, tier = 'free', overQuota = false }: Props = $props();
 
   let dragOver = $state(false);
   // Stable id so the wrapping <label> can target the hidden input even when
@@ -45,7 +46,11 @@
   aria-disabled={overQuota}
 >
   <span class="dz-headline t-display">↑ Drop photos here, or click</span>
-  <span class="t-meta">JPEG · PNG · TIFF · up to 50 MB (free) · Subscribers up to 200 MB</span>
+  <span class="t-meta">
+    JPEG · PNG · TIFF · up to {tier === 'subscriber' ? '200 MB' : '50 MB (free)'}
+    {#if tier !== 'subscriber'}
+      · Subscribers up to 200 MB{/if}
+  </span>
   <input
     id={inputId}
     type="file"

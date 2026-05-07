@@ -21,6 +21,15 @@ pub struct User {
     pub created_at: String,
     pub following_ids: Vec<String>,
     pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
+    pub tier: UserTier,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, PartialEq, Eq, Clone, Copy)]
+#[ts(export, export_to = "UserTier.ts")]
+#[serde(rename_all = "lowercase")]
+pub enum UserTier {
+    Free,
+    Subscriber,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -110,6 +119,7 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
@@ -367,4 +377,74 @@ pub struct SearchResults {
     pub targets: Vec<SearchTargetHit>,
     pub users: Vec<SearchUserHit>,
     pub photos: Vec<DiscoveryPhoto>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListItem.ts")]
+pub struct DraftListItem {
+    pub id: String,
+    pub short_id: String,
+    pub original_name: String,
+    pub target: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    /// CDN URL for a small thumbnail.
+    pub thumb_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListResponse.ts")]
+pub struct DraftListResponse {
+    pub items: Vec<DraftListItem>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyRequest.ts")]
+pub struct BatchApplyRequest {
+    pub ids: Vec<Uuid>,
+    pub target: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyResponse.ts")]
+pub struct BatchApplyResponse {
+    pub applied: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishRequest.ts")]
+pub struct BatchPublishRequest {
+    pub ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PublishedItem.ts")]
+pub struct PublishedItem {
+    pub id: String,
+    pub short_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, Clone, Copy, PartialEq, Eq)]
+#[ts(export, export_to = "SkipReason.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum SkipReason {
+    StillProcessing,
+    Failed,
+    AlreadyPublished,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SkippedItem.ts")]
+pub struct SkippedItem {
+    pub id: String,
+    pub reason: SkipReason,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishResponse.ts")]
+pub struct BatchPublishResponse {
+    pub published: Vec<PublishedItem>,
+    pub skipped: Vec<SkippedItem>,
 }

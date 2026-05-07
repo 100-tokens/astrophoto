@@ -1,3 +1,4 @@
+import { redirect } from '@sveltejs/kit';
 import { api, ApiError } from '$lib/api/client';
 import type { Handle } from '@sveltejs/kit';
 
@@ -13,6 +14,12 @@ function parseCookie(header: string, name: string): string | null {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  // Redirect removed /caption route to /verify so old bookmarks keep working.
+  const captionMatch = event.url.pathname.match(/^\/upload\/([0-9a-f-]{36})\/caption\/?$/);
+  if (captionMatch) {
+    redirect(301, `/upload/${captionMatch[1]}/verify`);
+  }
+
   const cookie = event.request.headers.get('cookie') ?? '';
 
   // Short-circuit auth lookup on /api/* requests. Those are handled by the
@@ -31,7 +38,8 @@ export const handle: Handle = async ({ event, resolve }) => {
         email: user.email,
         displayName: user.display_name,
         following_ids: user.following_ids ?? [],
-        pending_deletion_at: user.pending_deletion_at ?? null
+        pending_deletion_at: user.pending_deletion_at ?? null,
+        tier: user.tier ?? 'free'
       };
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {

@@ -27,11 +27,7 @@
   );
 
   let resumeHref = $derived(
-    photo.status === 'failed'
-      ? `/upload/${photo.id}/verify`
-      : photo.last_step === 'caption'
-        ? `/upload/${photo.id}/caption`
-        : `/upload/${photo.id}/verify`
+    `/upload/${photo.id}/verify`
   );
 </script>
 

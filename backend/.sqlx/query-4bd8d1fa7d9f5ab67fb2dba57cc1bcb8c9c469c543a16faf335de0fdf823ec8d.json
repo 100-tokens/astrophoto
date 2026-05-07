@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from photo_tags where photo_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4bd8d1fa7d9f5ab67fb2dba57cc1bcb8c9c469c543a16faf335de0fdf823ec8d"
+}

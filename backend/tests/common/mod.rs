@@ -180,6 +180,13 @@ impl TestApp {
         (status, bytes)
     }
 
+    pub async fn attach_tags(&self, photo_id: Uuid, tags: &[&str]) {
+        let owned: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
+        astrophoto::photos::tags::attach(&self.pool, photo_id, &owned)
+            .await
+            .unwrap();
+    }
+
     pub async fn oneshot_json<T: DeserializeOwned>(
         &self,
         method: &str,

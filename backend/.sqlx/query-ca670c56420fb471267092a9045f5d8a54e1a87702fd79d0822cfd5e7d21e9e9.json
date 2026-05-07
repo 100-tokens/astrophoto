@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select exists(select 1 from photos where id = $1)",
+  "query": "select count(*) as \"c!\" from photos where id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "exists",
-        "type_info": "Bool"
+        "name": "c!",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "73d703aa66e9e74bbf9da31a311de721713ffdc838ec34e9518cba1376ec47a8"
+  "hash": "ca670c56420fb471267092a9045f5d8a54e1a87702fd79d0822cfd5e7d21e9e9"
 }
