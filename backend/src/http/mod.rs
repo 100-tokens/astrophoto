@@ -100,6 +100,10 @@ pub fn router(
             axum::routing::post(crate::photos::batch_apply::handler),
         )
         .route(
+            "/api/photos/batch/publish",
+            axum::routing::post(crate::photos::batch_publish::handler),
+        )
+        .route(
             "/api/photos/:id",
             get(crate::photos::get::handler)
                 .put(crate::photos::metadata::handler)

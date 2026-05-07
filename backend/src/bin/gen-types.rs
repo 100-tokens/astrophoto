@@ -5,12 +5,13 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AuthError, BatchApplyRequest, BatchApplyResponse, CategoryPage, DiscoveryPage, DiscoveryPhoto,
-    DraftListItem, DraftListResponse, EquipmentMeta, EquipmentPage, EquipmentPaired,
-    EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats,
-    LocationSummary, MeStats, PhotoDetail, Preferences, Profile, PublicProfile, SearchResults,
-    SearchTargetHit, SearchUserHit, SessionRow, SocialLink, SocialPlatform, TagMeta, TagPage,
-    TargetMeta, TargetPage, User, UserPublic,
+    AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest, BatchPublishResponse,
+    CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse, EquipmentMeta,
+    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
+    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile,
+    PublicProfile, PublishedItem, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
+    SkipReason, SkippedItem, SocialLink, SocialPlatform, TagMeta, TagPage, TargetMeta, TargetPage,
+    User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,6 +55,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     DraftListResponse::export_all_to(out_dir)?;
     BatchApplyRequest::export_all_to(out_dir)?;
     BatchApplyResponse::export_all_to(out_dir)?;
+    BatchPublishRequest::export_all_to(out_dir)?;
+    PublishedItem::export_all_to(out_dir)?;
+    SkipReason::export_all_to(out_dir)?;
+    SkippedItem::export_all_to(out_dir)?;
+    BatchPublishResponse::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

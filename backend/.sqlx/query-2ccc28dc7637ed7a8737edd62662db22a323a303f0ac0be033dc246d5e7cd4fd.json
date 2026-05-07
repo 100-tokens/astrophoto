@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select published_at from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "2ccc28dc7637ed7a8737edd62662db22a323a303f0ac0be033dc246d5e7cd4fd"
+}

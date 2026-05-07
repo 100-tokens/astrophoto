@@ -412,3 +412,39 @@ pub struct BatchApplyRequest {
 pub struct BatchApplyResponse {
     pub applied: u32,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishRequest.ts")]
+pub struct BatchPublishRequest {
+    pub ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PublishedItem.ts")]
+pub struct PublishedItem {
+    pub id: String,
+    pub short_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, Clone, Copy, PartialEq, Eq)]
+#[ts(export, export_to = "SkipReason.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum SkipReason {
+    StillProcessing,
+    Failed,
+    AlreadyPublished,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SkippedItem.ts")]
+pub struct SkippedItem {
+    pub id: String,
+    pub reason: SkipReason,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishResponse.ts")]
+pub struct BatchPublishResponse {
+    pub published: Vec<PublishedItem>,
+    pub skipped: Vec<SkippedItem>,
+}

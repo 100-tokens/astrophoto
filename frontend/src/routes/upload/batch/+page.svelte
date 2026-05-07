@@ -51,14 +51,54 @@
 </div>
 
 <style>
-  .page { max-width: 720px; margin: 0 auto; padding: 40px 64px 64px; }
-  .title { font-family: var(--font-display); font-size: 44px; margin: 8px 0 12px; }
-  .lede { color: var(--fg-secondary); margin: 24px 0 32px; max-width: 64ch; }
-  .form { display: flex; flex-direction: column; gap: 24px; }
-  .thumb-strip { display: flex; flex-wrap: wrap; gap: 8px; }
-  .thumb { width: 72px; height: 72px; overflow: hidden; background: var(--bg-elevated); }
-  .thumb :global(img) { width: 100%; height: 100%; object-fit: cover; }
-  .actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
-  .err { color: var(--danger); }
-  @media (max-width: 768px) { .page { padding: 32px 24px; } }
+  .page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 64px 64px;
+  }
+  .title {
+    font-family: var(--font-display);
+    font-size: 44px;
+    margin: 8px 0 12px;
+  }
+  .lede {
+    color: var(--fg-secondary);
+    margin: 24px 0 32px;
+    max-width: 64ch;
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .thumb-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .thumb {
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    background: var(--bg-elevated);
+  }
+  .thumb :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .err {
+    color: var(--danger);
+  }
+  @media (max-width: 768px) {
+    .page {
+      padding: 32px 24px;
+    }
+  }
 </style>
