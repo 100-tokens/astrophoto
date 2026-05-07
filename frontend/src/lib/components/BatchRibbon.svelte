@@ -26,6 +26,9 @@
   }
 
   function onKey(e: KeyboardEvent) {
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       selectByOffset(-1);
@@ -56,35 +59,83 @@
 </nav>
 
 <div class="ribbon-meta">
-  <button type="button" class="nav-btn" onclick={() => selectByOffset(-1)} disabled={currentIndex <= 0}>← Prev</button>
+  <button
+    type="button"
+    class="nav-btn"
+    onclick={() => selectByOffset(-1)}
+    disabled={currentIndex <= 0}>← Prev</button
+  >
   <span class="t-meta">{currentIndex + 1} of {photos.length}</span>
-  <button type="button" class="nav-btn" onclick={() => selectByOffset(1)} disabled={currentIndex >= photos.length - 1}>Next →</button>
+  <button
+    type="button"
+    class="nav-btn"
+    onclick={() => selectByOffset(1)}
+    disabled={currentIndex >= photos.length - 1}>Next →</button
+  >
 </div>
 
 <style>
-  .ribbon { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; }
-  .thumb {
-    position: relative; flex: 0 0 auto; width: 64px; height: 64px;
-    overflow: hidden; cursor: pointer; background: transparent;
-    border: 2px solid transparent; padding: 0;
+  .ribbon {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 0;
   }
-  .thumb.current { border-color: var(--accent); }
-  .thumb :global(img) { width: 100%; height: 100%; object-fit: cover; }
-  .thumb[data-status="failed"] { opacity: 0.6; }
+  .thumb {
+    position: relative;
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    overflow: hidden;
+    cursor: pointer;
+    background: transparent;
+    border: 2px solid transparent;
+    padding: 0;
+  }
+  .thumb.current {
+    border-color: var(--accent);
+  }
+  .thumb :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .thumb[data-status='failed'] {
+    opacity: 0.6;
+  }
   .pip {
-    position: absolute; bottom: 2px; right: 2px;
-    width: 16px; height: 16px; line-height: 16px; text-align: center;
-    font-family: var(--font-mono); font-size: 10px;
-    background: rgba(12, 10, 8, 0.85); color: var(--accent);
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    background: rgba(12, 10, 8, 0.85);
+    color: var(--accent);
   }
   .ribbon-meta {
-    display: flex; gap: 16px; align-items: center; padding: 8px 0;
-    font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
   }
   .nav-btn {
-    background: transparent; border: 1px solid var(--border-default);
-    color: var(--fg-primary); padding: 4px 12px; cursor: pointer;
-    font-family: var(--font-mono); font-size: 11px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    color: var(--fg-primary);
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
   }
-  .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 </style>
