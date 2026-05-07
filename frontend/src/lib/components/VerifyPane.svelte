@@ -111,6 +111,9 @@
 
   const saver = _autosave ? useAutosave(_sp.id) : null;
   $effect(() => {
+    return () => saver?.dispose();
+  });
+  $effect(() => {
     if (snapshot && saver) saver.queue(snapshot);
   });
 </script>
