@@ -3,7 +3,9 @@
   import { api } from '$lib/api/client';
   import type { DraftListItem } from '$lib/api/DraftListItem';
 
-  interface Props { draft: DraftListItem }
+  interface Props {
+    draft: DraftListItem;
+  }
   let { draft }: Props = $props();
 
   function relTime(iso: string): string {
@@ -21,7 +23,9 @@
     return '✓ ready';
   }
 
-  function resume() { goto(`/upload/${draft.id}/verify`); }
+  function resume() {
+    goto(`/upload/${draft.id}/verify`);
+  }
 
   async function discard() {
     if (!confirm('Discard this draft? This cannot be undone.')) return;
@@ -44,13 +48,52 @@
 </article>
 
 <style>
-  .tile { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border-subtle); }
-  .thumb { aspect-ratio: 4 / 3; background: var(--bg-elevated); overflow: hidden; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .title { font-family: var(--font-display); font-size: 15px; font-style: italic; margin: 0; }
-  .status[data-state="failed"] { color: var(--danger); }
-  .status[data-state="processing"] { color: var(--accent); }
-  .actions { display: flex; gap: 8px; margin-top: 8px; }
-  .btn-primary, .btn-ghost { padding: 6px 12px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; border: 1px solid var(--border-default); background: transparent; }
-  .btn-primary { background: var(--accent); color: var(--bg-base); border-color: var(--accent); }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+  }
+  .thumb {
+    aspect-ratio: 4 / 3;
+    background: var(--bg-elevated);
+    overflow: hidden;
+  }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-style: italic;
+    margin: 0;
+  }
+  .status[data-state='failed'] {
+    color: var(--danger);
+  }
+  .status[data-state='processing'] {
+    color: var(--accent);
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .btn-primary,
+  .btn-ghost {
+    padding: 6px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid var(--border-default);
+    background: transparent;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg-base);
+    border-color: var(--accent);
+  }
 </style>

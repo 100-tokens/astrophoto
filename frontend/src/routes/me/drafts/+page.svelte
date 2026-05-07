@@ -43,19 +43,51 @@
     </div>
     {#if data.drafts.next_cursor}
       <div class="pager">
-        <Button variant="ghost" href={`/me/drafts?cursor=${data.drafts.next_cursor}`}>Older →</Button>
+        <Button variant="ghost" href={`/me/drafts?cursor=${data.drafts.next_cursor}`}
+          >Older →</Button
+        >
       </div>
     {/if}
   {/if}
 </div>
 
 <style>
-  .page { max-width: 1200px; margin: 0 auto; padding: 40px 64px 64px; }
-  .header { display: flex; justify-content: space-between; align-items: end; margin-bottom: 32px; }
-  .title { font-family: var(--font-display); font-size: 44px; margin: 8px 0 0; }
-  .count { color: var(--fg-muted); font-size: 28px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-  .empty { color: var(--fg-secondary); }
-  .pager { display: flex; justify-content: center; margin-top: 32px; }
-  @media (max-width: 768px) { .page { padding: 32px 24px; } }
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 64px 64px;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    margin-bottom: 32px;
+  }
+  .title {
+    font-family: var(--font-display);
+    font-size: 44px;
+    margin: 8px 0 0;
+  }
+  .count {
+    color: var(--fg-muted);
+    font-size: 28px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .empty {
+    color: var(--fg-secondary);
+  }
+  .pager {
+    display: flex;
+    justify-content: center;
+    margin-top: 32px;
+  }
+  @media (max-width: 768px) {
+    .page {
+      padding: 32px 24px;
+    }
+  }
 </style>

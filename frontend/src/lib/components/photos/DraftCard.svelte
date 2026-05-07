@@ -26,9 +26,7 @@
             : 'STEP 01 · UPLOADED'
   );
 
-  let resumeHref = $derived(
-    `/upload/${photo.id}/verify`
-  );
+  let resumeHref = $derived(`/upload/${photo.id}/verify`);
 </script>
 
 <div class="draft-card">
