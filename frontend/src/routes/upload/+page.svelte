@@ -121,7 +121,7 @@
     handles.delete(clientId);
   }
 
-  function retrySlot(clientId: string) {
+  async function retrySlot(clientId: string) {
     const slot = slots.find((s) => s.clientId === clientId);
     if (!slot || slot.progress.state !== 'failed') return;
 
@@ -129,7 +129,7 @@
     // so the per-owner-hash dedup doesn't reject the retry's init.
     const oldPhotoId = slot.progress.photoId;
     if (oldPhotoId) {
-      void fetch(`/api/uploads/${oldPhotoId}`, { method: 'DELETE', credentials: 'include' });
+      await fetch(`/api/uploads/${oldPhotoId}`, { method: 'DELETE', credentials: 'include' });
     }
 
     const abort = new AbortController();
