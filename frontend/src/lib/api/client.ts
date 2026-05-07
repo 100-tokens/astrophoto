@@ -113,7 +113,9 @@ export const api = {
     putMetadata: (id: string, patch: Record<string, unknown>, opts?: ApiCall) =>
       request<void>('PUT', `/api/photos/${id}`, patch, opts),
     publish: (id: string, opts?: ApiCall) =>
-      request<void>('POST', `/api/photos/${id}/publish`, undefined, opts)
+      request<void>('POST', `/api/photos/${id}/publish`, undefined, opts),
+    delete: (id: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/photos/${id}`, undefined, opts)
     // upload uses multipart/form-data — callers use raw fetch directly
   },
   appreciations: {
