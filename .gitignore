@@ -33,4 +33,5 @@
 
 # Tooling caches — not committed
 /.serena/
+/.claude/
 /target/
