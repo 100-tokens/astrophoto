@@ -2,6 +2,7 @@ import type { Health, User } from './types';
 import type { PhotoDetail } from './PhotoDetail';
 import type { DraftListResponse } from './DraftListResponse';
 import type { BatchApplyResponse } from './BatchApplyResponse';
+import type { BatchPublishResponse } from './BatchPublishResponse';
 
 // ---------------------------------------------------------------------------
 // Comment DTO
@@ -250,4 +251,11 @@ export async function putPhotoMetadata(
 
 export async function publishPhoto(id: string, opts: ApiCall = {}): Promise<void> {
   await request<void>('POST', `/api/photos/${id}/publish`, undefined, opts);
+}
+
+export async function batchPublish(
+  opts: ApiCall & { ids: string[] }
+): Promise<BatchPublishResponse> {
+  const { ids, ...apiOpts } = opts;
+  return request<BatchPublishResponse>('POST', '/api/photos/batch/publish', { ids }, apiOpts);
 }
