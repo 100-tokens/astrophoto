@@ -5,31 +5,38 @@
   import UploadStepper from '$lib/components/UploadStepper.svelte';
   import TierUpgradeModal from '$lib/components/TierUpgradeModal.svelte';
   import { preflight } from '$lib/upload/preflight';
-  import { uploadAll, type FileSlot, type SlotProgress } from '$lib/upload/presigned';
+  import { Pump, makeUploadRunner, type FileSlot, type SlotHandle, type SlotProgress } from '$lib/upload/pump';
+  import { goto } from '$app/navigation';
   import type { PageProps } from './$types';
 
-  // Each slot gets a stable clientId so progress callbacks can find the right
-  // row even when the slots array changes while a batch is in flight.
-  type Slot = FileSlot & { clientId: number; thumbDataUrl?: string; progress: SlotProgress };
-
   let { data }: PageProps = $props();
-
-  let slots = $state<Slot[]>([]);
-  let showUpgrade = $state(false);
-
   const TIER_MAX = $derived(data.tier === 'subscriber' ? 200 * 1024 * 1024 : 50 * 1024 * 1024);
 
+  type Slot = FileSlot & { clientId: string; thumbDataUrl?: string; progress: SlotProgress };
+  let slots = $state<Slot[]>([]);
+  let showUpgrade = $state(false);
   let nextId = 0;
 
-  async function onFiles(files: File[]) {
-    const newSlots: Slot[] = [];
+  const handles = new Map<string, SlotHandle>();
+  const pump = new Pump({
+    concurrency: 3,
+    runSlot: makeUploadRunner((id) => handles.get(id)),
+  });
 
+  function setProgress(clientId: string, p: SlotProgress) {
+    const idx = slots.findIndex((s) => s.clientId === clientId);
+    if (idx < 0) return;
+    const s = slots[idx];
+    if (s) s.progress = p;
+  }
+
+  async function onFiles(files: File[]) {
     for (const file of files) {
       if (file.size > TIER_MAX) {
         showUpgrade = true;
         continue;
       }
-      const clientId = nextId++;
+      const clientId = `c${nextId++}`;
       const slot: Slot = {
         clientId,
         name: file.name,
@@ -38,57 +45,50 @@
         file,
         hash: '',
         // thumbDataUrl intentionally omitted — set after preflight completes.
-        progress: { state: 'hashing', pct: 0 }
+        progress: { state: 'hashing', pct: 0 },
       };
-      newSlots.push(slot);
-    }
+      slots = [...slots, slot];
 
-    // Append new slots so the user sees hashing feedback immediately.
-    slots = [...slots, ...newSlots];
+      preflight(file)
+        .then((pre) => {
+          const idx = slots.findIndex((s) => s.clientId === clientId);
+          if (idx < 0) return;
+          const target = slots[idx];
+          if (!target) return;
+          target.hash = pre.hash;
+          target.thumbDataUrl = pre.thumbDataUrl;
+          target.progress = { state: 'queued', pct: 0 };
 
-    // Run preflight on each new slot; update in place on completion.
-    await Promise.all(
-      newSlots.map(async (slot) => {
-        try {
-          const pre = await preflight(slot.file);
-          const idx = slots.findIndex((s) => s.clientId === slot.clientId);
-          if (idx >= 0) {
-            const target = slots[idx];
-            if (target) {
-              target.hash = pre.hash;
-              target.thumbDataUrl = pre.thumbDataUrl;
-              target.progress = { state: 'queued', pct: 0 };
-            }
-          }
-        } catch (err) {
+          const abort = new AbortController();
+          const handle: SlotHandle = {
+            slot: target,
+            abort,
+            setProgress: (p) => setProgress(clientId, p),
+          };
+          handles.set(clientId, handle);
+          pump.add(clientId);
+        })
+        .catch((err: unknown) => {
           const reason = err instanceof Error ? err.message : 'Preflight failed';
-          const idx = slots.findIndex((s) => s.clientId === slot.clientId);
-          if (idx >= 0) {
-            const target = slots[idx];
-            if (target) {
-              target.progress = { state: 'failed', pct: 0, reason };
-            }
-          }
-        }
-      })
-    );
+          setProgress(clientId, { state: 'failed', pct: 0, reason });
+        });
+    }
+  }
 
-    // Only hand off slots that are truly queued (preflight done, not yet
-    // submitted). Filtering on progress.state === 'queued' — rather than
-    // checking hash — prevents re-uploading slots from a prior batch that are
-    // already uploading or done.
-    const ready = slots.filter((s) => s.progress.state === 'queued');
-    if (ready.length === 0) return;
+  let readyIds = $derived(
+    slots.filter((s) => s.progress.state === 'ready' && s.progress.photoId).map((s) => s.progress.photoId!)
+  );
+  let allDone = $derived(
+    slots.length > 0 && slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
+  );
 
-    await uploadAll(ready as FileSlot[], (i, p) => {
-      const target = ready[i];
-      if (!target) return;
-      const slotIdx = slots.findIndex((s) => s.clientId === target.clientId);
-      if (slotIdx >= 0) {
-        const s = slots[slotIdx];
-        if (s) s.progress = p;
-      }
-    });
+  function continueToBatch() {
+    if (readyIds.length === 0) return;
+    if (readyIds.length === 1) {
+      goto(`/upload/${readyIds[0]}/verify`);
+    } else {
+      goto(`/upload/batch?ids=${readyIds.join(',')}`);
+    }
   }
 </script>
 
@@ -123,6 +123,14 @@
             progress={slot.progress}
           />
         {/each}
+      </div>
+    {/if}
+
+    {#if allDone && readyIds.length > 0}
+      <div class="continue-cta">
+        <button class="btn-primary" onclick={continueToBatch}>
+          Continue with {readyIds.length} frame{readyIds.length === 1 ? '' : 's'} →
+        </button>
       </div>
     {/if}
   </section>
@@ -162,6 +170,10 @@
   .list-header {
     margin-bottom: 8px;
   }
+
+  /* ── Continue CTA ───────────────────────────────────────── */
+  .continue-cta { margin-top: 32px; display: flex; justify-content: flex-end; }
+  .btn-primary { background: var(--accent); color: var(--bg-base); padding: 12px 24px; border: 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; cursor: pointer; }
 
   /* ── Responsive ─────────────────────────────────────────── */
   @media (max-width: 768px) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SlotProgress } from '$lib/upload/presigned';
+  import type { SlotProgress } from '$lib/upload/pump';
 
   interface Props {
     name: string;
