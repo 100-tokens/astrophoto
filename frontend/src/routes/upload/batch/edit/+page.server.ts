@@ -39,12 +39,9 @@ export const actions: Actions = {
       .map((c) => `${c.name}=${c.value}`)
       .join('; ');
 
+    let result;
     try {
-      const result = await batchPublish({ fetch, cookie, ids });
-      redirect(
-        303,
-        `/account/frames?published=${result.published.length}&skipped=${result.skipped.length}`
-      );
+      result = await batchPublish({ fetch, cookie, ids });
     } catch (e: unknown) {
       const status = (e as { status?: number }).status ?? 500;
       const body = (e as { body?: unknown }).body;
@@ -52,5 +49,9 @@ export const actions: Actions = {
         error: typeof body === 'string' ? body : JSON.stringify(body)
       });
     }
+    redirect(
+      303,
+      `/account/frames?published=${result.published.length}&skipped=${result.skipped.length}`
+    );
   }
 };
