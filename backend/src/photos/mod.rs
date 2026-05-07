@@ -1,3 +1,4 @@
+pub mod batch_apply;
 pub mod cdn;
 pub mod cleanup;
 pub mod count;

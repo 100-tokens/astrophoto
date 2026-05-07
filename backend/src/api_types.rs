@@ -398,3 +398,17 @@ pub struct DraftListResponse {
     pub items: Vec<DraftListItem>,
     pub next_cursor: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyRequest.ts")]
+pub struct BatchApplyRequest {
+    pub ids: Vec<Uuid>,
+    pub target: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyResponse.ts")]
+pub struct BatchApplyResponse {
+    pub applied: u32,
+}
