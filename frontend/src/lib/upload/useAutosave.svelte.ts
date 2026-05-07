@@ -1,4 +1,4 @@
-// PATCHes /api/photos/<id>/metadata with the latest snapshot, debounced.
+// PUTs /api/photos/<id> with the latest snapshot, debounced.
 // Exposes reactive state for the "● Saved 2s ago" indicator.
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
@@ -47,8 +47,8 @@ export class Saver {
     this.inFlight = true;
     this.state = 'saving';
     try {
-      const r = await this.fetchImpl(`${API}/api/photos/${this.photoId}/metadata`, {
-        method: 'PATCH',
+      const r = await this.fetchImpl(`${API}/api/photos/${this.photoId}`, {
+        method: 'PUT',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body)
