@@ -20,5 +20,6 @@ pub mod tags_autocomplete;
 pub mod targets;
 pub mod targets_autocomplete;
 pub mod thumbs;
+pub mod upload_cancel;
 pub mod upload_finalize;
 pub mod upload_init;

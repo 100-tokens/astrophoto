@@ -243,6 +243,10 @@ pub fn router(
             axum::routing::post(crate::photos::upload_init::handler),
         )
         .route(
+            "/api/uploads/:id",
+            axum::routing::delete(crate::photos::upload_cancel::handler),
+        )
+        .route(
             "/api/uploads/:id/finalize",
             axum::routing::post(crate::photos::upload_finalize::handler),
         )
