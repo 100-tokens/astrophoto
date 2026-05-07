@@ -21,6 +21,9 @@
   const pump = new Pump({
     concurrency: 3,
     runSlot: makeUploadRunner((id) => handles.get(id)),
+    onCancel: (id) => {
+      handles.get(id)?.abort.abort();
+    },
   });
 
   function setProgress(clientId: string, p: SlotProgress) {

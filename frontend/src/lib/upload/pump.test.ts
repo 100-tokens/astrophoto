@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Pump } from './pump';
+import { Pump, makeUploadRunner } from './pump';
 
 describe('Pump', () => {
   it('respects concurrency limit', async () => {
@@ -51,5 +51,20 @@ describe('Pump', () => {
     pump.add('1');
     await pump.drain();
     expect(calls).toEqual(['1', '2']);
+  });
+
+  it('runner short-circuits on already-aborted signal', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const handle = {
+      slot: { name: 'a.jpg', size: 1, mime: 'image/jpeg', hash: 'h', file: new File([], 'a.jpg') },
+      abort: new AbortController(),
+      setProgress: vi.fn(),
+    };
+    handle.abort.abort();
+    const runner = makeUploadRunner(() => handle);
+    await runner('1');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(handle.setProgress).toHaveBeenCalledWith({ state: 'cancelled', pct: 0 });
+    fetchSpy.mockRestore();
   });
 });

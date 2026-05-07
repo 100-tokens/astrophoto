@@ -177,6 +177,10 @@ function xhrPut(
   onProgress: (pct: number) => void
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('content-type', slot.mime);
