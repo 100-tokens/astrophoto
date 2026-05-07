@@ -23,7 +23,7 @@ RUN corepack enable
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/.npmrc ./
 
 # Install deps (including devDeps needed for the build)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
 
 # Copy the rest of the frontend source
 COPY frontend/ .
