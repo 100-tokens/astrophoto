@@ -1,6 +1,7 @@
 import type { Health, User } from './types';
 import type { PhotoDetail } from './PhotoDetail';
 import type { DraftListResponse } from './DraftListResponse';
+import type { BatchApplyResponse } from './BatchApplyResponse';
 
 // ---------------------------------------------------------------------------
 // Comment DTO
@@ -221,6 +222,22 @@ export const api = {
 
 export async function getPhoto(id: string, opts: ApiCall = {}): Promise<PhotoDetail> {
   return request<PhotoDetail>('GET', `/api/photos/${id}`, undefined, opts);
+}
+
+export async function batchApply(
+  opts: ApiCall & { ids: string[]; target?: string; tags?: string[] }
+): Promise<BatchApplyResponse> {
+  const { ids, target, tags, ...apiOpts } = opts;
+  return request<BatchApplyResponse>(
+    'POST',
+    '/api/photos/batch/apply',
+    {
+      ids,
+      target: target ?? null,
+      tags: tags ?? null
+    },
+    apiOpts
+  );
 }
 
 export async function putPhotoMetadata(
