@@ -1,5 +1,6 @@
 <script lang="ts">
   import AppHeader from '$lib/components/AppHeader.svelte';
+  import UploadResumeBanner from '$lib/components/UploadResumeBanner.svelte';
   import UploadDropzone from '$lib/components/UploadDropzone.svelte';
   import UploadFileRow from '$lib/components/UploadFileRow.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
@@ -154,7 +155,7 @@
   <!-- Dropzone + file list -->
   <section class="form-section">
     {#if data.recentDrafts.length}
-      <!-- TODO: resume banner in T9 -->
+      <UploadResumeBanner drafts={data.recentDrafts} />
     {/if}
     <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
 
