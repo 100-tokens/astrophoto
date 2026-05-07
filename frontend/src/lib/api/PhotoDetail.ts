@@ -39,4 +39,5 @@ export type PhotoDetail = {
   replaced_at: string | null;
   original_uploaded_at: string;
   pipeline_error: string | null;
+  tags: Array<string>;
 };

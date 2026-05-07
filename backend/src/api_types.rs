@@ -119,6 +119,7 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
