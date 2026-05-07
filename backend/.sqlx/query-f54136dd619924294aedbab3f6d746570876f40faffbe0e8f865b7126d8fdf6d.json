@@ -1,0 +1,63 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                with t_with_counts as (\n                  select t.id, t.slug, t.canonical_name, t.object_type, t.constellation, t.magnitude_v,\n                         coalesce((select count(*) from photo_targets pt\n                                   join photos p on p.id = pt.photo_id\n                                   where pt.target_id = t.id\n                                     and p.published_at is not null\n                                     and p.status = 'ready'), 0)::int8 as photo_count\n                    from targets t\n                   where ($1::text is null or\n                          t.canonical_name ilike '%' || $1 || '%' or\n                          t.slug ilike '%' || $1 || '%' or\n                          exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))\n                     and ($2::text is null or t.object_type = $2)\n                     and ($3::text is null or t.constellation = $3)\n                )\n                select id as \"id!\", slug as \"slug!\", canonical_name as \"canonical_name!\",\n                       object_type, constellation, magnitude_v, photo_count as \"photo_count!\"\n                  from t_with_counts\n                 where ($4::int8 is null or photo_count < $4 or (photo_count = $4 and id < $5))\n                 order by photo_count desc, id desc\n                 limit $6\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "object_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "constellation",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "magnitude_v",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 6,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "f54136dd619924294aedbab3f6d746570876f40faffbe0e8f865b7126d8fdf6d"
+}

@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.id as \"id!\", t.slug as \"slug!\", t.canonical_name as \"canonical_name!\",\n               t.aliases as \"aliases!\", t.kind as \"kind!\",\n               t.right_ascension, t.declination, t.magnitude_v,\n               t.object_type, t.constellation,\n               t.major_axis_arcmin, t.minor_axis_arcmin,\n               (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"photo_count!\",\n               (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"contributor_count!\"\n        from targets t\n        where t.slug = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "aliases!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "right_ascension",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "declination",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "magnitude_v",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 8,
+        "name": "object_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "constellation",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "major_axis_arcmin",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 11,
+        "name": "minor_axis_arcmin",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 12,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "contributor_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "3cf537e0d2cb1c116b4acadd7f3b190f748fed75efa5b6a824a06b93f5fd97b4"
+}

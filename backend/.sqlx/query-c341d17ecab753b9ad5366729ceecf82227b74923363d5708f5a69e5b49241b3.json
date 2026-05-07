@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.id as \"target_id!\", p.id as \"photo_id!\", p.short_id as \"short_id!\", p.blurhash\n          from unnest($1::uuid[]) as t(id)\n          join lateral (\n            select p.id, p.short_id, p.blurhash, p.appreciations_count, p.published_at\n              from photo_targets pt\n              join photos p on p.id = pt.photo_id\n             where pt.target_id = t.id\n               and p.published_at is not null\n               and p.status = 'ready'\n             order by p.appreciations_count desc, p.published_at desc\n             limit 3\n          ) p on true\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "target_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "photo_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "short_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "blurhash",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "c341d17ecab753b9ad5366729ceecf82227b74923363d5708f5a69e5b49241b3"
+}

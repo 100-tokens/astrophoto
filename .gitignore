@@ -30,3 +30,7 @@
 
 # Worktrees (subagent-driven-development isolation)
 /.worktrees/
+
+# Tooling caches — not committed
+/.serena/
+/target/

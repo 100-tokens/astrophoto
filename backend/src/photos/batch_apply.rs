@@ -52,17 +52,19 @@ pub async fn handler(
     }
 
     if let Some(target) = &body.target {
+        let mut tx = state.pool.begin().await?;
         sqlx::query!(
             "update photos set target = $1 where id = any($2)",
             target,
             &body.ids
         )
-        .execute(&state.pool)
+        .execute(&mut *tx)
         .await?;
 
         for id in &body.ids {
-            crate::photos::targets::attach_primary_by_freetext(&state.pool, *id, target).await?;
+            crate::photos::targets::attach_primary_by_freetext(&mut tx, *id, target).await?;
         }
+        tx.commit().await?;
     }
 
     if let Some(tags) = &body.tags {

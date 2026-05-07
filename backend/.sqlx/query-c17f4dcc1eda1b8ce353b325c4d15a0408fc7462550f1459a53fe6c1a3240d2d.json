@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_targets (photo_id, target_id, source, is_primary) values ($1, $2, 'manual', $3) on conflict (photo_id, target_id) do update set source = 'manual', is_primary = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c17f4dcc1eda1b8ce353b325c4d15a0408fc7462550f1459a53fe6c1a3240d2d"
+}

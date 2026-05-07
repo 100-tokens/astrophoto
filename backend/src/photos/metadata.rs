@@ -68,6 +68,13 @@ pub struct MetadataUpdate {
     pub filters: Option<String>,
     pub guiding: Option<String>,
     pub tags: Option<Vec<String>>,
+
+    /// When present and non-null, replaces the manual target list atomically
+    /// and SUPPRESSES the legacy attach_primary_by_freetext path for this request.
+    /// `None` (omitted) → existing behaviour (free-text resolution from `target` field).
+    /// `Some(vec)` → use this list; the `target` free-text field is ignored for join rows.
+    #[serde(default)]
+    pub targets: Option<Vec<String>>,
 }
 
 pub async fn handler(
@@ -108,12 +115,17 @@ pub async fn handler(
 
     // Extract values needed after the UPDATE before moving them into the query.
     let target_freetext: Option<String> = patch.target.as_ref().and_then(|v| v.clone());
+    let targets_list = patch.targets.clone();
     let camera_freetext: Option<String> = patch.camera.as_ref().and_then(|v| v.clone());
     let scope_freetext = patch.scope.clone();
     let mount_freetext = patch.mount.clone();
     let filters_freetext = patch.filters.clone();
     let guiding_freetext = patch.guiding.clone();
     let tags_list = patch.tags.clone();
+
+    // Open a transaction so the photos UPDATE and the target join-table writes
+    // are committed or rolled back together.
+    let mut tx = state.pool.begin().await?;
 
     sqlx::query!(
         r#"
@@ -179,14 +191,20 @@ pub async fn handler(
         patch.sessions.is_some(),
         patch.sessions.flatten(),
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
 
-    // --- post-update helpers (called after photos row is written) ---
-
-    if let Some(target) = &target_freetext {
-        crate::photos::targets::attach_primary_by_freetext(&state.pool, id, target).await?;
+    // --- target join-table: new multi-slug path takes precedence ---
+    if let Some(slugs) = &targets_list {
+        crate::photos::targets::multi_attach(&mut tx, id, slugs).await?;
+    } else if let Some(target) = &target_freetext {
+        // Legacy free-text path: lenient (unknown slug → no-op).
+        crate::photos::targets::attach_primary_by_freetext(&mut tx, id, target).await?;
     }
+
+    tx.commit().await?;
+
+    // --- remaining post-update helpers run outside the transaction ---
 
     if let Some(tags) = &tags_list {
         sqlx::query!("delete from photo_tags where photo_id = $1", id)

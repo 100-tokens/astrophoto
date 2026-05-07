@@ -8,10 +8,11 @@ use astrophoto::api_types::{
     AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest, BatchPublishResponse,
     CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse, EquipmentMeta,
     EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
-    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PhotoDetail, Preferences, Profile,
-    PublicProfile, PublishedItem, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
-    SkipReason, SkippedItem, SocialLink, SocialPlatform, TagMeta, TagPage, TargetMeta, TargetPage,
-    User, UserPublic,
+    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
+    PatchTargetsResponse, PhotoDetail, Preferences, Profile, PublicProfile, PublishedItem,
+    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SkipReason, SkippedItem, SocialLink,
+    SocialPlatform, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta, TargetPage,
+    TargetPreviewThumb, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,6 +61,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SkipReason::export_all_to(out_dir)?;
     SkippedItem::export_all_to(out_dir)?;
     BatchPublishResponse::export_all_to(out_dir)?;
+    PatchTargetsItem::export_all_to(out_dir)?;
+    PatchTargetsResponse::export_all_to(out_dir)?;
+    TargetPreviewThumb::export_all_to(out_dir)?;
+    TargetListItem::export_all_to(out_dir)?;
+    TargetIndexPage::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

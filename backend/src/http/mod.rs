@@ -114,6 +114,10 @@ pub fn router(
             post(crate::photos::publish::handler),
         )
         .route(
+            "/api/photos/:id/targets",
+            axum::routing::patch(crate::photos::targets::patch_targets),
+        )
+        .route(
             "/api/photos/:id/replace",
             post(crate::photos::replace::handler)
                 .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
@@ -261,6 +265,10 @@ pub fn router(
         .route(
             "/api/explore",
             axum::routing::get(crate::discovery::explore::get),
+        )
+        .route(
+            "/api/targets",
+            axum::routing::get(crate::discovery::target_index::list),
         )
         .route(
             "/api/targets/:slug",

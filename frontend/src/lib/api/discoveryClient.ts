@@ -1,8 +1,9 @@
 // API client wrappers for the P3 discovery endpoints.
-// Pages: /explore, /t/<slug>, /tag/<slug>, /equip/<kind>/<slug>, /c/<cat>, /search.
+// Pages: /explore, /t, /t/<slug>, /tag/<slug>, /equip/<kind>/<slug>, /c/<cat>, /search.
 // Plus pass-throughs to the existing P1 autocomplete endpoints.
 
 import type { DiscoveryPage } from './DiscoveryPage';
+import type { TargetIndexPage } from './TargetIndexPage';
 import type { TargetPage } from './TargetPage';
 import type { TagPage } from './TagPage';
 import type { EquipmentPage } from './EquipmentPage';
@@ -96,6 +97,26 @@ export async function fetchSearch(f: FetchFn, q: string): Promise<SearchResults>
   const r = await f(`${API_BASE}/api/search?q=${encodeURIComponent(q)}`);
   if (!r.ok) throw new Error(`fetchSearch ${r.status}`);
   return (await r.json()) as SearchResults;
+}
+
+export interface TargetListOpts {
+  q?: string;
+  object_type?: string;
+  constellation?: string;
+  sort?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function fetchTargetList(
+  f: FetchFn,
+  opts: TargetListOpts = {}
+): Promise<TargetIndexPage> {
+  const r = await f(
+    `${API_BASE}/api/targets${qs(opts as Record<string, string | number | boolean | undefined>)}`
+  );
+  if (!r.ok) throw new Error(`fetchTargetList ${r.status}`);
+  return (await r.json()) as TargetIndexPage;
 }
 
 // ── Autocomplete pass-throughs (existing endpoints from P1) ─────────────

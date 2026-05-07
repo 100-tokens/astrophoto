@@ -46,13 +46,13 @@ platform vs a generic photo site.
 | 5   | Import mechanism                   | **Rust binary `seed-targets` + `just seed-targets`** recipe. Not in migration. Re-runnable.    |
 | 6   | Schema strategy                    | All new astro columns **nullable**. Preserves manual rows (M40, M45) and seeds without astro metadata. |
 | 7   | Merge with existing seed           | UPSERT by slug, **never overwrite** `canonical_name` / `aliases` (manual overrides preserved). |
-| 8   | Special cases                      | `KEEP_MANUAL_META = {'m45'}` skip-list in seed binary (avoid M45 ↔ NGC 1432 "Maia Nebula" conflict). M40 handled via addendum.csv. |
+| 8   | Special cases                      | `KEEP_MANUAL_META = {'ic-434'}` skip-list in seed binary (verified against OpenNGC 36cb178, 2026-04-16 — see Risks). M40 and M45 handled correctly via addendum.csv. |
 | 9   | Object-type / constellation labels | Lookup tables in frontend (`$lib/data/celestial.ts`), not stored in DB. Codes (G, GCl, AND…) stay in DB. |
 | 10  | Multi-target write API             | At upload: extend existing `POST /api/photos/:id/metadata` with optional `targets` array (single atomic call, no silent-failure window). Separate `PATCH /api/photos/:id/targets` for post-publish edits. Both delete existing `source='manual'` rows and re-insert; preserve `source='plate_solve'`. |
 | 11  | Backfill of existing photos        | **`just backfill-photo-targets`** one-shot binary, dry-run by default. Run manually post-deploy on staging then prod. |
 | 12  | Index page `/t`                    | New SSR route. Filters by object_type + constellation, search across slug/canonical_name/aliases, sort by popularity / name / recent. |
 | 13  | Search implementation              | `ILIKE` over canonical_name, slug, aliases. No `pg_trgm` for now (over-engineering at 14k rows). |
-| 14  | i18n                               | French-only labels initially. When project-wide i18n lands, lookup tables migrate. |
+| 14  | i18n                               | English-only labels (matching the rest of the app). When project-wide i18n lands, the lookup tables in `$lib/data/celestial.ts` migrate. |
 
 ---
 
@@ -123,7 +123,8 @@ create index targets_constellation_idx
 **Notes:**
 - All astro columns nullable — OpenNGC does not cover every existing
   row (M40 = Winnecke 4 binary, in `addendum.csv`; M45 Pleiades cluster
-  is not in NGC core).
+  is not in NGC core — both handled via addendum). `ic-434` is in
+  `KEEP_MANUAL_META` and stays nullable on astro fields (see Risks).
 - `kind` (catalog provenance: messier/ngc/ic/…) stays distinct from
   `object_type` (astronomical type: G/PN/OCl/…). They are not
   synonymous.
@@ -172,9 +173,17 @@ create index targets_constellation_idx
                    appended via `array_cat` + dedup if absent.
    - On INSERT only: canonical_name = first CommonName or `Name`,
                      kind derived from prefix.
-4. KEEP_MANUAL_META skip-list: ['m45']
-   - For these slugs, do not UPDATE astro metadata (M45/Pleiades is
-     not the same as NGC 1432/Maia Nebula).
+4. KEEP_MANUAL_META skip-list: ['ic-434']
+   - For these slugs, do not UPDATE astro metadata fields (ra, dec,
+     object_type, constellation, dimensions).
+   - `ic-434`: OpenNGC IC0434 = HII emission nebula ("Flame Nebula,
+     Orion B"), but our slug refers to the Horsehead Nebula (Barnard 33,
+     a dark nebula silhouetted against IC0434). Updating object_type
+     to 'HII' on a row named "Horsehead Nebula" is factually wrong.
+   - `m45` is NOT on this list: the binary maps m45 via addendum Mel022
+     (M=045, OCl, "Pleiades"), which is correct. NGC1432 "Maia Nebula"
+     has no M field → slugs as "ngc-1432", never touches m45.
+   - Also skip rows where Type='Dup' (see addendum M102 note in Risks).
 5. Second pass: addendum.csv → fill rows that core CSV did not match.
 ```
 
@@ -194,7 +203,8 @@ rows. Expected <2s on local Postgres. Not a critical path.
 - Integration: testcontainer Postgres → run migrations → run binary →
   assert `count(*) ≥ 13800`,
   `count(*) where ra is null and slug like 'ngc-%' = 0`,
-  `m45.canonical_name = 'Pleiades'`.
+  `m45.canonical_name = 'Pleiades'` and `m45.object_type = 'OCl'`,
+  `ic-434.canonical_name = 'Horsehead Nebula'` and `ic-434.object_type IS NULL`.
 
 **License attribution (CC-BY-SA 4.0 four required elements):**
 small footer on `/t/<slug>` and `/t` pages with all four:
@@ -367,8 +377,10 @@ current header.
 - Unit TS: `formatRA`/`formatDec` cases.
 - Integration Rust: `/api/targets/m31` after seed returns
   `object_type='G'`, `constellation='AND'`, `magnitude_v ≈ 3.4`.
-- Visual check: `/t/m31` displays the new lines; `/t/m45` (skip-list)
-  shows minimal header (only slug + canonical_name + counts).
+- Visual check: `/t/m31` displays the new lines; `/t/ic-434`
+  (KEEP_MANUAL_META) shows minimal header (only slug + canonical_name +
+  counts, no astro metadata); `/t/m45` shows enriched header with
+  `OCl` type and Tau constellation (m45 is NOT on the skip-list).
 
 ---
 
@@ -545,15 +557,52 @@ data debt behind.
 - **CSV pinning drift:** OpenNGC publishes ~1–2 updates per year.
   Stale data is not breaking, just out-of-date. Mitigation: annual
   refresh PR, run `just seed-targets` again.
-- **M45 / Maia Nebula confusion:** mitigated by `KEEP_MANUAL_META`
-  skip-list. The list must be **verified at plan-task-1** by grepping
-  the actual OpenNGC `NGC.csv`: which existing seed-0010 slugs
-  (m1..m110, ngc-7000, ngc-6960, ngc-2237, ngc-281, ngc-3324,
-  ic-1805, ic-1396, ic-434) have an OpenNGC row that would overwrite
-  the manual canonical_name with something less recognizable? Likely
-  candidates beyond M45: M40 (double star, addendum entry may differ),
-  M73 (asterism). Final skip-list is the output of that verification,
-  not assumed.
+- **Manual-meta protection (KEEP_MANUAL_META):** verified against
+  OpenNGC commit 36cb178 (2026-04-16) on 2026-05-06. All seed-0010
+  slugs were checked against NGC.csv and addendum.csv.
+
+  **Only `ic-434` requires astro-metadata protection:**
+  - `ic-434`: OpenNGC IC0434 = HII emission nebula, common names
+    "Flame Nebula, Orion B". Our canonical_name is "Horsehead Nebula"
+    (Barnard 33, a dark nebula silhouetted *in front of* IC0434).
+    Updating `object_type` to 'HII' on a row named "Horsehead Nebula"
+    is factually wrong — the Horsehead is a dark nebula (DrkN), not an
+    HII region. The true Horsehead (B033) is only in addendum.csv with
+    no M or NGC/IC identifier, so the binary cannot slug it and the
+    ic-434 row stays as the canonical "Horsehead region" entry.
+
+  **m45 is NOT on the skip-list** (original spec was wrong): NGC1432
+  "Maia Nebula" has an empty M field in OpenNGC → the binary slugs it
+  as `ngc-1432`, not `m45`. The `m45` slug comes exclusively from
+  addendum row Mel022 (M=045, type=OCl, common name "Pleiades"), which
+  is entirely correct.
+
+  **All other manual-override slugs are safe to receive astro updates:**
+  - `m31` (NGC0224, G, "Andromeda Galaxy"), `m42` (NGC1976, Cl+N,
+    "Orion Nebula"), `m33` (NGC0598, G, "Triangulum Galaxy"), `m51`
+    (NGC5194, G, "Whirlpool Galaxy"), `m27` (NGC6853, PN, "Dumbbell
+    Nebula"), `m13` (NGC6205, GCl, "Hercules Globular Cluster"):
+    OpenNGC common names match or are consistent with our canonical names.
+  - `ngc-7000` ("North America Nebula"), `ngc-6960` ("Western Veil" in
+    OpenNGC common names), `ngc-2237` ("Rosette A" = same physical
+    complex): safe.
+  - `ngc-281`, `ngc-3324`, `ic-1805`, `ic-1396`: OpenNGC has no common
+    name for these rows; our canonical names are preserved automatically.
+  - `m40` (addendum: double star `**`, no common name), `m45` (addendum:
+    Mel022, OCl, "Pleiades"), `m73` (NGC6994, type "Other", 4 galactic
+    stars — astro data correct), `m24` (IC4715, `*Ass`, "Small Sgr Star
+    Cloud" — same object as M24): all safe.
+
+- **Addendum M102 / Dup type (spec gap for parser tasks 4/5):** addendum
+  row `M102` has `M=101` and `Type=Dup` (OpenNGC marks it as a
+  duplicate of M101/NGC5457, the Pinwheel Galaxy). The binary's slug
+  algorithm would generate `m101` from this row, then UPSERT it with
+  `object_type='Dup'`, clobbering the correct `G` (galaxy) type already
+  written from NGC5457. The parser **must skip rows where `Type='Dup'`**
+  (or, equivalently, in the addendum second-pass, skip any row whose
+  target slug already has astro metadata populated). This is a parser
+  correctness requirement, not just a KEEP_MANUAL_META question; tracked
+  as a constraint for Task 4 (CSV parser) and Task 5 (slug rules).
 - **Multi-target dedup:** user picks "M42" and "NGC 1976" (same
   object). Front dedupes by slug **after** autocomplete returns
   canonical slugs (NGC 1976 lookup → m42). Backend rejects duplicate
@@ -573,9 +622,21 @@ data debt behind.
 
 ## Out of scope (deferred)
 
-- **D3** — Aladin Lite WebGL sky-map embed on `/t/<slug>` (trivial
-  once RA/Dec are in place).
-- **D4** — NASA / ESA / JWST gallery proxy with 24h cache.
+- ~~**D3** — Aladin Lite WebGL sky-map embed on `/t/<slug>`~~ —
+  **delivered** in this iteration: `AladinSkyMap.svelte` lazy-loads
+  Aladin Lite from CDS Strasbourg, centres on the target's RA/Dec,
+  FoV scaled from `major_axis_arcmin`. Skipped when astro meta is
+  null. DSS2 colour survey default; users can switch via the layers
+  control.
+- ~~**D4** — NASA / ESA / JWST gallery proxy with 24h cache~~ —
+  delivered as **deep-links** instead of proxy: `ExternalArchiveLinks.svelte`
+  generates URL-encoded search queries to SIMBAD, NED, ESA/Hubble,
+  ESA/Webb, and NASA Image Library, opening in new tabs. Query
+  selection prefers catalog identifiers ("M 31", "NGC 7000", "IC 434")
+  from aliases over common names — astronomical archives resolve those
+  much better. **A proxy + cache implementation is still deferred**
+  for in-page thumbnail display; the deep-link version is sufficient
+  for "see more elsewhere" without infrastructure cost.
 - **D5** — Plate solving (Astrometry.net) async worker, populating
   `photo_targets` rows with `source='plate_solve'` and `confidence`.
 - **D6** — Cone search (RA/Dec radius). Requires `cube` /
@@ -583,8 +644,10 @@ data debt behind.
 - **Object descriptions** (Wikipedia extract, AI-generated) — not
   needed for D2 content. The enriched header already conveys context.
 - **i18n infrastructure** — `OBJECT_TYPE_LABELS` and
-  `CONSTELLATION_LABELS` ship as French-only constants. When the
-  project gets i18n, these tables move to the global system.
+  `CONSTELLATION_LABELS` ship as English-only constants (Latin
+  nominative for constellations, the standard form in English
+  astronomy). When the project gets i18n, these tables move to the
+  global system.
 - **Materialized view for preview thumbs** — only if perf demands it.
 
 ---

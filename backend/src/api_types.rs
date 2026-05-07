@@ -295,6 +295,14 @@ pub struct TargetMeta {
     pub kind: Option<String>,
     pub photo_count: i64,
     pub contributor_count: i64,
+    // — additions D2b —
+    pub right_ascension: Option<f64>,
+    pub declination: Option<f64>,
+    pub magnitude_v: Option<f32>,
+    pub object_type: Option<String>,
+    pub constellation: Option<String>,
+    pub major_axis_arcmin: Option<f32>,
+    pub minor_axis_arcmin: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -447,4 +455,47 @@ pub struct SkippedItem {
 pub struct BatchPublishResponse {
     pub published: Vec<PublishedItem>,
     pub skipped: Vec<SkippedItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsItem.ts")]
+pub struct PatchTargetsItem {
+    pub slug: String,
+    pub canonical_name: String,
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsResponse.ts")]
+pub struct PatchTargetsResponse {
+    pub targets: Vec<PatchTargetsItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetPreviewThumb.ts")]
+pub struct TargetPreviewThumb {
+    /// UUID of the photo — used to build CDN URLs via `/cdn/img/<photo_id>`.
+    pub photo_id: String,
+    /// Short human-readable ID — used to build permalink URLs `/u/<handle>/p/<short_id>`.
+    pub short_id: String,
+    pub blurhash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetListItem.ts")]
+pub struct TargetListItem {
+    pub slug: String,
+    pub canonical_name: String,
+    pub object_type: Option<String>,
+    pub constellation: Option<String>,
+    pub magnitude_v: Option<f32>,
+    pub photo_count: i64,
+    pub preview_thumbs: Vec<TargetPreviewThumb>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetIndexPage.ts")]
+pub struct TargetIndexPage {
+    pub targets: Vec<TargetListItem>,
+    pub next_cursor: Option<String>,
 }

@@ -7,4 +7,11 @@ export type TargetMeta = {
   kind: string | null;
   photo_count: bigint;
   contributor_count: bigint;
+  right_ascension: number | null;
+  declination: number | null;
+  magnitude_v: number | null;
+  object_type: string | null;
+  constellation: string | null;
+  major_axis_arcmin: number | null;
+  minor_axis_arcmin: number | null;
 };
