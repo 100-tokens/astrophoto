@@ -25,8 +25,8 @@ pub async fn handler(
         return Err(AppError::Forbidden);
     }
 
-    let cancellable = row.published_at.is_none()
-        && (row.status == "pending" || row.status == "processing");
+    let cancellable =
+        row.published_at.is_none() && (row.status == "pending" || row.status == "processing");
     if !cancellable {
         return Err(AppError::Conflict("photo is not cancellable".into()));
     }

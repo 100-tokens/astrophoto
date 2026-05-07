@@ -41,11 +41,13 @@ async fn cancel_pending_deletes_row() {
         .await;
     assert_eq!(status, 204);
 
-    let count: i64 =
-        sqlx::query_scalar!("select count(*) as \"c!\" from photos where id = $1", photo_id)
-            .fetch_one(&app.pool)
-            .await
-            .unwrap();
+    let count: i64 = sqlx::query_scalar!(
+        "select count(*) as \"c!\" from photos where id = $1",
+        photo_id
+    )
+    .fetch_one(&app.pool)
+    .await
+    .unwrap();
     assert_eq!(count, 0);
 }
 

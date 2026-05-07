@@ -1,4 +1,5 @@
 pub mod cdn;
+pub mod cleanup;
 pub mod count;
 pub mod delete;
 pub mod drafts_list;
