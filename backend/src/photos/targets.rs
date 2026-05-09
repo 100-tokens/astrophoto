@@ -30,16 +30,38 @@ pub async fn attach_primary_by_freetext(
         return Ok(());
     }
 
-    // Try slug exact, then alias inclusion.
+    // Resolution policy:
+    //   1. Whole-string match against slug/aliases/canonical_name (exact).
+    //   2. Failing that, take the first whitespace-token and try it as a slug
+    //      or alias. This catches the common pattern "M42 Orion Nebula" or
+    //      "NGC 7000 North America" where the user types a catalog id followed
+    //      by the common name as a single field. The first token is normalised
+    //      to lower-case before slug match. We also try the first two tokens
+    //      joined by a hyphen ("NGC-7000") because slugs use that form.
+    //   3. Unknown → no row inserted; photos.target text is preserved by the caller.
+    let first_token: Option<String> = trimmed.split_whitespace().next().map(|s| s.to_string());
+    let two_token_slug: Option<String> = {
+        let mut it = trimmed.split_whitespace();
+        match (it.next(), it.next()) {
+            (Some(a), Some(b)) => Some(format!("{}-{}", a.to_lowercase(), b.to_lowercase())),
+            _ => None,
+        }
+    };
+
     let target_id: Option<Uuid> = sqlx::query_scalar!(
         r#"
         select id from targets
          where slug = lower($1)
             or $1 = any (aliases)
             or canonical_name ilike $1
+            or ($2::text is not null and slug = lower($2))
+            or ($2::text is not null and $2 = any (aliases))
+            or ($3::text is not null and slug = $3)
          limit 1
         "#,
-        trimmed
+        trimmed,
+        first_token.as_deref(),
+        two_token_slug.as_deref(),
     )
     .fetch_optional(&mut **tx)
     .await?;
