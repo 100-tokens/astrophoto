@@ -7,13 +7,17 @@
     api?: string;
     id?: string;
     onPick: (t: Target) => void;
+    /** Optional: invoked on blur/Enter when the user typed text but didn't pick
+     *  a suggestion. Lets the parent keep the freetext as the value. */
+    onFreetextCommit?: (text: string) => void;
   }
   let {
     placeholder = 'tape pour ajouter…',
     excludeSlugs = [],
     api = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '',
     id = undefined,
-    onPick
+    onPick,
+    onFreetextCommit
   }: Props = $props();
 
   let query = $state('');
@@ -67,6 +71,18 @@
       e.preventDefault();
       const s = suggestions[highlighted];
       if (s) pick(s);
+    } else if (e.key === 'Enter' && highlighted < 0) {
+      // No suggestion highlighted: commit the typed text as freetext.
+      // Used by /upload verify to accept "M42 Orion Nebula" or personal target
+      // names like "Backyard moon" without forcing a catalog match.
+      e.preventDefault();
+      const trimmed = query.trim();
+      if (trimmed && onFreetextCommit) {
+        onFreetextCommit(trimmed);
+        query = '';
+        suggestions = [];
+        highlighted = -1;
+      }
     } else if (e.key === 'Escape') {
       suggestions = [];
       highlighted = -1;
@@ -76,6 +92,14 @@
   function onBlur() {
     // Small delay so onmousedown={e.preventDefault()} on <li> can fire first.
     setTimeout(() => {
+      // If the user typed but didn't pick (and no <li> click landed), commit
+      // the typed text as freetext. This catches the common case of typing a
+      // target name and then clicking elsewhere or pressing Tab.
+      const trimmed = query.trim();
+      if (trimmed && onFreetextCommit) {
+        onFreetextCommit(trimmed);
+        query = '';
+      }
       suggestions = [];
       highlighted = -1;
     }, 120);
