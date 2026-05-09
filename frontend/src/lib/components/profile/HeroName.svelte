@@ -7,7 +7,8 @@
 </script>
 
 <h1 class="name">
-  {first}{#if rest}{' '}<em>{rest}</em>{/if}
+  {first}
+  {#if rest}<em>{rest}</em>{/if}
 </h1>
 
 <style>
