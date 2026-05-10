@@ -10,7 +10,10 @@
 
   let { data }: { data: PageData } = $props();
 
+  type EditorSection = 'identity' | 'about' | 'equipment' | 'location' | 'social';
+
   let editorOpen = $state(false);
+  let editorSection = $state<EditorSection | null>(null);
   let coverPickerOpen = $state(false);
 
   let title = $derived(`${data.profile.display_name} — Astrophoto`);
@@ -26,12 +29,19 @@
   profile={data.profile}
   viewMode={data.viewMode}
   firstPage={data.firstPage}
-  onEditProfile={() => (editorOpen = true)}
+  onEditProfile={(s) => {
+    editorSection = s ?? null;
+    editorOpen = true;
+  }}
   onPickCover={() => (coverPickerOpen = true)}
 />
 
 {#if data.viewMode === 'owner'}
-  <ProfileEditor bind:open={editorOpen} onSaved={() => void invalidateAll()} />
+  <ProfileEditor
+    bind:open={editorOpen}
+    bind:section={editorSection}
+    onSaved={() => void invalidateAll()}
+  />
   <CoverPickerModal
     bind:open={coverPickerOpen}
     handle={data.profile.handle}

@@ -6,6 +6,8 @@
   import HeroSocialLinks from './HeroSocialLinks.svelte';
   import HeroActions from './HeroActions.svelte';
 
+  type EditorSection = 'identity' | 'about' | 'equipment' | 'location' | 'social';
+
   let {
     profile,
     isOwner,
@@ -15,7 +17,7 @@
     profile: PublicProfile;
     isOwner: boolean;
     hasCover: boolean;
-    onEditProfile: () => void;
+    onEditProfile: (section?: EditorSection) => void;
   } = $props();
 </script>
 
@@ -23,10 +25,14 @@
   <HeroAvatar handle={profile.handle} displayName={profile.display_name} />
   <div class="middle">
     <HeroName displayName={profile.display_name} />
-    <HeroTagline tagline={profile.tagline} {isOwner} {onEditProfile} />
+    <HeroTagline
+      tagline={profile.tagline}
+      {isOwner}
+      onEditProfile={() => onEditProfile('identity')}
+    />
     <HeroSocialLinks links={profile.social_links} />
   </div>
-  <HeroActions targetUserId={profile.id} {isOwner} {onEditProfile} />
+  <HeroActions targetUserId={profile.id} {isOwner} onEditProfile={() => onEditProfile()} />
 </section>
 
 <style>
