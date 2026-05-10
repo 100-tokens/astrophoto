@@ -90,10 +90,37 @@
       .filter((s) => s.progress.state === 'ready' && s.progress.photoId)
       .map((s) => s.progress.photoId!)
   );
+  // Counts driving the queue header. Inflight = anything still moving.
+  let queueCounts = $derived.by(() => {
+    let ready = 0;
+    let inflight = 0;
+    let blocked = 0;
+    for (const s of slots) {
+      if (s.progress.state === 'ready') ready++;
+      else if (s.progress.state === 'failed') blocked++;
+      else if (s.progress.state !== 'cancelled') inflight++;
+    }
+    return { ready, inflight, blocked };
+  });
   let allDone = $derived(
     slots.length > 0 &&
       slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
   );
+
+  function clearQueue() {
+    if (slots.some((s) => s.progress.state === 'uploading')) {
+      if (!confirm('Cancel all in-flight uploads and clear the queue?')) return;
+    }
+    for (const s of slots) {
+      pump.cancel(s.clientId);
+      const photoId = s.progress.photoId;
+      if (photoId) {
+        void fetch(`/api/uploads/${photoId}`, { method: 'DELETE', credentials: 'include' });
+      }
+    }
+    handles.clear();
+    slots = [];
+  }
 
   function cancelSlot(clientId: string) {
     const slot = slots.find((s) => s.clientId === clientId);
@@ -189,26 +216,43 @@
 
     {#if slots.length}
       <div class="file-list">
-        <p class="t-eyebrow list-header">● FILES ({slots.length})</p>
-        {#each slots as slot (slot.clientId)}
-          <UploadFileRow
-            name={slot.name}
-            size={slot.size}
-            {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
-            progress={slot.progress}
-            onCancel={() => cancelSlot(slot.clientId)}
-            onRetry={() => retrySlot(slot.clientId)}
-          />
-        {/each}
+        <header class="queue-header">
+          <p class="t-eyebrow">
+            ● FILES · {slots.length} · {queueCounts.ready} ready · {queueCounts.inflight} uploading
+            {#if queueCounts.blocked > 0}· {queueCounts.blocked} blocked{/if}
+          </p>
+          <button type="button" class="chip" onclick={clearQueue}>Clear queue</button>
+        </header>
+        <div class="rows">
+          {#each slots as slot (slot.clientId)}
+            <UploadFileRow
+              name={slot.name}
+              size={slot.size}
+              hash={slot.hash}
+              {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
+              progress={slot.progress}
+              onCancel={() => cancelSlot(slot.clientId)}
+              onRetry={() => retrySlot(slot.clientId)}
+            />
+          {/each}
+        </div>
       </div>
-    {/if}
 
-    {#if allDone && readyIds.length > 0}
-      <div class="continue-cta">
-        <button class="btn-primary" onclick={continueToBatch}>
-          Continue with {readyIds.length} frame{readyIds.length === 1 ? '' : 's'} →
+      <footer class="queue-footer">
+        <a href="/drafts" class="btn-ghost">Save & finish later</a>
+        <button
+          class="btn-primary"
+          onclick={continueToBatch}
+          disabled={readyIds.length === 0}
+          title={readyIds.length === 0
+            ? 'Wait for at least one upload to finish'
+            : `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'}`}
+        >
+          {readyIds.length > 0
+            ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
+            : 'Verify ready frames →'}
         </button>
-      </div>
+      </footer>
     {/if}
   </section>
 </div>
@@ -275,16 +319,56 @@
   .file-list {
     margin-top: 40px;
   }
-
-  .list-header {
-    margin-bottom: 8px;
+  .queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .queue-header .t-eyebrow {
+    margin: 0;
+  }
+  .chip {
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    color: var(--fg-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .chip:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .rows {
+    border: 1px solid var(--border-subtle);
   }
 
-  /* ── Continue CTA ───────────────────────────────────────── */
-  .continue-cta {
-    margin-top: 32px;
+  /* ── Footer ─────────────────────────────────────────────── */
+  .queue-footer {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--border-default);
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 0;
+    color: var(--fg-secondary);
+    text-decoration: none;
+    padding: 12px 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .btn-ghost:hover {
+    color: var(--accent);
   }
   .btn-primary {
     background: var(--accent);
@@ -295,6 +379,10 @@
     font-size: 12px;
     letter-spacing: 0.08em;
     cursor: pointer;
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   /* ── Responsive ─────────────────────────────────────────── */
