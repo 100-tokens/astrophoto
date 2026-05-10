@@ -120,7 +120,7 @@
 
 <div class="layout">
   <aside class="preview" aria-label="Your upload">
-    <div class="t-label">YOUR UPLOAD</div>
+    <div class="t-label">PREVIEW · CLIENT BITMAP</div>
     <div class="preview-frame">
       {#if isProcessing}
         <div class="processing-full">
@@ -139,17 +139,26 @@
           alt={photo.target ?? photo.original_name}
           class="preview-img"
         />
+        <div class="preview-overlay" aria-hidden="true">
+          ● UPLOADED · DISPLAY MASTER {isProcessing ? 'QUEUED' : 'READY'}
+        </div>
       {/if}
+    </div>
+    <div class="preview-caption t-meta">
+      <span class="filename">{photo.original_name}</span>
+      <span>
+        {(Number(photo.bytes) / 1024 / 1024).toFixed(1)} MB
+        {#if photo.width != null && photo.height != null} · {photo.width} × {photo.height}{/if}
+      </span>
     </div>
   </aside>
 
   <div class="metadata">
     <div class="form-status">
-      <span class="t-label">DETECTED FROM YOUR FILE</span>
       <span class="t-meta status-accent">
         ● {recoveredCount === 0
-          ? 'No EXIF fields detected'
-          : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
+          ? 'NO EXIF FIELDS DETECTED'
+          : `${recoveredCount} EXIF FIELD${recoveredCount === 1 ? '' : 'S'} RECOVERED`}
       </span>
       {#if autosave && saver}
         <span class="t-meta save-state" data-state={saver.state}>{saver.label}</span>
@@ -157,80 +166,120 @@
     </div>
 
     <fieldset disabled={isProcessing}>
-      <div class="field-full"><TargetPicker bind:value={target} /></div>
-      <div class="field-full"><CategorySegmented bind:value={category} /></div>
+      <!-- DISCOVERY ──────────────────────────────────────────────
+           These four fields decide where this frame appears across
+           the site (target page, category index, tag index). -->
+      <section class="form-section section-accent">
+        <header class="form-section-head">
+          <span class="t-eyebrow accent">● DISCOVERY</span>
+          <p class="t-meta section-help">
+            These four fields decide where this frame appears across the site.
+          </p>
+        </header>
+        <div class="field-full"><TargetPicker bind:value={target} /></div>
+        <div class="field-full"><CategorySegmented bind:value={category} /></div>
+        <div class="field-full"><TagInput bind:value={tags} /></div>
+        <div class="field-full">
+          <span class="t-label">CAPTION</span>
+          <Textarea
+            name="caption"
+            rows={5}
+            bind:value={caption}
+            placeholder="Describe the conditions, processing, equipment used…"
+          />
+        </div>
+      </section>
 
-      <div class="grid">
-        <label>
-          <span class="t-label">LENS</span>
-          <Input name="lens" bind:value={lens} />
-        </label>
-        <label>
-          <span class="t-label">ISO</span>
-          <Input type="number" name="iso" bind:value={iso} />
-        </label>
-        <label>
-          <span class="t-label">EXPOSURE (S)</span>
-          <Input type="number" step="0.01" name="exposure_s" bind:value={exposure_s} />
-        </label>
-        <label>
-          <span class="t-label">FOCAL (MM)</span>
-          <Input type="number" name="focal_mm" bind:value={focal_mm} />
-        </label>
-        <label>
-          <span class="t-label">APERTURE (f/)</span>
-          <Input type="number" step="0.1" name="aperture_f" bind:value={aperture_f} />
-        </label>
-        <label>
-          <span class="t-label">SESSIONS</span>
-          <Input type="number" name="sessions" bind:value={sessions} />
-        </label>
-        <label>
-          <span class="t-label">GAIN</span>
-          <Input type="number" name="gain" bind:value={gain} />
-        </label>
-        <label>
-          <span class="t-label">SENSOR TEMP (°C)</span>
-          <Input type="number" step="0.1" name="sensor_temp_c" bind:value={sensor_temp_c} />
-        </label>
-        <label>
-          <span class="t-label">RA (DEG)</span>
-          <Input type="number" step="0.0001" name="ra_deg" bind:value={ra_deg} />
-        </label>
-        <label>
-          <span class="t-label">DEC (DEG)</span>
-          <Input type="number" step="0.0001" name="dec_deg" bind:value={dec_deg} />
-        </label>
-      </div>
+      <!-- EQUIPMENT USED ─────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="form-section-head">
+          <span class="t-eyebrow">EQUIPMENT USED</span>
+          <p class="t-meta section-help">
+            Pre-fills from your default loadout. Each field becomes a browsable equipment page.
+          </p>
+        </header>
+        <div class="grid equipment-grid">
+          <div class="field">
+            <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
+          </div>
+          <div class="field">
+            <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
+          </div>
+        </div>
+      </section>
 
-      <div class="grid equipment-grid">
-        <div class="field">
-          <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} />
+      <!-- CAPTURE DATA · FROM EXIF ──────────────────────────────── -->
+      <section class="form-section">
+        <header class="form-section-head">
+          <span class="t-eyebrow">CAPTURE DATA · FROM EXIF</span>
+          <p class="t-meta section-help">
+            Editable, not required. We never overwrite the original file.
+          </p>
+        </header>
+        <div class="grid">
+          <label>
+            <span class="t-label">LENS</span>
+            <Input name="lens" bind:value={lens} />
+          </label>
+          <label>
+            <span class="t-label">ISO</span>
+            <Input type="number" name="iso" bind:value={iso} />
+          </label>
+          <label>
+            <span class="t-label">EXPOSURE (S)</span>
+            <Input type="number" step="0.01" name="exposure_s" bind:value={exposure_s} />
+          </label>
+          <label>
+            <span class="t-label">FOCAL (MM)</span>
+            <Input type="number" name="focal_mm" bind:value={focal_mm} />
+          </label>
+          <label>
+            <span class="t-label">APERTURE (f/)</span>
+            <Input type="number" step="0.1" name="aperture_f" bind:value={aperture_f} />
+          </label>
+          <label>
+            <span class="t-label">SESSIONS</span>
+            <Input type="number" name="sessions" bind:value={sessions} />
+          </label>
+          <label>
+            <span class="t-label">GAIN</span>
+            <Input type="number" name="gain" bind:value={gain} />
+          </label>
+          <label>
+            <span class="t-label">SENSOR TEMP (°C)</span>
+            <Input type="number" step="0.1" name="sensor_temp_c" bind:value={sensor_temp_c} />
+          </label>
+          <label>
+            <span class="t-label">RA (DEG)</span>
+            <Input type="number" step="0.0001" name="ra_deg" bind:value={ra_deg} />
+          </label>
+          <label>
+            <span class="t-label">DEC (DEG)</span>
+            <Input type="number" step="0.0001" name="dec_deg" bind:value={dec_deg} />
+          </label>
         </div>
-        <div class="field">
-          <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} />
-        </div>
-        <div class="field">
-          <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
-        </div>
-        <div class="field">
-          <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
-        </div>
-        <div class="field">
-          <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
-        </div>
-      </div>
+      </section>
 
-      <div class="field-full"><TagInput bind:value={tags} /></div>
-      <div class="field-full">
-        <span class="t-label">CAPTION</span>
-        <Textarea
-          name="caption"
-          rows={6}
-          bind:value={caption}
-          placeholder="Describe the conditions, processing, equipment used…"
-        />
-      </div>
+      <!-- Plate-solve forward-compat banner ─────────────────────── -->
+      <aside class="plate-solve" aria-label="Future feature: plate solving">
+        <div>
+          <span class="t-eyebrow accent">● COMING SOON · PLATE SOLVE</span>
+          <p>
+            When the astrometry phase ships, your frames here will be auto-matched to known targets.
+            Targets you pick now stay as <code>source = "manual"</code>.
+          </p>
+        </div>
+        <button type="button" class="plate-solve-btn" disabled>Run plate solve</button>
+      </aside>
     </fieldset>
   </div>
 </div>
@@ -323,6 +372,88 @@
   .field-full {
     margin-bottom: 16px;
   }
+  /* ── Preview chrome ────────────────────────────────────────── */
+  .preview-overlay {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    padding: 4px 8px;
+    background: rgba(12, 10, 8, 0.85);
+    border: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .preview-caption {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--fg-muted);
+  }
+  .preview-caption .filename {
+    font-family: var(--font-mono);
+    color: var(--fg-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Form sections ─────────────────────────────────────────── */
+  .form-section {
+    margin: 0 0 32px;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .form-section.section-accent {
+    border-top-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  }
+  .form-section-head {
+    padding: 16px 0 4px;
+  }
+  .form-section-head .accent {
+    color: var(--accent);
+  }
+  .section-help {
+    margin: 6px 0 16px;
+    color: var(--fg-muted);
+    max-width: 56ch;
+  }
+
+  /* ── Plate-solve banner ────────────────────────────────────── */
+  .plate-solve {
+    margin: 24px 0 0;
+    padding: 16px;
+    border: 1px dashed color-mix(in oklab, var(--accent) 50%, transparent);
+    background: color-mix(in oklab, var(--accent) 5%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .plate-solve p {
+    margin: 6px 0 0;
+    color: var(--fg-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+  .plate-solve code {
+    color: var(--accent);
+    font-family: var(--font-mono);
+  }
+  .plate-solve-btn {
+    background: transparent;
+    border: 1px solid var(--border-default);
+    color: var(--fg-muted);
+    padding: 8px 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    opacity: 0.45;
+    cursor: not-allowed;
+    flex-shrink: 0;
+  }
+
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
