@@ -438,5 +438,8 @@
     .stage-frame :global(img) {
       max-height: 70vh;
     }
+    .more-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 </style>
