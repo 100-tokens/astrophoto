@@ -85,9 +85,10 @@
   <div class="hero-copy">
     <div style="margin-bottom: 16px;">
       {#if data.user && data.following_count > 0}
-        <span class="t-eyebrow accent"
-          >● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span
-        >
+        <span class="t-eyebrow accent">
+          ● FROM THE {data.following_count}
+          {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
+        </span>
       {:else}
         <span class="t-eyebrow">● 14 March 2026 · Friday</span>
       {/if}
@@ -203,9 +204,10 @@
   </div>
 </section>
 
-<!-- Pagination -->
+<!-- See-more — the home is a curated landing, paginated browsing lives
+     on /explore (cursor-based). -->
 <div class="pagination">
-  <Button variant="secondary" size="lg">Load page 2 of 974</Button>
+  <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
 </div>
 
 <AppFooter />
