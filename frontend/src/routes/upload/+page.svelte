@@ -203,7 +203,12 @@
     if (readyIds.length === 1) {
       goto(`/upload/${readyIds[0]}/verify`);
     } else {
-      goto(`/upload/batch?ids=${readyIds.join(',')}`);
+      // Land on the first frame with the queue context in the URL —
+      // the verify page renders a thumbs strip + ←/→ keyboard nav and
+      // a Skip frame → / Publish · N of M action row from there. The
+      // older /upload/batch landing (apply common fields) is reachable
+      // from the verify page if we ever add a "Edit all at once" link.
+      goto(`/upload/${readyIds[0]}/verify?ids=${readyIds.join(',')}`);
     }
   }
 </script>

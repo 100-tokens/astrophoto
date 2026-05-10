@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
-export const load: PageServerLoad = async ({ params, locals, fetch, cookies }) => {
+export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies }) => {
   if (!locals.user) redirect(303, '/signin');
   const cookie = cookies
     .getAll()
@@ -14,7 +14,25 @@ export const load: PageServerLoad = async ({ params, locals, fetch, cookies }) =
   if (!r.ok) error(500, 'Backend error');
   const photo = await r.json();
   if (photo.owner_id !== locals.user.id) error(404, 'Not found');
-  return { photo };
+
+  // Optional batch context: ?ids=a,b,c lets the verify page render a
+  // queue thumbs strip and Skip/Continue with frame index. Filter to
+  // the caller's own photos so a forged URL can't enumerate someone
+  // else's drafts (each thumb still hits an authorised /api/photos/:id
+  // call client-side, but pre-filtering keeps the strip honest).
+  const idsParam = url.searchParams.get('ids');
+  let queueIds: string[] = [];
+  let queueIndex = -1;
+  if (idsParam) {
+    const ids = idsParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    queueIds = ids;
+    queueIndex = ids.indexOf(params.id);
+  }
+
+  return { photo, queueIds, queueIndex };
 };
 
 export const actions: Actions = {

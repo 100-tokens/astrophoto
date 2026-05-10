@@ -166,8 +166,14 @@
     background: color-mix(in oklab, var(--bg-canvas) 92%, transparent);
   }
   @media (max-width: 640px) {
+    .dz {
+      padding: 32px 16px;
+    }
     .dz-paste-hint {
       display: none;
+    }
+    .dz-headline {
+      font-size: 18px;
     }
   }
 

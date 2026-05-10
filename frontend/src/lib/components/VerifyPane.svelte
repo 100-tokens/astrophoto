@@ -479,5 +479,18 @@
     .grid {
       grid-template-columns: 1fr;
     }
+    .form-section {
+      margin-bottom: 24px;
+    }
+    .plate-solve {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+  @media (max-width: 480px) {
+    .preview-overlay {
+      font-size: 9px;
+      padding: 3px 6px;
+    }
   }
 </style>

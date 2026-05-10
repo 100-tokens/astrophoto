@@ -93,7 +93,9 @@
         type="button"
         class="icon-btn"
         onclick={onCancel}
-        aria-label="Cancel upload"
+        aria-label={progress.state === 'uploading'
+          ? `Cancel upload of ${name} (${Math.round(progress.pct)}%)`
+          : `Cancel ${name} (${progress.state})`}
         title="Cancel">×</button
       >
     {/if}
