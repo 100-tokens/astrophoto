@@ -2,8 +2,26 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
+  import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import type { PhotoDetail } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
+
+  async function share() {
+    if (typeof navigator === 'undefined') return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ url: location.href });
+      } catch {
+        /* user cancelled */
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(location.href);
+      } catch {
+        /* clipboard unavailable */
+      }
+    }
+  }
 
   interface PageData {
     photo: PhotoDetail;
@@ -167,9 +185,11 @@
       {/if}
 
       <div class="actions">
-        <button type="button" class="btn btn-secondary btn-sm">♡ {p.appreciation_count}</button>
-        <button type="button" class="btn btn-ghost btn-sm">{p.comment_count} comments</button>
-        <button type="button" class="btn btn-ghost btn-sm action-share">↗ Share</button>
+        <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
+        <a class="btn btn-ghost btn-sm" href="#comments">{p.comment_count} comments</a>
+        <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
+          >↗ Share</button
+        >
       </div>
 
       {#if acquisitionRows.length > 0}
