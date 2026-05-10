@@ -10,74 +10,39 @@
     onCommit: (patch: { equipment: EquipmentSummary }) => Promise<void>;
   } = $props();
 
-  let local = $state<EquipmentSummary>($state.snapshot(equipment));
+  // Each field is its own $state — we drop the "local: EquipmentSummary"
+  // mirror because writing it inside an $effect that also reads it caused
+  // Svelte's effect_update_depth_exceeded bail-out (which silently killed
+  // the EquipmentAutocomplete's own effect, so no suggestions ever fetched).
+  let scope = $state<string>(equipment.telescope ?? '');
+  let camera = $state<string>(equipment.camera ?? '');
+  let mount = $state<string>(equipment.mount ?? '');
+  let filters = $state<string>(equipment.filters ?? '');
+  let guiding = $state<string>(equipment.guiding ?? '');
+
   let saved = $state<EquipmentSummary>($state.snapshot(equipment));
 
-  function changed(): boolean {
-    // Compare normalised (trim + null) values so a trailing space doesn't
-    // count as a change once it round-trips through commit.
-    return JSON.stringify(normaliseAll(saved)) !== JSON.stringify(normaliseAll(local));
-  }
-
-  function norm(s: string | null | undefined): string | null {
-    if (s == null) return null;
+  function norm(s: string): string | null {
     const t = s.trim();
     return t === '' ? null : t;
   }
 
-  function normaliseAll(eq: EquipmentSummary): EquipmentSummary {
+  function current(): EquipmentSummary {
     return {
-      telescope: norm(eq.telescope),
-      camera: norm(eq.camera),
-      mount: norm(eq.mount),
-      filters: norm(eq.filters),
-      guiding: norm(eq.guiding)
+      telescope: norm(scope),
+      camera: norm(camera),
+      mount: norm(mount),
+      filters: norm(filters),
+      guiding: norm(guiding)
     };
   }
 
   async function commit() {
-    if (!changed()) return;
-    const next = normaliseAll(local);
+    const next = current();
+    if (JSON.stringify(saved) === JSON.stringify(next)) return;
     await onCommit({ equipment: next });
-    saved = $state.snapshot(next);
-    local = $state.snapshot(next);
+    saved = next;
   }
-
-  // Shape the EquipmentAutocomplete contract: it binds a string (not null),
-  // and uses a `kind` enum where filters → 'filter' (singular). Glue
-  // helpers translate between the bind:value strings and the nullable
-  // EquipmentSummary fields.
-  function get(key: keyof EquipmentSummary): string {
-    return local[key] ?? '';
-  }
-  function set(key: keyof EquipmentSummary, v: string) {
-    local = { ...local, [key]: norm(v) };
-  }
-
-  // Local controlled-binding shims so we can keep the existing
-  // EquipmentAutocomplete bind:value contract while writing back into the
-  // grouped EquipmentSummary.
-  let scopeStr = $state(get('telescope'));
-  let cameraStr = $state(get('camera'));
-  let mountStr = $state(get('mount'));
-  let filtersStr = $state(get('filters'));
-  let guidingStr = $state(get('guiding'));
-
-  $effect(() => {
-    set('telescope', scopeStr);
-  });
-  $effect(() => {
-    set('camera', cameraStr);
-  });
-  $effect(() => {
-    set('mount', mountStr);
-  });
-  $effect(() => {
-    set('filters', filtersStr);
-  });
-  $effect(() => {
-    set('guiding', guidingStr);
-  });
 </script>
 
 <fieldset class="section" onfocusout={() => void commit()}>
@@ -87,19 +52,19 @@
     camera doesn't end up under three different spellings.
   </p>
   <div class="field">
-    <EquipmentAutocomplete name="profile-scope" kind="telescope" bind:value={scopeStr} />
+    <EquipmentAutocomplete name="profile-scope" kind="telescope" bind:value={scope} />
   </div>
   <div class="field">
-    <EquipmentAutocomplete name="profile-camera" kind="camera" bind:value={cameraStr} />
+    <EquipmentAutocomplete name="profile-camera" kind="camera" bind:value={camera} />
   </div>
   <div class="field">
-    <EquipmentAutocomplete name="profile-mount" kind="mount" bind:value={mountStr} />
+    <EquipmentAutocomplete name="profile-mount" kind="mount" bind:value={mount} />
   </div>
   <div class="field">
-    <EquipmentAutocomplete name="profile-filters" kind="filter" bind:value={filtersStr} />
+    <EquipmentAutocomplete name="profile-filters" kind="filter" bind:value={filters} />
   </div>
   <div class="field">
-    <EquipmentAutocomplete name="profile-guiding" kind="guiding" bind:value={guidingStr} />
+    <EquipmentAutocomplete name="profile-guiding" kind="guiding" bind:value={guiding} />
   </div>
 </fieldset>
 
