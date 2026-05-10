@@ -182,6 +182,16 @@
     position: relative;
     width: 220px;
   }
+  /* The fixed 220 px box plus the auth/avatar cluster overflows the
+     mobile viewport (390 px header right cluster ≈ 330 px + logo). Hide
+     the search affordance under 640 px until we ship a tap-to-open
+     overlay variant — the ⌘K shortcut is desktop-only anyway and the
+     /t / /explore / footer links cover mobile discovery. */
+  @media (max-width: 640px) {
+    .search-wrap {
+      display: none;
+    }
+  }
 
   .search-box {
     display: flex;

@@ -30,6 +30,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* Keep the Edit/Follow button at its natural width when the parent
+       grid collapses to a single column on mobile — without this the
+       button stretches the full viewport width and reads as a primary
+       page CTA, not a hero-row affordance. */
+    align-items: flex-start;
   }
   .btn-primary {
     background: var(--accent);
