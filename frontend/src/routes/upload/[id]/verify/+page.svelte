@@ -33,8 +33,16 @@
 <AppHeader active="Gallery" />
 
 <div class="page">
-  <div class="t-eyebrow">{isPublished ? 'EDIT METADATA' : 'NEW FRAME'}</div>
-  <h1 class="title">{isPublished ? 'Edit the data.' : 'Verify the data.'}</h1>
+  <div class="t-eyebrow">
+    {isPublished ? 'EDIT METADATA' : 'STEP 02 OF 03 · VERIFY'}
+  </div>
+  <h1 class="title">
+    {#if isPublished}
+      Edit the data.
+    {:else}
+      What's <em>in</em> this frame?
+    {/if}
+  </h1>
   {#if !isPublished}<UploadStepper currentStep={2} />{/if}
 
   <VerifyPane photo={data.photo} initialTags={data.photo.tags ?? []} autosave={true} />

@@ -159,8 +159,23 @@
 <div class="upload-page">
   <!-- Page header -->
   <section class="page-header">
-    <div class="t-eyebrow">NEW FRAME</div>
-    <h1 class="page-title">Add a <em>frame</em> to your archive</h1>
+    <div class="page-header-row">
+      <div class="page-header-title-block">
+        <div class="t-eyebrow">NEW UPLOAD · STEP 01 OF 03</div>
+        <h1 class="page-title">Drop your <em>frames</em></h1>
+      </div>
+      <aside class="tier-rail" aria-label="Tier limits">
+        <div class="tier-eyebrow t-eyebrow">
+          ● {data.tier === 'subscriber' ? 'SUBSCRIBER · 200 MB / FILE' : 'FREE TIER · 50 MB / FILE'}
+        </div>
+        {#if data.tier !== 'subscriber'}
+          <p class="tier-note">
+            Subscribers upload up to 200 MB.
+            <a href="/settings" class="tier-upgrade">Upgrade →</a>
+          </p>
+        {/if}
+      </aside>
+    </div>
 
     <UploadStepper currentStep={1} />
   </section>
@@ -218,10 +233,42 @@
     line-height: 1;
   }
 
+  /* ── Page header layout ────────────────────────────────── */
+  .page-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 32px;
+  }
+  .page-header-title-block {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .tier-rail {
+    flex: 0 0 auto;
+    text-align: right;
+    max-width: 280px;
+  }
+  .tier-eyebrow {
+    color: var(--accent);
+  }
+  .tier-note {
+    margin: 8px 0 0;
+    color: var(--fg-muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .tier-upgrade {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .tier-upgrade:hover {
+    text-decoration: none;
+  }
+
   /* ── Form section ───────────────────────────────────────── */
   .form-section {
     padding: 48px 64px;
-    max-width: 800px;
   }
 
   /* ── File list ──────────────────────────────────────────── */
@@ -254,6 +301,15 @@
   @media (max-width: 768px) {
     .page-header {
       padding: 32px 24px 16px;
+    }
+
+    .page-header-row {
+      flex-direction: column;
+      gap: 16px;
+    }
+    .tier-rail {
+      max-width: none;
+      text-align: left;
     }
 
     .page-title {
