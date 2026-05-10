@@ -10,8 +10,8 @@
     onCommit: (patch: { social_links: SocialLink[] }) => Promise<void>;
   } = $props();
 
-  let local = $state<SocialLink[]>(structuredClone(links));
-  let saved = $state<SocialLink[]>(structuredClone(links));
+  let local = $state<SocialLink[]>($state.snapshot(links));
+  let saved = $state<SocialLink[]>($state.snapshot(links));
 
   const PLATFORMS: SocialPlatform[] = [
     'twitter',
@@ -30,7 +30,7 @@
   async function commit() {
     if (!changed()) return;
     await onCommit({ social_links: local });
-    saved = structuredClone(local);
+    saved = $state.snapshot(local);
   }
 
   function add() {

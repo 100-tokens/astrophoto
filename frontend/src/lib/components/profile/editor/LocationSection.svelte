@@ -10,8 +10,8 @@
     onCommit: (patch: { location: LocationSummary }) => Promise<void>;
   } = $props();
 
-  let local = $state<LocationSummary>(structuredClone(location));
-  let saved = $state<LocationSummary>(structuredClone(location));
+  let local = $state<LocationSummary>($state.snapshot(location));
+  let saved = $state<LocationSummary>($state.snapshot(location));
 
   function changed(): boolean {
     return JSON.stringify(saved) !== JSON.stringify(local);
@@ -20,7 +20,7 @@
   async function commit() {
     if (!changed()) return;
     await onCommit({ location: { ...local } });
-    saved = structuredClone(local);
+    saved = $state.snapshot(local);
   }
 </script>
 
