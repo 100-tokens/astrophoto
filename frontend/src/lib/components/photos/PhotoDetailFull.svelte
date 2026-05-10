@@ -3,38 +3,109 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
   import type { PhotoDetail } from '$lib/api/types';
+  import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
   interface PageData {
     photo: PhotoDetail;
     handle: string;
+    morePhotos: GalleryPhoto[];
   }
 
   let { data }: { data: PageData } = $props();
   let p = $derived(data.photo);
-  let title = $derived(p.target ?? p.original_name);
 
-  // Compose acquisition rows. Each row is [label, value]; rows with falsy
-  // values are filtered out so we don't render empty cells.
-  type Row = [string, string | null];
-  let acquisition = $derived<Row[]>(
-    [
-      ['ISO', p.iso != null ? String(p.iso) : null],
-      ['Exposure', p.exposure_s != null ? `${p.exposure_s}s` : null],
-      ['Focal', p.focal_mm != null ? `${p.focal_mm}mm` : null],
-      ['Aperture', p.aperture_f != null ? `f/${p.aperture_f}` : null],
-      ['Sessions', p.sessions != null ? String(p.sessions) : null],
-      ['Gain', p.gain != null ? String(p.gain) : null],
-      ['Sensor temp', p.sensor_temp_c != null ? `${p.sensor_temp_c}°C` : null],
-      ['RA', p.ra_deg != null ? `${p.ra_deg.toFixed(4)}°` : null],
-      ['Dec', p.dec_deg != null ? `${p.dec_deg.toFixed(4)}°` : null]
-    ].filter(([, v]) => v != null) as Row[]
+  // Title treatment per showcase-p2 ScreenLightbox: split target on first
+  // whitespace if it parses as "<catalog-id> <common-name>" so the catalog
+  // id renders as italic display, and the common name follows. Otherwise
+  // render the target as a single italic Display.
+  let title = $derived(p.target ?? p.original_name);
+  let titleHead = $derived.by(() => {
+    if (!p.target) return null;
+    const m = p.target.match(/^([^ ]+)\s+(.+)$/);
+    return m ? { head: m[1], rest: m[2] } : null;
+  });
+
+  // Eyebrow: "● PUBLISHED <date>" in accent. published_at isn't on PhotoDetail
+  // yet, so derive from created_at which is close enough for now.
+  let publishedDate = $derived(
+    new Date(p.created_at)
+      .toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+      .toUpperCase()
   );
-  let equipment = $derived<Row[]>(
-    [
-      ['Camera', p.camera],
-      ['Lens', p.lens]
-    ].filter(([, v]) => v != null && v !== '') as Row[]
-  );
+
+  // Acquisition rows — show what's set, drop the rest. Two-line cells where
+  // there's a derived value (Exposure → "180 × 360 s" + "= 18.0 hours" accent).
+  type Row = { label: string; value: string; sub: string | undefined; subAccent: boolean };
+  let acquisitionRows = $derived.by<Row[]>(() => {
+    const rows: Row[] = [];
+    const row = (label: string, value: string, sub?: string, subAccent = false): Row => ({
+      label,
+      value,
+      sub,
+      subAccent
+    });
+    if (p.target) rows.push(row('Target', p.target));
+    if (p.taken_at) {
+      const d = new Date(p.taken_at).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      rows.push(row('Captured', d, p.sessions ? `${p.sessions} sessions` : undefined));
+    } else if (p.sessions != null) {
+      rows.push(row('Sessions', String(p.sessions)));
+    }
+    if (p.camera) rows.push(row('Camera', p.camera));
+    if (p.lens) rows.push(row('Lens', p.lens));
+    if (p.exposure_s != null) {
+      const total = p.sessions ? p.exposure_s * p.sessions : null;
+      const totalLabel = total != null ? formatDuration(total) : undefined;
+      rows.push(
+        row(
+          'Exposure',
+          `${p.exposure_s} s${p.sessions ? ` × ${p.sessions}` : ''}`,
+          totalLabel ? `= ${totalLabel}` : undefined,
+          true
+        )
+      );
+    }
+    if (p.focal_mm != null) {
+      const apt = p.aperture_f != null ? ` · f/${p.aperture_f}` : '';
+      rows.push(row('Focal', `${p.focal_mm} mm${apt}`));
+    } else if (p.aperture_f != null) {
+      rows.push(row('Aperture', `f/${p.aperture_f}`));
+    }
+    if (p.iso != null) rows.push(row('ISO', String(p.iso)));
+    if (p.gain != null) rows.push(row('Gain', String(p.gain)));
+    if (p.sensor_temp_c != null) rows.push(row('Sensor', `${p.sensor_temp_c} °C`));
+    if (p.ra_deg != null && p.dec_deg != null) {
+      rows.push(row('RA / Dec', formatCoords(p.ra_deg, p.dec_deg)));
+    }
+    return rows;
+  });
+
+  function formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} h`;
+    return `${h} h ${m.toString().padStart(2, '0')} m`;
+  }
+  function formatCoords(ra: number, dec: number): string {
+    const raH = Math.floor(ra / 15);
+    const raM = Math.floor((ra / 15 - raH) * 60);
+    const raS = Math.round(((ra / 15 - raH) * 60 - raM) * 60);
+    const sign = dec >= 0 ? '+' : '-';
+    const abs = Math.abs(dec);
+    const decD = Math.floor(abs);
+    const decM = Math.floor((abs - decD) * 60);
+    const decS = Math.round(((abs - decD) * 60 - decM) * 60);
+    return `${raH}ʰ ${raM}ᵐ ${raS}ˢ · ${sign}${decD}° ${decM}′ ${decS}″`;
+  }
 </script>
 
 <svelte:head>
@@ -43,165 +114,302 @@
 
 <AppHeader />
 
-<article class="photo-detail">
-  <div class="image-wrap">
-    <Img photoId={p.id} alt={title} w={1600} sizes="(max-width: 1200px) 100vw, 1200px" />
-  </div>
-
-  <div class="info">
-    <div class="header-row">
-      <div>
-        <h1 class="t-display photo-title">{title}</h1>
-        <a class="author-link t-mono" href={`/u/${data.handle}`}>@{data.handle.toUpperCase()}</a>
-      </div>
+<article class="detail">
+  <!-- Image stage: full-bleed black, ratio held by the photo -->
+  <div class="stage">
+    <div class="stage-frame">
+      <Img
+        photoId={p.id}
+        alt={title}
+        w={2400}
+        sizes="(max-width: 1200px) 100vw, calc(100vw - 380px)"
+      />
+      <!-- Corner reticles, accent-colored, per the spec -->
+      <span class="reticle reticle-tl" aria-hidden="true"></span>
+      <span class="reticle reticle-tr" aria-hidden="true"></span>
+      <span class="reticle reticle-bl" aria-hidden="true"></span>
+      <span class="reticle reticle-br" aria-hidden="true"></span>
     </div>
-
-    {#if p.caption}
-      <p class="caption">{p.caption}</p>
-    {/if}
-
-    {#if p.tags.length > 0}
-      <ul class="tags">
-        {#each p.tags as tag}
-          <li class="tag-chip"><a href={`/tag/${tag}`}>#{tag}</a></li>
-        {/each}
-      </ul>
-    {/if}
-
-    {#if acquisition.length > 0}
-      <section class="meta-block" aria-label="Acquisition">
-        <h2 class="t-label">ACQUISITION</h2>
-        <dl class="meta-grid">
-          {#each acquisition as [label, value]}
-            <div class="meta-cell">
-              <dt class="t-label">{label}</dt>
-              <dd class="t-mono">{value}</dd>
-            </div>
-          {/each}
-        </dl>
-      </section>
-    {/if}
-
-    {#if equipment.length > 0}
-      <section class="meta-block" aria-label="Equipment">
-        <h2 class="t-label">EQUIPMENT</h2>
-        <dl class="meta-grid">
-          {#each equipment as [label, value]}
-            <div class="meta-cell">
-              <dt class="t-label">{label}</dt>
-              <dd class="t-mono">{value}</dd>
-            </div>
-          {/each}
-        </dl>
-      </section>
-    {/if}
   </div>
+
+  <!-- Info aside, 380px right column -->
+  <aside class="info">
+    <div class="info-inner">
+      <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
+
+      <h1 class="title">
+        {#if titleHead}
+          <em>{titleHead.head}</em>
+          <br />{titleHead.rest}
+        {:else}
+          {title}
+        {/if}
+      </h1>
+
+      <div class="author-row">
+        <div class="avatar" aria-hidden="true">{(data.handle[0] ?? 'U').toUpperCase()}</div>
+        <div class="author-meta">
+          <a class="author-name" href={`/u/${data.handle}`}>@{data.handle}</a>
+        </div>
+        <a class="btn btn-secondary btn-sm" href={`/u/${data.handle}`}>View profile</a>
+      </div>
+
+      {#if p.caption}
+        <p class="caption">{p.caption}</p>
+      {/if}
+
+      {#if p.tags.length > 0}
+        <ul class="tags">
+          {#each p.tags as tag}
+            <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="actions">
+        <button type="button" class="btn btn-secondary btn-sm">♡ {p.appreciation_count}</button>
+        <button type="button" class="btn btn-ghost btn-sm">{p.comment_count} comments</button>
+        <button type="button" class="btn btn-ghost btn-sm action-share">↗ Share</button>
+      </div>
+
+      {#if acquisitionRows.length > 0}
+        <div class="acquisition-header">
+          <span class="t-label">ACQUISITION RECORD</span>
+        </div>
+        <table class="exif">
+          <tbody>
+            {#each acquisitionRows as row}
+              <tr>
+                <th>{row.label}</th>
+                <td>
+                  {row.value}
+                  {#if row.sub}
+                    <br /><span class={row.subAccent ? 'sub accent' : 'sub'}>{row.sub}</span>
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+
+      {#if data.morePhotos.length > 0}
+        <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
+        <div class="more-grid">
+          {#each data.morePhotos.slice(0, 4) as mp}
+            <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
+              <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </aside>
 </article>
 
 <AppFooter />
 
 <style>
-  .photo-detail {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 32px 32px 64px;
+  .detail {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    min-height: calc(100dvh - 64px);
   }
-  .image-wrap {
+  .stage {
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    position: relative;
+  }
+  .stage-frame {
+    position: relative;
     width: 100%;
-    margin-bottom: 32px;
+    max-width: 100%;
   }
-  .image-wrap :global(img) {
+  .stage-frame :global(img) {
     width: 100%;
     height: auto;
     display: block;
+    max-height: calc(100dvh - 64px - 96px);
+    object-fit: contain;
+    margin: 0 auto;
   }
+  .reticle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+  }
+  .reticle-tl {
+    top: -8px;
+    left: -8px;
+    border-top: 1px solid var(--accent);
+    border-left: 1px solid var(--accent);
+  }
+  .reticle-tr {
+    top: -8px;
+    right: -8px;
+    border-top: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
+  }
+  .reticle-bl {
+    bottom: -8px;
+    left: -8px;
+    border-bottom: 1px solid var(--accent);
+    border-left: 1px solid var(--accent);
+  }
+  .reticle-br {
+    bottom: -8px;
+    right: -8px;
+    border-bottom: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
+  }
+
   .info {
+    background: var(--bg-base);
+    border-left: 1px solid var(--border-subtle);
+    overflow-y: auto;
+  }
+  .info-inner {
+    padding: 32px;
+  }
+  .title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 400;
+    margin: 12px 0 0;
+    line-height: 1.1;
+  }
+  .title em {
+    font-style: italic;
+  }
+
+  .author-row {
     display: flex;
-    flex-direction: column;
-    gap: 24px;
-    max-width: 880px;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
   }
-  .header-row {
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
     display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 24px;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 16px;
+    flex-shrink: 0;
   }
-  .photo-title {
-    font-size: 40px;
-    margin: 0 0 8px;
+  .author-meta {
+    flex: 1;
+    min-width: 0;
   }
-  .author-link {
-    color: var(--fg-muted);
+  .author-name {
+    font-weight: 500;
+    color: var(--fg-primary);
     text-decoration: none;
-    letter-spacing: 0.08em;
-    font-size: 12px;
   }
-  .author-link:hover {
+  .author-name:hover {
     color: var(--accent);
   }
+
   .caption {
-    font-size: 15px;
+    margin: 24px 0 0;
+    font-size: 14px;
     line-height: 1.65;
     color: var(--fg-secondary);
-    margin: 0;
   }
+
   .tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     list-style: none;
-    margin: 0;
+    margin: 16px 0 0;
     padding: 0;
   }
-  .tag-chip a {
+  .tags .chip {
     display: inline-block;
-    padding: 4px 10px;
-    border: 1px solid var(--border-subtle);
-    color: var(--fg-secondary);
-    font-family: var(--font-mono);
-    font-size: 11px;
     text-decoration: none;
+    font-size: 11px;
+    padding: 3px 8px;
   }
-  .tag-chip a:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-  .meta-block {
+
+  .actions {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    margin-top: 24px;
   }
-  .meta-block h2 {
-    margin: 0;
-    color: var(--fg-muted);
-    letter-spacing: 0.12em;
+  .action-share {
+    margin-left: auto;
   }
-  .meta-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 12px 24px;
-    margin: 0;
-  }
-  .meta-cell {
+
+  .acquisition-header,
+  .more-header {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border-subtle);
+    margin-top: 24px;
   }
-  .meta-cell dt {
-    color: var(--fg-muted);
-  }
-  .meta-cell dd {
-    margin: 0;
+  .acquisition-header .t-label {
     color: var(--fg-primary);
-    font-size: 13px;
+    letter-spacing: 0.16em;
   }
-  @media (max-width: 640px) {
-    .photo-detail {
-      padding: 16px 16px 48px;
+
+  .exif {
+    margin-top: 8px;
+  }
+  .exif .sub {
+    color: var(--fg-muted);
+  }
+  .exif .sub.accent {
+    color: var(--accent);
+  }
+
+  .more-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .more-tile {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: var(--bg-elevated);
+    display: block;
+  }
+  .more-tile :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Stack on narrow viewports — image on top, panel below. */
+  @media (max-width: 960px) {
+    .detail {
+      grid-template-columns: 1fr;
     }
-    .photo-title {
-      font-size: 28px;
+    .info {
+      border-left: 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .stage {
+      padding: 16px;
+    }
+    .stage-frame :global(img) {
+      max-height: 70vh;
     }
   }
 </style>
