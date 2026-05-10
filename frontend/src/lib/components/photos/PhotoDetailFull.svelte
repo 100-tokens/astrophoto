@@ -159,6 +159,14 @@
       ? `${CDN_BASE}/img/${p.id}?w=1200`
       : `${page.url.origin}/api/photos/${p.id}/thumb/1200`
   );
+  // og:image:width/height must match what the URL actually serves, not
+  // the original capture dims, or unfurl clients reflow on first paint.
+  // We request w=1200 so the served dims are 1200 × (1200 × h/w).
+  const OG_IMAGE_WIDTH = 1200;
+  let ogImageHeight = $derived.by(() => {
+    if (p.width == null || p.height == null || p.width === 0) return null;
+    return Math.round(OG_IMAGE_WIDTH * (p.height / p.width));
+  });
 
   // schema.org Photograph — the structured data search engines and AI
   // crawlers actually consume. Photograph has the best fit for a single
@@ -245,6 +253,10 @@
   <meta property="og:url" content={canonicalUrl} />
   <meta property="og:image" content={ogImage} />
   <meta property="og:image:alt" content={title} />
+  {#if ogImageHeight != null}
+    <meta property="og:image:width" content={String(OG_IMAGE_WIDTH)} />
+    <meta property="og:image:height" content={String(ogImageHeight)} />
+  {/if}
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />

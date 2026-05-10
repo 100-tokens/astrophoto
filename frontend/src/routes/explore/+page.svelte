@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -11,8 +12,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  // Track cursor for load-more closed over current filter state.
-  let cursor = $state<string | null>(data.initial.next_cursor);
+  // Track cursor for load-more closed over current filter state. Seed once
+  // from the SSR data; the $effect below resets it on filter navigation.
+  let cursor = $state<string | null>(untrack(() => data.initial.next_cursor));
   // Reset when data changes (navigation with new filter params).
   $effect(() => {
     cursor = data.initial.next_cursor;

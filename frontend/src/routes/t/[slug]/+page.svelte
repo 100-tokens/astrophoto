@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -15,29 +16,33 @@
   let { data }: { data: PageData } = $props();
 
   // ── SEO / GEO meta ─────────────────────────────────────────────
-  const target = data.initial.target;
-  const photoCount = Number(target.photo_count);
-  const contributorCount = Number(target.contributor_count);
-  const targetTitle = `${target.canonical_name} — Astrophoto`;
-  const targetDescription = `${photoCount} frame${photoCount === 1 ? '' : 's'} of ${target.canonical_name}${target.constellation ? ` in ${target.constellation}` : ''}, captured by ${contributorCount} astrophotographer${contributorCount === 1 ? '' : 's'} on Astrophoto.`;
-  const targetCanonical = `${page.url.origin}/t/${encodeURIComponent(target.slug)}`;
-  const targetJsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    '@id': targetCanonical,
-    name: target.canonical_name,
-    description: targetDescription,
-    url: targetCanonical,
-    about: {
-      '@type': 'Thing',
+  let target = $derived(data.initial.target);
+  let photoCount = $derived(Number(target.photo_count));
+  let contributorCount = $derived(Number(target.contributor_count));
+  let targetTitle = $derived(`${target.canonical_name} — Astrophoto`);
+  let targetDescription = $derived(
+    `${photoCount} frame${photoCount === 1 ? '' : 's'} of ${target.canonical_name}${target.constellation ? ` in ${target.constellation}` : ''}, captured by ${contributorCount} astrophotographer${contributorCount === 1 ? '' : 's'} on Astrophoto.`
+  );
+  let targetCanonical = $derived(`${page.url.origin}/t/${encodeURIComponent(target.slug)}`);
+  let targetJsonLd = $derived(
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      '@id': targetCanonical,
       name: target.canonical_name,
-      ...(target.aliases?.length ? { alternateName: target.aliases } : {}),
-      ...(target.constellation ? { containedInPlace: target.constellation } : {})
-    },
-    numberOfItems: photoCount
-  }).replace(/</g, '\\u003c');
+      description: targetDescription,
+      url: targetCanonical,
+      about: {
+        '@type': 'Thing',
+        name: target.canonical_name,
+        ...(target.aliases?.length ? { alternateName: target.aliases } : {}),
+        ...(target.constellation ? { containedInPlace: target.constellation } : {})
+      },
+      numberOfItems: photoCount
+    }).replace(/</g, '\\u003c')
+  );
 
-  let cursor = $state<string | null>(data.initial.page.next_cursor);
+  let cursor = $state<string | null>(untrack(() => data.initial.page.next_cursor));
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });

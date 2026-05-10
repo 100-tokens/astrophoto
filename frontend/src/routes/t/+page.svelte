@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import TargetIndexCard from '$lib/components/discovery/TargetIndexCard.svelte';
@@ -8,9 +9,10 @@
 
   let { data }: { data: PageData } = $props();
 
-  let items = $state(data.initial.targets);
-  let cursor = $state(data.initial.next_cursor);
-  let q = $state(data.q ?? '');
+  // Seed once from SSR data; the $effect below re-syncs on navigation.
+  let items = $state(untrack(() => data.initial.targets));
+  let cursor = $state(untrack(() => data.initial.next_cursor));
+  let q = $state(untrack(() => data.q ?? ''));
   let qDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {

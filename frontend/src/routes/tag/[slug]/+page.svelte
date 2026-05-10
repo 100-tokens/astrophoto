@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -13,13 +14,15 @@
   let { data }: { data: PageData } = $props();
 
   // ── SEO meta ─────────────────────────────────────────────────
-  const tag = data.initial.tag;
-  const tagPhotos = Number(tag.photo_count);
-  const tagTitle = `#${tag.name} — Astrophoto`;
-  const tagDescription = `${tagPhotos} astrophotograph${tagPhotos === 1 ? '' : 's'} tagged #${tag.name} on Astrophoto.`;
-  const tagCanonical = `${page.url.origin}/tag/${encodeURIComponent(tag.slug)}`;
+  let tag = $derived(data.initial.tag);
+  let tagPhotos = $derived(Number(tag.photo_count));
+  let tagTitle = $derived(`#${tag.name} — Astrophoto`);
+  let tagDescription = $derived(
+    `${tagPhotos} astrophotograph${tagPhotos === 1 ? '' : 's'} tagged #${tag.name} on Astrophoto.`
+  );
+  let tagCanonical = $derived(`${page.url.origin}/tag/${encodeURIComponent(tag.slug)}`);
 
-  let cursor = $state<string | null>(data.initial.page.next_cursor);
+  let cursor = $state<string | null>(untrack(() => data.initial.page.next_cursor));
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });

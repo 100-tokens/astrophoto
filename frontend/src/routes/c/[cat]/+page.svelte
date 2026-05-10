@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -13,13 +14,17 @@
   let { data }: { data: PageData } = $props();
 
   // ── SEO meta ─────────────────────────────────────────────────
-  const cat = data.initial.category;
-  const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
-  const catTitle = `${catLabel} — Astrophoto`;
-  const catDescription = `Browse ${catLabel.toLowerCase()} astrophotography on Astrophoto — frames from amateur astrophotographers worldwide, with target catalogue ids and full capture metadata.`;
-  const catCanonical = `${page.url.origin}/c/${encodeURIComponent(cat)}`;
+  // Derived (not const) so navigating between categories updates the head
+  // without remounting the page. page.url.origin is reactive too.
+  let cat = $derived(data.initial.category);
+  let catLabel = $derived(cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
+  let catTitle = $derived(`${catLabel} — Astrophoto`);
+  let catDescription = $derived(
+    `Browse ${catLabel.toLowerCase()} astrophotography on Astrophoto — frames from amateur astrophotographers worldwide, with target catalogue ids and full capture metadata.`
+  );
+  let catCanonical = $derived(`${page.url.origin}/c/${encodeURIComponent(cat)}`);
 
-  let cursor = $state<string | null>(data.initial.page.next_cursor);
+  let cursor = $state<string | null>(untrack(() => data.initial.page.next_cursor));
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });

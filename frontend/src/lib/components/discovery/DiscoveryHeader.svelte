@@ -294,14 +294,6 @@
     margin: 0;
   }
 
-  .stat-accent {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--accent);
-    margin: 6px 0 0 0;
-  }
-
   /* Sub-stat (tag/category/search) */
   .sub-stat {
     font-family: var(--font-mono);

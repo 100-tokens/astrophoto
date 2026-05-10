@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { LocationSummary } from '$lib/api/LocationSummary';
   import BortleLadder from './BortleLadder.svelte';
 
@@ -10,8 +11,8 @@
     onCommit: (patch: { location: LocationSummary }) => Promise<void>;
   } = $props();
 
-  let local = $state<LocationSummary>($state.snapshot(location));
-  let saved = $state<LocationSummary>($state.snapshot(location));
+  let local = $state<LocationSummary>(untrack(() => $state.snapshot(location)));
+  let saved = $state<LocationSummary>(untrack(() => $state.snapshot(location)));
 
   function changed(): boolean {
     return JSON.stringify(saved) !== JSON.stringify(local);

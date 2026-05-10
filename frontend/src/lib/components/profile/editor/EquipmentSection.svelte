@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { EquipmentSummary } from '$lib/api/EquipmentSummary';
   import EquipmentAutocomplete from '$lib/components/EquipmentAutocomplete.svelte';
 
@@ -14,13 +15,14 @@
   // mirror because writing it inside an $effect that also reads it caused
   // Svelte's effect_update_depth_exceeded bail-out (which silently killed
   // the EquipmentAutocomplete's own effect, so no suggestions ever fetched).
-  let scope = $state<string>(equipment.telescope ?? '');
-  let camera = $state<string>(equipment.camera ?? '');
-  let mount = $state<string>(equipment.mount ?? '');
-  let filters = $state<string>(equipment.filters ?? '');
-  let guiding = $state<string>(equipment.guiding ?? '');
+  // untrack() declares the prop read is a one-time seed.
+  let scope = $state<string>(untrack(() => equipment.telescope ?? ''));
+  let camera = $state<string>(untrack(() => equipment.camera ?? ''));
+  let mount = $state<string>(untrack(() => equipment.mount ?? ''));
+  let filters = $state<string>(untrack(() => equipment.filters ?? ''));
+  let guiding = $state<string>(untrack(() => equipment.guiding ?? ''));
 
-  let saved = $state<EquipmentSummary>($state.snapshot(equipment));
+  let saved = $state<EquipmentSummary>(untrack(() => $state.snapshot(equipment)));
 
   function norm(s: string): string | null {
     const t = s.trim();

@@ -65,6 +65,14 @@
   <meta name="twitter:title" content="Astrophoto — A quiet archive of the night sky" />
   <meta name="twitter:description" content={homeDescription} />
 
+  <!-- Auto-discovery for feed readers (NetNewsWire / Feedly / Inoreach) -->
+  <link
+    rel="alternate"
+    type="application/rss+xml"
+    title="Astrophoto — recent frames"
+    href="/rss.xml"
+  />
+
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html `<script type="application/ld+json">${siteJsonLd}</script>`}
 </svelte:head>
