@@ -53,7 +53,10 @@
   };
   const fmtHours = (s: number | bigint | undefined): string => {
     if (s == null) return '—';
-    const h = Math.round(Number(s) / 3600);
+    const total = Number(s);
+    if (total < 60) return `${total} s`;
+    if (total < 3600) return `${Math.round(total / 60)} m`;
+    const h = Math.round(total / 3600);
     return `${h.toLocaleString('en-US')} h`;
   };
 
