@@ -17,12 +17,18 @@
     thumbSrc?: string;
   }
 
+  interface SiteStats {
+    practitioners: number | bigint;
+    frames: number | bigint;
+    integration_seconds: number | bigint;
+  }
   interface PageData {
     heroPhoto: HeroPhoto;
     heroSrc: string | undefined;
     photos: GalleryPhoto[];
     isReal: boolean;
     following_count: number;
+    stats: SiteStats | null;
     user?: { id: string } | null;
   }
 
@@ -31,6 +37,25 @@
   const HEIGHTS = [320, 480, 380, 280, 540, 320, 420, 380, 340, 460, 300, 400];
 
   const FILTERS = ['All', 'Galaxies', 'Nebulae', 'Solar System', 'Wide field', 'Lunar'];
+
+  // Today's date for the anonymous-eyebrow line. Computed at SSR — the
+  // render time is the most accurate "today" the visitor will see.
+  const todayLine = new Date()
+    .toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' })
+    .replace(/^(\w+) (.+)$/, (_, weekday, rest) => `${rest} · ${weekday}`)
+    .toUpperCase();
+
+  // Stats helpers — fall back to design-spec placeholders when the API
+  // hasn't responded (offline / first-paint of an empty site).
+  const fmtCount = (n: number | bigint | undefined): string => {
+    if (n == null) return '—';
+    return Number(n).toLocaleString('en-US');
+  };
+  const fmtHours = (s: number | bigint | undefined): string => {
+    if (s == null) return '—';
+    const h = Math.round(Number(s) / 3600);
+    return `${h.toLocaleString('en-US')} h`;
+  };
 
   // ── SEO / GEO meta ─────────────────────────────────────────────
   // Hard-coded JSON-LD covers the WebSite + SearchAction (the box-search
@@ -90,7 +115,7 @@
           {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
         </span>
       {:else}
-        <span class="t-eyebrow">● 14 March 2026 · Friday</span>
+        <span class="t-eyebrow">● {todayLine}</span>
       {/if}
     </div>
 
@@ -113,13 +138,13 @@
 
     <div class="hero-stats">
       <div>
-        <span class="stat-num">2,847</span><br />practitioners
+        <span class="stat-num">{fmtCount(data.stats?.practitioners)}</span><br />practitioners
       </div>
       <div>
-        <span class="stat-num">14,209</span><br />frames
+        <span class="stat-num">{fmtCount(data.stats?.frames)}</span><br />frames
       </div>
       <div>
-        <span class="stat-num">11,420 h</span><br />integration
+        <span class="stat-num">{fmtHours(data.stats?.integration_seconds)}</span><br />integration
       </div>
     </div>
   </div>

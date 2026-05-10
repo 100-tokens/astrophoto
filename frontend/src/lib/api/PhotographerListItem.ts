@@ -5,12 +5,4 @@
  * a tile (name + handle + cover photo) plus the headline stats users
  * sort against (frames, followers, integration).
  */
-export type PhotographerListItem = {
-  handle: string;
-  display_name: string;
-  frame_count: bigint;
-  follower_count: bigint;
-  integration_seconds: bigint;
-  cover_photo_id: string | null;
-  member_since_year: number;
-};
+export type PhotographerListItem = { handle: string, display_name: string, frame_count: bigint, follower_count: bigint, integration_seconds: bigint, cover_photo_id: string | null, member_since_year: number, };

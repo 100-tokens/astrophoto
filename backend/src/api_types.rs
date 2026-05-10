@@ -61,6 +61,16 @@ pub struct PhotographerIndexPage {
     pub next_cursor: Option<String>,
 }
 
+/// Global counts for the home-page hero band. Cached aggressively at
+/// the CDN edge; the numbers move slowly (an upload changes one).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SiteStats.ts")]
+pub struct SiteStats {
+    pub practitioners: i64,
+    pub frames: i64,
+    pub integration_seconds: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "StorageSummary.ts")]
 pub struct StorageSummary {

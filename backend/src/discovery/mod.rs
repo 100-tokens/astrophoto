@@ -4,6 +4,7 @@ pub mod equipment;
 pub mod explore;
 pub mod photographer_index;
 pub mod search;
+pub mod site_stats;
 pub mod tag;
 pub mod target;
 pub mod target_index;

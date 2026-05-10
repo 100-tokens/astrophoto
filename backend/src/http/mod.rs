@@ -279,6 +279,10 @@ pub fn router(
             axum::routing::get(crate::discovery::photographer_index::list),
         )
         .route(
+            "/api/site/stats",
+            axum::routing::get(crate::discovery::site_stats::get),
+        )
+        .route(
             "/api/targets/:slug",
             axum::routing::get(crate::discovery::target::get),
         )
