@@ -39,6 +39,28 @@ pub struct AuthError {
     pub message: String,
 }
 
+/// Single row in the /api/photographers index. Has just enough to render
+/// a tile (name + handle + cover photo) plus the headline stats users
+/// sort against (frames, followers, integration).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PhotographerListItem.ts")]
+pub struct PhotographerListItem {
+    pub handle: String,
+    pub display_name: String,
+    pub frame_count: i64,
+    pub follower_count: i64,
+    pub integration_seconds: i64,
+    pub cover_photo_id: Option<String>,
+    pub member_since_year: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PhotographerIndexPage.ts")]
+pub struct PhotographerIndexPage {
+    pub items: Vec<PhotographerListItem>,
+    pub next_cursor: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "StorageSummary.ts")]
 pub struct StorageSummary {

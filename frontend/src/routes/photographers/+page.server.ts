@@ -1,11 +1,18 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import type { PhotographerIndexPage } from '$lib/api/PhotographerIndexPage';
 
-// /photographers is in the header nav per the design but no dedicated screen
-// exists in the showcase spec yet. Redirect to /explore which is the closest
-// match — a feed of all published frames across photographers. When a real
-// /photographers index page (leaderboards, alphabetical list, etc.) is built,
-// drop this redirect.
-export const load: PageServerLoad = async () => {
-  redirect(307, '/explore');
+const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
+
+const VALID_SORTS = new Set(['active', 'followers', 'recent']);
+
+export const load: PageServerLoad = async ({ url, fetch }) => {
+  const sort = VALID_SORTS.has(url.searchParams.get('sort') ?? '')
+    ? (url.searchParams.get('sort') as 'active' | 'followers' | 'recent')
+    : 'active';
+
+  const r = await fetch(`${API}/api/photographers?sort=${sort}&limit=24`);
+  let initial: PhotographerIndexPage = { items: [], next_cursor: null };
+  if (r.ok) initial = (await r.json()) as PhotographerIndexPage;
+
+  return { sort, initial };
 };
