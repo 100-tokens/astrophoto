@@ -18,11 +18,27 @@
 
   let { data }: PageProps = $props();
   const TIER_MAX = $derived(data.tier === 'subscriber' ? 200 * 1024 * 1024 : 50 * 1024 * 1024);
+  // Design caps the queue at 12 files at once (showcase-p1.jsx:108).
+  // Server enforces the same limit per upload-init batch.
+  const MAX_QUEUE = 12;
 
   type Slot = FileSlot & { clientId: string; thumbDataUrl?: string; progress: SlotProgress };
   let slots = $state<Slot[]>([]);
   let showUpgrade = $state(false);
+  let queueCapWarning = $state<string | null>(null);
   let nextId = 0;
+
+  function fmtBytes(n: number): string {
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  }
+  let storagePct = $derived.by(() => {
+    if (!data.storage) return 0;
+    const quota = Number(data.storage.quota_bytes);
+    if (quota === 0) return 0;
+    return Math.round((Number(data.storage.used_bytes) / quota) * 100);
+  });
 
   const handles = new Map<string, SlotHandle>();
   const pump = new Pump({
@@ -41,6 +57,19 @@
   }
 
   async function onFiles(files: File[]) {
+    // 12-file cap matches both the design and the upload-init server check.
+    // Truncate silently rather than reject the whole batch so a 13-file drag
+    // still gets the first 12 onto the queue.
+    queueCapWarning = null;
+    const room = MAX_QUEUE - slots.length;
+    if (room <= 0) {
+      queueCapWarning = `Queue is full — ${MAX_QUEUE} files at a time. Verify or clear what's already here first.`;
+      return;
+    }
+    if (files.length > room) {
+      queueCapWarning = `Queue caps at ${MAX_QUEUE} files. Added the first ${room}, skipped the rest.`;
+      files = files.slice(0, room);
+    }
     for (const file of files) {
       if (file.size > TIER_MAX) {
         showUpgrade = true;
@@ -214,6 +243,10 @@
     {/if}
     <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
 
+    {#if queueCapWarning}
+      <p class="cap-warning t-meta">⚠ {queueCapWarning}</p>
+    {/if}
+
     {#if slots.length}
       <div class="file-list">
         <header class="queue-header">
@@ -239,8 +272,17 @@
       </div>
 
       <footer class="queue-footer">
-        <a href="/drafts" class="btn-ghost">Save & finish later</a>
-        <button
+        {#if data.storage}
+          <span class="storage-line t-meta">
+            STORAGE · {fmtBytes(Number(data.storage.used_bytes))} / {fmtBytes(
+              Number(data.storage.quota_bytes)
+            )} USED · {storagePct} %
+            &nbsp;·&nbsp; CHECKSUM DEDUP IS PER-OWNER
+          </span>
+        {/if}
+        <div class="footer-actions">
+          <a href="/drafts" class="btn-ghost">Save & finish later</a>
+          <button
           class="btn-primary"
           onclick={continueToBatch}
           disabled={readyIds.length === 0}
@@ -251,7 +293,8 @@
           {readyIds.length > 0
             ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
             : 'Verify ready frames →'}
-        </button>
+          </button>
+        </div>
       </footer>
     {/if}
   </section>
@@ -355,6 +398,20 @@
     justify-content: space-between;
     align-items: center;
     gap: 16px;
+    flex-wrap: wrap;
+  }
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+  }
+  .storage-line {
+    color: var(--fg-muted);
+  }
+  .cap-warning {
+    margin: 16px 0 0;
+    color: var(--warning, #c98a3a);
   }
   .btn-ghost {
     background: transparent;

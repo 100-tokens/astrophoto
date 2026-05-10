@@ -40,6 +40,19 @@ pub struct AuthError {
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "StorageSummary.ts")]
+pub struct StorageSummary {
+    /// Sum of `photos.bytes` for rows owned by the caller. Doesn't
+    /// include thumbnails or display masters.
+    pub used_bytes: i64,
+    /// Tier-derived ceiling, used by the upload page footer to render
+    /// "STORAGE · 1.84 / 5.00 GB USED". Soft signal only — per-file
+    /// size enforcement lives in the upload-init handler.
+    pub quota_bytes: i64,
+    pub tier: UserTier,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "UserPublic.ts")]
 pub struct UserPublic {
     pub id: String,

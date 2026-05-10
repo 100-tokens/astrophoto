@@ -204,6 +204,10 @@ pub fn router(
             axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put),
         )
         .route(
+            "/api/me/storage",
+            axum::routing::get(crate::users::storage::summary),
+        )
+        .route(
             "/api/me/sessions",
             axum::routing::get(crate::users::sessions::list),
         )

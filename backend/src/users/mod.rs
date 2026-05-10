@@ -15,6 +15,7 @@ pub mod redirect_lookup;
 pub mod sessions;
 pub mod social_links;
 pub mod stats;
+pub mod storage;
 
 use crate::api_types::{User, UserTier};
 use queries::UserRow;
