@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -11,6 +12,14 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // ── SEO meta ─────────────────────────────────────────────────
+  const eq = data.initial.equipment;
+  const eqPhotos = Number(eq.photo_count);
+  const eqLabel = `${eq.display_name} (${eq.kind})`;
+  const eqTitle = `${eqLabel} — Astrophoto`;
+  const eqDescription = `${eqPhotos} astrophotograph${eqPhotos === 1 ? '' : 's'} captured with a ${eq.display_name} on Astrophoto. See what amateur astrophotographers shoot with this ${eq.kind}.`;
+  const eqCanonical = `${page.url.origin}/equip/${encodeURIComponent(eq.kind)}/${encodeURIComponent(eq.slug)}`;
 
   let cursor = $state<string | null>(data.initial.page.next_cursor);
   $effect(() => {
@@ -52,6 +61,20 @@
 </script>
 
 <AppHeader />
+<svelte:head>
+  <title>{eqTitle}</title>
+  <meta name="description" content={eqDescription} />
+  <link rel="canonical" href={eqCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={eqTitle} />
+  <meta property="og:description" content={eqDescription} />
+  <meta property="og:url" content={eqCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={eqTitle} />
+  <meta name="twitter:description" content={eqDescription} />
+</svelte:head>
+
 <DiscoveryHeader variant="equipment" meta={data.initial.equipment} />
 <FilterPills
   variant="equipment"

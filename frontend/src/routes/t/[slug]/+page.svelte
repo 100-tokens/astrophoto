@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -12,6 +13,29 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // ── SEO / GEO meta ─────────────────────────────────────────────
+  const target = data.initial.target;
+  const photoCount = Number(target.photo_count);
+  const contributorCount = Number(target.contributor_count);
+  const targetTitle = `${target.canonical_name} — Astrophoto`;
+  const targetDescription = `${photoCount} frame${photoCount === 1 ? '' : 's'} of ${target.canonical_name}${target.constellation ? ` in ${target.constellation}` : ''}, captured by ${contributorCount} astrophotographer${contributorCount === 1 ? '' : 's'} on Astrophoto.`;
+  const targetCanonical = `${page.url.origin}/t/${encodeURIComponent(target.slug)}`;
+  const targetJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    '@id': targetCanonical,
+    name: target.canonical_name,
+    description: targetDescription,
+    url: targetCanonical,
+    about: {
+      '@type': 'Thing',
+      name: target.canonical_name,
+      ...(target.aliases?.length ? { alternateName: target.aliases } : {}),
+      ...(target.constellation ? { containedInPlace: target.constellation } : {})
+    },
+    numberOfItems: photoCount
+  }).replace(/</g, '\\u003c');
 
   let cursor = $state<string | null>(data.initial.page.next_cursor);
   $effect(() => {
@@ -48,6 +72,22 @@
 </script>
 
 <AppHeader active="Targets" />
+<svelte:head>
+  <title>{targetTitle}</title>
+  <meta name="description" content={targetDescription} />
+  <link rel="canonical" href={targetCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={targetTitle} />
+  <meta property="og:description" content={targetDescription} />
+  <meta property="og:url" content={targetCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={targetTitle} />
+  <meta name="twitter:description" content={targetDescription} />
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html `<script type="application/ld+json">${targetJsonLd}</script>`}
+</svelte:head>
+
 <DiscoveryHeader variant="target" meta={data.initial.target} />
 <AladinSkyMap
   ra={data.initial.target.right_ascension}

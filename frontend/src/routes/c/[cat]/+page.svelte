@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -10,6 +11,13 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // ── SEO meta ─────────────────────────────────────────────────
+  const cat = data.initial.category;
+  const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+  const catTitle = `${catLabel} — Astrophoto`;
+  const catDescription = `Browse ${catLabel.toLowerCase()} astrophotography on Astrophoto — frames from amateur astrophotographers worldwide, with target catalogue ids and full capture metadata.`;
+  const catCanonical = `${page.url.origin}/c/${encodeURIComponent(cat)}`;
 
   let cursor = $state<string | null>(data.initial.page.next_cursor);
   $effect(() => {
@@ -37,6 +45,20 @@
 </script>
 
 <AppHeader />
+<svelte:head>
+  <title>{catTitle}</title>
+  <meta name="description" content={catDescription} />
+  <link rel="canonical" href={catCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={catTitle} />
+  <meta property="og:description" content={catDescription} />
+  <meta property="og:url" content={catCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={catTitle} />
+  <meta name="twitter:description" content={catDescription} />
+</svelte:head>
+
 <DiscoveryHeader
   variant="category"
   category={data.initial.category}

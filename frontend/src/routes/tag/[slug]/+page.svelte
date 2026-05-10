@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -10,6 +11,13 @@
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  // ── SEO meta ─────────────────────────────────────────────────
+  const tag = data.initial.tag;
+  const tagPhotos = Number(tag.photo_count);
+  const tagTitle = `#${tag.name} — Astrophoto`;
+  const tagDescription = `${tagPhotos} astrophotograph${tagPhotos === 1 ? '' : 's'} tagged #${tag.name} on Astrophoto.`;
+  const tagCanonical = `${page.url.origin}/tag/${encodeURIComponent(tag.slug)}`;
 
   let cursor = $state<string | null>(data.initial.page.next_cursor);
   $effect(() => {
@@ -46,6 +54,20 @@
 </script>
 
 <AppHeader />
+<svelte:head>
+  <title>{tagTitle}</title>
+  <meta name="description" content={tagDescription} />
+  <link rel="canonical" href={tagCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={tagTitle} />
+  <meta property="og:description" content={tagDescription} />
+  <meta property="og:url" content={tagCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={tagTitle} />
+  <meta name="twitter:description" content={tagDescription} />
+</svelte:head>
+
 <DiscoveryHeader variant="tag" meta={data.initial.tag} />
 <FilterPills
   variant="tag"
