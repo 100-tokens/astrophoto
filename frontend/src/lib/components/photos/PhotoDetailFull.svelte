@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
@@ -125,10 +126,136 @@
     const decS = Math.round(((abs - decD) * 60 - decM) * 60);
     return `${raH}ʰ ${raM}ᵐ ${raS}ˢ · ${sign}${decD}° ${decM}′ ${decS}″`;
   }
+
+  // ── SEO / GEO meta ─────────────────────────────────────────────
+  const CDN_BASE: string = (import.meta.env.VITE_CDN_BASE_URL as string | undefined) ?? '';
+
+  // Description: 160-char-ish summary built from caption or composed from
+  // the acquisition record. Search engines truncate around 160; AI/LLMs
+  // read the lot.
+  let metaDescription = $derived.by(() => {
+    if (p.caption) return p.caption.slice(0, 280);
+    const bits = [
+      p.target ?? p.original_name,
+      p.exposure_s != null && p.sessions != null
+        ? `${formatDuration(p.exposure_s * p.sessions)} integration`
+        : null,
+      p.camera ? `shot on ${p.camera}` : null,
+      `by @${data.handle}`
+    ].filter(Boolean);
+    return bits.join(' · ');
+  });
+
+  // Always render the absolute /u/<handle>/p/<short_id> form as canonical
+  // even when reached via a /photo/<uuid> redirect or alias.
+  let canonicalUrl = $derived(
+    `${page.url.origin}/u/${encodeURIComponent(data.handle)}/p/${p.short_id}`
+  );
+
+  // Display master at 1200 px makes a good rich-unfurl preview without
+  // blowing the social-card weight budget. The CDN handles the resize.
+  let ogImage = $derived(
+    CDN_BASE
+      ? `${CDN_BASE}/img/${p.id}?w=1200`
+      : `${page.url.origin}/api/photos/${p.id}/thumb/1200`
+  );
+
+  // schema.org Photograph — the structured data search engines and AI
+  // crawlers actually consume. Photograph has the best fit for a single
+  // astrophotograph; we attach the photographer as creator (Person) and
+  // surface the target name + capture metadata as keywords/exif so a
+  // query like "M31 18-hour integration" surfaces this URL.
+  let jsonLd = $derived.by(() => {
+    const integrationSeconds = p.exposure_s != null && p.sessions != null
+      ? p.exposure_s * p.sessions
+      : null;
+    const keywords = [
+      p.target,
+      ...(p.tags ?? []),
+      p.camera,
+      p.lens,
+      p.target ? 'astrophotography' : null
+    ].filter(Boolean);
+    const obj: Record<string, unknown> = {
+      '@context': 'https://schema.org',
+      '@type': 'Photograph',
+      '@id': canonicalUrl,
+      name: title,
+      description: metaDescription,
+      url: canonicalUrl,
+      contentUrl: ogImage,
+      thumbnailUrl: ogImage,
+      datePublished: p.created_at,
+      keywords: keywords.join(', '),
+      creator: {
+        '@type': 'Person',
+        name: `@${data.handle}`,
+        url: `${page.url.origin}/u/${data.handle}`
+      },
+      copyrightHolder: {
+        '@type': 'Person',
+        url: `${page.url.origin}/u/${data.handle}`
+      },
+      width: p.width,
+      height: p.height,
+      // EXIF subset — schema.org doesn't have a first-class astrophoto
+      // type, so we use additionalProperty for capture metadata.
+      additionalProperty: [
+        p.iso != null ? { '@type': 'PropertyValue', name: 'iso', value: p.iso } : null,
+        p.exposure_s != null
+          ? { '@type': 'PropertyValue', name: 'exposureSeconds', value: p.exposure_s }
+          : null,
+        p.focal_mm != null
+          ? { '@type': 'PropertyValue', name: 'focalLengthMm', value: p.focal_mm }
+          : null,
+        p.aperture_f != null
+          ? { '@type': 'PropertyValue', name: 'apertureFNumber', value: p.aperture_f }
+          : null,
+        integrationSeconds != null
+          ? {
+              '@type': 'PropertyValue',
+              name: 'totalIntegrationSeconds',
+              value: integrationSeconds
+            }
+          : null,
+        p.target ? { '@type': 'PropertyValue', name: 'target', value: p.target } : null,
+        p.ra_deg != null ? { '@type': 'PropertyValue', name: 'rightAscensionDeg', value: p.ra_deg } : null,
+        p.dec_deg != null
+          ? { '@type': 'PropertyValue', name: 'declinationDeg', value: p.dec_deg }
+          : null
+      ].filter(Boolean)
+    };
+    if (p.target) {
+      obj.about = { '@type': 'Thing', name: p.target };
+    }
+    return JSON.stringify(obj).replace(/</g, '\\u003c');
+  });
 </script>
 
 <svelte:head>
   <title>{title} — Astrophoto</title>
+  <meta name="description" content={metaDescription} />
+  <link rel="canonical" href={canonicalUrl} />
+
+  <!-- Open Graph for rich link unfurls (Slack/Discord/Bluesky/etc.) -->
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={`${title} — Astrophoto`} />
+  <meta property="og:description" content={metaDescription} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImage} />
+  <meta property="og:image:alt" content={title} />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={`${title} — Astrophoto`} />
+  <meta name="twitter:description" content={metaDescription} />
+  <meta name="twitter:image" content={ogImage} />
+
+  <!-- schema.org Photograph + ImageObject + Person — the structured data
+       AI engines and Google Image actually consume. -->
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>
 
 <AppHeader />

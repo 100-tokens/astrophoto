@@ -31,7 +31,43 @@
   const HEIGHTS = [320, 480, 380, 280, 540, 320, 420, 380, 340, 460, 300, 400];
 
   const FILTERS = ['All', 'Galaxies', 'Nebulae', 'Solar System', 'Wide field', 'Lunar'];
+
+  // ── SEO / GEO meta ─────────────────────────────────────────────
+  // Hard-coded JSON-LD covers the WebSite + SearchAction (the box-search
+  // affordance Google's homepage rich result reads from). Description is
+  // brand-safe + duplicates the hero copy so social unfurls match the
+  // landing page copy users see.
+  const homeDescription =
+    'A quiet archive of the night sky, kept by amateur astrophotographers. Every published frame carries its full record — target, equipment, sky.';
+  const siteJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Astrophoto',
+    description: homeDescription,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: '/?q={query}' },
+      'query-input': 'required name=query'
+    }
+  }).replace(/</g, '\\u003c');
 </script>
+
+<svelte:head>
+  <title>Astrophoto — A quiet archive of the night sky</title>
+  <meta name="description" content={homeDescription} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content="Astrophoto — A quiet archive of the night sky" />
+  <meta property="og:description" content={homeDescription} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Astrophoto — A quiet archive of the night sky" />
+  <meta name="twitter:description" content={homeDescription} />
+
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html `<script type="application/ld+json">${siteJsonLd}</script>`}
+</svelte:head>
 
 <AppHeader active="Gallery" />
 
