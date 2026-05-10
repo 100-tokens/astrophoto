@@ -111,7 +111,9 @@
     </nav>
   {/if}
 
-  <VerifyPane photo={data.photo} initialTags={data.photo.tags ?? []} autosave={true} />
+  {#key data.photo.id}
+    <VerifyPane photo={data.photo} initialTags={data.photo.tags ?? []} autosave={true} />
+  {/key}
 
   {#if form?.error}<p class="err">{form.error}</p>{/if}
 

@@ -141,6 +141,8 @@
       bind:this={inputEl}
       bind:value={query}
       type="search"
+      name="q"
+      id="global-search"
       class="search-input"
       placeholder="search the archive…"
       autocomplete="off"

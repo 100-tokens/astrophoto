@@ -232,7 +232,11 @@
         {#if data.tier !== 'subscriber'}
           <p class="tier-note">
             Subscribers upload up to 200 MB.
-            <a href="/settings" class="tier-upgrade">Upgrade →</a>
+            <button
+              type="button"
+              class="tier-upgrade"
+              onclick={() => (showUpgrade = true)}>Upgrade →</button
+            >
           </p>
         {/if}
       </aside>
@@ -351,8 +355,13 @@
     line-height: 1.55;
   }
   .tier-upgrade {
+    background: transparent;
+    border: 0;
+    padding: 0;
     color: var(--accent);
+    font: inherit;
     text-decoration: underline;
+    cursor: pointer;
   }
   .tier-upgrade:hover {
     text-decoration: none;

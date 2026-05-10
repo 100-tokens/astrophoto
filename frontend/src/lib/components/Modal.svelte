@@ -61,14 +61,15 @@
 </script>
 
 {#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div
+  <button
+    type="button"
     class="modal-overlay"
+    aria-label="Close"
     onclick={() => {
       open = false;
       onclose?.();
     }}
-  ></div>
+  ></button>
   <div
     class="modal-dialog"
     role="dialog"
@@ -89,6 +90,12 @@
     inset: 0;
     background: var(--bg-overlay);
     z-index: 50;
+    /* Reset native button chrome — we use the button element purely so
+       the click + keyboard behaviour and a11y semantics come for free. */
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: default;
   }
   .modal-dialog {
     position: fixed;

@@ -86,18 +86,6 @@
     gap: 6px;
     margin-bottom: 12px;
   }
-  .field span {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--fg-muted);
-  }
-  .field input {
-    background: var(--bg-canvas);
-    border: 1px solid var(--border-subtle);
-    color: var(--fg-primary);
-    padding: 8px 10px;
-    font-size: 14px;
-  }
   .hint {
     margin: 0 0 12px;
     color: var(--fg-muted);
