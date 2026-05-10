@@ -4,7 +4,10 @@
 
 <div class="banner" role="status">
   <span class="dot">●</span>
-  <span class="label">VIEWING YOUR OWN PROFILE · OWNER MODE</span>
+  <span class="label">
+    <span class="label-full">VIEWING YOUR OWN PROFILE · OWNER MODE</span>
+    <span class="label-short">OWNER MODE</span>
+  </span>
   <button type="button" class="btn-edit" onclick={onEdit}>Edit profile</button>
 </div>
 
@@ -26,6 +29,20 @@
   }
   .label {
     flex: 1;
+    min-width: 0;
+  }
+  .label-short {
+    display: none;
+  }
+  /* On narrow viewports the long phrase wraps to two lines next to the
+     Edit profile button. Swap to a shorter phrase under 640 px. */
+  @media (max-width: 640px) {
+    .label-full {
+      display: none;
+    }
+    .label-short {
+      display: inline;
+    }
   }
   .btn-edit {
     background: var(--accent);

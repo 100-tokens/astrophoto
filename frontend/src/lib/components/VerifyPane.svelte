@@ -390,6 +390,9 @@
     justify-content: space-between;
     gap: 16px;
     color: var(--fg-muted);
+    /* Allow filename and size+dims to stack on narrow widths instead of
+       hiding behind one another via space-between truncation. */
+    flex-wrap: wrap;
   }
   .preview-caption .filename {
     font-family: var(--font-mono);
