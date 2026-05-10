@@ -3,6 +3,7 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
+  import CommentThread from '$lib/components/photos/CommentThread.svelte';
   import type { PhotoDetail } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
@@ -212,6 +213,12 @@
           </tbody>
         </table>
       {/if}
+
+      <CommentThread
+        photoId={p.id}
+        photoOwnerId={p.owner_id}
+        initialCount={Number(p.comment_count)}
+      />
 
       {#if data.morePhotos.length > 0}
         <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
