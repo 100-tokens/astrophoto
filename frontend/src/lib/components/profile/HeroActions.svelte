@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import FollowButton from '$lib/components/FollowButton.svelte';
 
   let {
@@ -10,13 +11,17 @@
     isOwner: boolean;
     onEditProfile: () => void;
   } = $props();
+
+  let initialFollowing = $derived(
+    page.data.user?.following_ids?.includes(targetUserId) ?? false
+  );
 </script>
 
 <div class="actions">
   {#if isOwner}
     <button type="button" class="btn-primary" onclick={onEditProfile}>Edit profile</button>
   {:else}
-    <FollowButton userId={targetUserId} initialFollowing={false} />
+    <FollowButton userId={targetUserId} {initialFollowing} />
   {/if}
 </div>
 
