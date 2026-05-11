@@ -1,10 +1,12 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { invalidateAll } from '$app/navigation';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentThread from '$lib/components/photos/CommentThread.svelte';
+  import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
   import type { PhotoDetail } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
@@ -34,10 +36,12 @@
   let { data }: { data: PageData } = $props();
   let p = $derived(data.photo);
 
-  // Owner mode — Camille viewing her own M42 photo gets the Edit + Delete
-  // affordances. Anyone else just sees the read-only action row.
+  // Owner mode — Camille viewing her own M42 photo gets the Edit /
+  // Replace / Delete affordances. Anyone else just sees the read-only
+  // action row.
   let viewer = $derived(page.data.user);
   let isOwner = $derived(viewer != null && viewer.id === p.owner_id);
+  let replaceOpen = $state(false);
 
   async function deletePhoto() {
     if (!confirm(`Delete "${title}"? This removes the photo permanently and cannot be undone.`)) {
@@ -358,6 +362,11 @@
         {#if isOwner}
           <span class="action-divider" aria-hidden="true">·</span>
           <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick={() => (replaceOpen = true)}>↻ Replace</button
+          >
           <button type="button" class="btn btn-ghost btn-sm action-delete" onclick={deletePhoto}
             >× Delete</button
           >
@@ -404,6 +413,17 @@
     </div>
   </aside>
 </article>
+
+{#if isOwner}
+  <ReplaceModal
+    bind:open={replaceOpen}
+    photoId={p.id}
+    onreplaced={() => {
+      replaceOpen = false;
+      void invalidateAll();
+    }}
+  />
+{/if}
 
 <AppFooter />
 
