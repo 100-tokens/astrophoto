@@ -34,6 +34,31 @@
   let { data }: { data: PageData } = $props();
   let p = $derived(data.photo);
 
+  // Owner mode — Camille viewing her own M42 photo gets the Edit + Delete
+  // affordances. Anyone else just sees the read-only action row.
+  let viewer = $derived(page.data.user);
+  let isOwner = $derived(viewer != null && viewer.id === p.owner_id);
+
+  async function deletePhoto() {
+    if (!confirm(`Delete "${title}"? This removes the photo permanently and cannot be undone.`)) {
+      return;
+    }
+    try {
+      const r = await fetch(`/api/photos/${p.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!r.ok) {
+        alert(`Delete failed: ${r.status}`);
+        return;
+      }
+      // Land back on the photographer's profile after delete.
+      window.location.href = `/u/${data.handle}`;
+    } catch (e) {
+      alert(`Delete failed: ${(e as Error).message}`);
+    }
+  }
+
   // Title treatment per showcase-p2 ScreenLightbox: split target on first
   // whitespace if it parses as "<catalog-id> <common-name>" so the catalog
   // id renders as italic display, and the common name follows. Otherwise
@@ -330,6 +355,13 @@
         <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
           >↗ Share</button
         >
+        {#if isOwner}
+          <span class="action-divider" aria-hidden="true">·</span>
+          <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
+          <button type="button" class="btn btn-ghost btn-sm action-delete" onclick={deletePhoto}
+            >× Delete</button
+          >
+        {/if}
       </div>
 
       {#if acquisitionRows.length > 0}
@@ -508,6 +540,15 @@
     padding: 3px 8px;
   }
 
+  .action-divider {
+    color: var(--fg-faint);
+    align-self: center;
+    margin: 0 4px;
+  }
+  .action-delete:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
   .actions {
     display: flex;
     gap: 8px;
