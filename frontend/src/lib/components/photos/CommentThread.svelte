@@ -8,9 +8,12 @@
     photoId: string;
     photoOwnerId: string;
     initialCount: number;
+    /** Fires whenever count changes from inside the thread so the parent can
+        keep its own header/action-row label in sync. Optional. */
+    oncountchange?: (n: number) => void;
   }
 
-  let { photoId, photoOwnerId, initialCount }: Props = $props();
+  let { photoId, photoOwnerId, initialCount, oncountchange }: Props = $props();
 
   let comments = $state<Comment[] | null>(null);
   let loadError = $state<string | null>(null);
@@ -18,6 +21,10 @@
   let posting = $state(false);
   let postError = $state<string | null>(null);
   let count = $state(untrack(() => initialCount));
+
+  $effect(() => {
+    oncountchange?.(count);
+  });
 
   let viewer = $derived(page.data.user);
   let isOwner = $derived(viewer?.id === photoOwnerId);

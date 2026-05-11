@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { page } from '$app/state';
   import { invalidateAll } from '$app/navigation';
   import AppHeader from '$lib/components/AppHeader.svelte';
@@ -45,6 +46,15 @@
   let replaceOpen = $state(false);
   let deleteOpen = $state(false);
   let deleteError = $state<string | null>(null);
+
+  // Live comment count — seeded from p.comment_count, then driven by the
+  // CommentThread's oncountchange callback so the action-row label stays in
+  // sync with optimistic post/delete inside the thread. Re-seeds on
+  // navigation when p.comment_count changes (different photo).
+  let liveCommentCount = $state(untrack(() => Number(p.comment_count)));
+  $effect(() => {
+    liveCommentCount = Number(p.comment_count);
+  });
 
   async function performDelete() {
     deleteError = null;
@@ -363,7 +373,7 @@
       <div class="actions">
         <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
         <a class="btn btn-ghost btn-sm" href="#comments"
-          >{p.comment_count} comment{Number(p.comment_count) === 1 ? '' : 's'}</a
+          >{liveCommentCount} comment{liveCommentCount === 1 ? '' : 's'}</a
         >
         <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
           >↗ Share</button
@@ -410,6 +420,7 @@
         photoId={p.id}
         photoOwnerId={p.owner_id}
         initialCount={Number(p.comment_count)}
+        oncountchange={(n) => (liveCommentCount = n)}
       />
 
       {#if data.morePhotos.length > 0}
