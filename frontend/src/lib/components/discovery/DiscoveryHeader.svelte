@@ -96,11 +96,13 @@
     <div class="stat-block">
       <div class="stat">
         <div class="stat-n stat-n-accent">{fmt(meta.photo_count)}</div>
-        <div class="stat-l">PUBLISHED FRAMES</div>
+        <div class="stat-l">PUBLISHED {Number(meta.photo_count) === 1 ? 'FRAME' : 'FRAMES'}</div>
       </div>
       <div class="stat">
         <div class="stat-n">{fmt(meta.contributor_count)}</div>
-        <div class="stat-l">CONTRIBUTORS</div>
+        <div class="stat-l">
+          {Number(meta.contributor_count) === 1 ? 'CONTRIBUTOR' : 'CONTRIBUTORS'}
+        </div>
       </div>
     </div>
   </section>
