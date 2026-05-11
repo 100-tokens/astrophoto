@@ -63,7 +63,20 @@
 
   // FilterPills category prop: must not pass undefined with exactOptionalPropertyTypes.
   let pillCategory = $derived(data.category as string | undefined);
+
+  let pageTitle = $derived(
+    data.category
+      ? `Explore · ${data.category.replace('_', ' ')} — Astrophoto`
+      : 'Explore — Astrophoto'
+  );
+  const pageDescription =
+    'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+</svelte:head>
 
 <AppHeader />
 <DiscoveryHeader variant="explore" photoCount={data.initial.photos.length} />

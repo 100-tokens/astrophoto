@@ -213,6 +213,11 @@
   }
 </script>
 
+<svelte:head>
+  <title>Upload — Astrophoto</title>
+  <meta name="robots" content="noindex, nofollow" />
+</svelte:head>
+
 <AppHeader active="Gallery" />
 
 <TierUpgradeModal bind:open={showUpgrade} />
