@@ -146,8 +146,13 @@
     </p>
 
     <div class="hero-actions">
-      <Button variant="primary" size="lg" href="/signup">Open an account</Button>
-      <Button variant="secondary" size="lg">Browse the gallery →</Button>
+      {#if data.user}
+        <Button variant="primary" size="lg" href="/upload">Upload a frame →</Button>
+        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+      {:else}
+        <Button variant="primary" size="lg" href="/signup">Open an account</Button>
+        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+      {/if}
     </div>
 
     <div class="hero-stats">
