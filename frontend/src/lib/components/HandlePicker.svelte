@@ -57,6 +57,7 @@
     class="input input-mono hp-input"
     autocomplete="username"
     spellcheck="false"
+    required
     minlength="3"
     maxlength="30"
     pattern="[a-z0-9_-]+"
