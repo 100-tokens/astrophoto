@@ -6,13 +6,12 @@
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
 
-  let { form }: PageProps = $props();
+  let { data, form }: PageProps = $props();
 
-  // Backend OAuth endpoint lives on the API host (different origin in
-  // split-origin staging deploys). The browser does a top-level navigation
-  // so CORS doesn't apply — the response is a 302 to Google.
-  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
-  const googleOauthUrl = `${API_BASE}/api/auth/oauth/google/start`;
+  // Backend OAuth endpoint URL is composed server-side (load) since
+  // import.meta.env.VITE_* isn't reliably exposed to the client in this
+  // build pipeline — Koyeb sets BACKEND_URL at runtime instead.
+  let googleOauthUrl = $derived(data.googleOauthUrl);
 </script>
 
 <svelte:head>

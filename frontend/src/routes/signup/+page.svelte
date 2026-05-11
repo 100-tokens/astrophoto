@@ -5,7 +5,7 @@
   import Input from '$lib/components/Input.svelte';
   import HandlePicker from '$lib/components/HandlePicker.svelte';
 
-  let { form }: PageProps = $props();
+  let { data, form }: PageProps = $props();
 
   // Preserve handle across server-side error round-trips.
   // $derived keeps this reactive when `form` changes after a server action.
@@ -14,10 +14,9 @@
     if (form?.handle !== undefined) handle = form.handle;
   });
 
-  // Backend OAuth endpoint lives on the API host (different origin in
-  // split-origin staging deploys). Top-level navigation, no CORS.
-  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
-  const googleOauthUrl = `${API_BASE}/api/auth/oauth/google/start`;
+  // Backend OAuth endpoint composed server-side and passed via PageData
+  // (see signin/+page.server.ts for the rationale).
+  let googleOauthUrl = $derived(data.googleOauthUrl);
 </script>
 
 <svelte:head>

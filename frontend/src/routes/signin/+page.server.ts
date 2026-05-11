@@ -1,11 +1,17 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-const API = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+// Resolve the public backend origin at server-runtime. Koyeb staging sets
+// BACKEND_URL but build-time VITE_API_BASE_URL isn't visible to client
+// bundles, so the OAuth button needs the URL plumbed through PageData.
+const API =
+  process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (locals.user) throw redirect(303, '/');
-  return {};
+  return {
+    googleOauthUrl: `${API}/api/auth/oauth/google/start`
+  };
 };
 
 export const actions: Actions = {
