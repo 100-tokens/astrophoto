@@ -18,6 +18,9 @@ pub struct User {
     pub id: String,
     pub email: String,
     pub display_name: String,
+    /// URL handle — used to build /u/<handle> profile URLs from the
+    /// session user without a second round-trip to look it up.
+    pub handle: String,
     pub created_at: String,
     pub following_ids: Vec<String>,
     pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled

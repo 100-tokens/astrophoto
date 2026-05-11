@@ -5,6 +5,7 @@ declare global {
         id: string;
         email: string;
         displayName: string;
+        handle: string;
         following_ids: string[];
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';
@@ -16,6 +17,7 @@ declare global {
         id: string;
         email: string;
         displayName: string;
+        handle: string;
         following_ids: string[];
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';

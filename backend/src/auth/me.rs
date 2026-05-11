@@ -35,6 +35,7 @@ pub async fn handler(
         id: user.id.to_string(),
         email: user.email,
         display_name: user.display_name,
+        handle: user.handle,
         created_at: user.created_at.to_rfc3339(),
         following_ids,
         pending_deletion_at: row

@@ -26,6 +26,7 @@ impl From<UserRow> for User {
             id: r.id.to_string(),
             email: r.email,
             display_name: r.display_name,
+            handle: r.handle,
             created_at: r.created_at.to_rfc3339(),
             following_ids: vec![],
             pending_deletion_at: None,

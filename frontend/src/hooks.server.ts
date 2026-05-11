@@ -37,6 +37,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         id: user.id,
         email: user.email,
         displayName: user.display_name,
+        handle: user.handle,
         following_ids: user.following_ids ?? [],
         pending_deletion_at: user.pending_deletion_at ?? null,
         tier: user.tier ?? 'free'
