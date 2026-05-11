@@ -51,7 +51,9 @@
             {t.slug.toUpperCase()}
           </span>
           <span class="item-name">{t.canonical_name}</span>
-          <span class="item-meta">{Number(t.photo_count)} PHOTOS</span>
+          <span class="item-meta"
+            >{Number(t.photo_count)} {Number(t.photo_count) === 1 ? 'PHOTO' : 'PHOTOS'}</span
+          >
         </button>
       {/each}
     </div>

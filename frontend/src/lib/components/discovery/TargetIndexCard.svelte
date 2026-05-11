@@ -2,6 +2,7 @@
   import type { TargetListItem } from '$lib/api/TargetListItem';
   import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
   import { cdn } from '$lib/cdn';
+  import { pluralize } from '$lib/util/pluralize';
 
   interface Props {
     target: TargetListItem;
@@ -27,7 +28,7 @@
     {#if target.constellation}
       · {constellationLabel(target.constellation)}{/if}
   </p>
-  <p class="count">{String(target.photo_count)} photos</p>
+  <p class="count">{pluralize(target.photo_count, 'photo')}</p>
 </a>
 
 <style>
