@@ -36,7 +36,18 @@
 
   const HEIGHTS = [320, 480, 380, 280, 540, 320, 420, 380, 340, 460, 300, 400];
 
-  const FILTERS = ['All', 'Galaxies', 'Nebulae', 'Solar System', 'Wide field', 'Lunar'];
+  // Categories mirror the verify-form CategorySegmented enum. "All" goes
+  // to /explore (gallery feed, no filter), each other pill goes to the
+  // corresponding /c/<slug> index page.
+  const CATEGORIES: Array<{ label: string; href: string }> = [
+    { label: 'All', href: '/explore' },
+    { label: 'DSO', href: '/c/dso' },
+    { label: 'Planetary', href: '/c/planetary' },
+    { label: 'Lunar', href: '/c/lunar' },
+    { label: 'Solar', href: '/c/solar' },
+    { label: 'Wide field', href: '/c/wide-field' },
+    { label: 'Nightscape', href: '/c/nightscape' }
+  ];
 
   // Today's date for the anonymous-eyebrow line. Computed at SSR — the
   // render time is the most accurate "today" the visitor will see.
@@ -170,9 +181,14 @@
 				   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent);"
     ></div>
 
-    <!-- Frame of the week tag -->
+    <!-- Featured tag — drops the "of the week" lie when we don't have
+         a real weekly-curation mechanism. For logged-in users with
+         follows it's the latest from someone they follow; for everyone
+         else it's just the newest published frame. -->
     <div class="fotw-tag">
-      <div style="color: var(--accent)">FRAME OF THE WEEK</div>
+      <div style="color: var(--accent)">
+        {data.user && data.following_count > 0 ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
+      </div>
       {#if data.isReal}
         <div style="color: var(--fg-primary)">
           <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
@@ -187,24 +203,29 @@
   </div>
 </section>
 
-<!-- Filter bar -->
+<!-- Filter bar — pills route to the per-category index pages so the
+     home doubles as a category-shortcut bar. Sort / view toggles
+     deferred to the /explore page where cursor-based pagination lives
+     and toggles actually drive query state. -->
 <section class="filter-bar">
   <div class="filter-chips">
-    {#each FILTERS as label, i}
-      <button class={i === 0 ? 'chip chip-accent' : 'chip'} style="height: 28px; padding: 0 12px;">
+    {#each CATEGORIES as { label, href }, i}
+      <a
+        {href}
+        class={i === 0 ? 'chip chip-accent' : 'chip'}
+        style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; text-decoration: none;"
+      >
         {label}
-      </button>
+      </a>
     {/each}
   </div>
-  <div class="filter-right">
-    <span class="t-label">SORT</span>
-    <button class="chip">Newest first ▾</button>
-    <span class="t-label" style="margin-left: 12px;">VIEW</span>
-    <div class="view-toggle">
-      <button class="view-btn active" aria-pressed="true" aria-label="Grid view">▦</button>
-      <button class="view-btn" aria-pressed="false" aria-label="List view">≡</button>
-    </div>
-  </div>
+  <a
+    href="/explore"
+    class="filter-right t-label"
+    style="text-decoration: none; color: var(--fg-secondary);"
+  >
+    SORT · VIEW · FILTERS →
+  </a>
 </section>
 
 <!-- Masonry grid -->
@@ -323,27 +344,6 @@
     display: flex;
     gap: 16px;
     align-items: center;
-  }
-
-  .view-toggle {
-    display: flex;
-    border: 1px solid var(--border-default);
-  }
-
-  .view-btn {
-    width: 32px;
-    height: 28px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--fg-muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-  }
-
-  .view-btn.active {
-    background: var(--bg-elevated);
-    color: var(--accent);
   }
 
   /* ── Masonry ──────────────────────────────────────────────── */
