@@ -9,10 +9,11 @@ use astrophoto::api_types::{
     CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse, EquipmentMeta,
     EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
     GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
-    PatchTargetsResponse, PhotoDetail, Preferences, Profile, PublicProfile, PublishedItem,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SkipReason, SkippedItem, SocialLink,
-    PhotographerIndexPage, PhotographerListItem, SiteStats, SocialPlatform, StorageSummary, TagMeta, TagPage,
-    TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
+    PatchTargetsResponse, PhotoDetail, PhotographerIndexPage, PhotographerListItem, Preferences,
+    Profile, PublicProfile, PublishedItem, SearchResults, SearchTargetHit, SearchUserHit,
+    SessionRow, SiteStats, SkipReason, SkippedItem, SocialLink, SocialPlatform, StorageSummary,
+    TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb,
+    User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

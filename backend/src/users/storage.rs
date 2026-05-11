@@ -29,10 +29,9 @@ pub async fn summary(
     )
     .fetch_one(&state.pool)
     .await?;
-    let tier_str: String =
-        sqlx::query_scalar!(r#"select tier from users where id = $1"#, user.id)
-            .fetch_one(&state.pool)
-            .await?;
+    let tier_str: String = sqlx::query_scalar!(r#"select tier from users where id = $1"#, user.id)
+        .fetch_one(&state.pool)
+        .await?;
 
     let tier = match tier_str.as_str() {
         "subscriber" => UserTier::Subscriber,

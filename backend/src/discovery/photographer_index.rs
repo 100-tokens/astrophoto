@@ -65,7 +65,12 @@ impl From<Row> for PhotographerListItem {
             follower_count: r.follower_count,
             integration_seconds: r.integration_seconds,
             cover_photo_id: r.cover_photo_id.map(|id| id.to_string()),
-            member_since_year: r.created_at.format("%Y").to_string().parse().unwrap_or(2026),
+            member_since_year: r
+                .created_at
+                .format("%Y")
+                .to_string()
+                .parse()
+                .unwrap_or(2026),
         }
     }
 }

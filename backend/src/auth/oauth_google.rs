@@ -166,7 +166,18 @@ pub async fn callback(
         }
     );
 
-    let mut resp = Redirect::to("/").into_response();
+    // Land back on the frontend, not the backend's root. In split-origin
+    // deploys (Koyeb staging) the two are on different subdomains; without
+    // this, `Redirect::to("/")` would dump the user on the backend host.
+    // Falls back to relative "/" only when no CORS origin is configured —
+    // matches the dev convention of running everything on one origin.
+    let redirect_target = state
+        .config
+        .cors_origin
+        .as_deref()
+        .map(|o| format!("{}/", o.trim_end_matches('/')))
+        .unwrap_or_else(|| "/".to_string());
+    let mut resp = Redirect::to(&redirect_target).into_response();
     resp.headers_mut()
         .append("set-cookie", session_header.parse().unwrap());
     resp.headers_mut()

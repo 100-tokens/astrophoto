@@ -7,6 +7,12 @@
   import Input from '$lib/components/Input.svelte';
 
   let { form }: PageProps = $props();
+
+  // Backend OAuth endpoint lives on the API host (different origin in
+  // split-origin staging deploys). The browser does a top-level navigation
+  // so CORS doesn't apply — the response is a 302 to Google.
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+  const googleOauthUrl = `${API_BASE}/api/auth/oauth/google/start`;
 </script>
 
 <svelte:head>
@@ -55,7 +61,7 @@
 
       <!-- Google OAuth button -->
       <div style="margin-top: 40px;">
-        <Button variant="secondary" size="lg" class="full-width-btn">
+        <Button variant="secondary" size="lg" href={googleOauthUrl} class="full-width-btn">
           <svg
             width="16"
             height="16"
