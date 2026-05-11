@@ -104,7 +104,13 @@
         month: 'short',
         year: 'numeric'
       });
-      rows.push(row('Captured', d, p.sessions ? `${p.sessions} sessions` : undefined));
+      rows.push(
+        row(
+          'Captured',
+          d,
+          p.sessions ? `${p.sessions} session${p.sessions === 1 ? '' : 's'}` : undefined
+        )
+      );
     } else if (p.sessions != null) {
       rows.push(row('Sessions', String(p.sessions)));
     }
@@ -184,9 +190,7 @@
   // Display master at 1200 px makes a good rich-unfurl preview without
   // blowing the social-card weight budget. The CDN handles the resize.
   let ogImage = $derived(
-    CDN_BASE
-      ? `${CDN_BASE}/img/${p.id}?w=1200`
-      : `${page.url.origin}/api/photos/${p.id}/thumb/1200`
+    CDN_BASE ? `${CDN_BASE}/img/${p.id}?w=1200` : `${page.url.origin}/api/photos/${p.id}/thumb/1200`
   );
   // og:image:width/height must match what the URL actually serves, not
   // the original capture dims, or unfurl clients reflow on first paint.
@@ -203,9 +207,8 @@
   // surface the target name + capture metadata as keywords/exif so a
   // query like "M31 18-hour integration" surfaces this URL.
   let jsonLd = $derived.by(() => {
-    const integrationSeconds = p.exposure_s != null && p.sessions != null
-      ? p.exposure_s * p.sessions
-      : null;
+    const integrationSeconds =
+      p.exposure_s != null && p.sessions != null ? p.exposure_s * p.sessions : null;
     const keywords = [
       p.target,
       ...(p.tags ?? []),
@@ -256,7 +259,9 @@
             }
           : null,
         p.target ? { '@type': 'PropertyValue', name: 'target', value: p.target } : null,
-        p.ra_deg != null ? { '@type': 'PropertyValue', name: 'rightAscensionDeg', value: p.ra_deg } : null,
+        p.ra_deg != null
+          ? { '@type': 'PropertyValue', name: 'rightAscensionDeg', value: p.ra_deg }
+          : null,
         p.dec_deg != null
           ? { '@type': 'PropertyValue', name: 'declinationDeg', value: p.dec_deg }
           : null
@@ -355,17 +360,17 @@
 
       <div class="actions">
         <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
-        <a class="btn btn-ghost btn-sm" href="#comments">{p.comment_count} comments</a>
+        <a class="btn btn-ghost btn-sm" href="#comments"
+          >{p.comment_count} comment{Number(p.comment_count) === 1 ? '' : 's'}</a
+        >
         <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
           >↗ Share</button
         >
         {#if isOwner}
           <span class="action-divider" aria-hidden="true">·</span>
           <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm"
-            onclick={() => (replaceOpen = true)}>↻ Replace</button
+          <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
+            >↻ Replace</button
           >
           <button type="button" class="btn btn-ghost btn-sm action-delete" onclick={deletePhoto}
             >× Delete</button

@@ -32,7 +32,7 @@
     const bits = [
       `${frames} frame${frames === 1 ? '' : 's'}`,
       `${targets} target${targets === 1 ? '' : 's'}`,
-      followers > 0 ? `${followers} followers` : null
+      followers > 0 ? `${followers} follower${followers === 1 ? '' : 's'}` : null
     ].filter(Boolean);
     return `${p.display_name} (@${p.handle}) on Astrophoto — ${bits.join(' · ')}.`;
   });
