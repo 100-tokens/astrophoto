@@ -6,9 +6,16 @@
   function relative(iso: string): string {
     const dt = (Date.now() - new Date(iso).getTime()) / 1000;
     if (dt < 60) return 'just now';
-    if (dt < 3600) return `${Math.floor(dt / 60)} minutes ago`;
-    if (dt < 86400) return `${Math.floor(dt / 3600)} hours ago`;
-    return `${Math.floor(dt / 86400)} days ago`;
+    if (dt < 3600) {
+      const m = Math.floor(dt / 60);
+      return `${m} minute${m === 1 ? '' : 's'} ago`;
+    }
+    if (dt < 86400) {
+      const h = Math.floor(dt / 3600);
+      return `${h} hour${h === 1 ? '' : 's'} ago`;
+    }
+    const d = Math.floor(dt / 86400);
+    return `${d} day${d === 1 ? '' : 's'} ago`;
   }
 
   let otherCount = $derived(data.sessions.filter((s) => !s.is_current).length);

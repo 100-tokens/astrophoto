@@ -13,7 +13,7 @@
     }
     const days = Math.floor(left / 86_400_000);
     const hours = Math.floor((left % 86_400_000) / 3_600_000);
-    countdown = `${days} days, ${hours} hours`;
+    countdown = `${days} day${days === 1 ? '' : 's'}, ${hours} hour${hours === 1 ? '' : 's'}`;
   }
 
   $effect(() => {
@@ -28,7 +28,8 @@
     <span class="eyebrow">● ACCOUNT MARKED FOR DELETION</span>
     Permanent removal in <strong>{countdown}</strong>
     {#if data.frame_count !== null}
-      · {data.frame_count} frames will be erased{/if}
+      · {data.frame_count}
+      {data.frame_count === 1 ? 'frame' : 'frames'} will be erased{/if}
     <form method="POST" action="/settings/delete?/cancel" class="cancel-form">
       <button class="link-accent">Cancel deletion</button>
     </form>
