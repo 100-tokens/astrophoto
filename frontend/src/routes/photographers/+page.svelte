@@ -115,10 +115,8 @@
     <button class="pill" class:on={data.sort === 'active'} onclick={() => pickSort('active')}
       >Most active</button
     >
-    <button
-      class="pill"
-      class:on={data.sort === 'followers'}
-      onclick={() => pickSort('followers')}>Most followed</button
+    <button class="pill" class:on={data.sort === 'followers'} onclick={() => pickSort('followers')}
+      >Most followed</button
     >
     <button class="pill" class:on={data.sort === 'recent'} onclick={() => pickSort('recent')}
       >Newest</button
@@ -147,7 +145,9 @@
           <span>{formatHours(Number(p.integration_seconds))}</span><span>integration</span>
           {#if Number(p.follower_count) > 0}
             <span class="sep">·</span>
-            <span>{p.follower_count}</span><span>followers</span>
+            <span>{p.follower_count}</span><span
+              >follower{Number(p.follower_count) === 1 ? '' : 's'}</span
+            >
           {/if}
         </div>
       </div>
@@ -156,7 +156,9 @@
 </section>
 
 {#if items.length === 0}
-  <p class="empty t-meta">No photographers yet. Be the first to <a href="/upload">publish a frame</a>.</p>
+  <p class="empty t-meta">
+    No photographers yet. Be the first to <a href="/upload">publish a frame</a>.
+  </p>
 {/if}
 
 {#if cursor}

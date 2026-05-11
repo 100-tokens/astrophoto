@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   { loc: '/', changefreq: 'hourly', priority: 1.0 },
   { loc: '/explore', changefreq: 'hourly', priority: 0.9 },
   { loc: '/t', changefreq: 'daily', priority: 0.7 },
+  { loc: '/photographers', changefreq: 'daily', priority: 0.7 },
   { loc: '/about', changefreq: 'monthly', priority: 0.4 },
   { loc: '/terms', changefreq: 'yearly', priority: 0.3 },
   { loc: '/privacy', changefreq: 'yearly', priority: 0.3 },
