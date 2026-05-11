@@ -18,6 +18,11 @@ const STATIC_PATHS = [
   { loc: '/contact', changefreq: 'monthly', priority: 0.3 }
 ];
 
+// Enabled categories mirror backend/src/discovery/category.rs CATEGORIES,
+// minus the catch-all "other" which has no editorial value.
+// URLs use hyphens; the backend normalises hyphen↔underscore.
+const CATEGORY_SLUGS = ['dso', 'planetary', 'lunar', 'solar', 'wide-field', 'nightscape'];
+
 function escape(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -43,6 +48,14 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 
   for (const s of STATIC_PATHS) {
     urls.push({ loc: `${origin}${s.loc}`, changefreq: s.changefreq, priority: s.priority });
+  }
+
+  for (const slug of CATEGORY_SLUGS) {
+    urls.push({
+      loc: `${origin}/c/${slug}`,
+      changefreq: 'daily',
+      priority: 0.6
+    });
   }
 
   // Recent photos — re-use the public /api/explore endpoint. Fail soft so
