@@ -5,6 +5,7 @@
   import UploadFileRow from '$lib/components/UploadFileRow.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
   import TierUpgradeModal from '$lib/components/TierUpgradeModal.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import { preflight } from '$lib/upload/preflight';
   import {
     Pump,
@@ -136,10 +137,20 @@
       slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
   );
 
+  let clearQueueOpen = $state(false);
+  let cancelSlotOpen = $state(false);
+  let cancelSlotPending = $state<{ clientId: string; name: string; pct: number } | null>(null);
+
   function clearQueue() {
     if (slots.some((s) => s.progress.state === 'uploading')) {
-      if (!confirm('Cancel all in-flight uploads and clear the queue?')) return;
+      clearQueueOpen = true;
+      return;
     }
+    performClearQueue();
+  }
+
+  function performClearQueue() {
+    clearQueueOpen = false;
     for (const s of slots) {
       pump.cancel(s.clientId);
       const photoId = s.progress.photoId;
@@ -157,13 +168,20 @@
 
     // Confirm-on-cancel for in-flight uploads past 50%.
     if (slot.progress.state === 'uploading' && slot.progress.pct > 50) {
-      if (
-        !confirm(
-          `Cancel upload of ${slot.name}? ${Math.round(slot.progress.pct)}% complete will be lost.`
-        )
-      )
-        return;
+      cancelSlotPending = {
+        clientId,
+        name: slot.name,
+        pct: slot.progress.pct
+      };
+      cancelSlotOpen = true;
+      return;
     }
+    performCancelSlot(clientId);
+  }
+
+  function performCancelSlot(clientId: string) {
+    const slot = slots.find((s) => s.clientId === clientId);
+    if (!slot) return;
 
     pump.cancel(clientId); // triggers onCancel → abort.abort()
 
@@ -222,6 +240,30 @@
 
 <TierUpgradeModal bind:open={showUpgrade} />
 
+<ConfirmDialog
+  bind:open={clearQueueOpen}
+  title="Cancel uploads"
+  message="Cancel all in-flight uploads and clear the queue?"
+  confirmLabel="Cancel uploads"
+  tone="danger"
+  onconfirm={performClearQueue}
+/>
+
+<ConfirmDialog
+  bind:open={cancelSlotOpen}
+  title="Cancel upload"
+  message={cancelSlotPending
+    ? `Cancel upload of ${cancelSlotPending.name}? ${Math.round(cancelSlotPending.pct)}% complete will be lost.`
+    : ''}
+  confirmLabel="Cancel upload"
+  tone="danger"
+  onconfirm={() => {
+    if (cancelSlotPending) performCancelSlot(cancelSlotPending.clientId);
+    cancelSlotOpen = false;
+    cancelSlotPending = null;
+  }}
+/>
+
 <div class="upload-page">
   <!-- Page header -->
   <section class="page-header">
@@ -237,10 +279,8 @@
         {#if data.tier !== 'subscriber'}
           <p class="tier-note">
             Subscribers upload up to 200 MB.
-            <button
-              type="button"
-              class="tier-upgrade"
-              onclick={() => (showUpgrade = true)}>Upgrade →</button
+            <button type="button" class="tier-upgrade" onclick={() => (showUpgrade = true)}
+              >Upgrade →</button
             >
           </p>
         {/if}
@@ -290,23 +330,22 @@
           <span class="storage-line t-meta">
             STORAGE · {fmtBytes(Number(data.storage.used_bytes))} / {fmtBytes(
               Number(data.storage.quota_bytes)
-            )} USED · {storagePct} %
-            &nbsp;·&nbsp; CHECKSUM DEDUP IS PER-OWNER
+            )} USED · {storagePct} % &nbsp;·&nbsp; CHECKSUM DEDUP IS PER-OWNER
           </span>
         {/if}
         <div class="footer-actions">
           <a href="/drafts" class="btn-ghost">Save & finish later</a>
           <button
-          class="btn-primary"
-          onclick={continueToBatch}
-          disabled={readyIds.length === 0}
-          title={readyIds.length === 0
-            ? 'Wait for at least one upload to finish'
-            : `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'}`}
-        >
-          {readyIds.length > 0
-            ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
-            : 'Verify ready frames →'}
+            class="btn-primary"
+            onclick={continueToBatch}
+            disabled={readyIds.length === 0}
+            title={readyIds.length === 0
+              ? 'Wait for at least one upload to finish'
+              : `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'}`}
+          >
+            {readyIds.length > 0
+              ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
+              : 'Verify ready frames →'}
           </button>
         </div>
       </footer>

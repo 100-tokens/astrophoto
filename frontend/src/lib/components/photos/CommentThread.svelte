@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { page } from '$app/state';
   import { api, type Comment } from '$lib/api/client';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
   interface Props {
     photoId: string;
@@ -54,14 +55,26 @@
     }
   }
 
-  async function remove(commentId: string) {
-    if (!confirm('Delete this comment?')) return;
+  let deleteOpen = $state(false);
+  let deleteTargetId = $state<string | null>(null);
+
+  function askDelete(commentId: string) {
+    deleteTargetId = commentId;
+    deleteOpen = true;
+  }
+
+  async function performCommentDelete() {
+    const commentId = deleteTargetId;
+    if (!commentId) return;
     try {
       await api.comments.delete(commentId);
       comments = (comments ?? []).filter((c) => c.id !== commentId);
       count = Math.max(0, count - 1);
+      deleteOpen = false;
+      deleteTargetId = null;
     } catch (err) {
       postError = (err as Error).message;
+      deleteOpen = false;
     }
   }
 
@@ -110,7 +123,7 @@
             <span class="author">{c.author_display_name}</span>
             <span class="ts">{relTime(c.created_at)}</span>
             {#if canDelete(c)}
-              <button type="button" class="del" onclick={() => remove(c.id)} aria-label="Delete">
+              <button type="button" class="del" onclick={() => askDelete(c.id)} aria-label="Delete">
                 ×
               </button>
             {/if}
@@ -143,11 +156,19 @@
     </form>
   {:else}
     <p class="muted">
-      <a href="/signin?return={encodeURIComponent(page.url.pathname + '#comments')}">Sign in</a> to
-      comment.
+      <a href="/signin?return={encodeURIComponent(page.url.pathname + '#comments')}">Sign in</a> to comment.
     </p>
   {/if}
 </section>
+
+<ConfirmDialog
+  bind:open={deleteOpen}
+  title="Delete comment"
+  message="Delete this comment? This cannot be undone."
+  confirmLabel="Delete"
+  tone="danger"
+  onconfirm={performCommentDelete}
+/>
 
 <style>
   .thread {

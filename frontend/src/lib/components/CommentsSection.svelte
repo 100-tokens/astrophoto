@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import type { Comment } from '$lib/api/client';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
   interface Props {
     photoOwnerId: string;
@@ -36,8 +37,17 @@
     }
   }
 
-  async function deleteComment(commentId: string) {
-    if (!confirm('Delete this comment?')) return;
+  let deleteOpen = $state(false);
+  let deleteTargetId = $state<string | null>(null);
+
+  function askDeleteComment(commentId: string) {
+    deleteTargetId = commentId;
+    deleteOpen = true;
+  }
+
+  async function deleteComment() {
+    const commentId = deleteTargetId;
+    if (!commentId) return;
     const form = new FormData();
     form.append('id', commentId);
     const res = await fetch(`?/deleteComment`, {
@@ -47,6 +57,8 @@
     if (res.ok) {
       await invalidateAll();
     }
+    deleteOpen = false;
+    deleteTargetId = null;
   }
 
   function timeAgo(iso: string): string {
@@ -88,7 +100,9 @@
       </div>
       <p class="body">{c.body}</p>
       {#if canDelete(c)}
-        <button type="button" class="delete" onclick={() => deleteComment(c.id)}> Delete </button>
+        <button type="button" class="delete" onclick={() => askDeleteComment(c.id)}>
+          Delete
+        </button>
       {/if}
     </div>
   {/each}
@@ -117,6 +131,15 @@
     </p>
   {/if}
 </section>
+
+<ConfirmDialog
+  bind:open={deleteOpen}
+  title="Delete comment"
+  message="Delete this comment? This cannot be undone."
+  confirmLabel="Delete"
+  tone="danger"
+  onconfirm={deleteComment}
+/>
 
 <style>
   .comments {

@@ -2,6 +2,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/client';
   import type { DraftListItem } from '$lib/api/DraftListItem';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
   interface Props {
     draft: DraftListItem;
@@ -27,9 +28,11 @@
     goto(`/upload/${draft.id}/verify`);
   }
 
-  async function discard() {
-    if (!confirm('Discard this draft? This cannot be undone.')) return;
+  let discardOpen = $state(false);
+
+  async function performDiscard() {
     await api.photos.delete(draft.id);
+    discardOpen = false;
     await invalidateAll();
   }
 </script>
@@ -43,9 +46,18 @@
   </div>
   <div class="actions">
     <button type="button" class="btn-primary" onclick={resume}>Resume</button>
-    <button type="button" class="btn-ghost" onclick={discard}>Discard</button>
+    <button type="button" class="btn-ghost" onclick={() => (discardOpen = true)}>Discard</button>
   </div>
 </article>
+
+<ConfirmDialog
+  bind:open={discardOpen}
+  title="Discard draft"
+  message="Discard this draft? This cannot be undone."
+  confirmLabel="Discard"
+  tone="danger"
+  onconfirm={performDiscard}
+/>
 
 <style>
   .tile {

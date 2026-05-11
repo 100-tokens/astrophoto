@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import type { DraftListItem } from '$lib/api/DraftListItem';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
   interface Props {
     drafts: DraftListItem[];
@@ -30,13 +31,10 @@
     goto(`/upload/batch/edit?ids=${ids}`);
   }
 
-  async function discardAll() {
-    if (
-      !confirm(
-        `Discard ${drafts.length} draft${drafts.length > 1 ? 's' : ''}? This cannot be undone.`
-      )
-    )
-      return;
+  let discardOpen = $state(false);
+
+  async function performDiscardAll() {
+    discardOpen = false;
     dismissed = true;
     await Promise.all(
       drafts.map((d) => fetch(`/api/photos/${d.id}`, { method: 'DELETE', credentials: 'include' }))
@@ -52,11 +50,20 @@
     </div>
     <p class="banner-body">Continue verifying frames from {relTime}.</p>
     <div class="banner-actions">
-      <button type="button" class="btn-ghost" onclick={discardAll}>Discard</button>
+      <button type="button" class="btn-ghost" onclick={() => (discardOpen = true)}>Discard</button>
       <button type="button" class="btn-primary" onclick={resume}>Resume</button>
     </div>
   </div>
 {/if}
+
+<ConfirmDialog
+  bind:open={discardOpen}
+  title="Discard drafts"
+  message={`Discard ${drafts.length} draft${drafts.length === 1 ? '' : 's'}? This cannot be undone.`}
+  confirmLabel="Discard"
+  tone="danger"
+  onconfirm={performDiscardAll}
+/>
 
 <style>
   .banner {

@@ -7,6 +7,7 @@
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentThread from '$lib/components/photos/CommentThread.svelte';
   import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import type { PhotoDetail } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
@@ -42,24 +43,25 @@
   let viewer = $derived(page.data.user);
   let isOwner = $derived(viewer != null && viewer.id === p.owner_id);
   let replaceOpen = $state(false);
+  let deleteOpen = $state(false);
+  let deleteError = $state<string | null>(null);
 
-  async function deletePhoto() {
-    if (!confirm(`Delete "${title}"? This removes the photo permanently and cannot be undone.`)) {
-      return;
-    }
+  async function performDelete() {
+    deleteError = null;
     try {
       const r = await fetch(`/api/photos/${p.id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
       if (!r.ok) {
-        alert(`Delete failed: ${r.status}`);
+        deleteError = `Delete failed: ${r.status}`;
         return;
       }
+      deleteOpen = false;
       // Land back on the photographer's profile after delete.
       window.location.href = `/u/${data.handle}`;
     } catch (e) {
-      alert(`Delete failed: ${(e as Error).message}`);
+      deleteError = `Delete failed: ${(e as Error).message}`;
     }
   }
 
@@ -372,8 +374,13 @@
           <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
             >↻ Replace</button
           >
-          <button type="button" class="btn btn-ghost btn-sm action-delete" onclick={deletePhoto}
-            >× Delete</button
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm action-delete"
+            onclick={() => {
+              deleteError = null;
+              deleteOpen = true;
+            }}>× Delete</button
           >
         {/if}
       </div>
@@ -427,6 +434,15 @@
       replaceOpen = false;
       void invalidateAll();
     }}
+  />
+  <ConfirmDialog
+    bind:open={deleteOpen}
+    title="Delete photo"
+    message={deleteError ??
+      `Delete "${title}"? This removes the photo permanently and cannot be undone.`}
+    confirmLabel={deleteError ? 'Retry' : 'Delete'}
+    tone="danger"
+    onconfirm={performDelete}
   />
 {/if}
 
