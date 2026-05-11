@@ -50,6 +50,11 @@ pub async fn get(
     Path(cat): Path<String>,
     Query(q): Query<Q>,
 ) -> Result<impl IntoResponse, AppError> {
+    // Accept URL-friendly hyphenated form ("wide-field") in addition to
+    // the DB enum form ("wide_field"). The rest of the site uses hyphens
+    // for slugs (`/t/ngc-7000`, `/tag/foo-bar`), so the category page
+    // should too — internally we normalise to underscores.
+    let cat = cat.replace('-', "_");
     if !CATEGORIES.contains(&cat.as_str()) {
         return Err(AppError::not_found("category"));
     }
