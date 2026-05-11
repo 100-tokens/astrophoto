@@ -5,6 +5,7 @@
   import { pluralize } from '$lib/util/pluralize';
   import { formatRA, formatDec } from '$lib/utils/coords';
   import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
+  import { CATEGORY_LABELS } from '$lib/util/categoryLabel';
 
   type ExploreProps = { variant: 'explore'; photoCount?: number };
   type TargetProps = { variant: 'target'; meta: TargetMeta };
@@ -16,16 +17,6 @@
   type Props = ExploreProps | TargetProps | TagProps | EquipmentProps | CategoryProps | SearchProps;
 
   let props: Props = $props();
-
-  const CATEGORY_LABELS: Record<string, string> = {
-    dso: 'Deep-Sky Objects',
-    planetary: 'Planetary',
-    lunar: 'Lunar',
-    solar: 'Solar',
-    wide_field: 'Wide-field',
-    nightscape: 'Nightscape',
-    other: 'Other'
-  };
 
   const EQUIPMENT_KIND_LABELS: Record<string, string> = {
     telescope: 'Telescope',

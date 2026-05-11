@@ -9,6 +9,7 @@
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchCategoryPage } from '$lib/api/discoveryClient';
+  import { categoryLabel } from '$lib/util/categoryLabel';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -17,7 +18,7 @@
   // Derived (not const) so navigating between categories updates the head
   // without remounting the page. page.url.origin is reactive too.
   let cat = $derived(data.initial.category);
-  let catLabel = $derived(cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
+  let catLabel = $derived(categoryLabel(cat));
   let catTitle = $derived(`${catLabel} — Astrophoto`);
   let catDescription = $derived(
     `Browse ${catLabel.toLowerCase()} astrophotography on Astrophoto — frames from amateur astrophotographers worldwide, with target catalogue ids and full capture metadata.`

@@ -8,6 +8,7 @@
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchExplore } from '$lib/api/discoveryClient';
+  import { categoryLabel } from '$lib/util/categoryLabel';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -65,9 +66,7 @@
   let pillCategory = $derived(data.category as string | undefined);
 
   let pageTitle = $derived(
-    data.category
-      ? `Explore · ${data.category.replace('_', ' ')} — Astrophoto`
-      : 'Explore — Astrophoto'
+    data.category ? `Explore · ${categoryLabel(data.category)} — Astrophoto` : 'Explore — Astrophoto'
   );
   const pageDescription =
     'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';
