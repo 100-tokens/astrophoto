@@ -17,6 +17,95 @@
 
 ---
 
+## Execution status snapshot (2026-05-12)
+
+This plan was partially executed. The spec
+(`docs/superpowers/specs/2026-05-11-prod-deploy-design.md`, commit `04cb3bb`)
+is the up-to-date source of truth for the env-var contract and resource names —
+the tasks below were written before that reconciliation and use some names that
+no longer match. Cross-reference both when resuming.
+
+**Completed:**
+
+- Tasks 1, 2, 4, 5: S3 bucket, uploader IAM user, Lambda exec role
+  (`astrophoto-prod-lambda-exec`), prod Lambda function v1, versioned ARN.
+- Task 3: built Lambda artifact via `package.json` declaring
+  `@img/sharp-linux-x64` + `@img/sharp-libvips-linux-x64` as
+  `optionalDependencies` with `--cpu=x64 --os=linux --libc=glibc` (replaces
+  the runbook's older `npm install --cpu=x64 --os=linux` recipe, which
+  doesn't pull sharp 0.34's native binaries).
+- Task 6: ACM cert ARN `…certificate/e7dae259-cd30-4a73-bbe8-84fd87066972`,
+  SAN `*.astrophoto.pics`, `ISSUED`.
+- Task 7: ACM validation CNAMEs at Vercel + apex CAA exception
+  `0 issue "amazon.com"` (required — Vercel's default CAA only allows
+  pki.goog / sectigo.com / letsencrypt.org).
+- Task 8: prod-named OAC `E39LPBOJ8O5A0P` and cache policy
+  `b647e0f2-571a-4fe6-a216-3c80c401ab1f`.
+- Tasks 9–11: CloudFront `E2VJ1Z8AG66GHW` / `d3kygqa6csnltj.cloudfront.net`
+  `Deployed`. Bucket policy applied for OAC.
+- Task 12: Two Koyeb apps (`astrophoto-prod` + `astrophoto-prod-web`, NOT
+  one app with two services as the plan originally said), DB
+  `astrophoto-prod-pg` HEALTHY under `astrophoto-prod`.
+- New AWS work added mid-flight: Amazon SES setup
+  (domain identity for `astrophoto.pics`, 3 DKIM CNAMEs at Vercel,
+  IAM user `astrophoto-prod-ses-smtp` with inline `ses:SendRawEmail` +
+  `ses:SendEmail`, SMTP password derived via SigV4 HMAC). Account is
+  out of sandbox. Replaces the spec's original speculative
+  `prod_postmark_token`.
+- Task 14: 7 Koyeb secrets — `astrophoto-prod-db-url`,
+  `astrophoto-prod-s3-access-key`, `astrophoto-prod-s3-secret-key`,
+  `astrophoto-prod-smtp-username`, `astrophoto-prod-smtp-password`,
+  plus placeholder `astrophoto-prod-oauth-google-client-id` and
+  `astrophoto-prod-oauth-google-client-secret` (still placeholder values
+  pending Task 13).
+- Tasks 15–16: Backend service `840f7123` and frontend service `eabb1144`
+  both HEALTHY. Both built with `--git-no-deploy-on-push --git-branch main`
+  (no native `--git-tag-pattern` flag exists; tag-based promotion happens
+  via explicit `koyeb service redeploy --sha <tag-sha>` for now).
+  Backend reads env-var names from `backend/src/config.rs`:
+  `APP_OAUTH_GOOGLE_*` (not `APP_*_OAUTH_*`), `APP_S3_ACCESS_KEY` /
+  `APP_S3_SECRET_KEY` (not `AWS_ACCESS_KEY_ID`), `APP_PUBLIC_BASE_URL`
+  (not `APP_BASE_URL`), `APP_BIND` (not `PORT`). There is NO
+  `APP_SESSION_SIGNING_KEY` — sessions are DB-backed and opaque.
+- Task 18: Vercel DNS — CAA exception, ACM validation CNAMEs (2), SES
+  DKIM CNAMEs (3), `api`/`www`/`cdn` CNAMEs all in place. Apex was
+  briefly an ALIAS to Koyeb; reverted because Koyeb explicitly doesn't
+  support apex per their docs. Now the apex is owned by a tiny separate
+  Vercel project `astrophoto-apex-redirect` that 301-redirects
+  `astrophoto.pics/*` → `https://www.astrophoto.pics/*`.
+
+**Blocked:**
+
+- Task 19 — Koyeb custom-domain validation for `api.astrophoto.pics`
+  (domain id `2211d25a`) and `www.astrophoto.pics` (domain id `e6366943`)
+  keeps cycling PENDING → ERROR within ~2 minutes despite identical CNAME
+  target as the working `www.heartbit.ai` on the same org. Generic
+  Cloudflare 404 on `/.well-known/acme-challenge/*` suggests
+  Cloudflare-for-SaaS hostname state on Koyeb's side is stuck. Support
+  ticket text drafted at `/tmp/koyeb-support-ticket.md`. Do not refresh
+  the domains in the meantime — Koyeb's repeated refresh attempts likely
+  trigger Cloudflare rate-limiting and make the situation worse.
+
+**Still pending you:**
+
+- Task 13 — prod Google OAuth client (no API path, Cloud Console only).
+  Redirect URI must be `https://api.astrophoto.pics/api/auth/oauth/google/callback`
+  (matches the staging path, NOT the `/auth/google/callback` the original
+  spec/plan invented). Authorized JS origins: `https://astrophoto.pics`
+  and `https://www.astrophoto.pics`. After creating, update the two
+  placeholder Koyeb secrets via
+  `koyeb secrets update astrophoto-prod-oauth-google-client-id --value <id>` and
+  `koyeb secrets update astrophoto-prod-oauth-google-client-secret --value <secret>`,
+  then `koyeb service redeploy 840f7123` to pick up.
+
+**Destructive thing to keep in mind:** three xavyo custom domains were
+deleted to free Koyeb's 5-domain quota:
+`agentgateway.xavyo.net`, `app.xavyo.net`, `api.xavyo.net`. They no
+longer route to the xavyo apps (those apps now serve only on `*.koyeb.app`
+URLs). Re-attach via Koyeb dashboard if any of them need to come back.
+
+---
+
 ## Task 1: Create prod S3 bucket with public access blocked
 
 **Files:** None in repo. AWS state only.
