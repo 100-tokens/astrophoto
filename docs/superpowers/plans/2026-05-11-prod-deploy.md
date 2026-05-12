@@ -68,11 +68,13 @@ no longer match. Cross-reference both when resuming.
   (not `APP_BASE_URL`), `APP_BIND` (not `PORT`). There is NO
   `APP_SESSION_SIGNING_KEY` — sessions are DB-backed and opaque.
 - Task 18: Vercel DNS — CAA exception, ACM validation CNAMEs (2), SES
-  DKIM CNAMEs (3), `api`/`www`/`cdn` CNAMEs all in place. Apex was
-  briefly an ALIAS to Koyeb; reverted because Koyeb explicitly doesn't
-  support apex per their docs. Now the apex is owned by a tiny separate
-  Vercel project `astrophoto-apex-redirect` that 301-redirects
-  `astrophoto.pics/*` → `https://www.astrophoto.pics/*`.
+  DKIM CNAMEs (3), `api`/`www`/`cdn` CNAMEs all in place. Apex
+  routing is **not solved**: Koyeb doesn't support apex per their docs,
+  and the brief experiment with a `astrophoto-apex-redirect` Vercel
+  project was reverted to keep Vercel strictly as DNS-only. The apex
+  currently resolves to Vercel's default anycast (Vercel 404 page).
+  A proper apex → www redirect needs revisiting once the wider deploy
+  is unstuck.
 
 **Blocked:**
 
