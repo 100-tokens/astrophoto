@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        insert into users (email, handle, display_name, password_hash, password_changed_at)\n        values ($1, $2, $3, $4, now())\n        returning id, email::text as \"email!\", handle::text as \"handle!\", display_name, password_hash, created_at\n        ",
+  "query": "\n        insert into users (email, handle, display_name, password_hash, password_changed_at)\n        values ($1, $2, $3, $4, now())\n        returning id, email::text as \"email!\", handle::text as \"handle!\", display_name, password_hash, created_at, email_verified_at\n        ",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "created_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "email_verified_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -58,8 +63,9 @@
       null,
       false,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "496a6b0c45d94aa4d32e44c4e9b3c5c06504ef093c8473a449844c1d69ea39ae"
+  "hash": "49e3309dc049bd0a0641a919f71ec7e7858d2bc3ab902b1d52c406ff6ee25929"
 }
