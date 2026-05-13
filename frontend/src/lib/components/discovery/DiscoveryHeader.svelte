@@ -3,6 +3,9 @@
   import type { TagMeta } from '$lib/api/TagMeta';
   import type { EquipmentMeta } from '$lib/api/EquipmentMeta';
   import { pluralize } from '$lib/util/pluralize';
+  import { formatRA, formatDec } from '$lib/utils/coords';
+  import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
+  import { CATEGORY_LABELS } from '$lib/util/categoryLabel';
 
   type ExploreProps = { variant: 'explore'; photoCount?: number };
   type TargetProps = { variant: 'target'; meta: TargetMeta };
@@ -14,16 +17,6 @@
   type Props = ExploreProps | TargetProps | TagProps | EquipmentProps | CategoryProps | SearchProps;
 
   let props: Props = $props();
-
-  const CATEGORY_LABELS: Record<string, string> = {
-    dso: 'Deep-Sky Objects',
-    planetary: 'Planetary',
-    lunar: 'Lunar',
-    solar: 'Solar',
-    wide_field: 'Wide-field',
-    nightscape: 'Nightscape',
-    other: 'Other'
-  };
 
   const EQUIPMENT_KIND_LABELS: Record<string, string> = {
     telescope: 'Telescope',
@@ -54,6 +47,14 @@
   </section>
 {:else if props.variant === 'target'}
   {@const meta = props.meta}
+  {@const typeLabel = objectTypeLabel(meta.object_type)}
+  {@const constLabel = constellationLabel(meta.constellation)}
+  {@const raStr = meta.right_ascension !== null ? formatRA(meta.right_ascension) : ''}
+  {@const decStr = meta.declination !== null ? formatDec(meta.declination) : ''}
+  {@const sizeStr =
+    meta.major_axis_arcmin !== null && meta.minor_axis_arcmin !== null
+      ? `${meta.major_axis_arcmin.toFixed(0)}′ × ${meta.minor_axis_arcmin.toFixed(0)}′`
+      : ''}
   <section class="header header-target">
     <div class="header-left">
       <p class="eyebrow">● TARGET{meta.kind ? ` · ${meta.kind.toUpperCase()}` : ''}</p>
@@ -61,6 +62,20 @@
         <span class="target-slug">{meta.slug.toUpperCase()}</span>
         <h1 class="display">{meta.canonical_name}</h1>
       </div>
+      {#if typeLabel || constLabel || raStr || decStr}
+        <p class="meta-line">
+          {#if typeLabel}<span>{typeLabel}</span>{/if}
+          {#if constLabel}<span> · {constLabel}</span>{/if}
+          {#if raStr}<span> · RA {raStr}</span>{/if}
+          {#if decStr}<span> · Dec {decStr}</span>{/if}
+        </p>
+      {/if}
+      {#if meta.magnitude_v !== null || sizeStr}
+        <p class="meta-line meta-line-secondary">
+          {#if meta.magnitude_v !== null}<span>mag {meta.magnitude_v.toFixed(1)}</span>{/if}
+          {#if sizeStr}<span>{meta.magnitude_v !== null ? ' · ' : ''}{sizeStr}</span>{/if}
+        </p>
+      {/if}
       {#if meta.aliases.length > 0}
         <div class="aliases">
           <span class="chip">Also known as</span>
@@ -69,15 +84,25 @@
           {/each}
         </div>
       {/if}
+      <p class="data-attrib">
+        Catalog data:
+        <a href="https://github.com/mattiaverga/OpenNGC">OpenNGC by Mattia Verga and contributors</a
+        >
+        —
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY-SA 4.0</a>. Adapted to slug
+        format and merged with manual catalog seed.
+      </p>
     </div>
     <div class="stat-block">
       <div class="stat">
         <div class="stat-n stat-n-accent">{fmt(meta.photo_count)}</div>
-        <div class="stat-l">PUBLISHED FRAMES</div>
+        <div class="stat-l">PUBLISHED {Number(meta.photo_count) === 1 ? 'FRAME' : 'FRAMES'}</div>
       </div>
       <div class="stat">
         <div class="stat-n">{fmt(meta.contributor_count)}</div>
-        <div class="stat-l">CONTRIBUTORS</div>
+        <div class="stat-l">
+          {Number(meta.contributor_count) === 1 ? 'CONTRIBUTOR' : 'CONTRIBUTORS'}
+        </div>
       </div>
     </div>
   </section>
@@ -262,19 +287,31 @@
     margin: 0;
   }
 
-  .stat-accent {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    color: var(--accent);
-    margin: 6px 0 0 0;
-  }
-
   /* Sub-stat (tag/category/search) */
   .sub-stat {
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--fg-muted);
     margin: 8px 0 0 0;
+  }
+
+  /* Target astro meta lines */
+  .header-target .meta-line {
+    font-size: 0.9rem;
+    color: var(--fg-muted);
+    margin: 0.25rem 0;
+  }
+  .header-target .meta-line-secondary {
+    font-size: 0.85rem;
+  }
+  .header-target .data-attrib {
+    font-size: 0.75rem;
+    color: var(--fg-muted);
+    margin-top: 1rem;
+    opacity: 0.75;
+  }
+  .header-target .data-attrib a {
+    color: inherit;
+    text-decoration: underline;
   }
 </style>

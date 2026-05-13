@@ -40,12 +40,13 @@ fn config_for(url: &str) -> Config {
 }
 
 #[allow(clippy::unwrap_used)]
-async fn signup_and_get_cookie(app: &axum::Router, email: &str) -> String {
+async fn signup_and_get_cookie(app: &axum::Router, pool: &sqlx::PgPool, email: &str) -> String {
+    let handle = email.split('@').next().unwrap_or("user");
     let body = serde_json::json!({
         "email": email,
         "password": "verylongpassword",
         "display_name": "Test User",
-        "handle": email.split('@').next().unwrap_or("user")
+        "handle": handle
     });
     let resp = app
         .clone()
@@ -59,8 +60,34 @@ async fn signup_and_get_cookie(app: &axum::Router, email: &str) -> String {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201, "signup should succeed");
-    resp.headers()
+    assert_eq!(resp.status(), 202, "signup should succeed");
+
+    // Mark user verified so login works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    // Log in to get the session cookie.
+    let login_body = serde_json::json!({"email": email, "password": "verylongpassword"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup");
+    login_resp
+        .headers()
         .get("set-cookie")
         .unwrap()
         .to_str()
@@ -86,7 +113,7 @@ async fn upload_init_signs_url_and_dedups() {
         Arc::new(mailer),
     );
 
-    let cookie = signup_and_get_cookie(&app, "marie@example.com").await;
+    let cookie = signup_and_get_cookie(&app, &pool, "marie@example.com").await;
 
     // --- Happy path: one valid JPEG ----------------------------------------
     let body = serde_json::json!({

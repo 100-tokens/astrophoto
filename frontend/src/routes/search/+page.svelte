@@ -14,7 +14,25 @@
       ? data.initial.targets.length + data.initial.users.length + data.initial.photos.length
       : 0
   );
+
+  // ── SEO meta ─────────────────────────────────────────────────
+  let pageTitle = $derived(
+    data.q.trim() ? `Search · ${data.q} — Astrophoto` : 'Search — Astrophoto'
+  );
+  let pageDescription = $derived(
+    data.q.trim()
+      ? `${totalCount} result${totalCount === 1 ? '' : 's'} for "${data.q}" on Astrophoto — targets, photographers, photos.`
+      : 'Search Astrophoto — find targets (M, NGC, IC, Caldwell), photographers, and photos.'
+  );
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+  <!-- robots.txt allows /search; noindex per-page so we don't pollute
+       the search engine index with infinite query permutations. -->
+  <meta name="robots" content="noindex, follow" />
+</svelte:head>
 
 <AppHeader />
 

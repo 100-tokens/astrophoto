@@ -4,6 +4,7 @@
   import StarterKit from '@tiptap/starter-kit';
   import Link from '@tiptap/extension-link';
   import Underline from '@tiptap/extension-underline';
+  import PromptDialog from '$lib/components/PromptDialog.svelte';
 
   let {
     initial = '',
@@ -15,6 +16,7 @@
 
   let el: HTMLDivElement | null = $state(null);
   let editor: Editor | null = null;
+  let linkPromptOpen = $state(false);
   let dirty = $state(false);
   let saving = $state(false);
 
@@ -107,17 +109,23 @@
     <button type="button" onclick={toggle(() => editor?.chain().focus().toggleCode().run())}
       >&lt;&gt;</button
     >
-    <button
-      type="button"
-      onclick={() => {
-        const url = prompt('Link URL:');
-        if (url) editor?.chain().focus().setLink({ href: url }).run();
-      }}>🔗</button
-    >
+    <button type="button" onclick={() => (linkPromptOpen = true)}>🔗</button>
   </div>
   <div bind:this={el} class="editor-host"></div>
   {#if saving}<span class="saving">Saving…</span>{/if}
 </section>
+
+<PromptDialog
+  bind:open={linkPromptOpen}
+  title="Insert link"
+  placeholder="https://example.com"
+  type="url"
+  confirmLabel="Insert"
+  onconfirm={(url) => {
+    editor?.chain().focus().setLink({ href: url }).run();
+    linkPromptOpen = false;
+  }}
+/>
 
 <style>
   .about-editor {

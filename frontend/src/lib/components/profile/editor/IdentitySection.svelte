@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   let {
     displayName = '',
     tagline = null,
@@ -9,10 +11,12 @@
     onCommit: (patch: { display_name?: string; tagline?: string | null }) => Promise<void>;
   } = $props();
 
-  let localName = $state(displayName);
-  let localTag = $state(tagline ?? '');
-  let savedName = $state(displayName);
-  let savedTag = $state(tagline ?? '');
+  // Seed once from props at mount — the form draft is a snapshot, not a
+  // live mirror. untrack() tells Svelte 5 the read is intentional.
+  let localName = $state(untrack(() => displayName));
+  let localTag = $state(untrack(() => tagline ?? ''));
+  let savedName = $state(untrack(() => displayName));
+  let savedTag = $state(untrack(() => tagline ?? ''));
 
   async function commitName() {
     if (localName === savedName) return;

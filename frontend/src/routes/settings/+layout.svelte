@@ -14,7 +14,24 @@
   ];
 
   let active = $derived(page.url.pathname.split('/').pop() ?? 'profile');
+
+  // Per-section browser tab title. The layout drives this so every sub-page
+  // inherits a title without each one repeating <svelte:head>.
+  const TITLES: Record<string, string> = {
+    profile: 'Profile',
+    email: 'Email & Security',
+    password: 'Password',
+    appearance: 'Appearance',
+    sessions: 'Sessions',
+    delete: 'Delete account'
+  };
+  let pageTitle = $derived(`${TITLES[active] ?? 'Settings'} — Astrophoto`);
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="robots" content="noindex, nofollow" />
+</svelte:head>
 
 <AppHeader />
 

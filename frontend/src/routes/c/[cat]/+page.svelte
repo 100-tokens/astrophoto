@@ -1,5 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -7,11 +9,23 @@
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchCategoryPage } from '$lib/api/discoveryClient';
+  import { categoryLabel } from '$lib/util/categoryLabel';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 
-  let cursor = $state<string | null>(data.initial.page.next_cursor);
+  // ── SEO meta ─────────────────────────────────────────────────
+  // Derived (not const) so navigating between categories updates the head
+  // without remounting the page. page.url.origin is reactive too.
+  let cat = $derived(data.initial.category);
+  let catLabel = $derived(categoryLabel(cat));
+  let catTitle = $derived(`${catLabel} — Astrophoto`);
+  let catDescription = $derived(
+    `Browse ${catLabel.toLowerCase()} astrophotography on Astrophoto — frames from amateur astrophotographers worldwide, with target catalogue ids and full capture metadata.`
+  );
+  let catCanonical = $derived(`${page.url.origin}/c/${encodeURIComponent(cat)}`);
+
+  let cursor = $state<string | null>(untrack(() => data.initial.page.next_cursor));
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });
@@ -37,6 +51,20 @@
 </script>
 
 <AppHeader />
+<svelte:head>
+  <title>{catTitle}</title>
+  <meta name="description" content={catDescription} />
+  <link rel="canonical" href={catCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={catTitle} />
+  <meta property="og:description" content={catDescription} />
+  <meta property="og:url" content={catCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={catTitle} />
+  <meta name="twitter:description" content={catDescription} />
+</svelte:head>
+
 <DiscoveryHeader
   variant="category"
   category={data.initial.category}

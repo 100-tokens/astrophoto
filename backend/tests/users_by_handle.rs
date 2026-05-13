@@ -49,9 +49,10 @@ async fn read_json(body: axum::body::Body) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-// Helper: sign up a user and return the session cookie.
+// Helper: sign up a user, mark verified, log in, return the session cookie.
 async fn signup(
     app: axum::Router,
+    pool: &sqlx::PgPool,
     email: &str,
     handle: &str,
     display_name: &str,
@@ -74,8 +75,33 @@ async fn signup(
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201, "signup failed for {email}");
-    let cookie = resp
+    assert_eq!(resp.status(), 202, "signup failed for {email}");
+
+    // Mark user verified.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    // Log in to get a session cookie.
+    let login_body = serde_json::json!({"email": email, "password": "verylongpassword"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    let cookie = login_resp
         .headers()
         .get("set-cookie")
         .unwrap()
@@ -99,13 +125,13 @@ async fn by_handle_hit_returns_200_with_correct_shape() {
 
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
     let app = http::router(
-        pool,
+        pool.clone(),
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
     );
 
-    let (app, _) = signup(app, "nova@example.com", "nova", "Nova Star").await;
+    let (app, _) = signup(app, &pool, "nova@example.com", "nova", "Nova Star").await;
 
     let resp = app
         .oneshot(
@@ -184,14 +210,14 @@ async fn redirect_hit_returns_current_handle() {
 
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
     let app = http::router(
-        pool,
+        pool.clone(),
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
     );
 
     // Sign up as 'oldhandle', then rename to 'newhandle'.
-    let (app, cookie) = signup(app, "astro@example.com", "oldhandle", "Astro").await;
+    let (app, cookie) = signup(app, &pool, "astro@example.com", "oldhandle", "Astro").await;
 
     let rename_resp = app
         .clone()

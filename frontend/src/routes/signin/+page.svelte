@@ -6,7 +6,12 @@
   import Button from '$lib/components/Button.svelte';
   import Input from '$lib/components/Input.svelte';
 
-  let { form }: PageProps = $props();
+  let { data, form }: PageProps = $props();
+
+  // Backend OAuth endpoint URL is composed server-side (load) since
+  // import.meta.env.VITE_* isn't reliably exposed to the client in this
+  // build pipeline — Koyeb sets BACKEND_URL at runtime instead.
+  let googleOauthUrl = $derived(data.googleOauthUrl);
 </script>
 
 <svelte:head>
@@ -55,7 +60,7 @@
 
       <!-- Google OAuth button -->
       <div style="margin-top: 40px;">
-        <Button variant="secondary" size="lg" class="full-width-btn">
+        <Button variant="secondary" size="lg" href={googleOauthUrl} class="full-width-btn">
           <svg
             width="16"
             height="16"

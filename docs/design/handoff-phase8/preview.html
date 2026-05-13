@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Astrophoto — Phase 8 · Close the MVP</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="styles.css"/>
+  <style>body { background: #06050a; }</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="logos.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="phase8-settings.jsx"></script>
+  <script type="text/babel" src="phase8-screens.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const marks = window.AstroMarks;
+
+    function App() {
+      const Canvas = window.DesignCanvas;
+      const Section = window.DCSection;
+      const Artboard = window.DCArtboard;
+      return (
+        <Canvas
+          title="Astrophoto · Phase 8 — Close the MVP"
+          subtitle="Settings, password reset, 2FA, sessions, deletion, drafts, replace, polish · v0.8 · May 2026"
+        >
+          <Section
+            id="settings"
+            title="01 · Settings v2 — extended"
+            subtitle="Sectioned scroll with sticky left rail. Email & Security as the depth example: change email/password, 2FA status, sessions, deletion entry. Tabbed alternative shown for comparison."
+          >
+            <Artboard id="settings-extended" label="Settings · sectioned (recommended)" width={1440} height={2400}>
+              <window.ScreenSettingsExtended marks={marks}/>
+            </Artboard>
+            <Artboard id="settings-tabbed" label="Settings · tabbed alt" width={1440} height={1100}>
+              <window.ScreenSettingsTabbed marks={marks}/>
+            </Artboard>
+            <Artboard id="settings-deletion-banner" label="Settings · with 7-day deletion banner" width={1440} height={2440}>
+              <DeletionGraceWrapper marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="password"
+            title="02 · Password — reset & change"
+            subtitle="3-step public reset flow with plain-text email mockup, plus the in-settings change dialog. Strong-password meter, sign-out-other-sessions warning."
+          >
+            <Artboard id="reset-request" label="Reset · 01 request link" width={720} height={900}>
+              <window.ScreenResetRequest marks={marks}/>
+            </Artboard>
+            <Artboard id="reset-sent" label="Reset · 02 check email + email mockup" width={720} height={900}>
+              <window.ScreenResetSent marks={marks}/>
+            </Artboard>
+            <Artboard id="reset-set" label="Reset · 03 set new password" width={720} height={900}>
+              <window.ScreenResetSetNew marks={marks}/>
+            </Artboard>
+            <Artboard id="change-password" label="Change password · in-settings dialog" width={640} height={720}>
+              <window.ScreenChangePassword marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="twofa"
+            title="03 · Two-factor authentication"
+            subtitle="QR + manual secret + 6-digit verify, then 10 backup codes. Calm copy: what 2FA is, what to do if you lose your phone."
+          >
+            <Artboard id="2fa-setup" label="2FA · setup (QR + verify)" width={1080} height={880}>
+              <window.Screen2FASetup marks={marks}/>
+            </Artboard>
+            <Artboard id="2fa-backup" label="2FA · backup codes" width={1080} height={880}>
+              <window.Screen2FABackup marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="deletion"
+            title="04 · Account deletion"
+            subtitle="Hard delete after a 7-day grace period. Confirmation dialog forces typed phrase; banner across the app while pending; cancel by signing in."
+          >
+            <Artboard id="delete-confirm" label="Delete · confirmation dialog" width={640} height={780}>
+              <window.ScreenDeleteConfirm marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="myphotos"
+            title="05 · My photos v2 — drafts surfaced"
+            subtitle="Drafts get a warning-tinted callout at the top with resume actions, plus a chip in the table. Mobile breakpoint follows the same hierarchy."
+          >
+            <Artboard id="myphotos-v2" label="My photos · desktop · drafts surfaced" width={1440} height={1400}>
+              <window.ScreenMyPhotosV2 marks={marks}/>
+            </Artboard>
+            <Artboard id="myphotos-mobile" label="My photos · mobile (390)" width={390} height={844}>
+              <window.ScreenMyPhotosMobile marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="replace"
+            title="06 · Replace image"
+            subtitle="Modal as primary (lightweight, contextual), dedicated page as alternative for heavier reprocessing. Caption, comments, appreciations preserved."
+          >
+            <Artboard id="replace-modal" label="Replace · modal (recommended)" width={1080} height={780}>
+              <window.ScreenReplaceModal marks={marks}/>
+            </Artboard>
+            <Artboard id="replace-page" label="Replace · dedicated page alt" width={1440} height={1100}>
+              <window.ScreenReplacePage marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="polish"
+            title="07 · Polish 8.5 — copy & micro-components"
+            subtitle="Context-aware eyebrow, real follow toggle, untitled fallback with filename + chip, mobile sticky AppreciateButton with 44px hits."
+          >
+            <Artboard id="polish-all" label="Polish · 4 micro-fixes" width={1440} height={1500}>
+              <window.ScreenPolish marks={marks}/>
+            </Artboard>
+          </Section>
+        </Canvas>
+      );
+    }
+
+    function DeletionGraceWrapper({ marks }) {
+      // SettingsShell exposes deletionGrace flag; reuse via re-rendered version
+      const Shell = window.SettingsShell;
+      const Section = window.P8Section;
+      const Row = window.P8Row;
+      return (
+        <Shell active="DELETE ACCOUNT" marks={marks} deletionGrace>
+          <Section title="Account marked for deletion" desc="Your account will be permanently erased on 9 May 2026 at 22:14 UTC. Sign-in still works during the grace period — that's how you cancel." danger>
+            <div style={{ padding: 20, background: "var(--bg-danger-tint)", border: "1px solid var(--danger)" }}>
+              <div className="t-eyebrow" style={{ color: "var(--danger)" }}>● 6 DAYS, 14 HOURS REMAINING</div>
+              <p style={{ color: "var(--fg-secondary)", fontSize: 14, marginTop: 12, lineHeight: 1.6 }}>
+                Your archive is hidden from the public gallery. Comments and appreciations stay attached to your frames but show "[hidden]" until cancellation or final deletion.
+              </p>
+              <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
+                <button className="btn btn-primary">Cancel deletion · keep my account</button>
+                <button className="btn btn-secondary">Download my archive (ZIP)</button>
+              </div>
+            </div>
+          </Section>
+        </Shell>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

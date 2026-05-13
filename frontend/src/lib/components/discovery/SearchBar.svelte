@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { tick } from 'svelte';
   import { fetchSearch } from '$lib/api/discoveryClient';
   import type { SearchResults } from '$lib/api/SearchResults';
   import SuggestionsList from './SuggestionsList.svelte';
@@ -10,6 +11,21 @@
   let results = $state<SearchResults | null>(null);
   let focusedIdx = $state(-1);
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Mobile-only: when true the inline search-wrap takes over the viewport
+  // as a fullscreen overlay. Desktop ignores this state.
+  let mobileOpen = $state(false);
+
+  async function openMobile() {
+    mobileOpen = true;
+    await tick();
+    inputEl?.focus();
+  }
+  function closeMobile() {
+    mobileOpen = false;
+    query = '';
+    results = null;
+    focused = false;
+  }
 
   const EMPTY_RESULTS: SearchResults = { q: '', targets: [], users: [], photos: [] };
 
@@ -47,6 +63,7 @@
         inputEl?.blur();
         query = '';
         results = null;
+        if (mobileOpen) mobileOpen = false;
       }
       return;
     }
@@ -63,6 +80,7 @@
       focused = false;
       results = null;
       query = '';
+      if (mobileOpen) mobileOpen = false;
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (focusedIdx >= 0 && results) {
@@ -100,6 +118,7 @@
     results = null;
     query = '';
     inputEl?.blur();
+    if (mobileOpen) mobileOpen = false;
   }
 
   // Global ⌘K / Ctrl-K handler.
@@ -123,7 +142,37 @@
   });
 </script>
 
-<div class="search-wrap">
+<!-- Mobile-only icon trigger. Shown under 640 px; tapping opens the
+     fullscreen overlay below. -->
+<button
+  type="button"
+  class="search-trigger-mobile"
+  aria-label="Open search"
+  onclick={openMobile}
+>
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.4"
+    aria-hidden="true"
+  >
+    <circle cx="7" cy="7" r="5" />
+    <line x1="11" y1="11" x2="14" y2="14" />
+  </svg>
+</button>
+
+<div class="search-wrap" class:search-wrap-mobile-open={mobileOpen}>
+  {#if mobileOpen}
+    <button
+      type="button"
+      class="mobile-scrim"
+      aria-label="Close search"
+      onclick={closeMobile}
+    ></button>
+  {/if}
   <div class="search-box" class:search-box-focused={focused}>
     <svg
       width="12"
@@ -141,6 +190,8 @@
       bind:this={inputEl}
       bind:value={query}
       type="search"
+      name="q"
+      id="global-search"
       class="search-input"
       placeholder="search the archive…"
       autocomplete="off"
@@ -158,7 +209,9 @@
       oninput={handleInput}
       onkeydown={handleKeydown}
     />
-    {#if !focused || query.length === 0}
+    {#if mobileOpen}
+      <button type="button" class="mobile-close" aria-label="Close" onclick={closeMobile}>×</button>
+    {:else if !focused || query.length === 0}
       <span class="kbd-hint">⌘K</span>
     {/if}
   </div>
@@ -179,6 +232,77 @@
   .search-wrap {
     position: relative;
     width: 220px;
+  }
+
+  /* Mobile-only icon trigger — hidden on desktop, visible under 640 px
+     in place of the inline search box. */
+  .search-trigger-mobile {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    color: var(--fg-secondary);
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .search-trigger-mobile:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  @media (max-width: 640px) {
+    /* Default: inline box hidden, icon trigger shown. */
+    .search-wrap {
+      display: none;
+    }
+    .search-trigger-mobile {
+      display: inline-flex;
+    }
+    /* Tap-to-open: search-wrap becomes a fullscreen overlay anchored
+       to the top so the on-screen keyboard appears below the input. */
+    .search-wrap.search-wrap-mobile-open {
+      display: block;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      z-index: 1000;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .search-wrap.search-wrap-mobile-open .search-box {
+      height: 44px;
+      font-size: 14px;
+    }
+    .search-wrap.search-wrap-mobile-open .search-input {
+      font-size: 16px;
+    }
+  }
+
+  .mobile-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: default;
+    z-index: -1;
+  }
+  .mobile-close {
+    background: transparent;
+    border: 0;
+    color: var(--fg-muted);
+    font-size: 22px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   .search-box {

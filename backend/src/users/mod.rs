@@ -15,8 +15,9 @@ pub mod redirect_lookup;
 pub mod sessions;
 pub mod social_links;
 pub mod stats;
+pub mod storage;
 
-use crate::api_types::User;
+use crate::api_types::{User, UserTier};
 use queries::UserRow;
 
 impl From<UserRow> for User {
@@ -25,9 +26,11 @@ impl From<UserRow> for User {
             id: r.id.to_string(),
             email: r.email,
             display_name: r.display_name,
+            handle: r.handle,
             created_at: r.created_at.to_rfc3339(),
             following_ids: vec![],
             pending_deletion_at: None,
+            tier: UserTier::Free,
         }
     }
 }

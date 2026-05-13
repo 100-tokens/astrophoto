@@ -97,7 +97,13 @@ pub async fn request(
             );
             let (subject, body) =
                 templates::password_reset(&u.display_name, &link, u.password_hash.is_some());
-            state.mailer.send_plain(&u.email, &subject, &body).await?;
+            // Swallow mail-send errors so the response stays a uniform 204
+            // — see anti-enumeration contract at top of file. The token row
+            // is still inserted so an operator can manually issue the link
+            // if SMTP is misconfigured.
+            if let Err(e) = state.mailer.send_plain(&u.email, &subject, &body).await {
+                tracing::warn!(error = %e, user_id = %u.id, "password-reset mail send failed");
+            }
         }
     }
 

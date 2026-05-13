@@ -5,12 +5,22 @@
   let { stats }: { stats: HeroStats } = $props();
 
   // ts-rs maps Rust `i64` → TS `bigint`. Coerce for formatters that take number.
+  // Pluralise countable stats. Integration is uncountable so it stays as-is.
+  const plural = (n: bigint | number, singular: string, plur = `${singular}s`): string =>
+    Number(n) === 1 ? singular : plur;
   let cells = $derived([
-    { num: stats.frames.toLocaleString(), label: 'frames' },
+    { num: stats.frames.toLocaleString(), label: plural(stats.frames, 'frame') },
     { num: formatIntegration(Number(stats.integration_seconds)), label: 'integration' },
-    { num: stats.followers.toLocaleString(), label: 'followers' },
-    { num: stats.appreciations.toLocaleString(), label: 'appreciations', accent: true },
-    { num: stats.targets.toLocaleString(), label: 'targets shot' }
+    { num: stats.followers.toLocaleString(), label: plural(stats.followers, 'follower') },
+    {
+      num: stats.appreciations.toLocaleString(),
+      label: plural(stats.appreciations, 'appreciation'),
+      accent: true
+    },
+    {
+      num: stats.targets.toLocaleString(),
+      label: plural(stats.targets, 'target shot', 'targets shot')
+    }
   ]);
 </script>
 

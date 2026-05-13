@@ -70,7 +70,7 @@ async fn upload_pipeline_signup_upload_thumb() {
         Arc::new(mailer),
     );
 
-    // 1. Signup
+    // 1. Signup: POST signup, mark verified, then login to get session cookie.
     let signup_body = serde_json::json!({
         "email": "u@example.com",
         "password": "longenoughpw",
@@ -89,8 +89,33 @@ async fn upload_pipeline_signup_upload_thumb() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201);
-    let cookie = resp
+    assert_eq!(resp.status(), 202);
+
+    // Mark user verified so login works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        "u@example.com"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Log in to obtain a session cookie.
+    let login_body = serde_json::json!({"email": "u@example.com", "password": "longenoughpw"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup");
+    let cookie = login_resp
         .headers()
         .get("set-cookie")
         .unwrap()

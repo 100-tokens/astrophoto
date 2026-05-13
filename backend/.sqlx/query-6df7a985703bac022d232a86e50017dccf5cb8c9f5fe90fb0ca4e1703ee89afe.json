@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into targets (slug, canonical_name, aliases, kind)\n            values ($1, $2, $3, $4)\n            on conflict (slug) do update set\n              aliases = (\n                select array(select distinct unnest(targets.aliases || $3))\n              )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "TextArray",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6df7a985703bac022d232a86e50017dccf5cb8c9f5fe90fb0ca4e1703ee89afe"
+}

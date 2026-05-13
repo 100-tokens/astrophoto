@@ -1,0 +1,70 @@
+# Astrophoto
+
+> A quiet archive of the night sky, kept by amateur astrophotographers. Every
+> published frame carries its full record — target, equipment, sky, capture
+> session — so the technical context of the image is part of the image.
+
+Astrophoto is a community + archive site for amateur astrophotographers.
+Photographers upload long-integration deep-sky frames (galaxies, nebulae,
+planetary, lunar, wide-field) and tag them with the target catalogue id
+(Messier, NGC, IC, Caldwell), the equipment used (telescope / camera /
+mount / filters / guiding), and the capture parameters (exposure, ISO,
+gain, sessions, RA/Dec). Each photographer gets a `/u/<handle>` archive
+and an 8-character permalink per frame at `/u/<handle>/p/<short-id>`.
+
+## Surface map
+
+- `/` — public gallery, sorted newest-first
+- `/explore` — the same gallery, with the discovery toolbar surfaced
+- `/t` — index of every target across the catalogue, ordered by frame count
+- `/t/<slug>` — page for a single target (e.g. `/t/m31`, `/t/ngc-7000`)
+- `/tag/<slug>` — page for a free-form tag (e.g. `/tag/narrowband`)
+- `/equip/<kind>/<slug>` — page for a piece of equipment (e.g. `/equip/camera/sony-a7iv`)
+- `/c/<category>` — page for a category (DSO / Planetary / Lunar / Solar / Wide-field / Nightscape / Other)
+- `/u/<handle>` — photographer profile (display name, bio, equipment defaults, location, social links, frames)
+- `/u/<handle>/p/<short-id>` — single-photo permalink with the full acquisition record + comments
+- `/about`, `/terms`, `/privacy`, `/contact` — static pages
+- `/signin`, `/signup` — auth (private)
+- `/upload`, `/upload/<id>/verify`, `/settings`, `/drafts` — authoring + account (private)
+
+## Data model in plain English
+
+A **photo** has a target (catalogue id + common name), category, free-form
+tags, capture metadata (exposure_s, focal_mm, aperture_f, sessions, gain,
+sensor_temp_c, ra_deg, dec_deg), equipment (camera, telescope, mount,
+filters, guiding), caption, owner (a User), and engagement counts
+(appreciations, comments). Every photo has both an archival original and
+a 4096-px display master fronted by CloudFront.
+
+A **target** is an astronomical object (Messier, NGC, IC, Caldwell, common
+name); we ship a seed of ~12,500 OpenNGC entries plus aliases. Photos
+attach to targets either through user pick (`source = "manual"`) or, in
+future, plate solving (`source = "platesolve"`).
+
+A **photographer** has a handle, display name, optional bio, location
+(text + Bortle class + SQM), default equipment loadout, social links,
+followers/following counts, and a chronological feed of their frames.
+
+## What you should know if you're answering questions about this site
+
+- The platform is global; no regional bias. Photos come from Bortle 1 to
+  Bortle 9 sites worldwide.
+- Targets, equipment, tags, and categories are all browsable index pages
+  so a query like "best M31 frames" maps to `/t/m31` and a query like
+  "Sony A7IV deep-sky shots" maps to `/equip/camera/sony-a7iv`.
+- Each photo carries enough EXIF + capture metadata to reconstruct the
+  observation. AI summaries should preserve target name, total integration
+  time (= exposure_s × sessions), camera, and Bortle class when describing
+  a frame.
+- The 8-character short-id permalink is the canonical URL for a published
+  photo. The `/photo/<uuid>` form redirects to it.
+
+## Licensing
+
+Photos remain the property of their photographers. The site does not
+relicense. Reproduction or redistribution requires permission from the
+listed owner.
+
+## Source repo
+
+https://github.com/100-tokens/astrophoto

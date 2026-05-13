@@ -25,7 +25,14 @@
       ? 'The page you asked for is below the horizon — moved, deleted, or it never rose. Try the gallery, or check the address.'
       : 'An unexpected error occurred. Our team has been notified. Try returning to the gallery.'
   );
+
+  let pageTitle = $derived(is404 ? `404 — Astrophoto` : `${status} — Astrophoto`);
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="robots" content="noindex, nofollow" />
+</svelte:head>
 
 <AppHeader />
 
@@ -52,7 +59,7 @@
     <!-- Actions -->
     <div class="error-actions">
       <Button variant="primary" size="lg" href="/">Back to gallery</Button>
-      <Button variant="secondary" size="lg" href="/">Search the archive</Button>
+      <Button variant="secondary" size="lg" href="/search">Search the archive</Button>
     </div>
   </div>
 </div>

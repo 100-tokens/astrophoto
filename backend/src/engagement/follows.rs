@@ -27,7 +27,7 @@ pub async fn follow(
     if user.id == target_id {
         return Err(AppError::Validation("cannot follow yourself".into()));
     }
-    sqlx::query!(
+    let res = sqlx::query!(
         r#"
         insert into follows (follower_id, followed_id)
         values ($1, $2)
@@ -37,8 +37,18 @@ pub async fn follow(
         target_id,
     )
     .execute(&state.pool)
-    .await?;
-    Ok(StatusCode::NO_CONTENT)
+    .await;
+    match res {
+        Ok(_) => Ok(StatusCode::NO_CONTENT),
+        // Postgres 23503 = foreign_key_violation. The only FK on this insert
+        // that can fail with a syntactically valid UUID is followed_id → users,
+        // so a 23503 here means the target user does not exist. Map to 404
+        // rather than leaking the constraint name in a 500.
+        Err(sqlx::Error::Database(e)) if e.code().as_deref() == Some("23503") => {
+            Err(AppError::not_found("user"))
+        }
+        Err(e) => Err(AppError::Database(e)),
+    }
 }
 
 pub async fn unfollow(

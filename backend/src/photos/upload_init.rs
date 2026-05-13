@@ -41,8 +41,8 @@ pub async fn handler(
     CurrentUser(user): CurrentUser,
     Json(body): Json<InitBody>,
 ) -> Result<impl IntoResponse, AppError> {
-    if body.files.is_empty() || body.files.len() > 10 {
-        return Err(AppError::Validation("files must be 1..=10".into()));
+    if body.files.is_empty() || body.files.len() > 12 {
+        return Err(AppError::Validation("files must be 1..=12".into()));
     }
 
     let tier: String = sqlx::query_scalar!("select tier from users where id = $1", user.id)

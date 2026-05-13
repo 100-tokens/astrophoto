@@ -68,6 +68,14 @@ pub fn router(
             post(crate::auth::password_reset::confirm),
         )
         .route(
+            "/api/auth/verify-email",
+            post(crate::auth::email_verify::verify),
+        )
+        .route(
+            "/api/auth/resend-verification",
+            post(crate::auth::email_verify::resend),
+        )
+        .route(
             "/api/me/password-change",
             post(crate::auth::password_change::change),
         )
@@ -92,6 +100,18 @@ pub fn router(
             axum::routing::get(crate::photos::list::handler),
         )
         .route(
+            "/api/photos/me/drafts",
+            axum::routing::get(crate::photos::drafts_list::handler),
+        )
+        .route(
+            "/api/photos/batch/apply",
+            axum::routing::post(crate::photos::batch_apply::handler),
+        )
+        .route(
+            "/api/photos/batch/publish",
+            axum::routing::post(crate::photos::batch_publish::handler),
+        )
+        .route(
             "/api/photos/:id",
             get(crate::photos::get::handler)
                 .put(crate::photos::metadata::handler)
@@ -108,6 +128,10 @@ pub fn router(
         .route(
             "/api/photos/:id/detach-setup",
             axum::routing::post(crate::photos::apply_setup::detach),
+        )
+        .route(
+            "/api/photos/:id/targets",
+            axum::routing::patch(crate::photos::targets::patch_targets),
         )
         .route(
             "/api/photos/:id/replace",
@@ -196,6 +220,10 @@ pub fn router(
             axum::routing::get(crate::users::preferences::get).put(crate::users::preferences::put),
         )
         .route(
+            "/api/me/storage",
+            axum::routing::get(crate::users::storage::summary),
+        )
+        .route(
             "/api/me/sessions",
             axum::routing::get(crate::users::sessions::list),
         )
@@ -262,12 +290,28 @@ pub fn router(
             axum::routing::post(crate::photos::upload_init::handler),
         )
         .route(
+            "/api/uploads/:id",
+            axum::routing::delete(crate::photos::upload_cancel::handler),
+        )
+        .route(
             "/api/uploads/:id/finalize",
             axum::routing::post(crate::photos::upload_finalize::handler),
         )
         .route(
             "/api/explore",
             axum::routing::get(crate::discovery::explore::get),
+        )
+        .route(
+            "/api/targets",
+            axum::routing::get(crate::discovery::target_index::list),
+        )
+        .route(
+            "/api/photographers",
+            axum::routing::get(crate::discovery::photographer_index::list),
+        )
+        .route(
+            "/api/site/stats",
+            axum::routing::get(crate::discovery::site_stats::get),
         )
         .route(
             "/api/targets/:slug",

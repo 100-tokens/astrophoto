@@ -68,7 +68,7 @@ fn handle_from_email(email: &str) -> String {
     h
 }
 
-async fn signup(app: &axum::Router, email: &str, name: &str) -> (String, String) {
+async fn signup(app: &axum::Router, pool: &PgPool, email: &str, name: &str) -> (String, String) {
     let handle = handle_from_email(email);
     let body = serde_json::json!({
         "email": email, "password": "longenoughpw", "display_name": name, "handle": handle,
@@ -85,15 +85,40 @@ async fn signup(app: &axum::Router, email: &str, name: &str) -> (String, String)
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201);
-    let cookie = resp
+    assert_eq!(resp.status(), 202);
+
+    // Mark user verified so login works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    // Log in to obtain a session cookie.
+    let login_body = serde_json::json!({"email": email, "password": "longenoughpw"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    let cookie = login_resp
         .headers()
         .get("set-cookie")
         .unwrap()
         .to_str()
         .unwrap()
         .to_string();
-    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let bytes = login_resp.into_body().collect().await.unwrap().to_bytes();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     let id = v["id"].as_str().unwrap().to_string();
     (id, cookie)
@@ -200,7 +225,7 @@ async fn json_get(app: &axum::Router, uri: &str, cookie: Option<&str>) -> serde_
 async fn appreciation_toggle() {
     let (app, pool, _pg) = boot_app().await;
 
-    let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
+    let (_owner_id, owner_cookie) = signup(&app, &pool, "owner@example.com", "Owner").await;
     let photo_id = upload(&pool, &app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -216,7 +241,7 @@ async fn appreciation_toggle() {
     }
     publish_photo(&app, &owner_cookie, &photo_id).await;
 
-    let (_other_id, cookie) = signup(&app, "u@example.com", "U").await;
+    let (_other_id, cookie) = signup(&app, &pool, "u@example.com", "U").await;
 
     let v = json_get(
         &app,
@@ -287,7 +312,7 @@ async fn appreciation_toggle() {
 async fn comment_create_list_delete_authorization() {
     let (app, pool, _pg) = boot_app().await;
 
-    let (_owner_id, owner_cookie) = signup(&app, "owner@example.com", "Owner").await;
+    let (_owner_id, owner_cookie) = signup(&app, &pool, "owner@example.com", "Owner").await;
     let photo_id = upload(&pool, &app, &owner_cookie).await;
     for _ in 0..30 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -303,8 +328,8 @@ async fn comment_create_list_delete_authorization() {
     }
     publish_photo(&app, &owner_cookie, &photo_id).await;
 
-    let (_b_id, b_cookie) = signup(&app, "b@example.com", "B").await;
-    let (_c_id, c_cookie) = signup(&app, "c@example.com", "C").await;
+    let (_b_id, b_cookie) = signup(&app, &pool, "b@example.com", "B").await;
+    let (_c_id, c_cookie) = signup(&app, &pool, "c@example.com", "C").await;
 
     let body = serde_json::json!({ "body": "Looks great!" });
     let resp = app
@@ -362,10 +387,10 @@ async fn comment_create_list_delete_authorization() {
 
 #[tokio::test]
 async fn follow_toggle_and_counts() {
-    let (app, _pool, _pg) = boot_app().await;
+    let (app, pool, _pg) = boot_app().await;
 
-    let (a_id, a_cookie) = signup(&app, "a@example.com", "A").await;
-    let (b_id, _b_cookie) = signup(&app, "b@example.com", "B").await;
+    let (a_id, a_cookie) = signup(&app, &pool, "a@example.com", "A").await;
+    let (b_id, _b_cookie) = signup(&app, &pool, "b@example.com", "B").await;
 
     let v = json_get(&app, &format!("/api/users/{a_id}/following/count"), None).await;
     assert_eq!(v["count"].as_i64().unwrap(), 0);

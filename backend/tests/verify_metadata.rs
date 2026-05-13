@@ -71,7 +71,7 @@ async fn harness() -> H {
 }
 
 impl H {
-    /// POST /api/auth/signup, returns session cookie string.
+    /// POST /api/auth/signup, mark verified, log in, return session cookie string.
     async fn signup(&self, email: &str, password: &str) -> String {
         let handle = email.split('@').next().unwrap_or("user").to_string();
         let body = serde_json::json!({
@@ -93,8 +93,35 @@ impl H {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), 201, "signup failed for {email}");
-        resp.headers()
+        assert_eq!(resp.status(), 202, "signup failed for {email}");
+
+        // Mark user verified.
+        sqlx::query!(
+            "update users set email_verified_at = now() where email = $1",
+            email
+        )
+        .execute(&self.pool)
+        .await
+        .unwrap();
+
+        // Log in to get session cookie.
+        let login_body = serde_json::json!({"email": email, "password": password});
+        let login_resp = self
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(login_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+        login_resp
+            .headers()
             .get("set-cookie")
             .unwrap()
             .to_str()

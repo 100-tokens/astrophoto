@@ -1,5 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -12,7 +14,19 @@
 
   let { data }: { data: PageData } = $props();
 
-  let cursor = $state<string | null>(data.initial.page.next_cursor);
+  // ── SEO meta ─────────────────────────────────────────────────
+  let eq = $derived(data.initial.equipment);
+  let eqPhotos = $derived(Number(eq.photo_count));
+  let eqLabel = $derived(`${eq.display_name} (${eq.kind})`);
+  let eqTitle = $derived(`${eqLabel} — Astrophoto`);
+  let eqDescription = $derived(
+    `${eqPhotos} astrophotograph${eqPhotos === 1 ? '' : 's'} captured with a ${eq.display_name} on Astrophoto. See what amateur astrophotographers shoot with this ${eq.kind}.`
+  );
+  let eqCanonical = $derived(
+    `${page.url.origin}/equip/${encodeURIComponent(eq.kind)}/${encodeURIComponent(eq.slug)}`
+  );
+
+  let cursor = $state<string | null>(untrack(() => data.initial.page.next_cursor));
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });
@@ -52,6 +66,20 @@
 </script>
 
 <AppHeader />
+<svelte:head>
+  <title>{eqTitle}</title>
+  <meta name="description" content={eqDescription} />
+  <link rel="canonical" href={eqCanonical} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={eqTitle} />
+  <meta property="og:description" content={eqDescription} />
+  <meta property="og:url" content={eqCanonical} />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={eqTitle} />
+  <meta name="twitter:description" content={eqDescription} />
+</svelte:head>
+
 <DiscoveryHeader variant="equipment" meta={data.initial.equipment} />
 <FilterPills
   variant="equipment"

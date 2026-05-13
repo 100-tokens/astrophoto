@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Astrophoto — Showcase · Upload, Hero, Discovery</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="styles.css"/>
+  <style>body { background: #06050a; }</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="logos.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="showcase-p1.jsx"></script>
+  <script type="text/babel" src="showcase-p2.jsx"></script>
+  <script type="text/babel" src="showcase-p3.jsx"></script>
+  <script type="text/babel" src="showcase-cross.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    const marks = window.AstroMarks;
+
+    function App() {
+      const Canvas = window.DesignCanvas;
+      const Section = window.DCSection;
+      const Artboard = window.DCArtboard;
+      return (
+        <Canvas
+          title="Astrophoto · Showcase — Upload, Hero, Discovery"
+          subtitle="Multi-file upload · /u/<handle> hero · Explore · Targets · Equipment · Search — one spec, three phases · v0.9 · May 2026"
+        >
+          <Section
+            id="readme"
+            title="00 · Read me first"
+            subtitle="The shape of the work: three phases that ship in order. P1 is invisible plumbing + new upload. P2 makes the hero page real. P3 surfaces the corpus across photographers."
+          >
+            <Artboard id="route-map" label="URL map · before / after" width={1440} height={1000}>
+              <window.ScreenRouteMap marks={marks}/>
+            </Artboard>
+            <Artboard id="plate-solve" label="Plate-solve forward-compat note" width={1080} height={700}>
+              <window.ScreenPlateSolveNote marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p1-upload"
+            title="01 · Phase 1 — Multi-file upload (presigned PUT)"
+            subtitle="3-step wizard, polished. Dropzone with parallel PUTs, real progress, EXIF preflight, SHA-256 dedup, tier-gated size. Verify step captures target / tag / category — discovery-ready from day one."
+          >
+            <Artboard id="upload-dropzone" label="Upload · 01 dropzone & queue" width={1440} height={1180}>
+              <window.ScreenUploadDropzone marks={marks}/>
+            </Artboard>
+            <Artboard id="upload-verify" label="Upload · 02 verify (target / tags / category / equipment)" width={1440} height={1700}>
+              <window.ScreenUploadVerify marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p1-handle"
+            title="01b · Phase 1 — Handle picker"
+            subtitle="Required at signup. Available / taken / invalid / reserved states. Mutable later with 90-day old-handle redirects."
+          >
+            <Artboard id="handle-picker" label="Signup · handle step" width={720} height={900}>
+              <window.ScreenHandlePicker marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p2-hero"
+            title="02 · Phase 2 — Hero page · /u/<handle>"
+            subtitle="Public profile + portfolio. Cover, identity, bio, equipment, location, auto-stats, 3–6 featured pinned photos, and a justified-rows gallery of all published work. Visitor view first, then the owner view with empty-state prompts."
+          >
+            <Artboard id="hero-visitor" label="Hero · visitor view · @marie-dubois" width={1440} height={2400}>
+              <window.ScreenHeroPage marks={marks}/>
+            </Artboard>
+            <Artboard id="hero-owner" label="Hero · owner view · empty-state prompts" width={1440} height={1500}>
+              <window.ScreenHeroOwner marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p2-editor"
+            title="02b · Phase 2 — Profile editor & lightbox"
+            subtitle="Sectioned drawer with rich-text bio (Tiptap on client, ammonia sanitizer is the truth on the server). Lightbox is route-mounted at /u/<handle>/p/<short-id>; deep-links open it over the gallery, direct visits render a full page."
+          >
+            <Artboard id="profile-editor" label="Profile editor · drawer" width={720} height={1900}>
+              <window.ScreenProfileEditor marks={marks}/>
+            </Artboard>
+            <Artboard id="lightbox" label="Lightbox · /u/marie-dubois/p/X8K2NF7Q" width={1440} height={900}>
+              <window.ScreenLightbox marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p3-explore"
+            title="03 · Phase 3 — Discovery · Explore"
+            subtitle="Global feed across photographers. Sort + time-window + category filter rail. Cross-author tile carries author chip. Cursor pagination on (published_at, id)."
+          >
+            <Artboard id="explore" label="Explore · /explore" width={1440} height={1700}>
+              <window.ScreenExplore marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p3-target"
+            title="03b · Phase 3 — Target & Equipment pages"
+            subtitle="Target page is the heart of the site once content lands — every photo of M31 in one place. Equipment pages do the same for cameras, scopes, mounts, filters, guiders, with an 'often paired with' rail."
+          >
+            <Artboard id="target-page" label="Target · /t/m31" width={1440} height={1500}>
+              <window.ScreenTargetPage marks={marks}/>
+            </Artboard>
+            <Artboard id="equipment-page" label="Equipment · /equip/camera/zwo-asi2600mc-pro" width={1440} height={1300}>
+              <window.ScreenEquipmentPage marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="p3-search"
+            title="03c · Phase 3 — Search"
+            subtitle="Combined results across targets, photographers, photos. Cheap ILIKE behind v1; tsvector + GIN deferred. Autocomplete dropdown lives in the navbar, ⌘K from anywhere."
+          >
+            <Artboard id="search-results" label="Search · /search?q=andromeda" width={1440} height={1500}>
+              <window.ScreenSearch marks={marks}/>
+            </Artboard>
+            <Artboard id="search-bar" label="Search bar · autocomplete component" width={720} height={600}>
+              <window.ScreenSearchBar marks={marks}/>
+            </Artboard>
+            <Artboard id="discovery-empty" label="Discovery · empty-state copy" width={1440} height={700}>
+              <window.ScreenDiscoveryEmpty marks={marks}/>
+            </Artboard>
+          </Section>
+
+          <Section
+            id="cross"
+            title="04 · Cross-cutting"
+            subtitle="Tier upgrade prompt (50 → 200 MB), error variants mapped from AppError, plate-solve readiness — all the things that don't belong on a screen but make the system feel coherent."
+          >
+            <Artboard id="tier-upgrade" label="Tier upgrade prompt · blocked at presign" width={720} height={720}>
+              <window.ScreenTierUpgrade marks={marks}/>
+            </Artboard>
+            <Artboard id="errors" label="Error states · AppError variants" width={1440} height={1100}>
+              <window.ScreenErrorStates marks={marks}/>
+            </Artboard>
+          </Section>
+        </Canvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

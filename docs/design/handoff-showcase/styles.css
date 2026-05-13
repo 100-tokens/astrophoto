@@ -1,0 +1,483 @@
+/* =========================================================
+   ASTROPHOTO — DESIGN TOKENS
+   "Observatory dome at 3am" — warm-tinted near-black,
+   sodium-amber accent, refined serif + technical mono.
+   ========================================================= */
+
+:root {
+  /* ---------- COLOR — Dark (default) ---------- */
+  /* Backgrounds: warm near-black ladder */
+  --bg-canvas:      #0c0a08;   /* the deepest, page background */
+  --bg-base:        #100d0a;   /* default surface */
+  --bg-raised:      #16120e;   /* cards, panels */
+  --bg-elevated:    #1d1812;   /* hover, popovers, tooltips */
+  --bg-overlay:     rgba(12, 10, 8, 0.86);
+
+  /* Borders / hairlines — warm graphite */
+  --border-subtle:  #221d17;
+  --border-default: #2c2620;
+  --border-strong:  #3a322a;
+
+  /* Foreground — slightly warm whites */
+  --fg-primary:     #f8f1e6;   /* main copy, headlines */
+  --fg-secondary:   #d6cdba;   /* body, secondary */
+  --fg-muted:       #9c9384;   /* captions, meta */
+  --fg-faint:       #6a6358;   /* disabled, dividers-as-text */
+
+  /* Accent — Sodium / amber lamp.
+     Calibrated to not destroy dark adaptation while reading legibly. */
+  --accent-50:      #fef6dd;
+  --accent-100:     #fce39c;
+  --accent-300:     #f5c764;
+  --accent:         #e8a43a;   /* DEFAULT — sodium amber */
+  --accent-hover:   #f0b455;
+  --accent-press:   #c98920;
+  --accent-dim:     #7a5a18;
+  --accent-ink:     #0c0a08;   /* text ON accent */
+
+  /* Semantic */
+  --success:        #6b8e4e;
+  --warning:        #c98920;
+  --danger:         #a8453a;
+  --info:           #6b7d8e;
+
+  /* Tinted surfaces — semantic backgrounds at low opacity.
+     Use for callouts, banners, danger/warning panels. */
+  --bg-accent-tint:   rgba(232, 164, 58, 0.06);
+  --bg-success-tint:  rgba(107, 142, 78, 0.08);
+  --bg-warning-tint:  rgba(201, 137, 32, 0.08);
+  --bg-danger-tint:   rgba(168,  69, 58, 0.10);
+
+  /* Star/data palette — for charts, badges, target dots */
+  --star-O:         #aac4ff;   /* hot blue */
+  --star-G:         #fff4d8;   /* sun-like */
+  --star-K:         #ffcf94;   /* orange */
+  --star-M:         #ff9966;   /* red dwarf */
+
+  /* ---------- TYPE ---------- */
+  --font-display:   "Source Serif 4", "Source Serif Pro", Georgia, serif;
+  --font-ui:        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Sizes */
+  --t-xs:   11px;
+  --t-sm:   12px;
+  --t-base: 14px;
+  --t-md:   15px;
+  --t-lg:   17px;
+  --t-xl:   20px;
+  --t-2xl:  24px;
+  --t-3xl:  32px;
+  --t-4xl:  44px;
+  --t-5xl:  64px;
+  --t-6xl:  88px;
+
+  /* ---------- SPACING ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+
+  /* ---------- RADII ---------- */
+  --r-none: 0;
+  --r-sm:   2px;
+  --r-md:   4px;
+  --r-lg:   8px;
+  --r-pill: 999px;
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-sm:  0 1px 0 rgba(0,0,0,.4);
+  --shadow-md:  0 8px 24px rgba(0,0,0,.5), 0 1px 0 rgba(255, 220, 160, .03) inset;
+  --shadow-lg:  0 24px 64px rgba(0,0,0,.7), 0 1px 0 rgba(255, 220, 160, .04) inset;
+
+  /* ---------- MOTION ---------- */
+  --ease-out: cubic-bezier(.2,.7,.3,1);
+  --ease-in-out: cubic-bezier(.6,.0,.2,1);
+
+  /* ---------- PHASE 8 — semantic surface tints ---------- */
+  /* Subtle wash backgrounds for inline banners/callouts. */
+  --bg-danger-tint:  rgba(168, 69, 58, .10);
+  --bg-warning-tint: rgba(201, 137, 32, .09);
+  --bg-info-tint:    rgba(107, 125, 142, .10);
+  --bg-success-tint: rgba(107, 142, 78, .10);
+  --bg-accent-tint:  rgba(232, 164, 58, .07);
+
+  /* Border accents for the same callouts */
+  --border-danger:  rgba(168, 69, 58, .35);
+  --border-warning: rgba(201, 137, 32, .35);
+  --border-info:    rgba(107, 125, 142, .35);
+  --border-success: rgba(107, 142, 78, .35);
+}
+
+/* Light theme — secondary mode for daylight mobile */
+[data-theme="light"] {
+  --bg-canvas:      #f5f0e6;
+  --bg-base:        #faf6ec;
+  --bg-raised:      #ffffff;
+  --bg-elevated:    #ffffff;
+  --bg-overlay:     rgba(245, 240, 230, 0.86);
+
+  --border-subtle:  #ebe3d2;
+  --border-default: #d9cfb9;
+  --border-strong:  #b8ad95;
+
+  --fg-primary:     #1a1610;
+  --fg-secondary:   #3d362a;
+  --fg-muted:       #6e6657;
+  --fg-faint:       #a89e89;
+
+  --accent:         #b06a0e;
+  --accent-hover:   #c97a1a;
+  --accent-press:   #8a5208;
+  --accent-ink:     #faf6ec;
+}
+
+/* =========================================================
+   BASE
+   ========================================================= */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg-canvas);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: var(--t-base);
+  line-height: 1.55;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Globally upweight display serif so it reads as confident, not faint */
+h1, h2, h3 { font-weight: 600; }
+h1[style*="font-weight: 400"], h2[style*="font-weight: 400"], h3[style*="font-weight: 400"] {
+  font-weight: 600 !important;
+}
+
+/* Italic display gets slightly heavier — italics on dark always feel lighter */
+em, i, [style*="font-style: italic"][style*="font-display"],
+[style*="font-style:italic"][style*="font-display"] {
+  font-weight: 600;
+}
+
+/* Improve link / paragraph readability */
+p { color: var(--fg-secondary); }
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+img { display: block; max-width: 100%; }
+
+/* =========================================================
+   TYPE PRIMITIVES
+   ========================================================= */
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+.t-display-i { font-style: italic; }
+
+.t-ui    { font-family: var(--font-ui); }
+.t-mono  { font-family: var(--font-mono); font-feature-settings: "zero", "cv02"; }
+
+.t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.t-label {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.t-meta {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Utility */
+.divider-h {
+  height: 1px;
+  background: var(--border-subtle);
+  border: 0;
+  width: 100%;
+}
+.hairline { border-color: var(--border-subtle); }
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 36px;
+  padding: 0 var(--s-4);
+  border-radius: var(--r-sm);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  transition: background .15s var(--ease-out), border-color .15s var(--ease-out), color .15s var(--ease-out);
+  white-space: nowrap;
+}
+.btn-sm { height: 28px; padding: 0 var(--s-3); font-size: var(--t-xs); }
+.btn-lg { height: 44px; padding: 0 var(--s-6); font-size: var(--t-base); }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover { color: var(--fg-primary); background: var(--bg-elevated); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--border-default);
+}
+.btn-danger:hover { border-color: var(--danger); }
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 0 var(--s-3);
+  height: 36px;
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  transition: border-color .15s var(--ease-out), background .15s var(--ease-out);
+  outline: none;
+}
+.textarea { padding: var(--s-3); height: auto; min-height: 96px; line-height: 1.55; resize: vertical; }
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--accent);
+  background: var(--bg-base);
+  box-shadow: 0 0 0 3px rgba(232, 164, 58, .12);
+}
+.input::placeholder { color: var(--fg-faint); }
+
+/* Mono inputs for technical fields */
+.input-mono { font-family: var(--font-mono); font-size: var(--t-sm); }
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+}
+
+/* Photo card — gallery */
+.photo-card {
+  position: relative;
+  display: block;
+  background: var(--bg-base);
+  overflow: hidden;
+  break-inside: avoid;
+}
+.photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform .6s var(--ease-out);
+}
+.photo-card:hover img { transform: scale(1.015); }
+
+.photo-card .overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--s-4);
+  background: linear-gradient(to top, rgba(0,0,0,.78) 0%, rgba(0,0,0,0) 50%);
+  opacity: 0;
+  transition: opacity .25s var(--ease-out);
+}
+.photo-card:hover .overlay { opacity: 1; }
+
+/* =========================================================
+   BADGES / CHIPS
+   ========================================================= */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px var(--s-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.04em;
+  color: var(--fg-secondary);
+}
+.chip-accent {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: rgba(232, 164, 58, .06);
+}
+
+/* =========================================================
+   TABLE / EXIF
+   ========================================================= */
+.exif {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  border-collapse: collapse;
+}
+.exif tr { border-bottom: 1px dashed var(--border-subtle); }
+.exif tr:last-child { border-bottom: 0; }
+.exif th, .exif td {
+  text-align: left;
+  padding: var(--s-3) 0;
+  vertical-align: top;
+}
+.exif th {
+  font-weight: 400;
+  color: var(--fg-muted);
+  font-size: var(--t-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  width: 38%;
+  padding-right: var(--s-4);
+}
+.exif td { color: var(--fg-primary); }
+
+/* =========================================================
+   NAV / HEADER
+   ========================================================= */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 var(--s-8);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+}
+
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+  padding: var(--s-2) 0;
+  position: relative;
+}
+.nav-link:hover { color: var(--fg-primary); }
+.nav-link.active { color: var(--fg-primary); }
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1px;
+  background: var(--accent);
+}
+
+/* =========================================================
+   FRAME — used to wrap "screens" inside design-canvas artboards
+   ========================================================= */
+.screen {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-canvas);
+  color: var(--fg-primary);
+  overflow: hidden;
+  font-family: var(--font-ui);
+}
+
+/* Tick / corner registration marks (technical drawing motif) */
+.corner-marks::before,
+.corner-marks::after {
+  content: "";
+  position: absolute;
+  width: 10px; height: 10px;
+  border: 1px solid var(--accent);
+  pointer-events: none;
+}
+.corner-marks::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+.corner-marks::after { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+
+/* Crosshair reticle background pattern (very subtle) */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(232,164,58,.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(232,164,58,.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* =========================================================
+   PHOTO PLACEHOLDERS — synthetic deep-sky-ish backgrounds
+   ========================================================= */
+.placeholder-photo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050507;
+}
+.placeholder-photo::before {
+  /* subtle nebula glow */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 35% 45%, rgba(180,80,60,.45), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 70% 60%, rgba(60,90,160,.3), transparent 60%),
+    radial-gradient(ellipse 80% 50% at 50% 70%, rgba(180,140,80,.22), transparent 70%);
+  filter: blur(0.5px);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }

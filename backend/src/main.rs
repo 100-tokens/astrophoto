@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
 
     // Spawn background workers before handing pool/storage to the router.
     astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
-    astrophoto::jobs::orphan_reaper::spawn(pool.clone(), storage.clone());
+    astrophoto::photos::cleanup::spawn_periodic(pool.clone(), storage.clone());
 
     // Allow the SvelteKit app to reach the backend with credentials.
     // Reads APP_CORS_ORIGIN from the environment; falls back to the dev server.

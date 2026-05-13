@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from photo_targets where photo_id = $1 and source = 'manual'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dea41a6cee0060d11a3b23bafa222d3c756a0c771a9c42bbc2d3352729d099e0"
+}

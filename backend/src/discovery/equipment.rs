@@ -19,6 +19,17 @@ const MAX_LIMIT: i64 = 60;
 /// Whitelist of accepted kind values.
 const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "guiding"];
 
+/// Equipment items have `canonical_name` like "sony a7iv" (lowercase with
+/// spaces). URLs need a hyphenated slug. These helpers convert between the
+/// two — the URL form is `slug_for(canonical)` and the DB lookup needs
+/// `canonical_for(slug)` to round-trip.
+fn slug_for(canonical: &str) -> String {
+    canonical.replace(' ', "-")
+}
+fn canonical_for(slug: &str) -> String {
+    slug.replace('-', " ")
+}
+
 #[derive(Deserialize)]
 pub struct Q {
     pub cursor: Option<String>,
@@ -58,7 +69,11 @@ pub async fn get(
         return Err(AppError::not_found("equipment_kind"));
     }
 
-    // Look up the equipment_items row. 404 if not found.
+    // URL slug ("sony-a7iv") → canonical ("sony a7iv") for every DB lookup
+    // below. Shadow `slug` so the rest of the handler doesn't accidentally
+    // use the hyphenated URL form against `canonical_name` columns.
+    let slug = canonical_for(&slug);
+    let canonical = slug.clone();
     let item = sqlx::query!(
         r#"
         select id as "id!", kind as "kind!", canonical_name as "canonical_name!",
@@ -67,7 +82,7 @@ pub async fn get(
         where kind = $1 and canonical_name = $2
         "#,
         kind,
-        slug
+        canonical
     )
     .fetch_optional(&state.pool)
     .await?;
@@ -463,7 +478,7 @@ pub async fn get(
     Ok(Json(EquipmentPage {
         equipment: EquipmentMeta {
             kind: item.kind,
-            slug: item.canonical_name.clone(),
+            slug: slug_for(&item.canonical_name),
             canonical_name: item.canonical_name,
             display_name: item.display_name,
             photo_count,
@@ -472,7 +487,7 @@ pub async fn get(
             .into_iter()
             .map(|r| EquipmentPaired {
                 kind: r.kind,
-                slug: r.slug,
+                slug: slug_for(&r.slug),
                 display_name: r.display_name,
                 shared_count: r.shared_count,
             })

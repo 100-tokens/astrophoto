@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import justifiedLayout from 'justified-layout';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
   import { fetchPhotosFeed } from '$lib/api/profileClient';
@@ -15,8 +15,11 @@
     sort?: 'newest' | 'popular';
   } = $props();
 
-  let photos = $state<GalleryPhoto[]>(initial?.photos ?? []);
-  let nextCursor = $state<string | null>(initial?.next_cursor ?? null);
+  // Seed the list state from the SSR-loaded initial page; subsequent pages
+  // come in via the cursor + fetchPhotosFeed (see effect below). untrack
+  // declares the prop read is intentional one-shot.
+  let photos = $state<GalleryPhoto[]>(untrack(() => initial?.photos ?? []));
+  let nextCursor = $state<string | null>(untrack(() => initial?.next_cursor ?? null));
   let loading = $state(false);
   let containerWidth = $state(0);
   let containerEl: HTMLDivElement | null = null;

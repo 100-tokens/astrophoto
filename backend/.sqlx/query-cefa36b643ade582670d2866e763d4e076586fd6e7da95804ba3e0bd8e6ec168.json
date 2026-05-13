@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                with stats as (\n                  select\n                    u.id,\n                    u.handle::text as handle,\n                    u.display_name,\n                    u.created_at,\n                    u.cover_photo_id,\n                    coalesce(count(distinct p.id) filter (where p.published_at is not null), 0)::bigint as frame_count,\n                    coalesce(sum(p.exposure_s * coalesce(p.sessions, 1)) filter (where p.published_at is not null), 0)::bigint as integration_seconds,\n                    coalesce(count(distinct f.follower_id), 0)::bigint as follower_count\n                  from users u\n                  left join photos p on p.owner_id = u.id\n                  left join follows f on f.followed_id = u.id\n                  group by u.id\n                )\n                select\n                  id as \"id!\",\n                  handle as \"handle!\",\n                  display_name as \"display_name!\",\n                  created_at as \"created_at!\",\n                  cover_photo_id,\n                  frame_count as \"frame_count!\",\n                  integration_seconds as \"integration_seconds!\",\n                  follower_count as \"follower_count!\"\n                  from stats\n                 where frame_count > 0\n                   and ($1::bigint is null or follower_count < $1\n                        or (follower_count = $1 and id > $2::uuid))\n                 order by follower_count desc, id asc\n                 limit $3\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "handle!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "cover_photo_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "frame_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "integration_seconds!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "follower_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "cefa36b643ade582670d2866e763d4e076586fd6e7da95804ba3e0bd8e6ec168"
+}

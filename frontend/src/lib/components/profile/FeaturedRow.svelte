@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { FeaturedPhotoSummary } from '$lib/api/FeaturedPhotoSummary';
   import { unpinFeatured, reorderFeatured } from '$lib/api/profileClient';
   import FeaturedTile from './FeaturedTile.svelte';
@@ -18,7 +19,9 @@
     onPinned?: (photoId: string) => void;
   } = $props();
 
-  let local = $state<FeaturedPhotoSummary[]>([...incoming]);
+  // Local mirror so reorder/unpin can update optimistically. The $effect
+  // below re-syncs from incoming when the parent passes in a new list.
+  let local = $state<FeaturedPhotoSummary[]>(untrack(() => [...incoming]));
   $effect(() => {
     local = [...incoming];
   });

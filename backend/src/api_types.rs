@@ -18,9 +18,21 @@ pub struct User {
     pub id: String,
     pub email: String,
     pub display_name: String,
+    /// URL handle — used to build /u/<handle> profile URLs from the
+    /// session user without a second round-trip to look it up.
+    pub handle: String,
     pub created_at: String,
     pub following_ids: Vec<String>,
     pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
+    pub tier: UserTier,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, PartialEq, Eq, Clone, Copy)]
+#[ts(export, export_to = "UserTier.ts")]
+#[serde(rename_all = "lowercase")]
+pub enum UserTier {
+    Free,
+    Subscriber,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -28,6 +40,51 @@ pub struct User {
 pub struct AuthError {
     pub error: String,
     pub message: String,
+}
+
+/// Single row in the /api/photographers index. Has just enough to render
+/// a tile (name + handle + cover photo) plus the headline stats users
+/// sort against (frames, followers, integration).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PhotographerListItem.ts")]
+pub struct PhotographerListItem {
+    pub handle: String,
+    pub display_name: String,
+    pub frame_count: i64,
+    pub follower_count: i64,
+    pub integration_seconds: i64,
+    pub cover_photo_id: Option<String>,
+    pub member_since_year: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PhotographerIndexPage.ts")]
+pub struct PhotographerIndexPage {
+    pub items: Vec<PhotographerListItem>,
+    pub next_cursor: Option<String>,
+}
+
+/// Global counts for the home-page hero band. Cached aggressively at
+/// the CDN edge; the numbers move slowly (an upload changes one).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SiteStats.ts")]
+pub struct SiteStats {
+    pub practitioners: i64,
+    pub frames: i64,
+    pub integration_seconds: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "StorageSummary.ts")]
+pub struct StorageSummary {
+    /// Sum of `photos.bytes` for rows owned by the caller. Doesn't
+    /// include thumbnails or display masters.
+    pub used_bytes: i64,
+    /// Tier-derived ceiling, used by the upload page footer to render
+    /// "STORAGE · 1.84 / 5.00 GB USED". Soft signal only — per-file
+    /// size enforcement lives in the upload-init handler.
+    pub quota_bytes: i64,
+    pub tier: UserTier,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -110,9 +167,10 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
-    /// Migration 0014: equipment setup link + per-photo focal modifier.
+    /// Equipment setup link + per-photo focal modifier (migration 0017).
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
@@ -288,6 +346,14 @@ pub struct TargetMeta {
     pub kind: Option<String>,
     pub photo_count: i64,
     pub contributor_count: i64,
+    // — additions D2b —
+    pub right_ascension: Option<f64>,
+    pub declination: Option<f64>,
+    pub magnitude_v: Option<f32>,
+    pub object_type: Option<String>,
+    pub constellation: Option<String>,
+    pub major_axis_arcmin: Option<f32>,
+    pub minor_axis_arcmin: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -465,4 +531,117 @@ pub struct ApplySetupInput {
     pub setup_id: String,
     /// "fill_empty" | "overwrite"
     pub mode: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListItem.ts")]
+pub struct DraftListItem {
+    pub id: String,
+    pub short_id: String,
+    pub original_name: String,
+    pub target: Option<String>,
+    pub status: String,
+    pub created_at: String,
+    /// CDN URL for a small thumbnail.
+    pub thumb_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "DraftListResponse.ts")]
+pub struct DraftListResponse {
+    pub items: Vec<DraftListItem>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyRequest.ts")]
+pub struct BatchApplyRequest {
+    pub ids: Vec<Uuid>,
+    pub target: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchApplyResponse.ts")]
+pub struct BatchApplyResponse {
+    pub applied: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishRequest.ts")]
+pub struct BatchPublishRequest {
+    pub ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PublishedItem.ts")]
+pub struct PublishedItem {
+    pub id: String,
+    pub short_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS, Clone, Copy, PartialEq, Eq)]
+#[ts(export, export_to = "SkipReason.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum SkipReason {
+    StillProcessing,
+    Failed,
+    AlreadyPublished,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "SkippedItem.ts")]
+pub struct SkippedItem {
+    pub id: String,
+    pub reason: SkipReason,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "BatchPublishResponse.ts")]
+pub struct BatchPublishResponse {
+    pub published: Vec<PublishedItem>,
+    pub skipped: Vec<SkippedItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsItem.ts")]
+pub struct PatchTargetsItem {
+    pub slug: String,
+    pub canonical_name: String,
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PatchTargetsResponse.ts")]
+pub struct PatchTargetsResponse {
+    pub targets: Vec<PatchTargetsItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetPreviewThumb.ts")]
+pub struct TargetPreviewThumb {
+    /// UUID of the photo — used to build CDN URLs via `/cdn/img/<photo_id>`.
+    pub photo_id: String,
+    /// Short human-readable ID — used to build permalink URLs `/u/<handle>/p/<short_id>`.
+    pub short_id: String,
+    pub blurhash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetListItem.ts")]
+pub struct TargetListItem {
+    pub slug: String,
+    pub canonical_name: String,
+    pub object_type: Option<String>,
+    pub constellation: Option<String>,
+    pub magnitude_v: Option<f32>,
+    pub photo_count: i64,
+    pub preview_thumbs: Vec<TargetPreviewThumb>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "TargetIndexPage.ts")]
+pub struct TargetIndexPage {
+    pub targets: Vec<TargetListItem>,
+    pub next_cursor: Option<String>,
 }

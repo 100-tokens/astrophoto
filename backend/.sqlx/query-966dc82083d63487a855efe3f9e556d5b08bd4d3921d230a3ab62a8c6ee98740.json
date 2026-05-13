@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) from email_verification_tokens evt\n          join users u on u.id = evt.user_id\n          where u.email = 'newbie@example.com'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "966dc82083d63487a855efe3f9e556d5b08bd4d3921d230a3ab62a8c6ee98740"
+}

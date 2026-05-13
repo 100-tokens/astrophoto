@@ -129,12 +129,19 @@ struct Body<'a> {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = self.status();
-        if status.is_server_error() {
+        // 5xx responses must not echo the underlying error to the client —
+        // sqlx/Database errors stringify to PG output that includes column,
+        // constraint, and table names. Log the real error server-side and
+        // ship a uniform "internal error" body to the wire.
+        let message = if status.is_server_error() {
             tracing::error!(error = %self, "server error");
-        }
+            "internal error".to_string()
+        } else {
+            self.to_string()
+        };
         let body = Body {
             error: self.code(),
-            message: self.to_string(),
+            message,
         };
         (status, Json(body)).into_response()
     }

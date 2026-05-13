@@ -1,10 +1,20 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
+
   let { onEdit }: { onEdit: () => void } = $props();
+
+  // Pick which label phrasing to render based on viewport. Doing it in
+  // Svelte (not CSS display:none) keeps a single text node in the DOM
+  // so screen readers, page-scrapers, and document.textContent don't
+  // see both variants concatenated.
+  const narrow = new MediaQuery('(max-width: 640px)');
 </script>
 
 <div class="banner" role="status">
   <span class="dot">●</span>
-  <span class="label">VIEWING YOUR OWN PROFILE · OWNER MODE</span>
+  <span class="label">
+    {narrow.current ? 'OWNER MODE' : 'VIEWING YOUR OWN PROFILE · OWNER MODE'}
+  </span>
   <button type="button" class="btn-edit" onclick={onEdit}>Edit profile</button>
 </div>
 
@@ -26,6 +36,7 @@
   }
   .label {
     flex: 1;
+    min-width: 0;
   }
   .btn-edit {
     background: var(--accent);

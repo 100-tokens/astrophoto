@@ -11,13 +11,39 @@
   import LocationSection from './LocationSection.svelte';
   import SocialLinksSection from './SocialLinksSection.svelte';
 
+  // Which sections to surface. The full-page "Edit profile" button leaves
+  // section unset → all of them. Each inline placeholder (Add the gear, Add
+  // a tagline, …) sets section to its own field-group so the user only sees
+  // what they actually clicked.
+  type Section = 'identity' | 'about' | 'equipment' | 'location' | 'social';
+
   let {
     open = $bindable<boolean>(false),
+    section = $bindable<Section | null>(null),
     onSaved = () => {}
   }: {
     open?: boolean;
+    section?: Section | null;
     onSaved?: (profile: Profile) => void;
   } = $props();
+
+  function show(s: Section): boolean {
+    return section === null || section === s;
+  }
+
+  let titleText = $derived(
+    section === 'identity'
+      ? 'Edit identity'
+      : section === 'about'
+        ? 'Tell your story'
+        : section === 'equipment'
+          ? 'Your gear'
+          : section === 'location'
+            ? 'Your sky'
+            : section === 'social'
+              ? 'Where else to find you'
+              : 'Edit profile'
+  );
 
   let profile = $state<Profile | null>(null);
   let loading = $state(false);
@@ -50,6 +76,9 @@
 
   function close() {
     open = false;
+    // Reset section so the next time the editor opens via the global Edit
+    // profile button it shows everything again.
+    section = null;
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -60,48 +89,60 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <div class="overlay" role="dialog" aria-modal="true" aria-label="Edit profile">
+  <div class="overlay" role="dialog" aria-modal="true" aria-label={titleText}>
     <button type="button" class="scrim" aria-label="Close" onclick={close}></button>
     <div class="dialog">
       <header>
-        <h2>Edit profile</h2>
+        <h2>{titleText}</h2>
         <button type="button" class="x" onclick={close} aria-label="Close">×</button>
       </header>
-      {#if loading}
-        <p class="status">Loading…</p>
-      {:else if error}
-        <p class="status err">{error}</p>
-      {:else if profile}
-        <IdentitySection
-          displayName={profile.display_name}
-          tagline={profile.tagline}
-          onCommit={async (patch) => {
-            await commit(patch);
-          }}
-        />
-        <AboutSection
-          initial={profile.bio_html ?? ''}
-          onSave={(html) => commit({ bio_html: html })}
-        />
-        <EquipmentSection
-          equipment={profile.equipment}
-          onCommit={async (patch) => {
-            await commit(patch);
-          }}
-        />
-        <LocationSection
-          location={profile.location}
-          onCommit={async (patch) => {
-            await commit(patch);
-          }}
-        />
-        <SocialLinksSection
-          links={profile.social_links}
-          onCommit={async (patch) => {
-            await commit(patch);
-          }}
-        />
-      {/if}
+      <div class="body">
+        {#if loading}
+          <p class="status">Loading…</p>
+        {:else if error}
+          <p class="status err">{error}</p>
+        {:else if profile}
+          {#if show('identity')}
+            <IdentitySection
+              displayName={profile.display_name}
+              tagline={profile.tagline}
+              onCommit={async (patch) => {
+                await commit(patch);
+              }}
+            />
+          {/if}
+          {#if show('about')}
+            <AboutSection
+              initial={profile.bio_html ?? ''}
+              onSave={(html) => commit({ bio_html: html })}
+            />
+          {/if}
+          {#if show('equipment')}
+            <EquipmentSection
+              equipment={profile.equipment}
+              onCommit={async (patch) => {
+                await commit(patch);
+              }}
+            />
+          {/if}
+          {#if show('location')}
+            <LocationSection
+              location={profile.location}
+              onCommit={async (patch) => {
+                await commit(patch);
+              }}
+            />
+          {/if}
+          {#if show('social')}
+            <SocialLinksSection
+              links={profile.social_links}
+              onCommit={async (patch) => {
+                await commit(patch);
+              }}
+            />
+          {/if}
+        {/if}
+      </div>
     </div>
   </div>
 {/if}
@@ -129,16 +170,29 @@
     background: var(--bg-canvas);
     border-left: 1px solid var(--border-subtle);
     color: var(--fg-primary);
-    overflow-y: auto;
-    padding: 16px;
+    /* The flex column + min-height: 0 dance gives us a sticky header up top
+       and an inner .body that scrolls when the viewport is short. Without
+       it, on a 600px-tall window the bottom sections get clipped because
+       the dialog content grows past the viewport and overflow:auto on the
+       outer .dialog couldn't compete with the flex parent's stretching. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 12px;
-    margin-bottom: 16px;
+    padding: 16px 16px 12px;
+    background: var(--bg-canvas);
+  }
+  .body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 16px;
+    min-height: 0;
   }
   header h2 {
     margin: 0;

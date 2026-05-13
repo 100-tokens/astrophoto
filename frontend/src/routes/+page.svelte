@@ -17,12 +17,18 @@
     thumbSrc?: string;
   }
 
+  interface SiteStats {
+    practitioners: number | bigint;
+    frames: number | bigint;
+    integration_seconds: number | bigint;
+  }
   interface PageData {
     heroPhoto: HeroPhoto;
     heroSrc: string | undefined;
     photos: GalleryPhoto[];
     isReal: boolean;
     following_count: number;
+    stats: SiteStats | null;
     user?: { id: string } | null;
   }
 
@@ -30,8 +36,85 @@
 
   const HEIGHTS = [320, 480, 380, 280, 540, 320, 420, 380, 340, 460, 300, 400];
 
-  const FILTERS = ['All', 'Galaxies', 'Nebulae', 'Solar System', 'Wide field', 'Lunar'];
+  // Categories mirror the verify-form CategorySegmented enum. "All" goes
+  // to /explore (gallery feed, no filter), each other pill goes to the
+  // corresponding /c/<slug> index page.
+  const CATEGORIES: Array<{ label: string; href: string }> = [
+    { label: 'All', href: '/explore' },
+    { label: 'DSO', href: '/c/dso' },
+    { label: 'Planetary', href: '/c/planetary' },
+    { label: 'Lunar', href: '/c/lunar' },
+    { label: 'Solar', href: '/c/solar' },
+    { label: 'Wide field', href: '/c/wide-field' },
+    { label: 'Nightscape', href: '/c/nightscape' }
+  ];
+
+  // Today's date for the anonymous-eyebrow line. Computed at SSR — the
+  // render time is the most accurate "today" the visitor will see.
+  const todayLine = new Date()
+    .toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' })
+    .replace(/^(\w+) (.+)$/, (_, weekday, rest) => `${rest} · ${weekday}`)
+    .toUpperCase();
+
+  // Stats helpers — fall back to design-spec placeholders when the API
+  // hasn't responded (offline / first-paint of an empty site).
+  const fmtCount = (n: number | bigint | undefined): string => {
+    if (n == null) return '—';
+    return Number(n).toLocaleString('en-US');
+  };
+  const fmtHours = (s: number | bigint | undefined): string => {
+    if (s == null) return '—';
+    const total = Number(s);
+    if (total < 60) return `${total} s`;
+    if (total < 3600) return `${Math.round(total / 60)} m`;
+    const h = Math.round(total / 3600);
+    return `${h.toLocaleString('en-US')} h`;
+  };
+
+  // ── SEO / GEO meta ─────────────────────────────────────────────
+  // Hard-coded JSON-LD covers the WebSite + SearchAction (the box-search
+  // affordance Google's homepage rich result reads from). Description is
+  // brand-safe + duplicates the hero copy so social unfurls match the
+  // landing page copy users see.
+  const homeDescription =
+    'A quiet archive of the night sky, kept by amateur astrophotographers. Every published frame carries its full record — target, equipment, sky.';
+  const siteJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Astrophoto',
+    description: homeDescription,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: { '@type': 'EntryPoint', urlTemplate: '/?q={query}' },
+      'query-input': 'required name=query'
+    }
+  }).replace(/</g, '\\u003c');
 </script>
+
+<svelte:head>
+  <title>Astrophoto — A quiet archive of the night sky</title>
+  <meta name="description" content={homeDescription} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content="Astrophoto — A quiet archive of the night sky" />
+  <meta property="og:description" content={homeDescription} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Astrophoto — A quiet archive of the night sky" />
+  <meta name="twitter:description" content={homeDescription} />
+
+  <!-- Auto-discovery for feed readers (NetNewsWire / Feedly / Inoreach) -->
+  <link
+    rel="alternate"
+    type="application/rss+xml"
+    title="Astrophoto — recent frames"
+    href="/rss.xml"
+  />
+
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html `<script type="application/ld+json">${siteJsonLd}</script>`}
+</svelte:head>
 
 <AppHeader active="Gallery" />
 
@@ -41,11 +124,12 @@
   <div class="hero-copy">
     <div style="margin-bottom: 16px;">
       {#if data.user && data.following_count > 0}
-        <span class="t-eyebrow accent"
-          >● FROM THE {data.following_count} PHOTOGRAPHERS YOU FOLLOW</span
-        >
+        <span class="t-eyebrow accent">
+          ● FROM THE {data.following_count}
+          {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
+        </span>
       {:else}
-        <span class="t-eyebrow">● 14 March 2026 · Friday</span>
+        <span class="t-eyebrow">● {todayLine}</span>
       {/if}
     </div>
 
@@ -62,19 +146,24 @@
     </p>
 
     <div class="hero-actions">
-      <Button variant="primary" size="lg" href="/signup">Open an account</Button>
-      <Button variant="secondary" size="lg">Browse the gallery →</Button>
+      {#if data.user}
+        <Button variant="primary" size="lg" href="/upload">Upload a frame →</Button>
+        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+      {:else}
+        <Button variant="primary" size="lg" href="/signup">Open an account</Button>
+        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+      {/if}
     </div>
 
     <div class="hero-stats">
       <div>
-        <span class="stat-num">2,847</span><br />practitioners
+        <span class="stat-num">{fmtCount(data.stats?.practitioners)}</span><br />practitioners
       </div>
       <div>
-        <span class="stat-num">14,209</span><br />frames
+        <span class="stat-num">{fmtCount(data.stats?.frames)}</span><br />frames
       </div>
       <div>
-        <span class="stat-num">11,420 h</span><br />integration
+        <span class="stat-num">{fmtHours(data.stats?.integration_seconds)}</span><br />integration
       </div>
     </div>
   </div>
@@ -97,9 +186,14 @@
 				   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent);"
     ></div>
 
-    <!-- Frame of the week tag -->
+    <!-- Featured tag — drops the "of the week" lie when we don't have
+         a real weekly-curation mechanism. For logged-in users with
+         follows it's the latest from someone they follow; for everyone
+         else it's just the newest published frame. -->
     <div class="fotw-tag">
-      <div style="color: var(--accent)">FRAME OF THE WEEK</div>
+      <div style="color: var(--accent)">
+        {data.user && data.following_count > 0 ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
+      </div>
       {#if data.isReal}
         <div style="color: var(--fg-primary)">
           <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
@@ -114,24 +208,29 @@
   </div>
 </section>
 
-<!-- Filter bar -->
+<!-- Filter bar — pills route to the per-category index pages so the
+     home doubles as a category-shortcut bar. Sort / view toggles
+     deferred to the /explore page where cursor-based pagination lives
+     and toggles actually drive query state. -->
 <section class="filter-bar">
   <div class="filter-chips">
-    {#each FILTERS as label, i}
-      <button class={i === 0 ? 'chip chip-accent' : 'chip'} style="height: 28px; padding: 0 12px;">
+    {#each CATEGORIES as { label, href }, i}
+      <a
+        {href}
+        class={i === 0 ? 'chip chip-accent' : 'chip'}
+        style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; text-decoration: none;"
+      >
         {label}
-      </button>
+      </a>
     {/each}
   </div>
-  <div class="filter-right">
-    <span class="t-label">SORT</span>
-    <button class="chip">Newest first ▾</button>
-    <span class="t-label" style="margin-left: 12px;">VIEW</span>
-    <div class="view-toggle">
-      <button class="view-btn active" aria-pressed="true" aria-label="Grid view">▦</button>
-      <button class="view-btn" aria-pressed="false" aria-label="List view">≡</button>
-    </div>
-  </div>
+  <a
+    href="/explore"
+    class="filter-right t-label"
+    style="text-decoration: none; color: var(--fg-secondary);"
+  >
+    SORT · VIEW · FILTERS →
+  </a>
 </section>
 
 <!-- Masonry grid -->
@@ -159,9 +258,10 @@
   </div>
 </section>
 
-<!-- Pagination -->
+<!-- See-more — the home is a curated landing, paginated browsing lives
+     on /explore (cursor-based). -->
 <div class="pagination">
-  <Button variant="secondary" size="lg">Load page 2 of 974</Button>
+  <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
 </div>
 
 <AppFooter />
@@ -249,27 +349,6 @@
     display: flex;
     gap: 16px;
     align-items: center;
-  }
-
-  .view-toggle {
-    display: flex;
-    border: 1px solid var(--border-default);
-  }
-
-  .view-btn {
-    width: 32px;
-    height: 28px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--fg-muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-  }
-
-  .view-btn.active {
-    background: var(--bg-elevated);
-    color: var(--accent);
   }
 
   /* ── Masonry ──────────────────────────────────────────────── */

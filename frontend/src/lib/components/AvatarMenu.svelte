@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    user: { id: string; displayName: string };
+    user: { id: string; displayName: string; handle: string };
   }
 
   let { user }: Props = $props();
@@ -49,9 +49,12 @@
         <div style="color: var(--fg-primary); font-size: 13px;">{user.displayName}</div>
       </div>
       <div class="menu-divider"></div>
-      <a href="/u/{user.id}" class="menu-item" role="menuitem" onclick={close}>Profile</a>
+      <a href="/u/{user.handle}" class="menu-item" role="menuitem" onclick={close}>Profile</a>
+      <a href="/account/frames" class="menu-item" role="menuitem" onclick={close}>My frames</a>
+      <a href="/me/drafts" class="menu-item" role="menuitem" onclick={close}>Drafts</a>
       <a href="/upload" class="menu-item" role="menuitem" onclick={close}>Upload</a>
       <div class="menu-divider"></div>
+      <a href="/settings" class="menu-item" role="menuitem" onclick={close}>Settings</a>
       <form method="POST" action="/account/logout">
         <button type="submit" class="menu-item menu-item-button" role="menuitem"> Sign out </button>
       </form>

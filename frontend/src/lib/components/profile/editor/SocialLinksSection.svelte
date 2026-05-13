@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { SocialLink } from '$lib/api/SocialLink';
   import type { SocialPlatform } from '$lib/api/SocialPlatform';
 
@@ -10,8 +11,8 @@
     onCommit: (patch: { social_links: SocialLink[] }) => Promise<void>;
   } = $props();
 
-  let local = $state<SocialLink[]>(structuredClone(links));
-  let saved = $state<SocialLink[]>(structuredClone(links));
+  let local = $state<SocialLink[]>(untrack(() => $state.snapshot(links)));
+  let saved = $state<SocialLink[]>(untrack(() => $state.snapshot(links)));
 
   const PLATFORMS: SocialPlatform[] = [
     'twitter',
@@ -30,7 +31,7 @@
   async function commit() {
     if (!changed()) return;
     await onCommit({ social_links: local });
-    saved = structuredClone(local);
+    saved = $state.snapshot(local);
   }
 
   function add() {

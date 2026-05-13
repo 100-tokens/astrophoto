@@ -30,3 +30,11 @@
 
 # Worktrees (subagent-driven-development isolation)
 /.worktrees/
+
+# Tooling caches — not committed
+/.serena/
+/.claude/
+/target/
+
+# Smoke-test fixtures generated outside the project's tests/ tree
+/upload-*.jpg

@@ -1,5 +1,6 @@
 import { PHOTOS, NGC7000 } from '$lib/data/photos';
 import type { PageServerLoad } from './$types';
+import type { SiteStats } from '$lib/api/SiteStats';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
@@ -13,6 +14,12 @@ type RealPhoto = {
 
 export const load: PageServerLoad = async ({ fetch, locals, request }) => {
   let realPhotos: RealPhoto[] = [];
+
+  // Fire site stats in parallel — non-fatal, falls back to nulls if backend
+  // hiccups so the home still renders.
+  const statsPromise = fetch(`${API}/api/site/stats`)
+    .then(async (r) => (r.ok ? ((await r.json()) as SiteStats) : null))
+    .catch(() => null);
 
   // 1. Authenticated user with follows: try the personalised feed first.
   if (locals.user) {
@@ -47,6 +54,7 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
   // If we have real photos, build a gallery from them. Otherwise keep
   // the placeholder demo content for a non-empty landing.
   const following_count = locals.user?.following_ids?.length ?? 0;
+  const stats = await statsPromise;
 
   if (realPhotos.length > 0) {
     const [hero, ...rest] = realPhotos as [RealPhoto, ...RealPhoto[]];
@@ -68,7 +76,8 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
         thumbSrc: `${API}/api/photos/${p.id}/thumb/400`
       })),
       isReal: true,
-      following_count
+      following_count,
+      stats
     };
   }
 
@@ -81,6 +90,7 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
     heroSrc: undefined,
     photos: PHOTOS.slice(0, 12).map((p) => ({ ...p, thumbSrc: undefined })),
     isReal: false,
-    following_count
+    following_count,
+    stats
   };
 };

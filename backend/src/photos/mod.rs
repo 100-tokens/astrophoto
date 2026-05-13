@@ -1,7 +1,11 @@
 pub mod apply_setup;
+pub mod batch_apply;
+pub mod batch_publish;
 pub mod cdn;
+pub mod cleanup;
 pub mod count;
 pub mod delete;
+pub mod drafts_list;
 pub mod exif;
 pub mod get;
 pub mod list;
@@ -20,5 +24,6 @@ pub mod tags_autocomplete;
 pub mod targets;
 pub mod targets_autocomplete;
 pub mod thumbs;
+pub mod upload_cancel;
 pub mod upload_finalize;
 pub mod upload_init;

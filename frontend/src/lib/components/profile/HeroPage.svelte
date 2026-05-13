@@ -15,6 +15,12 @@
   type ViewMode = 'visitor' | 'owner' | 'admin';
   type FirstPage = { photos: GalleryPhoto[]; next_cursor: string | null };
 
+  // The route owns editor open/section state; we surface the click as
+  // (section?) so the route can decide whether to open the full sheet
+  // (no arg from the global Edit profile button) or a single-section sheet
+  // (arg from an inline placeholder click).
+  type EditorSection = 'identity' | 'about' | 'equipment' | 'location' | 'social';
+
   let {
     profile,
     viewMode = 'visitor',
@@ -25,7 +31,7 @@
     profile: PublicProfile;
     viewMode?: ViewMode;
     firstPage?: FirstPage | null;
-    onEditProfile?: () => void;
+    onEditProfile?: (section?: EditorSection) => void;
     onPickCover?: () => void;
   } = $props();
 
@@ -35,7 +41,7 @@
 
 <article class="hero-page" data-mode={viewMode}>
   {#if isOwner}
-    <OwnerModeBanner onEdit={onEditProfile} />
+    <OwnerModeBanner onEdit={() => onEditProfile()} />
   {/if}
 
   <HeroCover cover={profile.cover} {isOwner} {onPickCover} />
@@ -43,15 +49,23 @@
   <HeroIdentity
     {profile}
     {isOwner}
-    {onEditProfile}
+    onEditProfile={(s) => onEditProfile(s)}
     hasCover={profile.cover !== null && profile.cover !== undefined}
   />
 
-  <HeroAbout bio={profile.bio_html} {isOwner} {onEditProfile} />
+  <HeroAbout bio={profile.bio_html} {isOwner} onEditProfile={() => onEditProfile('about')} />
 
-  <HeroEquipmentStrip equipment={profile.equipment} {isOwner} {onEditProfile} />
+  <HeroEquipmentStrip
+    equipment={profile.equipment}
+    {isOwner}
+    onEditProfile={() => onEditProfile('equipment')}
+  />
 
-  <HeroLocationBadge location={profile.location} {isOwner} {onEditProfile} />
+  <HeroLocationBadge
+    location={profile.location}
+    {isOwner}
+    onEditProfile={() => onEditProfile('location')}
+  />
 
   <HeroStatsRow stats={profile.stats} />
 

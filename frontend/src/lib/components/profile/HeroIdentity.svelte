@@ -6,6 +6,8 @@
   import HeroSocialLinks from './HeroSocialLinks.svelte';
   import HeroActions from './HeroActions.svelte';
 
+  type EditorSection = 'identity' | 'about' | 'equipment' | 'location' | 'social';
+
   let {
     profile,
     isOwner,
@@ -15,7 +17,7 @@
     profile: PublicProfile;
     isOwner: boolean;
     hasCover: boolean;
-    onEditProfile: () => void;
+    onEditProfile: (section?: EditorSection) => void;
   } = $props();
 </script>
 
@@ -23,10 +25,14 @@
   <HeroAvatar handle={profile.handle} displayName={profile.display_name} />
   <div class="middle">
     <HeroName displayName={profile.display_name} />
-    <HeroTagline tagline={profile.tagline} {isOwner} {onEditProfile} />
+    <HeroTagline
+      tagline={profile.tagline}
+      {isOwner}
+      onEditProfile={() => onEditProfile('identity')}
+    />
     <HeroSocialLinks links={profile.social_links} />
   </div>
-  <HeroActions targetUserId={profile.id} {isOwner} {onEditProfile} />
+  <HeroActions targetUserId={profile.id} {isOwner} onEditProfile={() => onEditProfile()} />
 </section>
 
 <style>
@@ -37,6 +43,14 @@
     align-items: start;
     padding: 0 32px 24px;
     margin-top: -80px;
+    /* The cover above us is `position: relative` (it needs to anchor the
+       "Change cover" / credit chip overlays). That puts the cover into the
+       positioned-painting layer, which paints AFTER non-positioned siblings
+       even if they come later in the DOM — so without our own positioned
+       layer here, the cover image overpaints the upper 80px of the avatar
+       that the negative margin pulls into the cover area. */
+    position: relative;
+    z-index: 1;
   }
   /* Spec line 562: cover is "omitted entirely when empty for visitors".
      Without that banner above, the -80px overlap pulls the avatar into

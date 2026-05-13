@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set target = $1 where id = any($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7a3e8cfe4ff0f83a89903dbe415767b7496b75a43cf3d8802e7519e0f2f49fe6"
+}

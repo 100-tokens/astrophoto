@@ -508,6 +508,16 @@ img {
   background: var(--accent);
 }
 
+.primary-nav {
+  display: flex;
+  gap: 32px;
+}
+@media (max-width: 768px) {
+  .primary-nav {
+    display: none;
+  }
+}
+
 /* =========================================================
    FRAME — used to wrap "screens" inside design-canvas artboards
    ========================================================= */

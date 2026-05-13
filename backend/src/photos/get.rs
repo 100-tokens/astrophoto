@@ -46,9 +46,10 @@ pub struct PhotoDetail {
     pub replaced_at: Option<String>,
     pub original_uploaded_at: String,
     pub pipeline_error: Option<String>,
-    // Migration 0014: equipment setup link + per-photo focal modifier.
+    // Equipment setup link + per-photo focal modifier (migration 0017).
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
+    pub tags: Vec<String>,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -87,6 +88,7 @@ impl From<PhotoRow> for PhotoDetail {
             pipeline_error: p.pipeline_error,
             setup_id: p.setup_id.map(|u| u.to_string()),
             focal_modifier: p.focal_modifier,
+            tags: vec![],
         }
     }
 }
@@ -121,10 +123,22 @@ pub async fn handler(
     .await?
     .count;
 
+    let tags: Vec<String> = sqlx::query_scalar!(
+        "select t.name
+           from photo_tags pt
+           join tags t on t.id = pt.tag_id
+          where pt.photo_id = $1
+          order by t.name",
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?;
+
     let row_owner = row.owner_id;
     let mut dto: PhotoDetail = row.into();
     dto.appreciation_count = appreciation_count;
     dto.comment_count = comment_count;
+    dto.tags = tags;
     // Hide pipeline_error from non-owners — it can carry internal diagnostic strings.
     if viewer != Some(row_owner) {
         dto.pipeline_error = None;

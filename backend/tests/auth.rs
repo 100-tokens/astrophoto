@@ -56,7 +56,7 @@ async fn signup_login_me_logout_full_flow() {
         Arc::new(mailer),
     );
 
-    // 1. signup
+    // 1. signup — now returns 202 Accepted with no session cookie
     let signup_body = serde_json::json!({
         "email": "marie@example.com",
         "password": "verylongpassword",
@@ -75,7 +75,39 @@ async fn signup_login_me_logout_full_flow() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201);
+    assert_eq!(resp.status(), 202);
+    assert!(
+        resp.headers().get("set-cookie").is_none(),
+        "signup must not set a session cookie"
+    );
+
+    // Mark the user as verified in the DB (simulates clicking the verification link).
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        "marie@example.com"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // 2. login to obtain a session cookie
+    let login_body = serde_json::json!({
+        "email": "marie@example.com",
+        "password": "verylongpassword"
+    });
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
     let cookie = resp
         .headers()
         .get("set-cookie")
@@ -87,7 +119,7 @@ async fn signup_login_me_logout_full_flow() {
     // __Host- prefix per backend/src/auth/session.rs::cookie_name().
     assert!(cookie.starts_with("session="), "got: {cookie}");
 
-    // 2. /me with the cookie
+    // 3. /me with the cookie
     let resp = app
         .clone()
         .oneshot(
@@ -104,7 +136,7 @@ async fn signup_login_me_logout_full_flow() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["email"], "marie@example.com");
 
-    // 3. logout invalidates the session
+    // 4. logout invalidates the session
     let resp = app
         .clone()
         .oneshot(
@@ -119,7 +151,7 @@ async fn signup_login_me_logout_full_flow() {
         .unwrap();
     assert_eq!(resp.status(), 204);
 
-    // 4. /me with the now-invalid cookie returns 401
+    // 5. /me with the now-invalid cookie returns 401
     let resp = app
         .clone()
         .oneshot(
@@ -133,8 +165,8 @@ async fn signup_login_me_logout_full_flow() {
         .unwrap();
     assert_eq!(resp.status(), 401);
 
-    // 5. login with the same email/password returns a fresh cookie
-    let login_body = serde_json::json!({
+    // 6. login again with the same email/password returns a fresh cookie
+    let login_body2 = serde_json::json!({
         "email": "marie@example.com",
         "password": "verylongpassword"
     });
@@ -144,7 +176,7 @@ async fn signup_login_me_logout_full_flow() {
                 .method("POST")
                 .uri("/api/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(login_body.to_string()))
+                .body(Body::from(login_body2.to_string()))
                 .unwrap(),
         )
         .await
@@ -187,7 +219,7 @@ async fn signup_rejects_duplicate_handle() {
         )
         .await
         .unwrap();
-    assert_eq!(r1.status(), 201);
+    assert_eq!(r1.status(), 202);
 
     let body2 = serde_json::json!({
         "email": "b@example.com",

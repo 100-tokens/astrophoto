@@ -54,6 +54,7 @@ export default ts.config(
       // Discovery pages seed cursor $state from the SSR page data once on mount;
       // the $effect keeps it in sync on filter navigation. This is intentional.
       'src/routes/explore/+page.svelte',
+      'src/routes/t/+page.svelte',
       'src/routes/t/\\[slug\\]/+page.svelte',
       'src/routes/tag/\\[slug\\]/+page.svelte',
       'src/routes/equip/\\[kind\\]/\\[slug\\]/+page.svelte',

@@ -1,4 +1,5 @@
 pub mod email_change;
+pub mod email_verify;
 pub mod handle;
 pub mod handle_check;
 pub mod login;

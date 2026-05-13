@@ -1,5 +1,8 @@
 import type { Health, User } from './types';
 import type { PhotoDetail } from './PhotoDetail';
+import type { DraftListResponse } from './DraftListResponse';
+import type { BatchApplyResponse } from './BatchApplyResponse';
+import type { BatchPublishResponse } from './BatchPublishResponse';
 
 // ---------------------------------------------------------------------------
 // Comment DTO
@@ -110,7 +113,9 @@ export const api = {
     putMetadata: (id: string, patch: Record<string, unknown>, opts?: ApiCall) =>
       request<void>('PUT', `/api/photos/${id}`, patch, opts),
     publish: (id: string, opts?: ApiCall) =>
-      request<void>('POST', `/api/photos/${id}/publish`, undefined, opts)
+      request<void>('POST', `/api/photos/${id}/publish`, undefined, opts),
+    delete: (id: string, opts?: ApiCall) =>
+      request<void>('DELETE', `/api/photos/${id}`, undefined, opts)
     // upload uses multipart/form-data — callers use raw fetch directly
   },
   appreciations: {
@@ -202,7 +207,16 @@ export const api = {
     request<void>('POST', '/api/me/delete-cancel', undefined, opts),
 
   photosCount: (opts?: ApiCall) =>
-    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts)
+    request<{ count: number }>('GET', '/api/me/photos/count', undefined, opts),
+
+  drafts: (opts: ApiCall & { limit?: number; cursor?: string } = {}) => {
+    const { limit, cursor, ...apiOpts } = opts;
+    const qs = new URLSearchParams();
+    if (limit != null) qs.set('limit', String(limit));
+    if (cursor) qs.set('cursor', cursor);
+    const path = qs.toString() ? `/api/photos/me/drafts?${qs}` : '/api/photos/me/drafts';
+    return request<DraftListResponse>('GET', path, undefined, apiOpts);
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -211,6 +225,22 @@ export const api = {
 
 export async function getPhoto(id: string, opts: ApiCall = {}): Promise<PhotoDetail> {
   return request<PhotoDetail>('GET', `/api/photos/${id}`, undefined, opts);
+}
+
+export async function batchApply(
+  opts: ApiCall & { ids: string[]; target?: string; tags?: string[] }
+): Promise<BatchApplyResponse> {
+  const { ids, target, tags, ...apiOpts } = opts;
+  return request<BatchApplyResponse>(
+    'POST',
+    '/api/photos/batch/apply',
+    {
+      ids,
+      target: target ?? null,
+      tags: tags ?? null
+    },
+    apiOpts
+  );
 }
 
 export async function putPhotoMetadata(
@@ -223,4 +253,11 @@ export async function putPhotoMetadata(
 
 export async function publishPhoto(id: string, opts: ApiCall = {}): Promise<void> {
   await request<void>('POST', `/api/photos/${id}/publish`, undefined, opts);
+}
+
+export async function batchPublish(
+  opts: ApiCall & { ids: string[] }
+): Promise<BatchPublishResponse> {
+  const { ids, ...apiOpts } = opts;
+  return request<BatchPublishResponse>('POST', '/api/photos/batch/publish', { ids }, apiOpts);
 }

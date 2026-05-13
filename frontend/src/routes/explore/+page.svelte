@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -7,12 +8,14 @@
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchExplore } from '$lib/api/discoveryClient';
+  import { categoryLabel } from '$lib/util/categoryLabel';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 
-  // Track cursor for load-more closed over current filter state.
-  let cursor = $state<string | null>(data.initial.next_cursor);
+  // Track cursor for load-more closed over current filter state. Seed once
+  // from the SSR data; the $effect below resets it on filter navigation.
+  let cursor = $state<string | null>(untrack(() => data.initial.next_cursor));
   // Reset when data changes (navigation with new filter params).
   $effect(() => {
     cursor = data.initial.next_cursor;
@@ -61,7 +64,18 @@
 
   // FilterPills category prop: must not pass undefined with exactOptionalPropertyTypes.
   let pillCategory = $derived(data.category as string | undefined);
+
+  let pageTitle = $derived(
+    data.category ? `Explore · ${categoryLabel(data.category)} — Astrophoto` : 'Explore — Astrophoto'
+  );
+  const pageDescription =
+    'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+</svelte:head>
 
 <AppHeader />
 <DiscoveryHeader variant="explore" photoCount={data.initial.photos.length} />

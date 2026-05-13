@@ -7,10 +7,13 @@
 
   let { currentStep }: { currentStep: 1 | 2 | 3 } = $props();
 
+  // Labels match docs/design/handoff-showcase/showcase-p1.jsx:86 — the
+  // verify step is "VERIFY EACH" (one frame at a time), and the third
+  // step is just "PUBLISH" (caption is part of verify in the handoff).
   const STEPS = [
     { n: '01', label: 'UPLOAD' },
-    { n: '02', label: 'VERIFY DATA' },
-    { n: '03', label: 'CAPTION & PUBLISH' }
+    { n: '02', label: 'VERIFY EACH' },
+    { n: '03', label: 'PUBLISH' }
   ];
 
   function stateFor(idx: number): 'done' | 'active' | 'pending' {

@@ -5,7 +5,7 @@
   import Input from '$lib/components/Input.svelte';
   import HandlePicker from '$lib/components/HandlePicker.svelte';
 
-  let { form }: PageProps = $props();
+  let { data, form }: PageProps = $props();
 
   // Preserve handle across server-side error round-trips.
   // $derived keeps this reactive when `form` changes after a server action.
@@ -13,6 +13,10 @@
   $effect(() => {
     if (form?.handle !== undefined) handle = form.handle;
   });
+
+  // Backend OAuth endpoint composed server-side and passed via PageData
+  // (see signin/+page.server.ts for the rationale).
+  let googleOauthUrl = $derived(data.googleOauthUrl);
 </script>
 
 <svelte:head>
@@ -42,7 +46,7 @@
 
     <!-- Google OAuth button -->
     <div style="margin-top: 40px;">
-      <Button variant="secondary" size="lg" class="full-width-btn">
+      <Button variant="secondary" size="lg" href={googleOauthUrl} class="full-width-btn">
         <svg
           width="16"
           height="16"

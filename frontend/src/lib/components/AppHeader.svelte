@@ -21,7 +21,7 @@
     href: string;
   }> = [
     { label: 'Gallery', href: '/' },
-    { label: 'Targets', href: '/targets' },
+    { label: 'Targets', href: '/t' },
     { label: 'Photographers', href: '/photographers' },
     { label: 'About', href: '/about' }
   ];
@@ -34,8 +34,10 @@
     <Wordmark size={22} weight={600} italic={false} />
   </div>
 
-  <!-- Center nav -->
-  <nav style="display: flex; gap: 32px;" aria-label="Main navigation">
+  <!-- Center nav (hidden under 768px; the same destinations live in the
+       footer + the search bar covers discovery on mobile, so a hamburger
+       isn't pulling enough weight to justify the cost). -->
+  <nav class="primary-nav" aria-label="Main navigation">
     {#each navLinks as link}
       <a
         href={link.href}
