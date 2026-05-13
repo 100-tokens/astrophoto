@@ -12,6 +12,7 @@ use axum::{
     extract::connect_info::MockConnectInfo,
     http::{Request, StatusCode, header},
 };
+use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sha2::Digest;
 use testcontainers::runners::AsyncRunner;
@@ -366,4 +367,67 @@ async fn resend_within_cooldown_does_not_issue_token() {
     // No mail sent
     let sent = outbox.lock().unwrap();
     assert_eq!(sent.len(), 0, "expected no mail within cooldown window");
+}
+
+#[tokio::test]
+async fn signup_returns_202_unverified_and_sends_verification_mail() {
+    let (app, pool, outbox, _pg) = boot().await;
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "email": "newbie@example.com",
+                        "password": "longenoughpw1",
+                        "display_name": "Newbie",
+                        "handle": "newbie-x"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    // 202 Accepted, NOT 201, and no session cookie.
+    assert_eq!(resp.status(), StatusCode::ACCEPTED);
+    assert!(resp.headers().get(header::SET_COOKIE).is_none());
+
+    let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(body["status"], "verification_required");
+    assert_eq!(body["email"], "newbie@example.com");
+
+    // User exists but is unverified.
+    let row = sqlx::query!(
+        "select email_verified_at from users where email = 'newbie@example.com'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(row.email_verified_at.is_none());
+
+    // Exactly one verification token issued for this user.
+    let count = sqlx::query_scalar!(
+        "select count(*) from email_verification_tokens evt
+          join users u on u.id = evt.user_id
+          where u.email = 'newbie@example.com'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(count, 1);
+
+    // One mail sent — the verification mail.
+    let sent = outbox.lock().unwrap();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].to, "newbie@example.com");
+    assert_eq!(sent[0].subject, "Confirm your Astrophoto account");
+    assert!(sent[0].body.contains("/verify/"));
 }

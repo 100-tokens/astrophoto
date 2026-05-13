@@ -80,7 +80,8 @@ impl TestApp {
         Self { app, pool, _pg: pg }
     }
 
-    /// POST /api/auth/signup with the given handle. Returns (cookie, user_id).
+    /// POST /api/auth/signup, mark the user verified, then POST /api/auth/login.
+    /// Returns (session-cookie, user_id).
     pub async fn signup_with_handle(
         &self,
         display_name: &str,
@@ -106,14 +107,8 @@ impl TestApp {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), 201, "signup must succeed");
-        let cookie = resp
-            .headers()
-            .get("set-cookie")
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        assert_eq!(resp.status(), 202, "signup must return 202");
+
         // Look up user_id from DB (handle is normalised lowercase).
         let user_id: Uuid = sqlx::query_scalar!(
             "select id from users where handle = $1",
@@ -122,6 +117,43 @@ impl TestApp {
         .fetch_one(&self.pool)
         .await
         .unwrap();
+
+        // Mark the user verified so that subsequent logins work.
+        sqlx::query!(
+            "update users set email_verified_at = now() where id = $1",
+            user_id
+        )
+        .execute(&self.pool)
+        .await
+        .unwrap();
+
+        // Log in to get a session cookie.
+        let login_body = serde_json::json!({
+            "email": email,
+            "password": "verylongpassword"
+        });
+        let login_resp = self
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(login_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(login_resp.status(), 200, "login must succeed after signup");
+        let cookie = login_resp
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
         (cookie, user_id)
     }
 

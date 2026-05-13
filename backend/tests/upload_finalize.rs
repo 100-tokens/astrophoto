@@ -41,9 +41,14 @@ fn config_for(url: &str) -> Config {
     }
 }
 
-/// Sign up a user and return the `Set-Cookie` header value.
+/// Sign up a user, mark them verified, log in, and return the `Set-Cookie` header value.
 #[allow(clippy::unwrap_used)]
-async fn signup_and_get_cookie(app: &axum::Router, email: &str, handle: &str) -> String {
+async fn signup_and_get_cookie(
+    app: &axum::Router,
+    pool: &sqlx::PgPool,
+    email: &str,
+    handle: &str,
+) -> String {
     let body = serde_json::json!({
         "email": email,
         "password": "verylongpassword",
@@ -62,8 +67,34 @@ async fn signup_and_get_cookie(app: &axum::Router, email: &str, handle: &str) ->
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201, "signup should succeed for {email}");
-    resp.headers()
+    assert_eq!(resp.status(), 202, "signup should succeed for {email}");
+
+    // Mark user verified so login works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    // Log in to obtain a session cookie.
+    let login_body = serde_json::json!({"email": email, "password": "verylongpassword"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    login_resp
+        .headers()
         .get("set-cookie")
         .unwrap()
         .to_str()
@@ -138,7 +169,7 @@ async fn finalize_404_unknown_photo() {
         Arc::new(mailer),
     );
 
-    let cookie = signup_and_get_cookie(&app, "alice1@example.com", "alice1").await;
+    let cookie = signup_and_get_cookie(&app, &pool, "alice1@example.com", "alice1").await;
 
     // A random UUID that doesn't exist in the DB.
     let unknown_id = Uuid::new_v4();
@@ -165,8 +196,8 @@ async fn finalize_404_cross_owner() {
     );
 
     // Sign up two users.
-    let _cookie_alice = signup_and_get_cookie(&app, "alice2@example.com", "alice2").await;
-    let cookie_bob = signup_and_get_cookie(&app, "bob2@example.com", "bob2").await;
+    let _cookie_alice = signup_and_get_cookie(&app, &pool, "alice2@example.com", "alice2").await;
+    let cookie_bob = signup_and_get_cookie(&app, &pool, "bob2@example.com", "bob2").await;
 
     // Get Alice's user id from the DB.
     let alice_id: Uuid =
@@ -213,7 +244,7 @@ async fn finalize_408_no_s3_object() {
         Arc::new(mailer),
     );
 
-    let cookie = signup_and_get_cookie(&app, "alice3@example.com", "alice3").await;
+    let cookie = signup_and_get_cookie(&app, &pool, "alice3@example.com", "alice3").await;
     let alice_id: Uuid =
         sqlx::query_scalar!("select id from users where email = 'alice3@example.com'")
             .fetch_one(&pool)
@@ -260,7 +291,7 @@ async fn finalize_400_magic_byte_mismatch() {
         Arc::new(mailer),
     );
 
-    let cookie = signup_and_get_cookie(&app, "alice4@example.com", "alice4").await;
+    let cookie = signup_and_get_cookie(&app, &pool, "alice4@example.com", "alice4").await;
     let alice_id: Uuid =
         sqlx::query_scalar!("select id from users where email = 'alice4@example.com'")
             .fetch_one(&pool)
@@ -318,7 +349,7 @@ async fn finalize_happy_path_and_idempotent() {
         Arc::new(mailer),
     );
 
-    let cookie = signup_and_get_cookie(&app, "alice5@example.com", "alice5").await;
+    let cookie = signup_and_get_cookie(&app, &pool, "alice5@example.com", "alice5").await;
     let alice_id: Uuid =
         sqlx::query_scalar!("select id from users where email = 'alice5@example.com'")
             .fetch_one(&pool)

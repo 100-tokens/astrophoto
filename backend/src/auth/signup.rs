@@ -1,12 +1,12 @@
 use std::net::IpAddr;
 
 use axum::{Json, extract::State, http::HeaderMap, response::IntoResponse};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::AppError;
-use crate::api_types::User;
-use crate::auth::{password, session};
+use crate::auth::email_verify;
+use crate::mail::templates;
 use crate::users::queries;
 
 #[derive(Deserialize, Validate)]
@@ -20,7 +20,12 @@ pub struct SignupBody {
     pub handle: String,
 }
 
-#[allow(clippy::unwrap_used)]
+#[derive(Serialize)]
+pub struct SignupResponse {
+    pub status: &'static str,
+    pub email: String,
+}
+
 pub async fn handler(
     State(state): State<crate::http::AppState>,
     headers: HeaderMap,
@@ -30,7 +35,7 @@ pub async fn handler(
         .map_err(|e| AppError::Validation(e.to_string()))?;
     crate::auth::handle::validate(&body.handle).map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let hash = password::hash(body.password).await?;
+    let hash = crate::auth::password::hash(body.password).await?;
     let user = queries::create_with_password(
         &state.pool,
         &body.email,
@@ -40,23 +45,28 @@ pub async fn handler(
     )
     .await?;
 
-    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
     let ip: Option<IpAddr> = headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.split(',').next())
         .and_then(|s| s.trim().parse().ok());
-    let cookie_value = session::create(&state.pool, user.id, ua, ip).await?;
-    let cookie = session::cookie_header(
-        &cookie_value,
-        state.config.session_secure,
-        session::SESSION_DAYS,
-    );
 
-    let user_dto: User = user.into();
-    let mut response = (axum::http::StatusCode::CREATED, Json(user_dto)).into_response();
-    response
-        .headers_mut()
-        .insert("set-cookie", cookie.parse().unwrap());
-    Ok(response)
+    let token = email_verify::issue_token(&state.pool, user.id, ip).await?;
+    let link = format!(
+        "{}/verify/{}",
+        state.config.public_base_url.trim_end_matches('/'),
+        token
+    );
+    let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
+    if let Err(e) = state.mailer.send_plain(&user.email, &subject, &mail_body).await {
+        tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
+    }
+
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(SignupResponse {
+            status: "verification_required",
+            email: user.email,
+        }),
+    ))
 }

@@ -106,7 +106,7 @@ fn handle_from_email(email: &str) -> String {
     h
 }
 
-async fn signup(app: &axum::Router, email: &str, password: &str) {
+async fn signup(app: &axum::Router, pool: &sqlx::PgPool, email: &str, password: &str) {
     let handle = handle_from_email(email);
     let body =
         json!({"email": email, "password": password, "display_name": "Marie", "handle": handle});
@@ -127,6 +127,14 @@ async fn signup(app: &axum::Router, email: &str, password: &str) {
         "signup must succeed (got {})",
         resp.status()
     );
+    // Mark the user verified so that signin works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
 }
 
 /// Sign in and return the full Set-Cookie header value (e.g. `session=...; HttpOnly; ...`).
@@ -178,8 +186,9 @@ async fn password_reset_request_unknown_email_returns_204_silent() {
 
 #[tokio::test]
 async fn password_reset_request_known_email_sends_one_mail() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
 
     let resp = app
         .clone()
@@ -197,8 +206,9 @@ async fn password_reset_request_known_email_sends_one_mail() {
 
 #[tokio::test]
 async fn password_reset_throttle_60s_per_email() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
 
     for _ in 0..3 {
         let resp = app
@@ -217,8 +227,9 @@ async fn password_reset_throttle_60s_per_email() {
 
 #[tokio::test]
 async fn password_reset_full_happy_path() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
 
     // Request reset.
     app.clone()
@@ -281,8 +292,9 @@ async fn password_reset_full_happy_path() {
 
 #[tokio::test]
 async fn password_reset_token_single_use() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
     app.clone()
         .oneshot(req_with_ip(
             "POST",
@@ -361,7 +373,7 @@ async fn password_reset_oauth_user_gets_set_password_template() {
 #[tokio::test]
 async fn password_change_invalidates_all_sessions_then_creates_fresh() {
     let (app, pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
     let cookie = signin(&app, "marie@example.com", "longenoughpw1").await;
 
     // Use the session cookie to change the password.
@@ -401,8 +413,8 @@ async fn password_change_invalidates_all_sessions_then_creates_fresh() {
 
 #[tokio::test]
 async fn password_change_wrong_current_returns_401() {
-    let (app, _pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@example.com", "longenoughpw1").await;
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
     let cookie = signin(&app, "marie@example.com", "longenoughpw1").await;
 
     let session_cookie = cookie.split(';').next().unwrap().to_string();
@@ -427,7 +439,7 @@ async fn password_change_wrong_current_returns_401() {
 #[tokio::test]
 async fn email_change_full_happy_path() {
     let (app, pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@old.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@old.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
     outbox.lock().unwrap().clear();
 
@@ -489,9 +501,9 @@ async fn email_change_full_happy_path() {
 
 #[tokio::test]
 async fn email_change_target_already_taken_returns_taken_status() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@old.test", "longenoughpw1").await;
-    signup(&app, "leah@taken.test", "longenoughpw2").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@old.test", "longenoughpw1").await;
+    signup(&app, &pool, "leah@taken.test", "longenoughpw2").await;
     let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
     outbox.lock().unwrap().clear();
 
@@ -532,7 +544,7 @@ async fn email_change_target_already_taken_returns_taken_status() {
 #[tokio::test]
 async fn email_change_pending_token_invalidated_on_new_request() {
     let (app, pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@old.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@old.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@old.test", "longenoughpw1").await;
 
     for new in ["a@x.test", "b@x.test"] {
@@ -560,8 +572,9 @@ async fn email_change_pending_token_invalidated_on_new_request() {
 
 #[tokio::test]
 async fn email_change_throttle_60s_per_user() {
-    let (app, _pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
+    outbox.lock().unwrap().clear();
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
     let cookie_h = cookie.split(';').next().unwrap().to_string();
 
@@ -635,8 +648,8 @@ async fn email_change_oauth_only_user_blocked_400() {
 
 #[tokio::test]
 async fn profile_get_put_round_trip() {
-    let (app, _pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
     let cookie_h = cookie.split(';').next().unwrap().to_string();
 
@@ -674,8 +687,8 @@ async fn profile_get_put_round_trip() {
 
 #[tokio::test]
 async fn preferences_default_dark_work_then_updated() {
-    let (app, _pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
     let cookie_h = cookie.split(';').next().unwrap().to_string();
 
@@ -712,7 +725,7 @@ async fn preferences_default_dark_work_then_updated() {
 async fn sessions_list_marks_current_first() {
     let (app, pool, _outbox, _pg) = boot().await;
     // signup itself creates a session; signin creates one more — at least 2 total.
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie_a = signin(&app, "marie@x.test", "longenoughpw1").await;
     let _cookie_b = signin(&app, "marie@x.test", "longenoughpw1").await;
 
@@ -741,7 +754,7 @@ async fn sessions_list_marks_current_first() {
 #[tokio::test]
 async fn revoke_current_session_returns_400() {
     let (app, pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
 
     // Extract the session token bytes from the cookie to get the actual current id.
@@ -774,7 +787,7 @@ async fn revoke_current_session_returns_400() {
 #[tokio::test]
 async fn sign_out_others_keeps_current_kills_rest() {
     let (app, pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie_a = signin(&app, "marie@x.test", "longenoughpw1").await;
     let _ = signin(&app, "marie@x.test", "longenoughpw1").await;
     let _ = signin(&app, "marie@x.test", "longenoughpw1").await;
@@ -806,7 +819,7 @@ async fn sign_out_others_keeps_current_kills_rest() {
 #[tokio::test]
 async fn delete_request_with_correct_password_and_phrase_succeeds() {
     let (app, pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
 
     let mut req = Request::builder()
@@ -848,8 +861,8 @@ async fn delete_request_with_correct_password_and_phrase_succeeds() {
 
 #[tokio::test]
 async fn delete_request_wrong_phrase_returns_400() {
-    let (app, _pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    let (app, pool, _outbox, _pg) = boot().await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
 
     let mut req = Request::builder()
@@ -876,7 +889,7 @@ async fn delete_request_wrong_phrase_returns_400() {
 #[tokio::test]
 async fn delete_request_idempotent_does_not_extend_grace() {
     let (app, pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
     let cookie_h = cookie.split(';').next().unwrap().to_string();
 
@@ -916,7 +929,7 @@ async fn delete_request_idempotent_does_not_extend_grace() {
 #[tokio::test]
 async fn delete_cancel_clears_pending_and_emails() {
     let (app, pool, outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
     let cookie_h = cookie.split(';').next().unwrap().to_string();
 
@@ -1131,7 +1144,7 @@ async fn purge_pseudonymised_comments_remain_visible_in_listing() {
 #[tokio::test]
 async fn export_json_returns_attachment_with_signed_urls() {
     let (app, pool, _outbox, _pg) = boot().await;
-    signup(&app, "marie@x.test", "longenoughpw1").await;
+    signup(&app, &pool, "marie@x.test", "longenoughpw1").await;
     let cookie = signin(&app, "marie@x.test", "longenoughpw1").await;
 
     // Insert one photo for marie with all required NOT NULL columns.
