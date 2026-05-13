@@ -9,6 +9,70 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 
+/// Sign up a user, mark them verified, log in, and return the `Set-Cookie` header value.
+#[allow(clippy::unwrap_used)]
+async fn signup_and_login(
+    app: &axum::Router,
+    pool: &sqlx::PgPool,
+    email: &str,
+    handle: &str,
+    display_name: &str,
+) -> String {
+    let body = serde_json::json!({
+        "email": email,
+        "password": "verylongpassword",
+        "display_name": display_name,
+        "handle": handle
+    });
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/signup")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 202, "signup should return 202 for {email}");
+
+    // Mark user verified so login works.
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    // Log in to obtain a session cookie.
+    let login_body = serde_json::json!({"email": email, "password": "verylongpassword"});
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    let cookie = login_resp
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(cookie.starts_with("session="), "got: {cookie}");
+    cookie
+}
+
 fn config_for(url: &str) -> Config {
     Config {
         bind: "127.0.0.1:0".into(),
@@ -56,38 +120,7 @@ async fn rename_handle_writes_redirect_row() {
     );
 
     // 1. Sign up as 'marie'.
-    let signup_body = serde_json::json!({
-        "email": "marie@example.com",
-        "password": "verylongpassword",
-        "display_name": "Marie Dubois",
-        "handle": "marie"
-    });
-    let resp = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/signup")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(signup_body.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 201);
-
-    // Extract session cookie from signup response.
-    let session_cookie = resp
-        .headers()
-        .get("set-cookie")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
-    assert!(
-        session_cookie.starts_with("session="),
-        "got: {session_cookie}"
-    );
+    let session_cookie = signup_and_login(&app, &pool, "marie@example.com", "marie", "Marie Dubois").await;
 
     // Get user_id by querying the pool.
     let user_id: uuid::Uuid =
@@ -150,33 +183,7 @@ async fn rename_handle_same_handle_returns_204() {
     );
 
     // Sign up as 'astro'.
-    let signup_body = serde_json::json!({
-        "email": "astro@example.com",
-        "password": "verylongpassword",
-        "display_name": "Astro",
-        "handle": "astro"
-    });
-    let resp = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/signup")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(signup_body.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 201);
-
-    let session_cookie = resp
-        .headers()
-        .get("set-cookie")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let session_cookie = signup_and_login(&app, &pool, "astro@example.com", "astro", "Astro").await;
 
     // POST the same handle — should be a no-op returning 204.
     let resp = app
@@ -227,53 +234,10 @@ async fn rename_handle_conflict_returns_409() {
     );
 
     // Sign up 'user1'.
-    let signup_body = serde_json::json!({
-        "email": "user1@example.com",
-        "password": "verylongpassword",
-        "display_name": "User One",
-        "handle": "userone"
-    });
-    let r = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/signup")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(signup_body.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(r.status(), 201);
-    let session_cookie = r
-        .headers()
-        .get("set-cookie")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let session_cookie = signup_and_login(&app, &pool, "user1@example.com", "userone", "User One").await;
 
     // Sign up 'user2' who already holds the handle 'usertwo'.
-    let signup_body2 = serde_json::json!({
-        "email": "user2@example.com",
-        "password": "verylongpassword",
-        "display_name": "User Two",
-        "handle": "usertwo"
-    });
-    let r2 = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/signup")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(signup_body2.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(r2.status(), 201);
+    let _cookie2 = signup_and_login(&app, &pool, "user2@example.com", "usertwo", "User Two").await;
 
     // user1 tries to rename to 'usertwo' — should 409.
     let resp = app
@@ -347,32 +311,7 @@ async fn rename_handle_invalid_format_returns_422() {
     );
 
     // Sign up a user.
-    let signup_body = serde_json::json!({
-        "email": "valid@example.com",
-        "password": "verylongpassword",
-        "display_name": "Valid",
-        "handle": "validuser"
-    });
-    let r = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/auth/signup")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(signup_body.to_string()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(r.status(), 201);
-    let session_cookie = r
-        .headers()
-        .get("set-cookie")
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let session_cookie = signup_and_login(&app, &pool, "valid@example.com", "validuser", "Valid").await;
 
     // Too short — invalid format.
     let resp = app

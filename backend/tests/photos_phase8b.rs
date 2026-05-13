@@ -144,7 +144,7 @@ impl H {
         panic!("photo {id} did not reach status='ready' within 10 s");
     }
 
-    /// POST /api/auth/signup, returns the `set-cookie` header value.
+    /// POST /api/auth/signup, mark verified, login, and return the `set-cookie` header value.
     #[allow(clippy::unwrap_used)]
     async fn signup(&self, email: &str, password: &str, display_name: &str) -> String {
         let handle = handle_from_email(email);
@@ -167,8 +167,35 @@ impl H {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), 201, "signup failed for {email}");
-        resp.headers()
+        assert_eq!(resp.status(), 202, "signup failed for {email}");
+
+        // Mark user verified so login works.
+        sqlx::query!(
+            "update users set email_verified_at = now() where email = $1",
+            email
+        )
+        .execute(&self.pool)
+        .await
+        .unwrap();
+
+        // Log in to obtain a session cookie.
+        let login_body = serde_json::json!({"email": email, "password": password});
+        let login_resp = self
+            .app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(login_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+        login_resp
+            .headers()
             .get("set-cookie")
             .unwrap()
             .to_str()
