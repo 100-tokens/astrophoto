@@ -94,3 +94,33 @@ pub fn mask_email(email: &str) -> String {
         "***".into()
     }
 }
+
+pub fn email_verification(display_name: &str, link: &str) -> (String, String) {
+    let subject = "Confirm your Astrophoto account".to_string();
+    let body = format!(
+        "Hello {display_name},\n\n\
+         Welcome! Open this link to confirm your email and finish setting up \
+         your Astrophoto account:\n\n\
+         {link}\n\n\
+         This link is single-use and expires in 24 hours. If you didn't sign \
+         up, you can ignore this message.\n\n\
+         Clear skies,\n\
+         The Astrophoto archive\n"
+    );
+    (subject, body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn email_verification_subject_and_body_shape() {
+        let (subject, body) = email_verification("Galaxy Lover", "https://example.com/verify/abc123");
+        assert_eq!(subject, "Confirm your Astrophoto account");
+        assert!(body.contains("Galaxy Lover"));
+        assert!(body.contains("https://example.com/verify/abc123"));
+        assert!(body.contains("24 hours"));
+        assert!(body.contains("Clear skies"));
+    }
+}
