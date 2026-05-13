@@ -45,6 +45,11 @@ export const actions: Actions = {
       if (res.status === 401) {
         return fail(401, { email, message: 'Invalid email or password.' });
       }
+      if (res.status === 403) {
+        // Backend rejects sign-in for users with email_verified_at IS NULL.
+        // Push the user to the check-email page to resend or wait for the link.
+        throw redirect(303, `/signup/check-email?email=${encodeURIComponent(email)}`);
+      }
       const txt = await res.text();
       return fail(500, { email, message: `Sign-in failed: ${txt}` });
     }
