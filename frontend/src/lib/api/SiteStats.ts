@@ -4,4 +4,4 @@
  * Global counts for the home-page hero band. Cached aggressively at
  * the CDN edge; the numbers move slowly (an upload changes one).
  */
-export type SiteStats = { practitioners: bigint, frames: bigint, integration_seconds: bigint, };
+export type SiteStats = { practitioners: bigint; frames: bigint; integration_seconds: bigint };
