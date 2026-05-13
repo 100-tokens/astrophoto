@@ -1,9 +1,9 @@
 //! Email verification: token issuance + verify endpoint + resend endpoint.
 //! Mirrors the structure of `auth/password_reset.rs` exactly.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
-use axum::{Json, extract::State, http::{HeaderMap, StatusCode, header}, response::IntoResponse};
+use axum::{Json, extract::{ConnectInfo, State}, http::{HeaderMap, StatusCode, header}, response::IntoResponse};
 use base64::Engine;
 use rand::RngCore;
 use serde::Deserialize;
@@ -94,6 +94,70 @@ pub async fn verify(
             .map_err(|_| AppError::internal("bad cookie"))?,
     );
     Ok((StatusCode::OK, headers))
+}
+
+#[derive(Deserialize)]
+pub struct ResendBody {
+    pub email: String,
+}
+
+pub async fn resend(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Json(body): Json<ResendBody>,
+) -> Result<impl IntoResponse, AppError> {
+    let user = sqlx::query!(
+        r#"select id, email as "email!: String", display_name, email_verified_at
+             from users where email = $1"#,
+        body.email
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+
+    if let Some(u) = user {
+        if u.email_verified_at.is_none() {
+            let cooldown_hit = sqlx::query_scalar!(
+                "select exists(
+                    select 1 from email_verification_tokens
+                    where user_id = $1
+                      and created_at > now() - make_interval(secs => $2)
+                )",
+                u.id,
+                PER_EMAIL_COOLDOWN_SECS
+            )
+            .fetch_one(&state.pool)
+            .await?
+            .unwrap_or(false);
+
+            let hour_cap_hit = sqlx::query_scalar!(
+                "select count(*) >= $2 from email_verification_tokens
+                  where (user_id = $1 or request_ip = $3)
+                    and created_at > now() - interval '1 hour'",
+                u.id,
+                PER_HOUR_CAP,
+                IpNetwork::from(addr.ip())
+            )
+            .fetch_one(&state.pool)
+            .await?
+            .unwrap_or(false);
+
+            if !cooldown_hit && !hour_cap_hit {
+                let token = issue_token(&state.pool, u.id, Some(addr.ip())).await?;
+                let link = format!(
+                    "{}/verify/{}",
+                    state.config.public_base_url.trim_end_matches('/'),
+                    token
+                );
+                let (subject, mail_body) =
+                    crate::mail::templates::email_verification(&u.display_name, &link);
+                if let Err(e) = state.mailer.send_plain(&u.email, &subject, &mail_body).await {
+                    tracing::warn!(error = %e, user_id = %u.id, "email-verification mail send failed");
+                }
+            }
+        }
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[cfg(test)]

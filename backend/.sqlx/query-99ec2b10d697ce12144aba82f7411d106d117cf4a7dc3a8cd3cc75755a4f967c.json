@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) >= $2 from email_verification_tokens\n                  where (user_id = $1 or request_ip = $3)\n                    and created_at > now() - interval '1 hour'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Inet"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "99ec2b10d697ce12144aba82f7411d106d117cf4a7dc3a8cd3cc75755a4f967c"
+}

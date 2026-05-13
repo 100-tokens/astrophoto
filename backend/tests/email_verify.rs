@@ -228,3 +228,142 @@ async fn verify_marks_user_verified_and_sets_session_cookie() {
     .unwrap();
     assert!(used_at.is_some(), "token used_at should be set after verification");
 }
+
+#[tokio::test]
+async fn resend_for_unverified_user_issues_new_token_and_sends_mail() {
+    let (app, pool, outbox, _pg) = boot().await;
+
+    let user_id = insert_user(&pool, "resend-unverified@example.com", "resend-unverified").await;
+
+    let resp = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/resend-verification",
+            json!({"email": "resend-unverified@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // One token row should exist for this user
+    let token_count = sqlx::query_scalar!(
+        "select count(*) from email_verification_tokens where user_id = $1",
+        user_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(token_count, 1, "expected exactly one token row");
+
+    // One mail should have been sent
+    let sent = outbox.lock().unwrap();
+    assert_eq!(sent.len(), 1, "expected exactly one mail in outbox");
+    assert_eq!(
+        sent[0].subject,
+        "Confirm your Astrophoto account",
+        "unexpected subject"
+    );
+    assert!(
+        sent[0].body.contains("/verify/"),
+        "expected body to contain /verify/"
+    );
+}
+
+#[tokio::test]
+async fn resend_for_already_verified_user_is_silent_204_no_token_no_mail() {
+    let (app, pool, outbox, _pg) = boot().await;
+
+    let user_id = insert_user(&pool, "already-verified@example.com", "already-verified").await;
+    // Mark the user as verified
+    sqlx::query!(
+        "update users set email_verified_at = now() where id = $1",
+        user_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let resp = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/resend-verification",
+            json!({"email": "already-verified@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // No token rows
+    let token_count = sqlx::query_scalar!(
+        "select count(*) from email_verification_tokens where user_id = $1",
+        user_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(token_count, 0, "expected no token rows for verified user");
+
+    // No mail
+    let sent = outbox.lock().unwrap();
+    assert_eq!(sent.len(), 0, "expected no mail for verified user");
+}
+
+#[tokio::test]
+async fn resend_for_unknown_email_is_silent_204() {
+    let (app, _pool, outbox, _pg) = boot().await;
+
+    let resp = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/resend-verification",
+            json!({"email": "nobody@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    let sent = outbox.lock().unwrap();
+    assert_eq!(sent.len(), 0, "expected no mail for unknown email");
+}
+
+#[tokio::test]
+async fn resend_within_cooldown_does_not_issue_token() {
+    let (app, pool, outbox, _pg) = boot().await;
+
+    let user_id =
+        insert_user(&pool, "resend-cooldown@example.com", "resend-cooldown").await;
+
+    // Insert a token that was created just now (within the 60s cooldown)
+    insert_token(&pool, user_id, "existing-token-abc", 86400).await;
+
+    let resp = app
+        .oneshot(req_with_ip(
+            "POST",
+            "/api/auth/resend-verification",
+            json!({"email": "resend-cooldown@example.com"}),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    // Still only one token row (no new one issued)
+    let token_count = sqlx::query_scalar!(
+        "select count(*) from email_verification_tokens where user_id = $1",
+        user_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(token_count, 1, "expected no new token due to cooldown");
+
+    // No mail sent
+    let sent = outbox.lock().unwrap();
+    assert_eq!(sent.len(), 0, "expected no mail within cooldown window");
+}
