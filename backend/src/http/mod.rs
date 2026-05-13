@@ -68,6 +68,10 @@ pub fn router(
             post(crate::auth::password_reset::confirm),
         )
         .route(
+            "/api/auth/verify-email",
+            post(crate::auth::email_verify::verify),
+        )
+        .route(
             "/api/me/password-change",
             post(crate::auth::password_change::change),
         )

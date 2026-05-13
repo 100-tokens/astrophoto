@@ -3,14 +3,18 @@
 
 use std::net::IpAddr;
 
+use axum::{Json, extract::State, http::{HeaderMap, StatusCode, header}, response::IntoResponse};
 use base64::Engine;
 use rand::RngCore;
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use sqlx::types::ipnetwork::IpNetwork;
 use uuid::Uuid;
 
 use crate::AppError;
+use crate::auth::session;
+use crate::http::AppState;
 
 pub(crate) const TTL_HOURS: i32 = 24;
 pub(crate) const PER_EMAIL_COOLDOWN_SECS: f64 = 60.0;
@@ -40,6 +44,56 @@ pub(crate) async fn issue_token(
     .await?;
 
     Ok(token)
+}
+
+#[derive(Deserialize)]
+pub struct VerifyBody {
+    pub token: String,
+}
+
+pub async fn verify(
+    State(state): State<AppState>,
+    Json(body): Json<VerifyBody>,
+) -> Result<impl IntoResponse, AppError> {
+    let hash: Vec<u8> = Sha256::digest(body.token.as_bytes()).to_vec();
+    let row = sqlx::query!(
+        r#"select user_id, expires_at, used_at
+             from email_verification_tokens
+            where token_hash = $1"#,
+        hash
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| AppError::gone("expired_or_used"))?;
+
+    if row.used_at.is_some() || row.expires_at < chrono::Utc::now() {
+        return Err(AppError::gone("expired_or_used"));
+    }
+
+    let mut tx = state.pool.begin().await?;
+    sqlx::query!(
+        "update email_verification_tokens set used_at = now() where token_hash = $1",
+        hash
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "update users set email_verified_at = now() where id = $1",
+        row.user_id
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    let cookie = session::create_session(&state, row.user_id).await?;
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::SET_COOKIE,
+        cookie
+            .parse()
+            .map_err(|_| AppError::internal("bad cookie"))?,
+    );
+    Ok((StatusCode::OK, headers))
 }
 
 #[cfg(test)]

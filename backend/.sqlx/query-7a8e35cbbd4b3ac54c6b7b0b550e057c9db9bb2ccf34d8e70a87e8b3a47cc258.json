@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select user_id, expires_at, used_at\n             from email_verification_tokens\n            where token_hash = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7a8e35cbbd4b3ac54c6b7b0b550e057c9db9bb2ccf34d8e70a87e8b3a47cc258"
+}
