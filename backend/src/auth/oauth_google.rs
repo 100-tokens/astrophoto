@@ -223,8 +223,8 @@ async fn upsert_oauth_user(pool: &sqlx::PgPool, info: &Userinfo) -> Result<uuid:
     let placeholder_handle = format!("u-{}", &uuid::Uuid::new_v4().simple().to_string()[..6]);
     let row = sqlx::query!(
         r#"
-        insert into users (email, display_name, handle)
-        values ($1, $2, $3)
+        insert into users (email, display_name, handle, email_verified_at)
+        values ($1, $2, $3, now())
         returning id
         "#,
         info.email,
