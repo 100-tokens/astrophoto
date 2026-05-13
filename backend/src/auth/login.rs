@@ -30,6 +30,10 @@ pub async fn handler(
         return Err(AppError::Unauthorized);
     }
 
+    if user.email_verified_at.is_none() {
+        return Err(AppError::Forbidden);
+    }
+
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
     let ip: Option<IpAddr> = headers
         .get("x-forwarded-for")

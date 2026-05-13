@@ -431,3 +431,92 @@ async fn signup_returns_202_unverified_and_sends_verification_mail() {
     assert_eq!(sent[0].subject, "Confirm your Astrophoto account");
     assert!(sent[0].body.contains("/verify/"));
 }
+
+#[tokio::test]
+async fn login_blocked_for_unverified_user_returns_403() {
+    let (app, pool, _outbox, _pg) = boot().await;
+
+    // Manually create an unverified user with a valid password hash.
+    let pw_hash = astrophoto::auth::password::hash("longenoughpw1".to_string())
+        .await
+        .unwrap();
+    let user_id: Uuid = sqlx::query_scalar!(
+        "insert into users (email, handle, display_name, password_hash, password_changed_at)
+          values ($1, $2, $3, $4, now())
+          returning id",
+        "unverified@example.com",
+        "unverified-x",
+        "Unverified",
+        pw_hash
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        sqlx::query_scalar!("select email_verified_at from users where id = $1", user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+            .is_none(),
+        "precondition: user must be unverified"
+    );
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "email": "unverified@example.com", "password": "longenoughpw1" })
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    assert!(resp.headers().get(header::SET_COOKIE).is_none());
+}
+
+#[tokio::test]
+async fn login_succeeds_after_verification() {
+    let (app, pool, _outbox, _pg) = boot().await;
+
+    let pw_hash = astrophoto::auth::password::hash("longenoughpw1".to_string())
+        .await
+        .unwrap();
+    let user_id: Uuid = sqlx::query_scalar!(
+        "insert into users (email, handle, display_name, password_hash, password_changed_at, email_verified_at)
+          values ($1, $2, $3, $4, now(), now())
+          returning id",
+        "verified@example.com",
+        "verified-x",
+        "Verified",
+        pw_hash
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let _ = user_id;
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "email": "verified@example.com", "password": "longenoughpw1" })
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(resp.headers().get(header::SET_COOKIE).is_some());
+}
