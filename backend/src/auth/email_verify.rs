@@ -1,0 +1,88 @@
+//! Email verification: token issuance + verify endpoint + resend endpoint.
+//! Mirrors the structure of `auth/password_reset.rs` exactly.
+
+use std::net::IpAddr;
+
+use base64::Engine;
+use rand::RngCore;
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
+use sqlx::types::ipnetwork::IpNetwork;
+use uuid::Uuid;
+
+use crate::AppError;
+
+pub(crate) const TTL_HOURS: i32 = 24;
+pub(crate) const PER_EMAIL_COOLDOWN_SECS: f64 = 60.0;
+pub(crate) const PER_HOUR_CAP: i64 = 5;
+
+/// Generate a fresh token, insert its sha256 hash, return the raw token
+/// (URL-safe base64, no padding) for embedding into the email link.
+pub(crate) async fn issue_token(
+    pool: &PgPool,
+    user_id: Uuid,
+    ip: Option<IpAddr>,
+) -> Result<String, AppError> {
+    let mut raw = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut raw);
+    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
+    let hash: Vec<u8> = Sha256::digest(token.as_bytes()).to_vec();
+
+    sqlx::query!(
+        "insert into email_verification_tokens (token_hash, user_id, expires_at, request_ip)
+          values ($1, $2, now() + make_interval(hours => $3), $4)",
+        hash,
+        user_id,
+        TTL_HOURS,
+        ip.map(IpNetwork::from)
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(token)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::users::queries::create_with_password;
+
+    #[tokio::test]
+    async fn issue_token_writes_a_row_we_can_find_by_hash() {
+        let pg = testcontainers::runners::AsyncRunner::start(
+            testcontainers_modules::postgres::Postgres::default(),
+        )
+        .await
+        .unwrap();
+        let host = pg.get_host().await.unwrap();
+        let port = pg.get_host_port_ipv4(5432).await.unwrap();
+        let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&url)
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .unwrap();
+
+        let user = create_with_password(&pool, "tok@example.com", "tok-abc", "T", "hash")
+            .await
+            .unwrap();
+        let token = issue_token(&pool, user.id, None).await.unwrap();
+        assert_eq!(token.len(), 43); // 32 bytes -> 43 chars URL-safe base64 (no pad)
+
+        let hash: Vec<u8> = Sha256::digest(token.as_bytes()).to_vec();
+        let row = sqlx::query!(
+            "select user_id, used_at, expires_at from email_verification_tokens where token_hash = $1",
+            hash
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(row.user_id, user.id);
+        assert!(row.used_at.is_none());
+        assert!(row.expires_at > chrono::Utc::now());
+    }
+}

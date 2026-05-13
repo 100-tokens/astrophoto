@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into email_verification_tokens (token_hash, user_id, expires_at, request_ip)\n          values ($1, $2, now() + make_interval(hours => $3), $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid",
+        "Int4",
+        "Inet"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f52b3ec2408a16359a7f11615fafa5341bb9158d46127b1b46877b4e7160cdf"
+}
