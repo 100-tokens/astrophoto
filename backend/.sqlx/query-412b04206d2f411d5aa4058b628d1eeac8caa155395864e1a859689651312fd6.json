@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_filters (photo_id, item_id, position)\n            select s.photo_id, e.id, s.position::smallint\n              from (\n                select p.id as photo_id,\n                       btrim(t.token) as token,\n                       t.ord - 1 as position\n                  from photos p,\n                       unnest(string_to_array(p.filters, ',')) with ordinality as t(token, ord)\n                 where p.filters is not null\n                   and length(btrim(p.filters)) > 0\n              ) s\n              join equipment_items e\n                on e.kind = 'filter'\n               and e.canonical_name = lower(s.token)\n            on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "412b04206d2f411d5aa4058b628d1eeac8caa155395864e1a859689651312fd6"
+}

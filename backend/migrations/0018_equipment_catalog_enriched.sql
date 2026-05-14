@@ -89,3 +89,22 @@ create table photo_filters (
 );
 create index photo_filters_item_idx      on photo_filters (item_id);
 create index photo_filters_photo_pos_idx on photo_filters (photo_id, position);
+
+-- 8. Backfill photo_filters from photos.filters comma-joined string.
+--    Best-effort: tokens that don't match any canonical_name are
+--    silently dropped. The string cache stays as-is for those photos.
+insert into photo_filters (photo_id, item_id, position)
+select s.photo_id, e.id, s.position::smallint
+  from (
+    select p.id as photo_id,
+           btrim(t.token) as token,
+           t.ord - 1 as position
+      from photos p,
+           unnest(string_to_array(p.filters, ',')) with ordinality as t(token, ord)
+     where p.filters is not null
+       and length(btrim(p.filters)) > 0
+  ) s
+  join equipment_items e
+    on e.kind = 'filter'
+   and e.canonical_name = lower(s.token)
+on conflict do nothing;
