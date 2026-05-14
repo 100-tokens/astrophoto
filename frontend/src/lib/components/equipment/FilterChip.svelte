@@ -43,8 +43,6 @@
     <span class="fchip-bw">{bw}</span>
   {/if}
   {#if isUntyped && !compact}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_interactive_supports_focus -->
     <button class="fchip-addtype" type="button" onclick={onAddType}>+ type</button>
   {/if}
   {#if draggable}

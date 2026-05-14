@@ -29,10 +29,7 @@ const FRONTEND = 'http://localhost:5173';
 // Creates an account via the signup form (not the API) so the session cookie
 // is set immediately. Returns the handle used.
 // ---------------------------------------------------------------------------
-async function signupViaForm(
-  page: import('@playwright/test').Page,
-  ts: number
-): Promise<string> {
+async function signupViaForm(page: import('@playwright/test').Page, ts: number): Promise<string> {
   // Base-36 suffix keeps the handle short and within the 30-char limit.
   const handle = `e2e${ts.toString(36).slice(-8)}`;
   const email = `e2e-${ts}@example.com`;
@@ -68,10 +65,7 @@ test.describe('setup_builder_with_telescope_specs', () => {
 
     // Fill the setup name.
     const setupName = `E2E Setup ${ts}`;
-    await page.fill(
-      'input[placeholder="e.g. Backyard SHO @ Bortle 4"]',
-      setupName
-    );
+    await page.fill('input[placeholder="e.g. Backyard SHO @ Bortle 4"]', setupName);
 
     // Fill the telescope name and trigger commit via blur.
     const telescopeName = `E2E Refractor ${ts}`;
@@ -99,8 +93,8 @@ test.describe('setup_builder_with_telescope_specs', () => {
 
     // Aperture — the second number input in the specs grid.
     const numberInputs = panel.locator('input[type="number"]');
-    await numberInputs.nth(0).fill('100');  // aperture_mm
-    await numberInputs.nth(1).fill('550');  // focal_length_mm
+    await numberInputs.nth(0).fill('100'); // aperture_mm
+    await numberInputs.nth(1).fill('550'); // focal_length_mm
 
     // Click "Save to catalog".
     await panel.getByRole('button', { name: 'Save to catalog' }).click();
@@ -108,9 +102,10 @@ test.describe('setup_builder_with_telescope_specs', () => {
     // After save the panel header transitions to EDITING mode
     // (because the item now exists in the catalog). The indicator text
     // changes — wait up to 5 s for the transition.
-    await expect(
-      telescopeRow.locator('.specs-panel-head')
-    ).toContainText('EDITING A SHARED CATALOG ITEM', { timeout: 5000 });
+    await expect(telescopeRow.locator('.specs-panel-head')).toContainText(
+      'EDITING A SHARED CATALOG ITEM',
+      { timeout: 5000 }
+    );
 
     // Click "Save setup" (primary button at the foot of the form).
     await page.getByRole('button', { name: 'Save setup' }).click();
@@ -243,7 +238,7 @@ test.describe('equip_browse_specs_header', () => {
       return;
     }
 
-    const created = await createRes.json() as { canonical_name: string };
+    const created = (await createRes.json()) as { canonical_name: string };
 
     // The canonical_name is display_name.to_lowercase() (from items_create.rs).
     // The browse URL is /equip/filter/<canonical_name>.
