@@ -7,14 +7,15 @@ use ts_rs::TS;
 use astrophoto::api_types::{
     ApplySetupInput, AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest,
     BatchPublishResponse, CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem,
-    DraftListResponse, EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage,
-    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
-    HeroStats, LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail,
-    PhotographerIndexPage, PhotographerListItem, Preferences, Profile, PublicProfile,
-    PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
-    SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason,
-    SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage,
-    TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
+    DraftListResponse, EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta,
+    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
+    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
+    PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
+    PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
+    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
+    SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
+    SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
+    TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -81,6 +82,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     PhotographerListItem::export_all_to(out_dir)?;
     PhotographerIndexPage::export_all_to(out_dir)?;
     SiteStats::export_all_to(out_dir)?;
+    EquipmentItemDetail::export_all_to(out_dir)?;
+    PhotoFilterChip::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

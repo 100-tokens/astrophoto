@@ -1,244 +1,882 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import EquipmentAutocomplete from './EquipmentAutocomplete.svelte';
+  import Field from '$lib/components/equipment/Field.svelte';
+  import RoleRow from '$lib/components/equipment/RoleRow.svelte';
+  import SpecsPanel from '$lib/components/equipment/SpecsPanel.svelte';
+  import FilterChipInput from '$lib/components/equipment/FilterChipInput.svelte';
   import type { SetupDetail } from '$lib/api/SetupDetail';
+  import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
+  import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
+  import {
+    TELESCOPE_FIELDS,
+    CAMERA_FIELDS,
+    MOUNT_FIELDS,
+    FOCAL_MODIFIER_FIELDS
+  } from '$lib/equipment/specs-fields';
+
+  // ── Item-level detail fetched server-side and passed in for edit mode ─────
+  export type ItemPrefill = {
+    id: string;
+    display_name: string;
+    specs: EquipmentSpecsPayload | null;
+  };
 
   interface Props {
+    /** null → create mode; populated → edit mode */
     initial: SetupDetail | null;
-    cancelHref: string;
-    submitLabel?: string;
-  }
-  let { initial, cancelHref, submitLabel = 'Save' }: Props = $props();
-
-  function pickItem(role: string): string {
-    if (!initial) return '';
-    const it = initial.items.find((x) => x.role === role);
-    return it ? it.item.display_name : '';
-  }
-  function pickFilters(): string[] {
-    return (initial?.items ?? [])
-      .filter((x) => x.role === 'filter')
-      .map((x) => x.item.display_name);
+    /** Per-role prefill (id + specs), keyed by role. Only passed on edit. */
+    prefill?: {
+      optical_tube?: ItemPrefill;
+      main_camera?: ItemPrefill;
+      mount?: ItemPrefill;
+      focal_modifier?: ItemPrefill;
+      filters?: PhotoFilterChip[];
+    };
+    /** ID of the setup being edited (undefined on create) */
+    setupId?: string;
   }
 
-  let name = $state(initial?.name ?? '');
-  let description = $state(initial?.description ?? '');
-  let location = $state(initial?.location ?? '');
-  let is_remote = $state(initial?.is_remote ?? false);
-  let is_default = $state(initial?.is_default ?? false);
-  let guiding = $state(initial?.guiding ?? '');
+  let { initial, prefill = {}, setupId }: Props = $props();
 
-  let opticalText = $state(pickItem('optical_tube'));
-  let focalText = $state(pickItem('focal_modifier'));
-  let cameraText = $state(pickItem('main_camera'));
-  let mountText = $state(pickItem('mount'));
+  // ── Setup-level fields ────────────────────────────────────────────────────
+  // untrack: these are one-time init captures — we don't want reactivity on prop changes.
+  let setupName = $state(untrack(() => initial?.name ?? ''));
+  let setupDescription = $state(untrack(() => initial?.description ?? null));
+  let setupLocation = $state(untrack(() => initial?.location ?? null));
+  let setupIsRemote = $state(untrack(() => initial?.is_remote ?? false));
+  let setupIsDefault = $state(untrack(() => initial?.is_default ?? false));
+  let setupGuiding = $state(untrack(() => initial?.guiding ?? null));
 
-  // Filter chips: array of display-name strings; resolved server-side on submit.
-  let filterChips = $state<string[]>(pickFilters());
-  let filterText = $state('');
+  // ── Per-role state ────────────────────────────────────────────────────────
+  type RoleState = {
+    itemId: string | null;
+    name: string;
+    specs: Record<string, unknown>;
+    open: boolean;
+    /** mode is 'edit' when item already exists in catalog, 'create' when new */
+    mode: 'create' | 'edit';
+  };
 
-  function addFilter(text: string) {
-    const t = text.trim();
-    if (!t) return;
-    if (filterChips.includes(t)) return;
-    filterChips = [...filterChips, t];
-    filterText = '';
+  function makeRole(prefillItem?: ItemPrefill): RoleState {
+    if (prefillItem) {
+      const specs: Record<string, unknown> = {};
+      if (prefillItem.specs) {
+        const payload = prefillItem.specs;
+        // Strip the `kind` discriminator — rest are spec fields
+        for (const [k, v] of Object.entries(payload)) {
+          if (k !== 'kind') specs[k] = v;
+        }
+      }
+      return {
+        itemId: prefillItem.id,
+        name: prefillItem.display_name,
+        specs,
+        open: false,
+        mode: 'edit'
+      };
+    }
+    return { itemId: null, name: '', specs: {}, open: false, mode: 'create' };
   }
-  function removeFilter(t: string) {
-    filterChips = filterChips.filter((f) => f !== t);
+
+  let telescope = $state<RoleState>(untrack(() => makeRole(prefill.optical_tube)));
+  let camera = $state<RoleState>(untrack(() => makeRole(prefill.main_camera)));
+  let mount = $state<RoleState>(untrack(() => makeRole(prefill.mount)));
+  let focalMod = $state<RoleState>(untrack(() => makeRole(prefill.focal_modifier)));
+  let filters = $state<PhotoFilterChip[]>(untrack(() => prefill.filters ?? []));
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const focalRatio = $derived(() => {
+    const apert = Number(telescope.specs['aperture_mm']);
+    const focal = Number(telescope.specs['focal_length_mm']);
+    if (apert > 0 && focal > 0) return (focal / apert).toFixed(2);
+    return '';
+  });
+
+  const roleCount = $derived(
+    [telescope, camera, mount, focalMod].filter((r) => r.itemId !== null).length
+  );
+  const filterCount = $derived(filters.length);
+  const readyMeta = $derived(
+    `${roleCount} ROLE${roleCount !== 1 ? 'S' : ''} · ${filterCount} FILTER${filterCount !== 1 ? 'S' : ''}`
+  );
+
+  // ── Error state ───────────────────────────────────────────────────────────
+  let error = $state<string | null>(null);
+  let saving = $state(false);
+
+  // ── Apply behavior (visual-only, no backend field) ────────────────────────
+  let applyBehavior = $state<'overwrite' | 'fill_empty'>('overwrite');
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function onRoleCommit(role: RoleState, committed: { id: string; display_name: string } | null) {
+    role.itemId = committed?.id ?? null;
+    role.name = committed?.display_name ?? '';
+    if (committed) {
+      // Switched to a (possibly existing) item — assume edit mode
+      role.mode = 'edit';
+    }
+  }
+
+  async function saveSpecs(role: RoleState, kind: string): Promise<string | null> {
+    const name = role.name.trim();
+    if (!name) return null;
+
+    // Build specs payload — omit computed fields
+    const specsFields: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(role.specs)) {
+      if (k === 'focal_ratio_f') continue; // DB-generated
+      if (v !== '' && v !== null && v !== undefined) {
+        specsFields[k] = v;
+      }
+    }
+    const hasSpecs = Object.keys(specsFields).length > 0;
+
+    if (role.itemId) {
+      // PATCH existing item specs
+      if (hasSpecs) {
+        const r = await fetch(`/api/equipment/items/${role.itemId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ specs: { kind, ...specsFields } })
+        });
+        if (!r.ok) throw new Error(`Failed to update ${kind} specs`);
+      }
+      return role.itemId;
+    } else {
+      // POST new item
+      const r = await fetch('/api/equipment/items', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind,
+          display_name: name,
+          specs: hasSpecs ? { kind, ...specsFields } : null
+        })
+      });
+      if (!r.ok) throw new Error(`Failed to create ${kind} item`);
+      const row: { id: string } = await r.json();
+      role.itemId = row.id;
+      return row.id;
+    }
+  }
+
+  async function saveSpecsForRole(role: RoleState, kind: string) {
+    try {
+      await saveSpecs(role, kind);
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Save failed';
+    }
+  }
+
+  async function saveSetup() {
+    const name = setupName.trim();
+    if (!name) {
+      error = 'Setup name is required';
+      return;
+    }
+    saving = true;
+    error = null;
+    try {
+      // Resolve each role's item
+      const roleMap: Array<[RoleState, string, string]> = [
+        [telescope, 'optical_tube', 'telescope'],
+        [camera, 'main_camera', 'camera'],
+        [mount, 'mount', 'mount'],
+        [focalMod, 'focal_modifier', 'focal_modifier']
+      ];
+
+      const items: { role: string; item_id: string }[] = [];
+
+      for (const [role, roleName, kind] of roleMap) {
+        if (!role.name.trim()) continue;
+        const id = await saveSpecs(role, kind);
+        if (id) items.push({ role: roleName, item_id: id });
+      }
+
+      for (const f of filters) {
+        items.push({ role: 'filter', item_id: f.id });
+      }
+
+      const body = {
+        name,
+        description: setupDescription,
+        location: setupLocation,
+        is_remote: setupIsRemote,
+        is_default: setupIsDefault,
+        guiding: setupGuiding,
+        items
+      };
+
+      const url = setupId ? `/api/equipment/setups/${setupId}` : '/api/equipment/setups';
+      const method = setupId ? 'PATCH' : 'POST';
+
+      const r = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!r.ok) {
+        let msg = `Backend error (${r.status})`;
+        try {
+          const b: unknown = await r.json();
+          if (typeof b === 'object' && b !== null && 'error' in b && typeof b.error === 'string') {
+            msg = b.error;
+          }
+        } catch {
+          // ignore
+        }
+        error = msg;
+        return;
+      }
+
+      await goto('/settings/equipment');
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Unexpected error';
+    } finally {
+      saving = false;
+    }
+  }
+
+  // ── Spec field renderer helper ────────────────────────────────────────────
+  function specVal(role: RoleState, name: string): string {
+    const v = role.specs[name];
+    if (v === null || v === undefined) return '';
+    return String(v);
+  }
+
+  function setSpecVal(role: RoleState, name: string, value: string | boolean | number | null) {
+    role.specs = { ...role.specs, [name]: value };
   }
 </script>
 
-<!-- No <form> wrapper — parent owns the form element -->
-<div class="setup-form">
-  <label class="field">
-    <span class="t-label">Name</span>
-    <input name="name" bind:value={name} required />
-  </label>
+<div class="setup-builder">
+  {#if error}
+    <p class="form-error">{error}</p>
+  {/if}
 
-  <label class="field">
-    <span class="t-label">Description</span>
-    <textarea name="description" bind:value={description} rows="2"></textarea>
-  </label>
+  <div class="builder-body">
+    <!-- ── Left column ─────────────────────────────────────────────────── -->
+    <div class="builder-main">
+      <!-- Setup name + location row -->
+      <div class="header-fields">
+        <Field label="Setup name" hint="A short label — visible on every frame using this setup.">
+          <input
+            class="input"
+            value={setupName}
+            oninput={(e) => (setupName = (e.target as HTMLInputElement).value)}
+            placeholder="e.g. Backyard SHO @ Bortle 4"
+          />
+        </Field>
+        <Field label="Default site" hint="Optional · prefills location on apply.">
+          <input
+            class="input"
+            value={setupLocation ?? ''}
+            oninput={(e) => {
+              const v = (e.target as HTMLInputElement).value.trim();
+              setupLocation = v || null;
+            }}
+            placeholder="e.g. Backyard observatory"
+          />
+        </Field>
+      </div>
 
-  <label class="field">
-    <span class="t-label">Location</span>
-    <input name="location" bind:value={location} placeholder="e.g., Backyard observatory" />
-  </label>
+      <div class="t-label roles-label">ROLES</div>
 
-  <div class="row">
-    <label class="check">
-      <input type="checkbox" name="is_remote" bind:checked={is_remote} />
-      Remote
-    </label>
-    <label class="check" title="Auto-applied to new uploads">
-      <input type="checkbox" name="is_default" bind:checked={is_default} />
-      Default
-    </label>
-  </div>
+      <!-- Telescope -->
+      <RoleRow
+        kind="TELESCOPE"
+        value={telescope.name}
+        expanded={telescope.open}
+        onToggle={() => (telescope.open = !telescope.open)}
+      >
+        {#snippet input()}
+          <EquipmentAutocomplete
+            name="telescope_name"
+            kind="telescope"
+            bind:value={telescope.name}
+            label={null}
+            onCommit={(c) => onRoleCommit(telescope, c)}
+          />
+        {/snippet}
+        {#snippet children()}
+          <SpecsPanel
+            mode={telescope.mode}
+            footerNote={telescope.mode === 'edit'
+              ? 'Edits write to the shared catalog — affects all users with this telescope.'
+              : ''}
+            onSave={() => saveSpecsForRole(telescope, 'telescope')}
+            onDiscard={() => (telescope.open = false)}
+          >
+            <div class="specs-grid">
+              {#each TELESCOPE_FIELDS as field (field.name)}
+                {#if field.type === 'computed'}
+                  <Field label={field.label} mono>
+                    <input
+                      class="input input-mono"
+                      value={focalRatio()}
+                      readonly
+                      style="background: var(--bg-raised); color: var(--fg-muted);"
+                    />
+                  </Field>
+                {:else if field.type === 'enum'}
+                  <Field label={field.label}>
+                    <select
+                      class="select"
+                      value={specVal(telescope, field.name)}
+                      onchange={(e) =>
+                        setSpecVal(
+                          telescope,
+                          field.name,
+                          (e.target as HTMLSelectElement).value || null
+                        )}
+                    >
+                      <option value="">—</option>
+                      {#each field.options as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                      {/each}
+                    </select>
+                  </Field>
+                {:else if field.type === 'number'}
+                  <Field label={field.label} mono>
+                    <input
+                      class="input input-mono"
+                      type="number"
+                      value={specVal(telescope, field.name)}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        setSpecVal(telescope, field.name, v === '' ? null : Number(v));
+                      }}
+                    />
+                  </Field>
+                {:else if field.type === 'bool'}
+                  <Field label={field.label}>
+                    <label class="bool-field">
+                      <input
+                        type="checkbox"
+                        checked={telescope.specs[field.name] === true}
+                        onchange={(e) =>
+                          setSpecVal(telescope, field.name, (e.target as HTMLInputElement).checked)}
+                      />
+                      {field.label}
+                    </label>
+                  </Field>
+                {:else if field.type === 'text'}
+                  <Field label={field.label}>
+                    <input
+                      class="input"
+                      value={specVal(telescope, field.name)}
+                      oninput={(e) =>
+                        setSpecVal(
+                          telescope,
+                          field.name,
+                          (e.target as HTMLInputElement).value || null
+                        )}
+                    />
+                  </Field>
+                {/if}
+              {/each}
+            </div>
+          </SpecsPanel>
+        {/snippet}
+      </RoleRow>
 
-  <fieldset class="equipment">
-    <legend>Equipment</legend>
+      <!-- Camera -->
+      <RoleRow
+        kind="CAMERA"
+        value={camera.name}
+        expanded={camera.open}
+        onToggle={() => (camera.open = !camera.open)}
+      >
+        {#snippet input()}
+          <EquipmentAutocomplete
+            name="camera_name"
+            kind="camera"
+            bind:value={camera.name}
+            label={null}
+            onCommit={(c) => onRoleCommit(camera, c)}
+          />
+        {/snippet}
+        {#snippet children()}
+          <SpecsPanel
+            mode={camera.mode}
+            footerNote={camera.mode === 'edit'
+              ? 'Edits write to the shared catalog — affects all users with this camera.'
+              : ''}
+            onSave={() => saveSpecsForRole(camera, 'camera')}
+            onDiscard={() => (camera.open = false)}
+          >
+            <div class="specs-grid">
+              {#each CAMERA_FIELDS as field (field.name)}
+                {#if field.type === 'enum'}
+                  <Field label={field.label}>
+                    <select
+                      class="select"
+                      value={specVal(camera, field.name)}
+                      onchange={(e) =>
+                        setSpecVal(
+                          camera,
+                          field.name,
+                          (e.target as HTMLSelectElement).value || null
+                        )}
+                    >
+                      <option value="">—</option>
+                      {#each field.options as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                      {/each}
+                    </select>
+                  </Field>
+                {:else if field.type === 'number'}
+                  <Field label={field.label} mono>
+                    <input
+                      class="input input-mono"
+                      type="number"
+                      value={specVal(camera, field.name)}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        setSpecVal(camera, field.name, v === '' ? null : Number(v));
+                      }}
+                    />
+                  </Field>
+                {:else if field.type === 'bool'}
+                  <Field label={field.label}>
+                    <label class="bool-field">
+                      <input
+                        type="checkbox"
+                        checked={camera.specs[field.name] === true}
+                        onchange={(e) =>
+                          setSpecVal(camera, field.name, (e.target as HTMLInputElement).checked)}
+                      />
+                      {field.label}
+                    </label>
+                  </Field>
+                {:else if field.type === 'text'}
+                  <Field label={field.label}>
+                    <input
+                      class="input"
+                      value={specVal(camera, field.name)}
+                      oninput={(e) =>
+                        setSpecVal(
+                          camera,
+                          field.name,
+                          (e.target as HTMLInputElement).value || null
+                        )}
+                    />
+                  </Field>
+                {/if}
+              {/each}
+            </div>
+          </SpecsPanel>
+        {/snippet}
+      </RoleRow>
 
-    <div class="field">
-      <span class="t-label">Optical tube</span>
-      <EquipmentAutocomplete
-        name="optical_tube_text"
-        kind="telescope"
-        bind:value={opticalText}
-        label={null}
-      />
+      <!-- Mount -->
+      <RoleRow
+        kind="MOUNT"
+        value={mount.name}
+        expanded={mount.open}
+        onToggle={() => (mount.open = !mount.open)}
+      >
+        {#snippet input()}
+          <EquipmentAutocomplete
+            name="mount_name"
+            kind="mount"
+            bind:value={mount.name}
+            label={null}
+            onCommit={(c) => onRoleCommit(mount, c)}
+          />
+        {/snippet}
+        {#snippet children()}
+          <SpecsPanel
+            mode={mount.mode}
+            footerNote={mount.mode === 'edit'
+              ? 'Edits write to the shared catalog — affects all users with this mount.'
+              : ''}
+            onSave={() => saveSpecsForRole(mount, 'mount')}
+            onDiscard={() => (mount.open = false)}
+          >
+            <div class="specs-grid">
+              {#each MOUNT_FIELDS as field (field.name)}
+                {#if field.type === 'enum'}
+                  <Field label={field.label}>
+                    <select
+                      class="select"
+                      value={specVal(mount, field.name)}
+                      onchange={(e) =>
+                        setSpecVal(
+                          mount,
+                          field.name,
+                          (e.target as HTMLSelectElement).value || null
+                        )}
+                    >
+                      <option value="">—</option>
+                      {#each field.options as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                      {/each}
+                    </select>
+                  </Field>
+                {:else if field.type === 'number'}
+                  <Field label={field.label} mono>
+                    <input
+                      class="input input-mono"
+                      type="number"
+                      value={specVal(mount, field.name)}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        setSpecVal(mount, field.name, v === '' ? null : Number(v));
+                      }}
+                    />
+                  </Field>
+                {:else if field.type === 'bool'}
+                  <Field label={field.label}>
+                    <label class="bool-field">
+                      <input
+                        type="checkbox"
+                        checked={mount.specs[field.name] === true}
+                        onchange={(e) =>
+                          setSpecVal(mount, field.name, (e.target as HTMLInputElement).checked)}
+                      />
+                      {field.label}
+                    </label>
+                  </Field>
+                {/if}
+              {/each}
+            </div>
+          </SpecsPanel>
+        {/snippet}
+      </RoleRow>
+
+      <!-- Focal modifier -->
+      <RoleRow
+        kind="FOCAL MODIFIER"
+        value={focalMod.name}
+        expanded={focalMod.open}
+        onToggle={() => (focalMod.open = !focalMod.open)}
+      >
+        {#snippet input()}
+          <EquipmentAutocomplete
+            name="focal_modifier_name"
+            kind="focal_modifier"
+            bind:value={focalMod.name}
+            label={null}
+            onCommit={(c) => onRoleCommit(focalMod, c)}
+          />
+        {/snippet}
+        {#snippet children()}
+          <SpecsPanel
+            mode={focalMod.mode}
+            footerNote={focalMod.mode === 'edit'
+              ? 'Edits write to the shared catalog — affects all users with this item.'
+              : ''}
+            onSave={() => saveSpecsForRole(focalMod, 'focal_modifier')}
+            onDiscard={() => (focalMod.open = false)}
+          >
+            <div class="specs-grid">
+              {#each FOCAL_MODIFIER_FIELDS as field (field.name)}
+                {#if field.type === 'enum'}
+                  <Field label={field.label}>
+                    <select
+                      class="select"
+                      value={specVal(focalMod, field.name)}
+                      onchange={(e) =>
+                        setSpecVal(
+                          focalMod,
+                          field.name,
+                          (e.target as HTMLSelectElement).value || null
+                        )}
+                    >
+                      <option value="">—</option>
+                      {#each field.options as opt (opt.value)}
+                        <option value={opt.value}>{opt.label}</option>
+                      {/each}
+                    </select>
+                  </Field>
+                {:else if field.type === 'number'}
+                  <Field label={field.label} mono>
+                    <input
+                      class="input input-mono"
+                      type="number"
+                      value={specVal(focalMod, field.name)}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      oninput={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        setSpecVal(focalMod, field.name, v === '' ? null : Number(v));
+                      }}
+                    />
+                  </Field>
+                {/if}
+              {/each}
+            </div>
+          </SpecsPanel>
+        {/snippet}
+      </RoleRow>
+
+      <!-- Filters row (multi-select chip input) -->
+      <div class="role-row filters-row">
+        <div class="filters-head">
+          <div>
+            <span class="t-label">FILTERS</span>
+            <div class="t-meta filters-meta">MULTI · ORDERED</div>
+          </div>
+          <div class="filters-body">
+            <FilterChipInput value={filters} onChange={(next) => (filters = next)} />
+            <div class="t-meta filters-hint">
+              The filter list drives <code>photo_filters</code> when this setup is applied. Order here
+              is the canonical order shown on photos.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save row -->
+      <div class="save-row">
+        <span class="t-meta">{readyMeta}</span>
+        <span class="save-row-spacer"></span>
+        <a href="/settings/equipment" class="btn btn-ghost btn-lg">Cancel</a>
+        <button type="button" class="btn btn-primary btn-lg" onclick={saveSetup} disabled={saving}>
+          {saving ? 'Saving…' : setupId ? 'Save changes' : 'Save setup'}
+        </button>
+      </div>
     </div>
 
-    <div class="field">
-      <span class="t-label">Focal modifier</span>
-      <EquipmentAutocomplete
-        name="focal_modifier_text"
-        kind="focal_modifier"
-        bind:value={focalText}
-        label={null}
-      />
-    </div>
+    <!-- ── Right rail ──────────────────────────────────────────────────── -->
+    <aside class="builder-aside">
+      <div class="callout">
+        <div class="t-label callout-label">SHARED CATALOG</div>
+        <p class="callout-body">
+          Equipment items are <strong>shared</strong> across astrophoto.pics. Editing specs on a role
+          updates the catalog row for everyone using that item.
+        </p>
+        <p class="callout-meta">
+          Phase 1: any signed-in user can edit. Moderation queue ships in phase 2.
+        </p>
+      </div>
 
-    <div class="field">
-      <span class="t-label">Main camera</span>
-      <EquipmentAutocomplete
-        name="main_camera_text"
-        kind="camera"
-        bind:value={cameraText}
-        label={null}
-      />
-    </div>
-
-    <div class="field">
-      <span class="t-label">Mount</span>
-      <EquipmentAutocomplete name="mount_text" kind="mount" bind:value={mountText} label={null} />
-    </div>
-
-    <div class="field">
-      <span class="t-label">Filters</span>
-      <!-- Hidden inputs carry each chip value to the server -->
-      {#each filterChips as f (f)}
-        <input type="hidden" name="filter_text" value={f} />
-      {/each}
-      <ul class="chips">
-        {#each filterChips as f (f)}
-          <li class="chip">
-            {f}
-            <button
-              type="button"
-              class="chip-x"
-              aria-label={`Remove ${f}`}
-              onclick={() => removeFilter(f)}>×</button
+      <div class="callout">
+        <div class="t-label callout-label">APPLY BEHAVIOR</div>
+        <label class="apply-option">
+          <input
+            type="radio"
+            name="apply_behavior"
+            value="overwrite"
+            checked={applyBehavior === 'overwrite'}
+            onchange={() => (applyBehavior = 'overwrite')}
+          />
+          <span>
+            <strong class="apply-option-title">Overwrite</strong>
+            <span class="apply-option-desc"
+              >Replace existing equipment fields and filter junction on apply.</span
             >
-          </li>
-        {/each}
-      </ul>
-      <EquipmentAutocomplete
-        name="_filter_input"
-        kind="filter"
-        bind:value={filterText}
-        onCommit={(c) => {
-          if (c) addFilter(c.display_name);
-        }}
-        label={null}
-      />
-    </div>
-
-    <label class="field">
-      <span class="t-label">Guiding</span>
-      <input
-        name="guiding"
-        bind:value={guiding}
-        placeholder="e.g., ASI120MM Mini + 60mm guide scope"
-      />
-      <small class="hint">Free text. Not auto-completed.</small>
-    </label>
-  </fieldset>
-
-  <div class="actions">
-    <a href={cancelHref} class="btn ghost">Cancel</a>
-    <button type="submit" class="btn primary">{submitLabel}</button>
+          </span>
+        </label>
+        <label class="apply-option">
+          <input
+            type="radio"
+            name="apply_behavior"
+            value="fill_empty"
+            checked={applyBehavior === 'fill_empty'}
+            onchange={() => (applyBehavior = 'fill_empty')}
+          />
+          <span>
+            <strong class="apply-option-title">Fill empty</strong>
+            <span class="apply-option-desc">Only set fields that are currently blank.</span>
+          </span>
+        </label>
+      </div>
+    </aside>
   </div>
 </div>
 
 <style>
-  .setup-form {
+  .setup-builder {
+    width: 100%;
+  }
+
+  .form-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--danger);
+    background: color-mix(in srgb, var(--danger) 8%, var(--bg-base));
+  }
+
+  .builder-body {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 48px;
+  }
+
+  .builder-main {
+    min-width: 0;
+  }
+
+  /* Header fields row */
+  .header-fields {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .roles-label {
+    margin-bottom: 8px;
+  }
+
+  /* Specs grid inside panel */
+  .specs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  /* Filters role row */
+  .filters-row {
+    border-top: 1px solid var(--border-subtle);
+    padding: 20px 0;
+  }
+
+  .filters-head {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .filters-meta {
+    margin-top: 4px;
+  }
+
+  .filters-body {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 8px;
   }
-  .field {
+
+  .filters-hint {
+    color: var(--fg-muted);
+    font-size: 11px;
+  }
+
+  .filters-hint code {
+    font-family: var(--font-mono);
+  }
+
+  /* Save row */
+  .save-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .save-row-spacer {
+    flex: 1;
+  }
+
+  /* Bool field */
+  .bool-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--fg-secondary);
+  }
+
+  /* Right rail */
+  .builder-aside {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 16px;
   }
-  .row {
+
+  .callout {
+    padding: 20px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-raised);
+  }
+
+  .callout-label {
+    margin-bottom: 12px;
+  }
+
+  .callout-body {
+    margin: 0;
+    font-size: 13px;
+    color: var(--fg-secondary);
+    line-height: 1.6;
+  }
+
+  .callout-body strong {
+    color: var(--fg-primary);
+  }
+
+  .callout-meta {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+
+  .apply-option {
     display: flex;
-    gap: 1.5rem;
-  }
-  .check {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-  .equipment {
-    border: 1px solid var(--border, #ccc);
-    padding: 1rem;
-    border-radius: 4px;
-  }
-  .chips {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 0.5rem 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-  }
-  .chip {
-    background: var(--chip-bg, #eee);
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .chip-x {
-    border: none;
-    background: transparent;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
     cursor: pointer;
-    padding: 0 0.25rem;
   }
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
+
+  .apply-option:last-child {
+    margin-bottom: 0;
   }
-  .btn {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
+
+  .apply-option input[type='radio'] {
+    accent-color: var(--accent);
+    margin-top: 3px;
+    flex-shrink: 0;
   }
-  .btn.primary {
-    background: var(--primary, #0a6);
-    color: white;
-    border: none;
+
+  .apply-option-title {
+    display: block;
+    font-size: 13px;
+    color: var(--fg-primary);
   }
-  .btn.ghost {
-    background: transparent;
-    border: 1px solid var(--border, #ccc);
-    color: inherit;
+
+  .apply-option-desc {
+    color: var(--fg-muted);
+    font-size: 12px;
   }
-  .hint {
-    color: var(--muted, #666);
-    font-size: 0.85em;
-  }
-  .t-label {
-    font-size: 0.85em;
-    color: var(--muted, #666);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+
+  /* Responsive: collapse grid on narrow viewports */
+  @media (max-width: 900px) {
+    .builder-body {
+      grid-template-columns: 1fr;
+    }
+
+    .builder-aside {
+      order: -1;
+    }
+
+    .header-fields {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
