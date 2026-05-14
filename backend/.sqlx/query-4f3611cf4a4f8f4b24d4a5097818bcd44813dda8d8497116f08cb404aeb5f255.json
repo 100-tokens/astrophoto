@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,\n               setup_id, focal_modifier\n        from photos where id = $1\n        ",
+  "query": "\n        select p.id, p.owner_id, p.short_id, p.storage_key, p.original_name, p.bytes, p.mime,\n               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,\n               p.exposure_s, p.focal_mm,\n               p.aperture_f, p.gain, p.sensor_temp_c, p.sessions, p.ra_deg, p.dec_deg,\n               p.target, p.caption, p.status, p.created_at,\n               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error,\n               p.setup_id, p.focal_modifier, p.filters\n        from photos p\n        join follows f on f.followed_id = p.owner_id\n        where f.follower_id = $1 and p.published_at is not null\n        order by p.published_at desc\n        limit $2\n        ",
   "describe": {
     "columns": [
       {
@@ -162,11 +162,17 @@
         "ordinal": 31,
         "name": "focal_modifier",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 32,
+        "name": "filters",
+        "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
@@ -201,8 +207,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "9c0c759ab094f579132294503139c7bcf7e6229712658095e0ae782a1afffd0e"
+  "hash": "4f3611cf4a4f8f4b24d4a5097818bcd44813dda8d8497116f08cb404aeb5f255"
 }

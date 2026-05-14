@@ -14,13 +14,11 @@ use crate::api_types::{
     FilterSize, FilterSpecs, FilterType, FocalModifierSpecs, FocalModifierType, MountSpecs,
     MountType, TelescopeDesign, TelescopeSpecs,
 };
-use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
 use crate::http::AppState;
 
 pub async fn handler(
     State(state): State<AppState>,
-    _user: CurrentUser,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
     let row = sqlx::query!(

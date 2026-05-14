@@ -171,6 +171,8 @@ pub struct PhotoDetail {
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
     pub tags: Vec<String>,
+    /// Legacy comma-joined filter names cache (photos.filters column).
+    pub filters: Option<String>,
     /// Typed filter chips joined from photo_filters (migration 0018).
     pub filter_items: Vec<PhotoFilterChip>,
 }
@@ -383,6 +385,7 @@ pub struct TagPage {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "EquipmentMeta.ts")]
 pub struct EquipmentMeta {
+    pub id: String,
     pub kind: String,
     pub slug: String,
     pub canonical_name: String,

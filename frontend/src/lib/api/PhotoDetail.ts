@@ -47,6 +47,10 @@ export type PhotoDetail = {
   focal_modifier: string | null;
   tags: Array<string>;
   /**
+   * Legacy comma-joined filter names cache (photos.filters column).
+   */
+  filters: string | null;
+  /**
    * Typed filter chips joined from photo_filters (migration 0018).
    */
   filter_items: Array<PhotoFilterChip>;

@@ -9,6 +9,8 @@
   import CommentThread from '$lib/components/photos/CommentThread.svelte';
   import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import FilterChip from '$lib/components/equipment/FilterChip.svelte';
+  import '$lib/components/equipment/filter-chip.css';
   import type { PhotoDetail } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
@@ -173,6 +175,17 @@
     const decS = Math.round(((abs - decD) * 60 - decM) * 60);
     return `${raH}ʰ ${raM}ᵐ ${raS}ˢ · ${sign}${decD}° ${decM}′ ${decS}″`;
   }
+
+  // ── Filter chips ───────────────────────────────────────────────
+  const chips = $derived(p.filter_items ?? []);
+  const cacheTokens = $derived(
+    (p.filters ?? '')
+      .split(',')
+      .map((t: string) => t.trim())
+      .filter(Boolean)
+  );
+  const known = $derived(new Set(chips.map((c) => c.display_name)));
+  const orphans = $derived(cacheTokens.filter((t) => !known.has(t)));
 
   // ── SEO / GEO meta ─────────────────────────────────────────────
   const CDN_BASE: string = (import.meta.env.VITE_CDN_BASE_URL as string | undefined) ?? '';
@@ -368,6 +381,22 @@
             <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
           {/each}
         </ul>
+      {/if}
+
+      {#if chips.length > 0 || orphans.length > 0}
+        <div class="filter-strip-head">
+          <span class="t-label">FILTERS</span>
+          <span class="t-meta"
+            >{chips.length} TYPED{orphans.length > 0 ? ` · ${orphans.length} LEGACY` : ''}</span
+          >
+        </div>
+        <div class="filter-strip">
+          {#each chips as f (f.id)}<FilterChip filter={f} />{/each}
+          {#each orphans as tok}
+            <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
+          {/each}
+        </div>
+        <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
       {/if}
 
       <div class="actions">
@@ -608,6 +637,22 @@
   }
   .action-share {
     margin-left: auto;
+  }
+
+  .filter-strip-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 16px 0 8px;
+    border-top: 1px solid var(--border-default);
+    margin-top: 24px;
+  }
+  .filter-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-bottom: 16px;
   }
 
   .acquisition-header,

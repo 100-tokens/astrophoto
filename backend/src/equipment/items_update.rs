@@ -66,5 +66,5 @@ pub async fn handler(
     tx.commit().await?;
 
     // Re-fetch via items_get so the response is always consistent.
-    crate::equipment::items_get::handler(State(state), _user, Path(id)).await
+    crate::equipment::items_get::handler(State(state), Path(id)).await
 }

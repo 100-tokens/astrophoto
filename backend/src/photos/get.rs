@@ -50,6 +50,8 @@ pub struct PhotoDetail {
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
     pub tags: Vec<String>,
+    // Legacy comma-joined filter names cache (photos.filters column).
+    pub filters: Option<String>,
     // Typed filter chips joined from photo_filters (migration 0018).
     pub filter_items: Vec<crate::api_types::PhotoFilterChip>,
 }
@@ -91,6 +93,7 @@ impl From<PhotoRow> for PhotoDetail {
             setup_id: p.setup_id.map(|u| u.to_string()),
             focal_modifier: p.focal_modifier,
             tags: vec![],
+            filters: p.filters,
             filter_items: vec![],
         }
     }

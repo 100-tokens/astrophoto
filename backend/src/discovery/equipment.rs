@@ -477,6 +477,7 @@ pub async fn get(
 
     Ok(Json(EquipmentPage {
         equipment: EquipmentMeta {
+            id: item.id.to_string(),
             kind: item.kind,
             slug: slug_for(&item.canonical_name),
             canonical_name: item.canonical_name,
