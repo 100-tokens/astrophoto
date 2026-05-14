@@ -1,0 +1,275 @@
+/* ============================================================
+   Filter chip system — built on top of styles.css (Astrophoto DS)
+   Sharp corners (var(--r-sm) = 2px), mono uppercase code, tinted
+   semantic backgrounds in the warm sodium-amber palette.
+   ============================================================ */
+
+/* DS overrides: uppercase tracked labels should never wrap mid-word.
+   Applied here (not in styles.css) so the canonical token file stays
+   untouched for the rest of the Astrophoto app. */
+.t-label, .t-meta, .t-eyebrow { white-space: nowrap; }
+
+/* Per-filter-type CSS variables. Each type gets one accent color
+   (--ft-c) used for the type badge + tinted chip background. */
+.fchip {
+  /* default; overridden below */
+  --ft-c: var(--fg-muted);
+}
+.fchip.is-luminance       { --ft-c: var(--fg-primary); }
+.fchip.is-red             { --ft-c: #c25048; }   /* warm red */
+.fchip.is-green           { --ft-c: #7da64a; }   /* sage */
+.fchip.is-blue            { --ft-c: #6b8db8; }   /* cool slate */
+.fchip.is-h_alpha         { --ft-c: #b04634; }   /* deep narrowband red */
+.fchip.is-oiii            { --ft-c: #4ea0a8; }   /* teal */
+.fchip.is-sii             { --ft-c: var(--accent); } /* sodium amber */
+.fchip.is-uv_ir_cut       { --ft-c: #8a6a9c; }   /* dim violet */
+.fchip.is-dual_band       { --ft-c: #7a8fa8; }   /* Hα+OIII blend */
+.fchip.is-tri_band        { --ft-c: #7a9588; }
+.fchip.is-quad_band       { --ft-c: #8a8a6a; }
+.fchip.is-light_pollution { --ft-c: var(--warning); }
+.fchip.is-broadband_color { --ft-c: var(--fg-secondary); }
+.fchip.is-other           { --ft-c: var(--fg-faint); }
+
+/* The chip itself — sharp-cornered to match the DS chip vocabulary. */
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 3px var(--s-2);
+  padding-right: var(--s-3);
+  border-radius: var(--r-sm);
+  border: 1px solid color-mix(in srgb, var(--ft-c) 40%, var(--border-default));
+  background: color-mix(in srgb, var(--ft-c) 7%, var(--bg-base));
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--fg-primary);
+  height: 26px;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+
+.fchip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 5px;
+  min-width: 18px;
+  background: var(--ft-c);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 1px;
+}
+/* High-luminance badges (white, sodium amber) keep dark ink; cooler
+   semantic colors get readable warm-white ink. */
+.fchip.is-h_alpha .fchip-badge,
+.fchip.is-red .fchip-badge,
+.fchip.is-uv_ir_cut .fchip-badge,
+.fchip.is-other .fchip-badge,
+.fchip.is-dual_band .fchip-badge,
+.fchip.is-tri_band .fchip-badge,
+.fchip.is-quad_band .fchip-badge,
+.fchip.is-blue .fchip-badge {
+  color: var(--fg-primary);
+}
+
+.fchip-name {
+  color: var(--fg-primary);
+  letter-spacing: -0.005em;
+}
+.fchip-bw {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+.fchip-grip {
+  margin-left: 2px;
+  color: var(--fg-faint);
+  cursor: grab;
+  display: inline-flex; align-items: center;
+}
+.fchip-grip:hover { color: var(--fg-secondary); }
+.fchip-x {
+  width: 16px; height: 16px;
+  border-radius: 1px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: inline-grid; place-items: center;
+}
+.fchip-x:hover { background: var(--bg-elevated); color: var(--fg-primary); }
+
+/* Untyped state — dashed border, prompts "Add type" link */
+.fchip.is-untyped {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--bg-base);
+}
+.fchip.is-untyped .fchip-badge {
+  background: transparent;
+  color: var(--fg-faint);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  border-radius: 1px;
+}
+.fchip-addtype {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  margin-left: 2px;
+}
+.fchip-addtype:hover { color: var(--accent-hover); }
+
+/* Dragging visual */
+.fchip.is-dragging {
+  opacity: 0.55;
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* === Outline & mono style variants — switched on a parent container === */
+[data-ap-chip="outline"] .fchip {
+  background: transparent;
+}
+[data-ap-chip="outline"] .fchip .fchip-badge {
+  background: transparent;
+  color: var(--ft-c) !important;
+  box-shadow: inset 0 0 0 1px var(--ft-c);
+}
+
+[data-ap-chip="mono"] .fchip {
+  background: var(--bg-base);
+  border-color: var(--border-default);
+  --ft-c: var(--fg-muted);
+}
+[data-ap-chip="mono"] .fchip .fchip-badge {
+  background: var(--bg-elevated);
+  color: var(--fg-secondary) !important;
+  box-shadow: none;
+}
+
+/* === The autocomplete chip-input row === */
+.fchip-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 6px;
+  min-height: 44px;
+  position: relative;
+}
+.fchip-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 164, 58, .12);
+}
+.fchip-input input {
+  flex: 1 1 140px;
+  min-width: 100px;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  padding: 4px 6px;
+}
+.fchip-input input::placeholder { color: var(--fg-faint); }
+
+/* Autocomplete dropdown */
+.fchip-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  overflow: hidden;
+  max-height: 400px;
+  display: flex; flex-direction: column;
+}
+.fchip-pop-head {
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.fchip-pop-list { overflow: auto; padding: 4px 0; }
+.fchip-pop-item {
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.fchip-pop-item:hover, .fchip-pop-item.is-focus { background: var(--bg-raised); }
+.fchip-pop-item .name { flex: 1; color: var(--fg-primary); font-size: var(--t-sm); }
+.fchip-pop-item .meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+}
+.fchip-pop-item .usage {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+}
+.fchip-pop-create {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--accent);
+  cursor: pointer;
+}
+.fchip-pop-create .kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+  border: 1px solid var(--border-default);
+  padding: 1px 5px;
+  border-radius: 1px;
+}
+
+/* Legacy orphan tokens — appended after typed chips */
+.fchip-orphan {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px;
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--border-default);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  background: transparent;
+}
+.fchip-orphan .lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  letter-spacing: 0.12em;
+}

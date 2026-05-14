@@ -6,6 +6,11 @@
 **Builds on:**
 - `docs/superpowers/specs/2026-05-04-equipment-setups-design.md`
   (per-user setups, `equipment_items` lookup dict, apply-setup flow).
+**Visual handoff (authoritative):**
+- `docs/superpowers/handoff/2026-05-14-equipment-catalog/` — React/HTML
+  prototype, four artboards, FilterChip + FilterChipInput component
+  source, complete `chips.css`. The screens here are pixel-perfect
+  references; **port them, don't reinvent them.**
 
 ## Goal
 
@@ -76,6 +81,139 @@ moderation; another follow-up adds per-filter integration data.
 | 11 | Specs required                              | All optional. Existing items keep NULL specs. UI encourages filling but does not block.             |
 | 12 | Browse with specs                           | `/equip/<kind>/<slug>` shows specs alongside photo grid. Range/facet browse out of scope.           |
 | 13 | Public catalog index pages                  | Out of scope phase 1. Defer with moderation phase or a dedicated browse spec.                       |
+| 14 | Visual handoff                              | `docs/superpowers/handoff/2026-05-14-equipment-catalog/` is authoritative for layouts, components, colors, and chip behavior. Port to Svelte against existing `frontend/src/app.css` tokens. |
+
+## Visual handoff
+
+The React prototype at
+`docs/superpowers/handoff/2026-05-14-equipment-catalog/` is the visual
+source of truth. The codebase already ships the design tokens
+(verified in `frontend/src/app.css`: `--bg-canvas`, `--fg-primary`,
+`--accent` = `#e8a43a`, `--font-display`, `--r-sm`, etc.). Implementers
+do not invent UI from text — they port the prototype components and
+layouts to Svelte.
+
+### Four screens
+
+| Artboard | Spec route                                           | Handoff file         |
+| -------- | ---------------------------------------------------- | -------------------- |
+| A        | `/upload/[id]/verify/+page.svelte`                   | `screen-verify.jsx`  |
+| B        | `/equip/[kind]/[slug]/+page.svelte`                  | `screen-equip.jsx`   |
+| C        | `/settings/equipment/new/+page.svelte` + `[id]/edit` | `screen-setup.jsx`   |
+| D        | `/u/[handle]/p/[short]/+page.svelte`                 | `screen-photo.jsx`   |
+
+Open `docs/superpowers/handoff/2026-05-14-equipment-catalog/index.html`
+in a browser to see all four side-by-side in a pan/zoom canvas.
+
+### Five new Svelte components
+
+Implement these primitives first (under
+`frontend/src/lib/components/equipment/`); the four screens become
+straightforward layout once the primitives exist.
+
+1. **`FilterChip.svelte`** — `{ filter, draggable?, removable?,
+   compact?, dragging?, onRemove? }`. Renders a typed filter chip
+   with badge + name + (optional) bandwidth. Untyped state = dashed
+   border + `?` badge + `+ type` link. Source: `chips.jsx`,
+   `chips.css`.
+2. **`FilterChipInput.svelte`** — `{ value, orphans?, startOpen?,
+   onChange }`. Multi-select autocomplete chip-input. Keyboard ↑/↓/↵
+   /Backspace/Esc, drag-reorder via HTML5 drag API, create-new
+   footer when query has no match (calls `POST /api/equipment/items`).
+   The order of `value` maps to `photo_filters.position`.
+3. **`RoleRow.svelte`** — `{ kind, value, badge, expanded, onToggle }`
+   with default slot for the panel content. Used in the setup
+   builder: `140px` kind label + autocomplete + usage-count chip +
+   Edit/Hide-specs toggle.
+4. **`SpecsPanel.svelte`** — `{ mode: 'create' | 'edit', footerNote?,
+   onSave }` with default slot for fields. Header strip with warm
+   amber border in `edit` (var(--warning), `● EDITING A SHARED CATALOG
+   ITEM`) or primary amber in `create` (var(--accent), `● NEW · WILL
+   JOIN THE SHARED CATALOG`). Footer = Discard + "Save to catalog".
+5. **`Field.svelte`** — `{ label, value?, mono?, detected?, hint?,
+   full? }` with default slot. Already partially exists in the
+   codebase under another name; consolidate or reuse. EXIF-detected
+   fields show an amber "● DETECTED FROM EXIF" indicator; user-fill
+   fields show muted "○ YOU FILL". `mono` flag flips the input to
+   JetBrains Mono.
+
+### FilterChip — type → badge code / color mapping
+
+Drives both `chips.css` per-type CSS variables (`--ft-c`) and the
+badge two-letter code. Implement as a constant map in
+`frontend/src/lib/equipment/filter-types.ts`, regenerable from
+`FilterType` enum string keys.
+
+| `filter_type` enum | Badge | Color (hex)         | Notes               |
+| ------------------ | ----- | ------------------- | ------------------- |
+| `luminance`        | L     | `var(--fg-primary)` | broadband · no bw   |
+| `red`              | R     | `#c25048`           | warm muted red      |
+| `green`            | G     | `#7da64a`           | sage                |
+| `blue`             | B     | `#6b8db8`           | cool slate          |
+| `h_alpha`          | Hα    | `#b04634`           | deep narrowband red |
+| `oiii`             | OIII  | `#4ea0a8`           | teal                |
+| `sii`              | SII   | `var(--accent)`     | sodium amber        |
+| `uv_ir_cut`        | UV/IR | `#8a6a9c`           | dim violet · no bw  |
+| `dual_band`        | D     | `#7a8fa8`           | Hα+OIII blend       |
+| `tri_band`         | T     | `#7a9588`           |                     |
+| `quad_band`        | Q     | `#8a8a6a`           |                     |
+| `light_pollution`  | LP    | `var(--warning)`    | broadband · no bw   |
+| `broadband_color`  | BB    | `var(--fg-secondary)`|                    |
+| `other`            | ?     | `var(--fg-faint)`   |                     |
+
+`bandwidth_nm` is rendered (mono, 11 px, after the chip name) **only**
+for: red, green, blue, h_alpha, oiii, sii, dual_band, tri_band,
+quad_band. Hidden for: luminance, uv_ir_cut, light_pollution,
+broadband_color, other.
+
+### Three chip rendering modes
+
+Toggled via a `data-ap-chip="<mode>"` attribute on a parent container.
+**Ship `vivid` by default.** Other modes are experimental and may be
+gated behind a Tweaks-style preference later.
+
+- `vivid` (default) — tinted background `color-mix(var(--ft-c) 7%,
+  var(--bg-base))` + colored badge.
+- `outline` — transparent background, badge ring-only.
+- `mono` — neutral chip, badge ink only, type-code is the only signal.
+
+CSS source: end of `chips.css` in the handoff.
+
+### Layout invariants from the prototype
+
+These dimensions must be respected when porting; they are not
+arbitrary aesthetic choices but tested for the 1440 px target width.
+
+- **Screen frame:** 1440 px wide; header full-bleed; sections use
+  `64 px` horizontal padding and `40–48 px` vertical.
+- **Verify (A):** 2-col body `grid-template-columns: 520px 1fr`,
+  gap `64 px`. 4-step stepper at top, 2 px amber border-top on
+  active/done steps. FILTERS row spans the equipment 2×2 grid.
+- **Equip browse (B):** header h1 64 px display serif; specs row =
+  flex mono details; right rail `320 px` with siblings + transmission
+  curve + item meta.
+- **Setup builder (C):** main `1fr 340px` two-col with right rail
+  ("Shared catalog" + "Apply behavior" radios). Roles list with
+  `140 px` kind label.
+- **Photo fiche (D):** bottom grid `1fr 380px`; chips strip above
+  caption; "Integration · per filter" card in right rail (phase 3
+  placeholder, see below).
+
+### Phase 3 placeholder UI
+
+The photo fiche right-rail card **Integration · per filter** is
+mocked in `screen-photo.jsx` but is **placeholder UI** for the
+phase-3 spec (`photo_filter_acquisitions` table, per-filter subs ×
+sub_exposure × gain). For phase 1 ship one of:
+
+- **Hide the card** entirely (recommended for v1 — least surface to
+  maintain).
+- **Mock from EXIF totals**: split `total_integration_seconds` evenly
+  across the photo's filters. Mark the card with the existing
+  prototype caption `PER-FILTER INTEGRATION · ROADMAP PHASE 3` so
+  users understand it is illustrative.
+
+Decide at implementation review. Default: hide.
 
 ## Glossary
 
@@ -314,6 +452,15 @@ only the check constraints in the DB are hard rules).
 
 ## Frontend
 
+> Layouts, components, and visual styling are governed by the
+> handoff under
+> `docs/superpowers/handoff/2026-05-14-equipment-catalog/`. The
+> subsections below describe **what each surface does** (data, API
+> calls, UX semantics); for **how it looks** refer to the matching
+> `screen-*.jsx`. Inconsistencies between this spec and the handoff
+> are resolved in favor of the handoff for visual decisions and in
+> favor of this spec for data/API decisions.
+
 ### `/settings/equipment` setup form — spec fields
 
 The existing setup builder (`/settings/equipment/new` and `/settings/equipment/[id]/edit`)
@@ -501,6 +648,10 @@ None blocking. To confirm during implementation:
 
 ## References
 
+- **Visual handoff (authoritative for UI):**
+  `docs/superpowers/handoff/2026-05-14-equipment-catalog/` —
+  `README.md`, `chips.jsx`, `chips.css`, `screen-verify.jsx`,
+  `screen-equip.jsx`, `screen-setup.jsx`, `screen-photo.jsx`.
 - `backend/migrations/0012_equipment_items.sql` — original `equipment_items` dictionary.
 - `backend/migrations/0017_equipment_setups.sql` — setups + setup_items + photo.setup_id.
 - `docs/superpowers/specs/2026-05-04-equipment-setups-design.md` — setups design that this spec extends.
