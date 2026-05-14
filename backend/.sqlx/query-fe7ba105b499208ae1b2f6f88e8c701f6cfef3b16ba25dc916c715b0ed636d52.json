@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set filters = $1 where id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fe7ba105b499208ae1b2f6f88e8c701f6cfef3b16ba25dc916c715b0ed636d52"
+}

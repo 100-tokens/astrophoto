@@ -7,6 +7,7 @@ pub mod count;
 pub mod delete;
 pub mod drafts_list;
 pub mod exif;
+pub mod filters_cache;
 pub mod get;
 pub mod list;
 pub mod magic;

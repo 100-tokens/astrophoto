@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.display_name as \"display_name!\"\n             from photo_filters pf\n             join equipment_items e on e.id = pf.item_id\n            where pf.photo_id = $1\n            order by pf.position, e.display_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "107abe1c9e23125f2bfa059fd35f4aa0d70df99aa85219fa4cac716699a924cb"
+}
