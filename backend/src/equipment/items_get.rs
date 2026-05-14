@@ -67,7 +67,10 @@ fn decimal_to_f64(d: Option<BigDecimal>) -> Option<f64> {
     d.and_then(|x| x.to_string().parse::<f64>().ok())
 }
 
-async fn load_telescope(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+async fn load_telescope(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select design, aperture_mm, focal_length_mm, focal_ratio_f
              from telescope_specs where item_id = $1"#,
@@ -85,7 +88,10 @@ async fn load_telescope(pool: &PgPool, item_id: Uuid) -> Result<Option<Equipment
     }))
 }
 
-async fn load_camera(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+async fn load_camera(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select sensor_type, color_type, cooled, sensor_model,
                   pixel_size_um, sensor_width_px, sensor_height_px
@@ -107,7 +113,10 @@ async fn load_camera(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpe
     }))
 }
 
-async fn load_filter(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+async fn load_filter(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select filter_type, bandwidth_nm, size, mounted
              from filter_specs where item_id = $1"#,
@@ -125,7 +134,10 @@ async fn load_filter(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpe
     }))
 }
 
-async fn load_mount(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+async fn load_mount(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select mount_type, payload_kg, goto
              from mount_specs where item_id = $1"#,
@@ -142,7 +154,10 @@ async fn load_mount(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpec
     }))
 }
 
-async fn load_focal_modifier(pool: &PgPool, item_id: Uuid) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+async fn load_focal_modifier(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select modifier_type, factor
              from focal_modifier_specs where item_id = $1"#,

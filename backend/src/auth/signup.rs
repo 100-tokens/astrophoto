@@ -58,7 +58,11 @@ pub async fn handler(
         token
     );
     let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
-    if let Err(e) = state.mailer.send_plain(&user.email, &subject, &mail_body).await {
+    if let Err(e) = state
+        .mailer
+        .send_plain(&user.email, &subject, &mail_body)
+        .await
+    {
         tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
     }
 

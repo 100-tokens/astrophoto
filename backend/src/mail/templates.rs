@@ -116,7 +116,8 @@ mod tests {
 
     #[test]
     fn email_verification_subject_and_body_shape() {
-        let (subject, body) = email_verification("Galaxy Lover", "https://example.com/verify/abc123");
+        let (subject, body) =
+            email_verification("Galaxy Lover", "https://example.com/verify/abc123");
         assert_eq!(subject, "Confirm your Astrophoto account");
         assert!(body.contains("Galaxy Lover"));
         assert!(body.contains("https://example.com/verify/abc123"));

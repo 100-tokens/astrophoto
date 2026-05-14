@@ -110,7 +110,11 @@ async fn signup(app: &axum::Router, pool: &PgPool, email: &str, name: &str) -> (
         )
         .await
         .unwrap();
-    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    assert_eq!(
+        login_resp.status(),
+        200,
+        "login must succeed after signup for {email}"
+    );
     let cookie = login_resp
         .headers()
         .get("set-cookie")

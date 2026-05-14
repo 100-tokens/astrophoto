@@ -92,7 +92,11 @@ async fn signup_and_get_cookie(
         )
         .await
         .unwrap();
-    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    assert_eq!(
+        login_resp.status(),
+        200,
+        "login must succeed after signup for {email}"
+    );
     login_resp
         .headers()
         .get("set-cookie")

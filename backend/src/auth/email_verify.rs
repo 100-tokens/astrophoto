@@ -3,7 +3,12 @@
 
 use std::net::{IpAddr, SocketAddr};
 
-use axum::{Json, extract::{ConnectInfo, State}, http::{HeaderMap, StatusCode, header}, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{ConnectInfo, State},
+    http::{HeaderMap, StatusCode, header},
+    response::IntoResponse,
+};
 use base64::Engine;
 use rand::RngCore;
 use serde::Deserialize;
@@ -151,7 +156,11 @@ pub async fn resend(
             );
             let (subject, mail_body) =
                 crate::mail::templates::email_verification(&u.display_name, &link);
-            if let Err(e) = state.mailer.send_plain(&u.email, &subject, &mail_body).await {
+            if let Err(e) = state
+                .mailer
+                .send_plain(&u.email, &subject, &mail_body)
+                .await
+            {
                 tracing::warn!(error = %e, user_id = %u.id, "email-verification mail send failed");
             }
         }
@@ -180,10 +189,7 @@ mod tests {
             .connect(&url)
             .await
             .unwrap();
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
         let user = create_with_password(&pool, "tok@example.com", "tok-abc", "T", "hash")
             .await

@@ -14,14 +14,32 @@ async fn migration_0018_creates_tables_and_columns() {
               and column_name in ('status','submitted_by','approved_at','created_at')
             order by column_name"#
     )
-    .fetch_all(&pool).await.unwrap();
-    assert_eq!(row.len(), 4, "expected 4 new equipment_items columns, got {}", row.len());
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        row.len(),
+        4,
+        "expected 4 new equipment_items columns, got {}",
+        row.len()
+    );
 
     // 5 specs sub-tables exist
-    for t in ["telescope_specs","camera_specs","filter_specs","mount_specs","focal_modifier_specs"] {
+    for t in [
+        "telescope_specs",
+        "camera_specs",
+        "filter_specs",
+        "mount_specs",
+        "focal_modifier_specs",
+    ] {
         let exists: bool = sqlx::query_scalar!(
-            "select exists(select 1 from information_schema.tables where table_name=$1)", t
-        ).fetch_one(&pool).await.unwrap().unwrap_or(false);
+            "select exists(select 1 from information_schema.tables where table_name=$1)",
+            t
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+        .unwrap_or(false);
         assert!(exists, "{t} table missing");
     }
 
@@ -33,7 +51,13 @@ async fn migration_0018_creates_tables_and_columns() {
                on tc.constraint_name = kcu.constraint_name
             where tc.table_name='photo_filters' and tc.constraint_type='PRIMARY KEY'
             order by kcu.ordinal_position"#
-    ).fetch_all(&pool).await.unwrap().into_iter().flatten().collect();
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap()
+    .into_iter()
+    .flatten()
+    .collect();
     assert_eq!(pk_cols, vec!["photo_id".to_string(), "item_id".to_string()]);
 }
 
@@ -123,7 +147,11 @@ async fn backfill_populates_photo_filters_from_legacy_string() {
     .map(|r| (r.item_id, r.position))
     .collect();
 
-    assert_eq!(pairs.len(), 2, "orphan token must not produce a junction row");
+    assert_eq!(
+        pairs.len(),
+        2,
+        "orphan token must not produce a junction row"
+    );
     assert_eq!(pairs[0], (r_id, 0));
     assert_eq!(pairs[1], (g_id, 1));
 }

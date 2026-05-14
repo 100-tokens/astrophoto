@@ -204,7 +204,11 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn launch() -> Self {
-        let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+        let pg = PgImage::default()
+            .with_tag("16-alpine")
+            .start()
+            .await
+            .unwrap();
         let host = pg.get_host().await.unwrap();
         let port = pg.get_host_port_ipv4(5432).await.unwrap();
         let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

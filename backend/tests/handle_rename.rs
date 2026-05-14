@@ -61,7 +61,11 @@ async fn signup_and_login(
         )
         .await
         .unwrap();
-    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    assert_eq!(
+        login_resp.status(),
+        200,
+        "login must succeed after signup for {email}"
+    );
     let cookie = login_resp
         .headers()
         .get("set-cookie")
@@ -120,7 +124,8 @@ async fn rename_handle_writes_redirect_row() {
     );
 
     // 1. Sign up as 'marie'.
-    let session_cookie = signup_and_login(&app, &pool, "marie@example.com", "marie", "Marie Dubois").await;
+    let session_cookie =
+        signup_and_login(&app, &pool, "marie@example.com", "marie", "Marie Dubois").await;
 
     // Get user_id by querying the pool.
     let user_id: uuid::Uuid =
@@ -234,7 +239,8 @@ async fn rename_handle_conflict_returns_409() {
     );
 
     // Sign up 'user1'.
-    let session_cookie = signup_and_login(&app, &pool, "user1@example.com", "userone", "User One").await;
+    let session_cookie =
+        signup_and_login(&app, &pool, "user1@example.com", "userone", "User One").await;
 
     // Sign up 'user2' who already holds the handle 'usertwo'.
     let _cookie2 = signup_and_login(&app, &pool, "user2@example.com", "usertwo", "User Two").await;
@@ -311,7 +317,8 @@ async fn rename_handle_invalid_format_returns_422() {
     );
 
     // Sign up a user.
-    let session_cookie = signup_and_login(&app, &pool, "valid@example.com", "validuser", "Valid").await;
+    let session_cookie =
+        signup_and_login(&app, &pool, "valid@example.com", "validuser", "Valid").await;
 
     // Too short — invalid format.
     let resp = app

@@ -93,10 +93,7 @@ mod tests_email_verified {
             .connect(&url)
             .await
             .unwrap();
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
         let user = create_with_password(&pool, "u@example.com", "u-abc", "U", "hash")
             .await
@@ -119,10 +116,7 @@ mod tests_email_verified {
             .connect(&url)
             .await
             .unwrap();
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
         let user = create_with_password(&pool, "v@example.com", "v-abc", "V", "hash")
             .await

@@ -209,14 +209,15 @@ async fn verify_marks_user_verified_and_sets_session_cookie() {
     );
 
     // Verify the user's email_verified_at is now set
-    let verified_at = sqlx::query_scalar!(
-        "select email_verified_at from users where id = $1",
-        user_id
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert!(verified_at.is_some(), "email_verified_at should be set after verification");
+    let verified_at =
+        sqlx::query_scalar!("select email_verified_at from users where id = $1", user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(
+        verified_at.is_some(),
+        "email_verified_at should be set after verification"
+    );
 
     // Verify the token's used_at is now set
     let hash: Vec<u8> = sha2::Sha256::digest(token.as_bytes()).to_vec();
@@ -227,7 +228,10 @@ async fn verify_marks_user_verified_and_sets_session_cookie() {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert!(used_at.is_some(), "token used_at should be set after verification");
+    assert!(
+        used_at.is_some(),
+        "token used_at should be set after verification"
+    );
 }
 
 #[tokio::test]
@@ -262,8 +266,7 @@ async fn resend_for_unverified_user_issues_new_token_and_sends_mail() {
     let sent = outbox.lock().unwrap();
     assert_eq!(sent.len(), 1, "expected exactly one mail in outbox");
     assert_eq!(
-        sent[0].subject,
-        "Confirm your Astrophoto account",
+        sent[0].subject, "Confirm your Astrophoto account",
         "unexpected subject"
     );
     assert!(
@@ -336,8 +339,7 @@ async fn resend_for_unknown_email_is_silent_204() {
 async fn resend_within_cooldown_does_not_issue_token() {
     let (app, pool, outbox, _pg) = boot().await;
 
-    let user_id =
-        insert_user(&pool, "resend-cooldown@example.com", "resend-cooldown").await;
+    let user_id = insert_user(&pool, "resend-cooldown@example.com", "resend-cooldown").await;
 
     // Insert a token that was created just now (within the 60s cooldown)
     insert_token(&pool, user_id, "existing-token-abc", 86400).await;
@@ -404,12 +406,11 @@ async fn signup_returns_202_unverified_and_sends_verification_mail() {
     assert_eq!(body["email"], "newbie@example.com");
 
     // User exists but is unverified.
-    let row = sqlx::query!(
-        "select email_verified_at from users where email = 'newbie@example.com'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row =
+        sqlx::query!("select email_verified_at from users where email = 'newbie@example.com'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert!(row.email_verified_at.is_none());
 
     // Exactly one verification token issued for this user.

@@ -100,7 +100,11 @@ async fn signup(
         )
         .await
         .unwrap();
-    assert_eq!(login_resp.status(), 200, "login must succeed after signup for {email}");
+    assert_eq!(
+        login_resp.status(),
+        200,
+        "login must succeed after signup for {email}"
+    );
     let cookie = login_resp
         .headers()
         .get("set-cookie")
