@@ -87,7 +87,7 @@
   let filters = $state<PhotoFilterChip[]>(untrack(() => prefill.filters ?? []));
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const focalRatio = $derived(() => {
+  const focalRatio = $derived.by(() => {
     const apert = Number(telescope.specs['aperture_mm']);
     const focal = Number(telescope.specs['focal_length_mm']);
     if (apert > 0 && focal > 0) return (focal / apert).toFixed(2);
@@ -319,7 +319,7 @@
                   <Field label={field.label} mono>
                     <input
                       class="input input-mono"
-                      value={focalRatio()}
+                      value={focalRatio}
                       readonly
                       style="background: var(--bg-raised); color: var(--fg-muted);"
                     />
