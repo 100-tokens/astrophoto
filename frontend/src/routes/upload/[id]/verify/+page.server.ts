@@ -62,7 +62,20 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
     queueIndex = ids.indexOf(params.id);
   }
 
-  return { photo, setups, queueIds, queueIndex };
+  // Compute orphan tokens: legacy cache-string tokens that don't match any
+  // structured filter_item. Shown as read-only "legacy" chips in the UI.
+  const cacheTokens = ((photo.filters as string | null | undefined) ?? '')
+    .split(',')
+    .map((t: string) => t.trim())
+    .filter(Boolean);
+  const known = new Set<string>(
+    ((photo.filter_items as Array<{ display_name: string }>) ?? []).map(
+      (c: { display_name: string }) => c.display_name
+    )
+  );
+  const orphans = cacheTokens.filter((t: string) => !known.has(t));
+
+  return { photo, setups, queueIds, queueIndex, orphans };
 };
 
 async function callPut(
@@ -99,6 +112,13 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
       return [];
     }
   };
+  const parseFilterItemIds = (): string[] | undefined => {
+    const raw = fd.get('filter_item_ids');
+    if (typeof raw !== 'string') return undefined;
+    const ids = raw.split(',').filter(Boolean);
+    return ids;
+  };
+  const filter_item_ids = parseFilterItemIds();
   return {
     target: strOrNull('target'),
     camera: strOrNull('camera'),
@@ -119,15 +139,32 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     filters: strOrNull('filters'),
     guiding: strOrNull('guiding'),
     tags: parseTags(),
+    ...(filter_item_ids !== undefined ? { filter_item_ids } : {}),
     last_step
   };
 }
 
 export const actions: Actions = {
-  // Autosave (useAutosave) continuously PATCHes metadata, so these actions
-  // only need to handle state transitions. No PUT required on submit.
+  save_continue: async ({ request, params, fetch, cookies }) => {
+    const fd = await request.formData();
+    const patch = collectPatch(fd, 'verify');
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const r = await callPut(fetch, cookie, params.id!, patch);
+    if (!r.ok) return fail(r.status, { error: await r.text() });
+    redirect(303, `/upload/${params.id}/caption`);
+  },
 
-  save_draft: async () => {
+  save_draft: async ({ request, params, fetch, cookies }) => {
+    const fd = await request.formData();
+    const patch = collectPatch(fd, 'verify');
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    await callPut(fetch, cookie, params.id!, patch);
     redirect(303, '/account/frames');
   },
 

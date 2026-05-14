@@ -4,12 +4,14 @@
   import Button from '$lib/components/Button.svelte';
   import CategorySegmented from '$lib/components/CategorySegmented.svelte';
   import EquipmentAutocomplete from '$lib/components/EquipmentAutocomplete.svelte';
+  import FilterChipInput from '$lib/components/equipment/FilterChipInput.svelte';
   import Img from '$lib/components/Img.svelte';
   import Input from '$lib/components/Input.svelte';
   import SetupPicker from '$lib/components/SetupPicker.svelte';
   import TagInput from '$lib/components/TagInput.svelte';
   import TargetPicker from '$lib/components/TargetPicker.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
+  import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { SetupSummary } from '$lib/api/SetupSummary';
   import type { PageProps } from './$types';
 
@@ -21,7 +23,7 @@
   let polling = $state<number | null>(null);
 
   // The generated PhotoDetail type still doesn't include the per-photo
-  // equipment freetext fields (category, scope, mount, filters, guiding) —
+  // equipment freetext fields (category, scope, mount, guiding) —
   // those are written via the metadata patch but not echoed back in
   // PhotoDetail. Cast inline so we can seed the form from the server value.
   type ShowcasePhoto = typeof data.photo & {
@@ -40,6 +42,10 @@
     return data.photo as ShowcasePhoto;
   }
   const _sp = initialPhoto();
+  function initialFilterChips() {
+    return (data.photo.filter_items ?? []) as PhotoFilterChip[];
+  }
+  const _filterChips = initialFilterChips();
 
   let target = $state<string>(_sp.target ?? '');
   let camera = $state<string>(_sp.camera ?? '');
@@ -48,7 +54,10 @@
   let scope = $state<string>(_sp.scope ?? '');
   let focal_modifier = $state<string>(_sp.focal_modifier ?? '');
   let mount = $state<string>(_sp.mount ?? '');
-  let filters = $state<string>(_sp.filters ?? '');
+  // Structured filter chips — replaces the legacy free-text filters field.
+  let filterChips = $state<PhotoFilterChip[]>(_filterChips);
+  // Derived legacy string for SetupPicker conflict detection.
+  let filtersString = $derived(filterChips.map((f) => f.display_name).join(', '));
   let guiding = $state<string>(_sp.guiding ?? '');
   let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
   // TODO(P2): load existing tags from photo_tags join in the load function.
@@ -68,7 +77,7 @@
     focal_modifier = out.focal_modifier ?? '';
     camera = out.camera ?? '';
     mount = out.mount ?? '';
-    filters = out.filters ?? '';
+    filterChips = (out.filter_items as PhotoFilterChip[] | undefined) ?? filterChips;
     guiding = out.guiding ?? '';
     photo_setup_id = out.setup_id ?? null;
   }
@@ -292,7 +301,7 @@
             <SetupPicker
               setups={data.setups}
               currentSetupId={photo_setup_id}
-              current={{ scope, focal_modifier, camera, mount, filters, guiding }}
+              current={{ scope, focal_modifier, camera, mount, filters: filtersString, guiding }}
               onapply={onApplySetup}
               ondetach={onDetachSetup}
             />
@@ -314,8 +323,18 @@
             <div class="field">
               <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} />
             </div>
-            <div class="field">
-              <EquipmentAutocomplete name="filters" kind="filter" bind:value={filters} />
+            <div class="field field-filters-full">
+              <span class="t-label">FILTERS · STRUCTURED</span>
+              <FilterChipInput
+                value={filterChips}
+                orphans={data.orphans}
+                onChange={(next) => (filterChips = next)}
+              />
+              <input
+                type="hidden"
+                name="filter_item_ids"
+                value={filterChips.map((f) => f.id).join(',')}
+              />
             </div>
             <div class="field">
               <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} />
@@ -510,6 +529,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .equipment-grid .field-filters-full {
+    grid-column: 1 / -1;
   }
   .setup-row {
     margin-bottom: 1rem;
