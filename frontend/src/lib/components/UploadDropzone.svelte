@@ -35,10 +35,7 @@
       if (!(t instanceof HTMLElement)) return false;
       const tag = t.tagName;
       return (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT' ||
-        t.isContentEditable === true
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable === true
       );
     }
     function onPaste(e: ClipboardEvent) {
@@ -100,8 +97,7 @@
   </svg>
   <span class="dz-headline t-display">Drop photos here, or click to browse</span>
   <span class="t-meta dz-sub">
-    JPEG · PNG · TIFF (16-bit) &nbsp;·&nbsp;
-    up to {tier === 'subscriber' ? '200 MB' : '50 MB'} per file
+    JPEG · PNG · TIFF (16-bit) &nbsp;·&nbsp; up to {tier === 'subscriber' ? '200 MB' : '50 MB'} per file
     &nbsp;·&nbsp; up to 12 at once
   </span>
   <input

@@ -454,21 +454,29 @@ async fn apply_setup_overwrite_syncs_junction_and_cache() {
     // Alphabetical: Green (position 0), Red (position 1).
     let green_row = sqlx::query!(
         "select position from photo_filters where photo_id=$1 and item_id=$2",
-        photo_id, green_id
+        photo_id,
+        green_id
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(green_row.position, 0, "Green is position 0 (alphabetical first)");
+    assert_eq!(
+        green_row.position, 0,
+        "Green is position 0 (alphabetical first)"
+    );
 
     let red_row = sqlx::query!(
         "select position from photo_filters where photo_id=$1 and item_id=$2",
-        photo_id, red_id
+        photo_id,
+        red_id
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(red_row.position, 1, "Red is position 1 (alphabetical second)");
+    assert_eq!(
+        red_row.position, 1,
+        "Red is position 1 (alphabetical second)"
+    );
 
     let count = sqlx::query_scalar!(
         "select count(*) from photo_filters where photo_id=$1",
@@ -484,5 +492,9 @@ async fn apply_setup_overwrite_syncs_junction_and_cache() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(cache.as_deref(), Some("Green, Red"), "cache string alphabetical");
+    assert_eq!(
+        cache.as_deref(),
+        Some("Green, Red"),
+        "cache string alphabetical"
+    );
 }

@@ -237,12 +237,9 @@ pub async fn handler(
                 "filter_item_ids contains an unknown id or a non-filter kind".into(),
             ));
         }
-        sqlx::query!(
-            "delete from photo_filters where photo_id = $1",
-            id
-        )
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query!("delete from photo_filters where photo_id = $1", id)
+            .execute(&mut *tx)
+            .await?;
         for (i, item_id) in filter_ids.iter().enumerate() {
             sqlx::query!(
                 "insert into photo_filters (photo_id, item_id, position) values ($1, $2, $3)",

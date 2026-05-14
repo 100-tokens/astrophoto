@@ -107,7 +107,13 @@ pub async fn apply(
     let filters = if filter_pairs.is_empty() {
         None
     } else {
-        Some(filter_pairs.iter().map(|p| p.0.as_str()).collect::<Vec<_>>().join(", "))
+        Some(
+            filter_pairs
+                .iter()
+                .map(|p| p.0.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
     };
     let guiding = setup.guiding;
 

@@ -13,8 +13,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn put_photo_filter_item_ids_writes_junction_and_rebuilds_cache() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, alice_id, None, None, None).await;
 
@@ -99,8 +98,7 @@ async fn put_photo_filter_item_ids_writes_junction_and_rebuilds_cache() {
 #[tokio::test]
 async fn put_photo_filter_item_ids_with_non_filter_kind_returns_422() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "bob@example.com", "bob1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "bob@example.com", "bob1").await;
     let bob_id = common::lookup_user_id(&pool, "bob@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, bob_id, None, None, None).await;
 
@@ -142,14 +140,16 @@ async fn put_photo_filter_item_ids_with_non_filter_kind_returns_422() {
     .await
     .unwrap()
     .unwrap_or(0);
-    assert_eq!(count, 0, "junction must remain empty after validation failure");
+    assert_eq!(
+        count, 0,
+        "junction must remain empty after validation failure"
+    );
 }
 
 #[tokio::test]
 async fn put_photo_legacy_filters_text_still_accepted() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "carol@example.com", "carol1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "carol@example.com", "carol1").await;
     let carol_id = common::lookup_user_id(&pool, "carol@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, carol_id, None, None, None).await;
 
@@ -195,8 +195,7 @@ async fn put_photo_legacy_filters_text_still_accepted() {
 #[tokio::test]
 async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "dave@example.com", "dave1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "dave@example.com", "dave1").await;
     let dave_id = common::lookup_user_id(&pool, "dave@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, dave_id, None, None, None).await;
 
@@ -229,7 +228,11 @@ async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
         )
         .await
         .unwrap();
-    assert_eq!(r.status(), 200, "structured + legacy both present must succeed");
+    assert_eq!(
+        r.status(),
+        200,
+        "structured + legacy both present must succeed"
+    );
 
     // Cache must reflect the junction (X-filter), NOT the legacy text "ignored".
     let filters_cache = sqlx::query_scalar!("select filters from photos where id=$1", photo_id)
@@ -261,8 +264,7 @@ async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
 #[tokio::test]
 async fn get_photo_includes_typed_filter_items() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "mia@example.com", "mia1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "mia@example.com", "mia1").await;
     let mia_id = common::lookup_user_id(&pool, "mia@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, mia_id, None, None, None).await;
 
@@ -312,10 +314,14 @@ async fn get_photo_includes_typed_filter_items() {
         .unwrap();
     assert_eq!(r.status(), 200, "expected 200 from GET /api/photos/:id");
 
-    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576).await.unwrap();
+    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576)
+        .await
+        .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
-    let filter_items = body["filter_items"].as_array().expect("filter_items must be an array");
+    let filter_items = body["filter_items"]
+        .as_array()
+        .expect("filter_items must be an array");
     assert_eq!(filter_items.len(), 1, "expected 1 filter item");
     assert_eq!(filter_items[0]["display_name"], "Antlia Hα");
     assert_eq!(filter_items[0]["filter_type"], "h_alpha");
@@ -326,8 +332,7 @@ async fn get_photo_includes_typed_filter_items() {
 #[tokio::test]
 async fn get_photo_filter_items_empty_when_no_junction() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "nina@example.com", "nina1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "nina@example.com", "nina1").await;
     let nina_id = common::lookup_user_id(&pool, "nina@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, nina_id, None, None, None).await;
 
@@ -345,9 +350,17 @@ async fn get_photo_filter_items_empty_when_no_junction() {
         .unwrap();
     assert_eq!(r.status(), 200, "expected 200 from GET /api/photos/:id");
 
-    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576).await.unwrap();
+    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576)
+        .await
+        .unwrap();
     let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
 
-    let filter_items = body["filter_items"].as_array().expect("filter_items must be an array (not null)");
-    assert_eq!(filter_items.len(), 0, "expected empty array when no junction rows");
+    let filter_items = body["filter_items"]
+        .as_array()
+        .expect("filter_items must be an array (not null)");
+    assert_eq!(
+        filter_items.len(),
+        0,
+        "expected empty array when no junction rows"
+    );
 }

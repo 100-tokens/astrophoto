@@ -12,9 +12,7 @@
     onEditProfile: () => void;
   } = $props();
 
-  let initialFollowing = $derived(
-    page.data.user?.following_ids?.includes(targetUserId) ?? false
-  );
+  let initialFollowing = $derived(page.data.user?.following_ids?.includes(targetUserId) ?? false);
 </script>
 
 <div class="actions">

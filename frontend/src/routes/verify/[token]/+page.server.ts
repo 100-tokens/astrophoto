@@ -1,8 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-const API =
-  process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API = process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export const load: PageServerLoad = async ({ params, fetch, cookies }) => {
   let res: Response;
@@ -45,8 +44,7 @@ export const load: PageServerLoad = async ({ params, fetch, cookies }) => {
       const v = eqIdx === -1 ? undefined : a.slice(eqIdx + 1);
       const kl = k.toLowerCase();
       if (kl === 'path' && v) opts.path = v;
-      else if (kl === 'samesite' && v)
-        opts.sameSite = v.toLowerCase() as 'lax' | 'strict' | 'none';
+      else if (kl === 'samesite' && v) opts.sameSite = v.toLowerCase() as 'lax' | 'strict' | 'none';
       else if (kl === 'httponly') opts.httpOnly = true;
       else if (kl === 'secure') opts.secure = true;
       else if (kl === 'max-age' && v) opts.maxAge = parseInt(v, 10);

@@ -148,7 +148,8 @@
       <span class="filename">{photo.original_name}</span>
       <span>
         {(Number(photo.bytes) / 1024 / 1024).toFixed(1)} MB
-        {#if photo.width != null && photo.height != null} · {photo.width} × {photo.height}{/if}
+        {#if photo.width != null && photo.height != null}
+          · {photo.width} × {photo.height}{/if}
       </span>
     </div>
   </aside>

@@ -18,7 +18,9 @@
 
   // Short SHA-256 chip — lets repeat uploaders eyeball a checksum mismatch
   // without staring at a 64-char hex blob. Empty until preflight finishes.
-  const shortHash = $derived(hash && hash.length >= 8 ? `${hash.slice(0, 4)}…${hash.slice(-4)}` : '');
+  const shortHash = $derived(
+    hash && hash.length >= 8 ? `${hash.slice(0, 4)}…${hash.slice(-4)}` : ''
+  );
 
   // State pill copy + colour. Keeps the inflight states accent-warm and the
   // terminal failed/cancelled states danger-coloured per design.
@@ -52,7 +54,8 @@
   <div class="meta">
     <p class="filename t-display">{name}</p>
     <p class="t-meta size-line">
-      {sizeMb} MB{#if shortHash} · <span class="hash">sha256:{shortHash}</span>{/if}
+      {sizeMb} MB{#if shortHash}
+        · <span class="hash">sha256:{shortHash}</span>{/if}
     </p>
 
     {#if progress.state === 'uploading'}

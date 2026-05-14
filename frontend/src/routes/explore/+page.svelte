@@ -66,7 +66,9 @@
   let pillCategory = $derived(data.category as string | undefined);
 
   let pageTitle = $derived(
-    data.category ? `Explore · ${categoryLabel(data.category)} — Astrophoto` : 'Explore — Astrophoto'
+    data.category
+      ? `Explore · ${categoryLabel(data.category)} — Astrophoto`
+      : 'Explore — Astrophoto'
   );
   const pageDescription =
     'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';

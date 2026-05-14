@@ -1,8 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions } from './$types';
 
-const API =
-  process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API = process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export const actions: Actions = {
   resend: async ({ request, fetch }) => {

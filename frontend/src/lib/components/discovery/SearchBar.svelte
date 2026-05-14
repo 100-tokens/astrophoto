@@ -144,12 +144,7 @@
 
 <!-- Mobile-only icon trigger. Shown under 640 px; tapping opens the
      fullscreen overlay below. -->
-<button
-  type="button"
-  class="search-trigger-mobile"
-  aria-label="Open search"
-  onclick={openMobile}
->
+<button type="button" class="search-trigger-mobile" aria-label="Open search" onclick={openMobile}>
   <svg
     width="18"
     height="18"
@@ -166,11 +161,7 @@
 
 <div class="search-wrap" class:search-wrap-mobile-open={mobileOpen}>
   {#if mobileOpen}
-    <button
-      type="button"
-      class="mobile-scrim"
-      aria-label="Close search"
-      onclick={closeMobile}
+    <button type="button" class="mobile-scrim" aria-label="Close search" onclick={closeMobile}
     ></button>
   {/if}
   <div class="search-box" class:search-box-focused={focused}>

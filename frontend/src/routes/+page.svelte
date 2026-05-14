@@ -52,7 +52,12 @@
   // Today's date for the anonymous-eyebrow line. Computed at SSR — the
   // render time is the most accurate "today" the visitor will see.
   const todayLine = new Date()
-    .toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', weekday: 'long' })
+    .toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      weekday: 'long'
+    })
     .replace(/^(\w+) (.+)$/, (_, weekday, rest) => `${rest} · ${weekday}`)
     .toUpperCase();
 

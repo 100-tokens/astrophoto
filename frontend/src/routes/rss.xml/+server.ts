@@ -56,7 +56,9 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       const link = `${origin}/u/${encodeURIComponent(p.author_handle)}/p/${p.short_id}`;
       const title = p.target ?? `Untitled by @${p.author_handle}`;
       const pubDate = rfc822(p.published_at);
-      const imgUrl = CDN_BASE ? `${CDN_BASE}/img/${p.id}?w=1200` : `${origin}/api/photos/${p.id}/thumb/1200`;
+      const imgUrl = CDN_BASE
+        ? `${CDN_BASE}/img/${p.id}?w=1200`
+        : `${origin}/api/photos/${p.id}/thumb/1200`;
       return [
         '    <item>',
         `      <title>${escape(title)}</title>`,

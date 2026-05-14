@@ -11,10 +11,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 
 /// Recompute the cache string for `photo_id`. Empty junction → NULL cache.
-pub async fn rebuild(
-    tx: &mut Transaction<'_, Postgres>,
-    photo_id: Uuid,
-) -> Result<(), AppError> {
+pub async fn rebuild(tx: &mut Transaction<'_, Postgres>, photo_id: Uuid) -> Result<(), AppError> {
     let rows = sqlx::query!(
         r#"select e.display_name as "display_name!"
              from photo_filters pf

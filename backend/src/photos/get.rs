@@ -153,10 +153,12 @@ pub async fn handler(
     .map(|r| crate::api_types::PhotoFilterChip {
         id: r.item_id.to_string(),
         display_name: r.display_name,
-        filter_type: r.filter_type.and_then(|s| {
-            serde_json::from_value(serde_json::Value::String(s)).ok()
-        }),
-        bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
+        filter_type: r
+            .filter_type
+            .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()),
+        bandwidth_nm: r
+            .bandwidth_nm
+            .and_then(|n| n.to_string().parse::<f64>().ok()),
         position: r.position as i32,
     })
     .collect();

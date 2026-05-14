@@ -34,9 +34,8 @@
       </p>
     {/if}
     <p class="t-body">
-      We sent a confirmation link to <strong>{email}</strong>. Open it to
-      finish setting up your account. It can take a minute to arrive — don't
-      forget to check spam.
+      We sent a confirmation link to <strong>{email}</strong>. Open it to finish setting up your
+      account. It can take a minute to arrive — don't forget to check spam.
     </p>
 
     <form
