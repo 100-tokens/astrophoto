@@ -12,7 +12,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn fill_empty_preserves_existing_camera_and_fills_missing_columns() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
 
     // EXIF already filled `camera` to "Canon EOS 6D"; nothing else.
@@ -89,7 +89,7 @@ async fn fill_empty_preserves_existing_camera_and_fills_missing_columns() {
 #[tokio::test]
 async fn overwrite_writes_all_columns_verbatim() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let photo_id = common::insert_stub_photo(
         &pool,
@@ -156,7 +156,7 @@ async fn overwrite_writes_all_columns_verbatim() {
 #[tokio::test]
 async fn multiple_filters_join_alphabetical() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let photo_id = common::insert_stub_photo(&pool, alice_id, None, None, None).await;
 
@@ -219,7 +219,7 @@ async fn multiple_filters_join_alphabetical() {
 #[tokio::test]
 async fn detach_clears_setup_id_only() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let setup_id = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'X') returning id",
@@ -265,7 +265,7 @@ async fn detach_clears_setup_id_only() {
 #[tokio::test]
 async fn cross_user_photo_or_setup_returns_404() {
     let (app, pool) = common::make_app_and_pool().await;
-    let alice_cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let bob_id = common::create_other_user(&pool, "bob@example.com").await;
 
@@ -324,7 +324,7 @@ async fn cross_user_photo_or_setup_returns_404() {
 #[tokio::test]
 async fn apply_replaces_existing_setup_id_and_columns_in_overwrite_mode() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
 
     let setup_a = sqlx::query_scalar!(

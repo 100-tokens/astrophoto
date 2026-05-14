@@ -84,8 +84,16 @@ pub async fn make_app_and_pool() -> (Router, sqlx::PgPool) {
     (router, pool)
 }
 
-/// POST /api/auth/signup and return the raw `set-cookie` header value.
-pub async fn signup_and_cookie(app: &Router, email: &str, handle: &str) -> String {
+/// POST /api/auth/signup, mark the new user verified via the pool, then
+/// log in. Returns the resulting `set-cookie` header value. Signup itself
+/// returns 202 since email-verification ships — callers do not need to
+/// know about the verification round-trip.
+pub async fn signup_and_cookie(
+    app: &Router,
+    pool: &sqlx::PgPool,
+    email: &str,
+    handle: &str,
+) -> String {
     let body = serde_json::json!({
         "email": email,
         "password": "verylongpassword",
@@ -104,8 +112,32 @@ pub async fn signup_and_cookie(app: &Router, email: &str, handle: &str) -> Strin
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), 201, "signup failed");
-    resp.headers()
+    assert_eq!(resp.status(), 202, "signup failed");
+
+    sqlx::query!(
+        "update users set email_verified_at = now() where email = $1",
+        email
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+
+    let login_body = serde_json::json!({ "email": email, "password": "verylongpassword" });
+    let login_resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(login_resp.status(), 200, "login after signup failed");
+    login_resp
+        .headers()
         .get("set-cookie")
         .unwrap()
         .to_str()

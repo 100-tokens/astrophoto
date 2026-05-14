@@ -13,7 +13,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn list_returns_owner_setups_only_with_role_counts() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let bob_id = common::create_other_user(&pool, "bob@example.com").await;
 
@@ -94,7 +94,7 @@ async fn list_returns_owner_setups_only_with_role_counts() {
 #[tokio::test]
 async fn create_persists_setup_with_items_and_clears_other_default() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
 
     sqlx::query!(
@@ -158,8 +158,8 @@ async fn create_persists_setup_with_items_and_clears_other_default() {
 
 #[tokio::test]
 async fn create_unknown_item_id_returns_422() {
-    let (app, _pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let body = serde_json::json!({
         "name": "x", "description": null, "location": null,
         "is_remote": false, "is_default": false, "guiding": null,
@@ -184,8 +184,8 @@ async fn create_unknown_item_id_returns_422() {
 
 #[tokio::test]
 async fn create_duplicate_name_returns_422() {
-    let (app, _pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     for expected in [201, 422] {
         let body = serde_json::json!({
             "name": "DupeName", "description": null, "location": null,
@@ -212,7 +212,7 @@ async fn create_duplicate_name_returns_422() {
 #[tokio::test]
 async fn get_one_returns_full_expansion() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let setup_id = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'Backyard rig') returning id",
@@ -261,7 +261,7 @@ async fn get_one_returns_full_expansion() {
 #[tokio::test]
 async fn get_one_returns_404_for_other_user() {
     let (app, pool) = common::make_app_and_pool().await;
-    let alice_cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let bob_id = common::create_other_user(&pool, "bob@example.com").await;
     let bob_setup = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'Bob rig') returning id",
@@ -288,7 +288,7 @@ async fn get_one_returns_404_for_other_user() {
 #[tokio::test]
 async fn update_replaces_items_and_meta() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let setup_id = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name, location)
@@ -368,7 +368,7 @@ async fn update_replaces_items_and_meta() {
 #[tokio::test]
 async fn update_promote_to_default_clears_previous() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     sqlx::query!(
         "insert into equipment_setups (owner_id, name, is_default) values ($1,'Old',true)",
@@ -418,7 +418,7 @@ async fn update_promote_to_default_clears_previous() {
 #[tokio::test]
 async fn update_returns_404_for_other_user() {
     let (app, pool) = common::make_app_and_pool().await;
-    let alice_cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let bob_id = common::create_other_user(&pool, "bob@example.com").await;
     let bob_setup = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'Bob') returning id",
@@ -450,7 +450,7 @@ async fn update_returns_404_for_other_user() {
 #[tokio::test]
 async fn delete_clears_photos_setup_id_but_keeps_denorm_columns() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let alice_id = common::lookup_user_id(&pool, "alice@example.com").await;
     let setup_id = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'X') returning id",
@@ -493,7 +493,7 @@ async fn delete_clears_photos_setup_id_but_keeps_denorm_columns() {
 #[tokio::test]
 async fn delete_returns_404_for_other_user() {
     let (app, pool) = common::make_app_and_pool().await;
-    let alice_cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let alice_cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let bob_id = common::create_other_user(&pool, "bob@example.com").await;
     let bob_setup = sqlx::query_scalar!(
         "insert into equipment_setups (owner_id, name) values ($1,'Bob') returning id",

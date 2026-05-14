@@ -13,7 +13,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn insert_on_miss_returns_row_with_zero_count() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "alice@example.com", "alice1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "alice@example.com", "alice1").await;
     let r = app
         .clone()
         .oneshot(
@@ -44,7 +44,7 @@ async fn insert_on_miss_returns_row_with_zero_count() {
 #[tokio::test]
 async fn idempotent_on_hit_does_not_increment() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "bob@example.com", "bob1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "bob@example.com", "bob1").await;
     sqlx::query!(
         "insert into equipment_items (kind, canonical_name, display_name, usage_count)
          values ('telescope', 'celestron c8', 'Celestron C8', 7)"
@@ -76,8 +76,8 @@ async fn idempotent_on_hit_does_not_increment() {
 
 #[tokio::test]
 async fn invalid_kind_returns_422() {
-    let (app, _pool) = common::make_app_and_pool().await;
-    let cookie = common::signup_and_cookie(&app, "carol@example.com", "carol1").await;
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "carol@example.com", "carol1").await;
     let r = app
         .clone()
         .oneshot(
