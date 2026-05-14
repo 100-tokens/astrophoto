@@ -40,7 +40,7 @@ hyper = "1"
 # DB
 sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio-rustls", "postgres", "macros", "migrate",
-    "uuid", "chrono", "ipnetwork", "json"
+    "uuid", "chrono", "ipnetwork", "json", "bigdecimal"
 ] }
 
 # Errors / config / logging
