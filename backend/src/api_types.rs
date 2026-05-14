@@ -645,3 +645,195 @@ pub struct TargetIndexPage {
     pub targets: Vec<TargetListItem>,
     pub next_cursor: Option<String>,
 }
+
+// ============================================================
+// Equipment catalog — typed specs per kind. See spec
+// docs/superpowers/specs/2026-05-14-equipment-catalog-enriched-design.md.
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "FilterType.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum FilterType {
+    Luminance,
+    Red,
+    Green,
+    Blue,
+    HAlpha,
+    Oiii,
+    Sii,
+    UvIrCut,
+    DualBand,
+    TriBand,
+    QuadBand,
+    LightPollution,
+    BroadbandColor,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "TelescopeDesign.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum TelescopeDesign {
+    RefractorApo,
+    RefractorAchro,
+    Sct,
+    Rc,
+    Newtonian,
+    MaksutovCassegrain,
+    MaksutovNewtonian,
+    DallKirkham,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "CameraSensorType.ts")]
+#[serde(rename_all = "lowercase")]
+pub enum CameraSensorType {
+    Cmos,
+    Ccd,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "CameraColorType.ts")]
+#[serde(rename_all = "lowercase")]
+pub enum CameraColorType {
+    Mono,
+    Osc,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "FilterSize.ts")]
+pub enum FilterSize {
+    #[serde(rename = "1_25in")]
+    In1_25,
+    #[serde(rename = "2in")]
+    In2,
+    #[serde(rename = "31mm")]
+    Mm31,
+    #[serde(rename = "36mm")]
+    Mm36,
+    #[serde(rename = "50mm_round")]
+    Mm50Round,
+    #[serde(rename = "50mm_square")]
+    Mm50Square,
+    #[serde(rename = "other")]
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "MountType.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum MountType {
+    EquatorialGerman,
+    EquatorialFork,
+    AltAz,
+    HarmonicDrive,
+    StrainWave,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "FocalModifierType.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum FocalModifierType {
+    Reducer,
+    Flattener,
+    ReducerFlattener,
+    Barlow,
+    Extender,
+    Corrector,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "TelescopeSpecs.ts")]
+pub struct TelescopeSpecs {
+    pub design: Option<TelescopeDesign>,
+    pub aperture_mm: Option<i32>,
+    pub focal_length_mm: Option<i32>,
+    /// Computed (DB-generated). Returned in GET, ignored in PATCH/POST.
+    #[serde(default)]
+    pub focal_ratio_f: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "CameraSpecs.ts")]
+pub struct CameraSpecs {
+    pub sensor_type: Option<CameraSensorType>,
+    pub color_type: Option<CameraColorType>,
+    pub cooled: Option<bool>,
+    pub sensor_model: Option<String>,
+    pub pixel_size_um: Option<f64>,
+    pub sensor_width_px: Option<i32>,
+    pub sensor_height_px: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "FilterSpecs.ts")]
+pub struct FilterSpecs {
+    pub filter_type: Option<FilterType>,
+    pub bandwidth_nm: Option<f64>,
+    pub size: Option<FilterSize>,
+    pub mounted: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "MountSpecs.ts")]
+pub struct MountSpecs {
+    pub mount_type: Option<MountType>,
+    pub payload_kg: Option<f64>,
+    pub goto: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "FocalModifierSpecs.ts")]
+pub struct FocalModifierSpecs {
+    pub modifier_type: Option<FocalModifierType>,
+    pub factor: Option<f64>,
+}
+
+/// Tagged union — `kind` discriminator on the wire matches `equipment_items.kind`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentSpecsPayload.ts")]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EquipmentSpecsPayload {
+    Telescope(TelescopeSpecs),
+    Camera(CameraSpecs),
+    Filter(FilterSpecs),
+    Mount(MountSpecs),
+    FocalModifier(FocalModifierSpecs),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentItemPatch.ts")]
+pub struct EquipmentItemPatch {
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub specs: Option<EquipmentSpecsPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentItemDetail.ts")]
+pub struct EquipmentItemDetail {
+    pub id: String,
+    pub kind: String,
+    pub canonical_name: String,
+    pub display_name: String,
+    pub usage_count: i32,
+    pub status: String,
+    pub submitted_by: Option<String>,
+    pub approved_at: Option<String>,
+    pub created_at: String,
+    pub specs: Option<EquipmentSpecsPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "PhotoFilterChip.ts")]
+pub struct PhotoFilterChip {
+    pub id: String,
+    pub display_name: String,
+    pub filter_type: Option<FilterType>,
+    pub bandwidth_nm: Option<f64>,
+    pub position: i32,
+}
