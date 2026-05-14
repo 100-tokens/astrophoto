@@ -72,9 +72,9 @@ pub async fn apply(
         return Err(AppError::NotFound("photo not found".into()));
     }
 
-    // Resolve canonical names from setup_items.
+    // Resolve canonical names and item ids from setup_items.
     let items = sqlx::query!(
-        r#"select si.role, ei.display_name, ei.canonical_name
+        r#"select si.role, ei.id as item_id, ei.display_name, ei.canonical_name
              from setup_items si
              join equipment_items ei on ei.id = si.item_id
             where si.setup_id = $1
@@ -88,25 +88,51 @@ pub async fn apply(
     let mut focal_mod: Option<String> = None;
     let mut camera: Option<String> = None;
     let mut mount: Option<String> = None;
-    let mut filters_buf: Vec<String> = vec![];
+    // filter_pairs: (display_name, item_id) — sorted alphabetically by display_name below.
+    let mut filter_pairs: Vec<(String, Uuid)> = vec![];
     for r in items {
         match r.role.as_str() {
             "optical_tube" => scope = Some(r.display_name),
             "focal_modifier" => focal_mod = Some(r.display_name),
             "main_camera" => camera = Some(r.display_name),
             "mount" => mount = Some(r.display_name),
-            "filter" => filters_buf.push(r.display_name),
+            "filter" => filter_pairs.push((r.display_name, r.item_id)),
             other => {
                 tracing::warn!(role = %other, "unknown setup_items role in apply-setup; ignored")
             }
         }
     }
-    let filters = if filters_buf.is_empty() {
+    // Sort alphabetically by display_name so cache string and junction positions agree.
+    filter_pairs.sort_by(|a, b| a.0.cmp(&b.0));
+    let filters = if filter_pairs.is_empty() {
         None
     } else {
-        Some(filters_buf.join(", "))
+        Some(filter_pairs.iter().map(|p| p.0.as_str()).collect::<Vec<_>>().join(", "))
     };
     let guiding = setup.guiding;
+
+    // Determine whether the photo_filters junction needs syncing.
+    // overwrite → always sync (delete existing rows first, re-insert).
+    // fill_empty → sync only when both the junction is empty AND filters cache is null/empty.
+    let do_junction_sync = if mode_overwrite {
+        true
+    } else {
+        let junction_empty = sqlx::query_scalar!(
+            "select not exists(select 1 from photo_filters where photo_id=$1)",
+            photo_id
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .unwrap_or(true);
+        let cache_empty = sqlx::query_scalar!(
+            "select coalesce(filters,'') = '' from photos where id=$1",
+            photo_id
+        )
+        .fetch_one(&mut *tx)
+        .await?
+        .unwrap_or(true);
+        junction_empty && cache_empty
+    };
 
     // The CASE expression handles both modes via the $2 boolean:
     //   - mode_overwrite=true: always write the new value.
@@ -142,6 +168,30 @@ pub async fn apply(
     )
     .fetch_one(&mut *tx)
     .await?;
+
+    // Sync photo_filters junction when appropriate.
+    // In overwrite mode the delete runs unconditionally so stale junction rows
+    // from a previous setup don't linger even when the new setup has no filters.
+    if do_junction_sync {
+        sqlx::query!("delete from photo_filters where photo_id = $1", photo_id)
+            .execute(&mut *tx)
+            .await?;
+        if !filter_pairs.is_empty() {
+            for (i, (_, item_id)) in filter_pairs.iter().enumerate() {
+                sqlx::query!(
+                    "insert into photo_filters (photo_id, item_id, position) values ($1,$2,$3)",
+                    photo_id,
+                    item_id,
+                    i as i16
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+            // Rebuild overwrites photos.filters with the junction-derived string;
+            // junction is source of truth for the cache.
+            crate::photos::filters_cache::rebuild(&mut tx, photo_id).await?;
+        }
+    }
 
     tx.commit().await?;
 

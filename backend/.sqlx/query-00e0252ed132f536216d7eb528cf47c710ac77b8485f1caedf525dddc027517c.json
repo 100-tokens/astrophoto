@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select not exists(select 1 from photo_filters where photo_id=$1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "00e0252ed132f536216d7eb528cf47c710ac77b8485f1caedf525dddc027517c"
+}

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_filters (photo_id, item_id, position) values ($1,$2,$3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df19c0a6098212eaf7b400ce470937cda8b6a0064465bada0da1f2e8084c6045"
+}

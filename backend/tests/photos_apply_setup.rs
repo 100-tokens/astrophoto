@@ -395,3 +395,94 @@ async fn apply_replaces_existing_setup_id_and_columns_in_overwrite_mode() {
         "camera replaced verbatim"
     );
 }
+
+#[tokio::test]
+async fn apply_setup_overwrite_syncs_junction_and_cache() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "nora@example.com", "nora1").await;
+    let nora_id = common::lookup_user_id(&pool, "nora@example.com").await;
+    let photo_id = common::insert_stub_photo(&pool, nora_id, None, None, None).await;
+
+    let setup_id = sqlx::query_scalar!(
+        "insert into equipment_setups (owner_id, name) values ($1,'Nora SHO') returning id",
+        nora_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Red and Green filters — alphabetical by display_name: Green (0), Red (1).
+    let red_id = sqlx::query_scalar!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('filter','red','Red',0) returning id"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let green_id = sqlx::query_scalar!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('filter','green','Green',0) returning id"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        "insert into setup_items (setup_id, role, item_id) values ($1,'filter',$2),($1,'filter',$3)",
+        setup_id, red_id, green_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let body = serde_json::json!({ "setup_id": setup_id.to_string(), "mode": "overwrite" });
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/photos/{photo_id}/apply-setup"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+
+    // Junction must have exactly 2 rows with correct positions.
+    // Alphabetical: Green (position 0), Red (position 1).
+    let green_row = sqlx::query!(
+        "select position from photo_filters where photo_id=$1 and item_id=$2",
+        photo_id, green_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(green_row.position, 0, "Green is position 0 (alphabetical first)");
+
+    let red_row = sqlx::query!(
+        "select position from photo_filters where photo_id=$1 and item_id=$2",
+        photo_id, red_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(red_row.position, 1, "Red is position 1 (alphabetical second)");
+
+    let count = sqlx::query_scalar!(
+        "select count(*) from photo_filters where photo_id=$1",
+        photo_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, Some(2), "exactly 2 junction rows");
+
+    // Cache string must match alphabetical order.
+    let cache = sqlx::query_scalar!("select filters from photos where id=$1", photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(cache.as_deref(), Some("Green, Red"), "cache string alphabetical");
+}

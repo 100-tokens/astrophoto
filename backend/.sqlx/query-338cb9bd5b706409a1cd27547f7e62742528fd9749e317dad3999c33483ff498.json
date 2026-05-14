@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select si.role, ei.display_name, ei.canonical_name\n             from setup_items si\n             join equipment_items ei on ei.id = si.item_id\n            where si.setup_id = $1\n            order by si.role, ei.canonical_name",
+  "query": "select si.role, ei.id as item_id, ei.display_name, ei.canonical_name\n             from setup_items si\n             join equipment_items ei on ei.id = si.item_id\n            where si.setup_id = $1\n            order by si.role, ei.canonical_name",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,16 @@
       },
       {
         "ordinal": 1,
+        "name": "item_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
         "name": "display_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "canonical_name",
         "type_info": "Text"
       }
@@ -27,8 +32,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "f1e9cec8e4cfa3f963d843ebe1ae39cc63699d9590ae3dfec2f94dd688d41735"
+  "hash": "338cb9bd5b706409a1cd27547f7e62742528fd9749e317dad3999c33483ff498"
 }
