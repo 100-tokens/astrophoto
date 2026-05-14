@@ -522,6 +522,12 @@ pub struct SetupInput {
 pub struct EquipmentItemInput {
     pub kind: String,
     pub display_name: String,
+    /// Optional per-kind specs to persist alongside the item row.
+    /// If present the `specs.kind` discriminator must match `kind` or the
+    /// request is rejected with 422. If absent the item is created (or
+    /// resolved) without touching any `<kind>_specs` table.
+    #[serde(default)]
+    pub specs: Option<EquipmentSpecsPayload>,
 }
 
 /// Body for POST /api/photos/:id/apply-setup.

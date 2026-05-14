@@ -114,45 +114,45 @@ pub async fn resend(
     .fetch_optional(&state.pool)
     .await?;
 
-    if let Some(u) = user {
-        if u.email_verified_at.is_none() {
-            let cooldown_hit = sqlx::query_scalar!(
-                "select exists(
-                    select 1 from email_verification_tokens
-                    where user_id = $1
-                      and created_at > now() - make_interval(secs => $2)
-                )",
-                u.id,
-                PER_EMAIL_COOLDOWN_SECS
-            )
-            .fetch_one(&state.pool)
-            .await?
-            .unwrap_or(false);
+    if let Some(u) = user
+        && u.email_verified_at.is_none()
+    {
+        let cooldown_hit = sqlx::query_scalar!(
+            "select exists(
+                select 1 from email_verification_tokens
+                where user_id = $1
+                  and created_at > now() - make_interval(secs => $2)
+            )",
+            u.id,
+            PER_EMAIL_COOLDOWN_SECS
+        )
+        .fetch_one(&state.pool)
+        .await?
+        .unwrap_or(false);
 
-            let hour_cap_hit = sqlx::query_scalar!(
-                "select count(*) >= $2 from email_verification_tokens
-                  where (user_id = $1 or request_ip = $3)
-                    and created_at > now() - interval '1 hour'",
-                u.id,
-                PER_HOUR_CAP,
-                IpNetwork::from(addr.ip())
-            )
-            .fetch_one(&state.pool)
-            .await?
-            .unwrap_or(false);
+        let hour_cap_hit = sqlx::query_scalar!(
+            "select count(*) >= $2 from email_verification_tokens
+              where (user_id = $1 or request_ip = $3)
+                and created_at > now() - interval '1 hour'",
+            u.id,
+            PER_HOUR_CAP,
+            IpNetwork::from(addr.ip())
+        )
+        .fetch_one(&state.pool)
+        .await?
+        .unwrap_or(false);
 
-            if !cooldown_hit && !hour_cap_hit {
-                let token = issue_token(&state.pool, u.id, Some(addr.ip())).await?;
-                let link = format!(
-                    "{}/verify/{}",
-                    state.config.public_base_url.trim_end_matches('/'),
-                    token
-                );
-                let (subject, mail_body) =
-                    crate::mail::templates::email_verification(&u.display_name, &link);
-                if let Err(e) = state.mailer.send_plain(&u.email, &subject, &mail_body).await {
-                    tracing::warn!(error = %e, user_id = %u.id, "email-verification mail send failed");
-                }
+        if !cooldown_hit && !hour_cap_hit {
+            let token = issue_token(&state.pool, u.id, Some(addr.ip())).await?;
+            let link = format!(
+                "{}/verify/{}",
+                state.config.public_base_url.trim_end_matches('/'),
+                token
+            );
+            let (subject, mail_body) =
+                crate::mail::templates::email_verification(&u.display_name, &link);
+            if let Err(e) = state.mailer.send_plain(&u.email, &subject, &mail_body).await {
+                tracing::warn!(error = %e, user_id = %u.id, "email-verification mail send failed");
             }
         }
     }

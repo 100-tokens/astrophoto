@@ -107,3 +107,131 @@ async fn get_item_returns_404_for_unknown_uuid() {
         .unwrap();
     assert_eq!(r.status(), 404);
 }
+
+#[tokio::test]
+async fn post_item_with_specs_inserts_both_rows() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie =
+        common::signup_and_cookie(&app, &pool, "frank@example.com", "frank1").await;
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{
+                        "kind": "filter",
+                        "display_name": "Astrodon 3nm Hα",
+                        "specs": {
+                            "kind": "filter",
+                            "filter_type": "h_alpha",
+                            "bandwidth_nm": 3.0,
+                            "size": "2in",
+                            "mounted": true
+                        }
+                    }"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+    let body: serde_json::Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let id = body["id"].as_str().unwrap();
+
+    // GET the item and verify specs are persisted
+    let r2 = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/equipment/items/{id}"))
+                .header(header::COOKIE, &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r2.status(), 200);
+    let body2: serde_json::Value =
+        serde_json::from_slice(&r2.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body2["specs"]["kind"], "filter");
+    assert_eq!(body2["specs"]["filter_type"], "h_alpha");
+    assert_eq!(body2["specs"]["bandwidth_nm"], 3.0);
+    assert_eq!(body2["specs"]["size"], "2in");
+    assert_eq!(body2["specs"]["mounted"], true);
+}
+
+#[tokio::test]
+async fn post_item_wrong_kind_specs_returns_422() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie =
+        common::signup_and_cookie(&app, &pool, "grace@example.com", "grace1").await;
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{
+                        "kind": "telescope",
+                        "display_name": "Mismatched Scope",
+                        "specs": {"kind": "filter", "filter_type": "h_alpha"}
+                    }"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 422);
+}
+
+#[tokio::test]
+async fn post_item_without_specs_still_works() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie =
+        common::signup_and_cookie(&app, &pool, "heidi@example.com", "heidi1").await;
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/equipment/items")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"kind":"telescope","display_name":"SW 80ED"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+    let body: serde_json::Value =
+        serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let id = body["id"].as_str().unwrap();
+
+    // GET and confirm specs is null
+    let r2 = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/equipment/items/{id}"))
+                .header(header::COOKIE, &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r2.status(), 200);
+    let body2: serde_json::Value =
+        serde_json::from_slice(&r2.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body2["specs"], serde_json::Value::Null);
+}

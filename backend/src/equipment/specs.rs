@@ -35,6 +35,52 @@ pub fn ensure_matches_kind(kind: &str, payload: &EquipmentSpecsPayload) -> Resul
     }
 }
 
+/// Delete any existing `<kind>_specs` row for `item_id`.
+/// Called before `insert_specs_row` so the INSERT doesn't hit a PK clash.
+/// Silently no-ops if no row exists.
+pub async fn delete_specs_row(
+    tx: &mut Transaction<'_, Postgres>,
+    item_id: Uuid,
+    kind: &str,
+) -> Result<(), AppError> {
+    match kind {
+        "telescope" => {
+            sqlx::query!("delete from telescope_specs where item_id = $1", item_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        "camera" => {
+            sqlx::query!("delete from camera_specs where item_id = $1", item_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        "filter" => {
+            sqlx::query!("delete from filter_specs where item_id = $1", item_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        "mount" => {
+            sqlx::query!("delete from mount_specs where item_id = $1", item_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        "focal_modifier" => {
+            sqlx::query!(
+                "delete from focal_modifier_specs where item_id = $1",
+                item_id
+            )
+            .execute(&mut **tx)
+            .await?;
+        }
+        other => {
+            return Err(AppError::Validation(format!(
+                "unknown kind '{other}' in delete_specs_row"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Insert a fresh sub-table row matching the payload's variant.
 /// Callers MUST have ensured no prior row exists (PK on `item_id`).
 pub async fn insert_specs_row(

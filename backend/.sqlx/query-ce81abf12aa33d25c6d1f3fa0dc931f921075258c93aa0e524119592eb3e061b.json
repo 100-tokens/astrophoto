@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        with ins as (\n            insert into equipment_items (kind, canonical_name, display_name, usage_count, submitted_by)\n                 values ($1, $2, $3, 0, $4)\n            on conflict (kind, canonical_name) do nothing\n            returning id, kind, canonical_name, display_name, usage_count\n        )\n        select id as \"id!\", kind as \"kind!\", canonical_name as \"canonical_name!\",\n               display_name as \"display_name!\", usage_count as \"usage_count!\"\n          from ins\n         union all\n        select id, kind, canonical_name, display_name, usage_count\n          from equipment_items\n         where kind = $1 and canonical_name = $2\n         limit 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ce81abf12aa33d25c6d1f3fa0dc931f921075258c93aa0e524119592eb3e061b"
+}
