@@ -111,8 +111,7 @@ async fn get_item_returns_404_for_unknown_uuid() {
 #[tokio::test]
 async fn post_item_with_specs_inserts_both_rows() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "frank@example.com", "frank1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "frank@example.com", "frank1").await;
 
     let r = app
         .clone()
@@ -169,8 +168,7 @@ async fn post_item_with_specs_inserts_both_rows() {
 #[tokio::test]
 async fn post_item_wrong_kind_specs_returns_422() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "grace@example.com", "grace1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "grace@example.com", "grace1").await;
 
     let r = app
         .clone()
@@ -197,8 +195,7 @@ async fn post_item_wrong_kind_specs_returns_422() {
 #[tokio::test]
 async fn post_item_without_specs_still_works() {
     let (app, pool) = common::make_app_and_pool().await;
-    let cookie =
-        common::signup_and_cookie(&app, &pool, "heidi@example.com", "heidi1").await;
+    let cookie = common::signup_and_cookie(&app, &pool, "heidi@example.com", "heidi1").await;
 
     let r = app
         .clone()
@@ -208,7 +205,9 @@ async fn post_item_without_specs_still_works() {
                 .uri("/api/equipment/items")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::COOKIE, &cookie)
-                .body(Body::from(r#"{"kind":"telescope","display_name":"SW 80ED"}"#))
+                .body(Body::from(
+                    r#"{"kind":"telescope","display_name":"SW 80ED"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -234,4 +233,213 @@ async fn post_item_without_specs_still_works() {
     let body2: serde_json::Value =
         serde_json::from_slice(&r2.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(body2["specs"], serde_json::Value::Null);
+}
+
+// ── PATCH tests ──────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn patch_item_replaces_specs_row() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "ivan@example.com", "ivan1").await;
+
+    // Seed an item with filter_specs (h_alpha, bandwidth_nm=5.0).
+    let item_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('filter','antlia oiii 3nm patch test','Antlia OIII 3nm Patch',0,'approved',now())
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"insert into filter_specs (item_id, filter_type, bandwidth_nm, size, mounted)
+            values ($1,'h_alpha',5.0,'2in',true)"#,
+        item_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // PATCH: replace specs with oiii, bandwidth_nm=3.0.
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{item_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{"specs":{"kind":"filter","filter_type":"oiii","bandwidth_nm":3.0}}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+
+    // Re-query filter_specs directly: must be oiii/3.0 with size+mounted wiped.
+    let row = sqlx::query!(
+        r#"select filter_type, bandwidth_nm, size, mounted
+             from filter_specs where item_id = $1"#,
+        item_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.filter_type.as_deref(), Some("oiii"));
+    assert!(row.size.is_none());
+    assert!(row.mounted.is_none());
+    let bw: f64 = row.bandwidth_nm.unwrap().to_string().parse().unwrap();
+    assert!((bw - 3.0).abs() < 0.01);
+}
+
+#[tokio::test]
+async fn patch_item_renames_display_name_and_canonical() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "judy@example.com", "judy1").await;
+
+    let item_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('telescope','old name','Old Name',0,'approved',now())
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{item_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"display_name":" New Name "}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+
+    let row = sqlx::query!(
+        "select display_name, canonical_name from equipment_items where id = $1",
+        item_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.display_name, "New Name");
+    assert_eq!(row.canonical_name, "new name");
+}
+
+#[tokio::test]
+async fn patch_item_with_wrong_kind_specs_returns_422() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "karl@example.com", "karl1").await;
+
+    let item_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('telescope','sw 200p wrong kind','SW 200P Wrong Kind',0,'approved',now())
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // PATCH a telescope item with filter specs — must be 422.
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{item_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(
+                    r#"{"specs":{"kind":"filter","filter_type":"h_alpha"}}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 422);
+
+    // No filter_specs row must have been created.
+    let filter_count: i64 = sqlx::query_scalar!(
+        "select count(*) from filter_specs where item_id = $1",
+        item_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(filter_count, 0);
+
+    // No telescope_specs row either (tx aborted before any insert).
+    let telescope_count: i64 = sqlx::query_scalar!(
+        "select count(*) from telescope_specs where item_id = $1",
+        item_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .unwrap_or(0);
+    assert_eq!(telescope_count, 0);
+}
+
+#[tokio::test]
+async fn patch_item_404_for_unknown_uuid() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "laura@example.com", "laura1").await;
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{}", uuid::Uuid::new_v4()))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"display_name":"Ghost"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 404);
+}
+
+#[tokio::test]
+async fn patch_item_empty_display_name_returns_422() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "mike@example.com", "mike1").await;
+
+    let item_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('mount','celestron avx empty name','Celestron AVX',0,'approved',now())
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{item_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"display_name":"   "}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 422);
 }

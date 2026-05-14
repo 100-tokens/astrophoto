@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n                (kind, canonical_name, display_name, usage_count, status, approved_at)\n            values ('telescope','old name','Old Name',0,'approved',now())\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "906ef5e3007bb247061dbd258482f06e5c7f394e0ba049cb725f8762352f6949"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select count(*) >= $2 from email_verification_tokens\n                  where (user_id = $1 or request_ip = $3)\n                    and created_at > now() - interval '1 hour'",
+  "query": "select count(*) >= $2 from email_verification_tokens\n              where (user_id = $1 or request_ip = $3)\n                and created_at > now() - interval '1 hour'",
   "describe": {
     "columns": [
       {
@@ -20,5 +20,5 @@
       null
     ]
   },
-  "hash": "99ec2b10d697ce12144aba82f7411d106d117cf4a7dc3a8cd3cc75755a4f967c"
+  "hash": "70cc59d420323f6877a61ed6e7055b1529f2c1d57860b02824c7eec87885a55e"
 }

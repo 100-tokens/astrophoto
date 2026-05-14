@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select kind from equipment_items where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5009320af7449592c19162f3dab4eb7b8e6992bafbeeef7582ad999f9b8ccf63"
+}

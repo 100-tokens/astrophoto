@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into filter_specs (item_id, filter_type, bandwidth_nm, size, mounted)\n            values ($1,'h_alpha',5.0,'2in',true)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bff9e911f2ac796a607d17020c2e2c8cc1337a653c8d17af83fa4edb7af221dd"
+}

@@ -276,7 +276,8 @@ pub fn router(
         )
         .route(
             "/api/equipment/items/:id",
-            axum::routing::get(crate::equipment::items_get::handler),
+            axum::routing::get(crate::equipment::items_get::handler)
+                .patch(crate::equipment::items_update::handler),
         )
         .route(
             "/api/equipment/setups",
