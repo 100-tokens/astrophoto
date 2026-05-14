@@ -257,3 +257,97 @@ async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
     assert_eq!(pairs.len(), 1);
     assert_eq!(pairs[0], (x_id, 0));
 }
+
+#[tokio::test]
+async fn get_photo_includes_typed_filter_items() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie =
+        common::signup_and_cookie(&app, &pool, "mia@example.com", "mia1").await;
+    let mia_id = common::lookup_user_id(&pool, "mia@example.com").await;
+    let photo_id = common::insert_stub_photo(&pool, mia_id, None, None, None).await;
+
+    // Insert a filter item "Antlia Hα".
+    let filter_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('filter','antlia ha typed','Antlia Hα',0,'approved',now())
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Insert filter_specs with h_alpha type and bandwidth 3.0.
+    sqlx::query!(
+        r#"insert into filter_specs (item_id, filter_type, bandwidth_nm)
+            values ($1, 'h_alpha', 3.0)"#,
+        filter_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Link filter to photo at position 0.
+    sqlx::query!(
+        r#"insert into photo_filters (photo_id, item_id, position)
+            values ($1, $2, 0)"#,
+        photo_id,
+        filter_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let r = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("GET")
+                .uri(format!("/api/photos/{photo_id}"))
+                .header(axum::http::header::COOKIE, &cookie)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200, "expected 200 from GET /api/photos/:id");
+
+    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576).await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+    let filter_items = body["filter_items"].as_array().expect("filter_items must be an array");
+    assert_eq!(filter_items.len(), 1, "expected 1 filter item");
+    assert_eq!(filter_items[0]["display_name"], "Antlia Hα");
+    assert_eq!(filter_items[0]["filter_type"], "h_alpha");
+    assert_eq!(filter_items[0]["bandwidth_nm"], 3.0_f64);
+    assert_eq!(filter_items[0]["position"], 0);
+}
+
+#[tokio::test]
+async fn get_photo_filter_items_empty_when_no_junction() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie =
+        common::signup_and_cookie(&app, &pool, "nina@example.com", "nina1").await;
+    let nina_id = common::lookup_user_id(&pool, "nina@example.com").await;
+    let photo_id = common::insert_stub_photo(&pool, nina_id, None, None, None).await;
+
+    let r = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("GET")
+                .uri(format!("/api/photos/{photo_id}"))
+                .header(axum::http::header::COOKIE, &cookie)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200, "expected 200 from GET /api/photos/:id");
+
+    let bytes = axum::body::to_bytes(r.into_body(), 1_048_576).await.unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+    let filter_items = body["filter_items"].as_array().expect("filter_items must be an array (not null)");
+    assert_eq!(filter_items.len(), 0, "expected empty array when no junction rows");
+}

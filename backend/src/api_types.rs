@@ -171,6 +171,8 @@ pub struct PhotoDetail {
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
     pub tags: Vec<String>,
+    /// Typed filter chips joined from photo_filters (migration 0018).
+    pub filter_items: Vec<PhotoFilterChip>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]

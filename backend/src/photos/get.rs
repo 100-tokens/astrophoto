@@ -50,6 +50,8 @@ pub struct PhotoDetail {
     pub setup_id: Option<String>,
     pub focal_modifier: Option<String>,
     pub tags: Vec<String>,
+    // Typed filter chips joined from photo_filters (migration 0018).
+    pub filter_items: Vec<crate::api_types::PhotoFilterChip>,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -89,6 +91,7 @@ impl From<PhotoRow> for PhotoDetail {
             setup_id: p.setup_id.map(|u| u.to_string()),
             focal_modifier: p.focal_modifier,
             tags: vec![],
+            filter_items: vec![],
         }
     }
 }
@@ -134,11 +137,36 @@ pub async fn handler(
     .fetch_all(&state.pool)
     .await?;
 
+    let filter_items: Vec<crate::api_types::PhotoFilterChip> = sqlx::query!(
+        r#"select pf.item_id, pf.position, e.display_name as "display_name!",
+                  fs.filter_type, fs.bandwidth_nm
+             from photo_filters pf
+             join equipment_items e on e.id = pf.item_id
+        left join filter_specs fs on fs.item_id = pf.item_id
+            where pf.photo_id = $1
+            order by pf.position, e.display_name"#,
+        id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|r| crate::api_types::PhotoFilterChip {
+        id: r.item_id.to_string(),
+        display_name: r.display_name,
+        filter_type: r.filter_type.and_then(|s| {
+            serde_json::from_value(serde_json::Value::String(s)).ok()
+        }),
+        bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
+        position: r.position as i32,
+    })
+    .collect();
+
     let row_owner = row.owner_id;
     let mut dto: PhotoDetail = row.into();
     dto.appreciation_count = appreciation_count;
     dto.comment_count = comment_count;
     dto.tags = tags;
+    dto.filter_items = filter_items;
     // Hide pipeline_error from non-owners — it can carry internal diagnostic strings.
     if viewer != Some(row_owner) {
         dto.pipeline_error = None;

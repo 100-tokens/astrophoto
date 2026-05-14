@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select pf.item_id, pf.position, e.display_name as \"display_name!\",\n                  fs.filter_type, fs.bandwidth_nm\n             from photo_filters pf\n             join equipment_items e on e.id = pf.item_id\n        left join filter_specs fs on fs.item_id = pf.item_id\n            where pf.photo_id = $1\n            order by pf.position, e.display_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "item_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "position",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "filter_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "bandwidth_nm",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "11297d63b0098913b766f64bcd079c23040d44d5e40843c0698ef5d032eea8b2"
+}
