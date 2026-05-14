@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{body::Body, http::Request};
+use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tower::ServiceExt;
@@ -38,6 +39,7 @@ fn config_for(url: &str) -> Config {
 #[tokio::test]
 async fn healthz_returns_ok_with_real_postgres() {
     let pg = Postgres::default()
+        .with_tag("16-alpine")
         .start()
         .await
         .expect("postgres container failed to start");

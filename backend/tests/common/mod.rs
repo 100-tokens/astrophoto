@@ -22,6 +22,7 @@ use axum::{
 use serde::de::DeserializeOwned;
 use serde_json::Value as Json;
 use testcontainers::ContainerAsync;
+use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
@@ -63,6 +64,7 @@ pub fn config_for(url: &str) -> Config {
 pub async fn make_app_and_pool() -> (Router, sqlx::PgPool) {
     use astrophoto::mail::Mailer;
     let pg = testcontainers_modules::postgres::Postgres::default()
+        .with_tag("16-alpine")
         .start()
         .await
         .unwrap();
@@ -170,7 +172,7 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn launch() -> Self {
-        let pg = PgImage::default().start().await.unwrap();
+        let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
         let host = pg.get_host().await.unwrap();
         let port = pg.get_host_port_ipv4(5432).await.unwrap();
         let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

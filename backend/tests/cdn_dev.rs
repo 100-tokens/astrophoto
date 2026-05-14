@@ -8,6 +8,7 @@ use std::sync::Arc;
 use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{body::Body, http::Request};
 use bytes::Bytes;
+use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tower::ServiceExt;
@@ -47,6 +48,7 @@ fn config_for(url: &str) -> Config {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 async fn dev_cdn_resizes_display_master() {
     let pg = Postgres::default()
+        .with_tag("16-alpine")
         .start()
         .await
         .expect("postgres container failed to start");
@@ -108,6 +110,7 @@ async fn dev_cdn_resizes_display_master() {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 async fn dev_cdn_returns_404_for_missing_master() {
     let pg = Postgres::default()
+        .with_tag("16-alpine")
         .start()
         .await
         .expect("postgres container failed to start");
