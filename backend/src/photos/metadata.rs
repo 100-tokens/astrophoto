@@ -77,6 +77,14 @@ pub struct MetadataUpdate {
     /// `Some(vec)` → use this list; the `target` free-text field is ignored for join rows.
     #[serde(default)]
     pub targets: Option<Vec<String>>,
+
+    /// Structured filter junction. When present, REPLACES the `photo_filters`
+    /// junction atomically (positions = array index) and rebuilds the
+    /// `photos.filters` cache string from the junction — overriding any
+    /// legacy `filters` text field sent in the same request.
+    /// `None` (omitted) → no change to the junction.
+    #[serde(default)]
+    pub filter_item_ids: Option<Vec<uuid::Uuid>>,
 }
 
 pub async fn handler(
@@ -124,6 +132,7 @@ pub async fn handler(
     let filters_freetext = patch.filters.clone();
     let focal_modifier_freetext = patch.focal_modifier.clone();
     let tags_list = patch.tags.clone();
+    let filter_item_ids = patch.filter_item_ids.clone();
 
     // Open a transaction so the photos UPDATE and the target join-table writes
     // are committed or rolled back together.
@@ -204,6 +213,47 @@ pub async fn handler(
     } else if let Some(target) = &target_freetext {
         // Legacy free-text path: lenient (unknown slug → no-op).
         crate::photos::targets::attach_primary_by_freetext(&mut tx, id, target).await?;
+    }
+
+    // --- structured filter junction sync ---
+    // When filter_item_ids is present, REPLACE the junction and rebuild the
+    // cache string. This overrides any legacy `filters` text written above.
+    if let Some(filter_ids) = &filter_item_ids {
+        // Validate every id is kind='filter'.
+        let count: i64 = if filter_ids.is_empty() {
+            0
+        } else {
+            sqlx::query_scalar!(
+                "select count(*) from equipment_items
+                  where id = any($1) and kind = 'filter'",
+                filter_ids
+            )
+            .fetch_one(&mut *tx)
+            .await?
+            .unwrap_or(0)
+        };
+        if (count as usize) != filter_ids.len() {
+            return Err(AppError::Validation(
+                "filter_item_ids contains an unknown id or a non-filter kind".into(),
+            ));
+        }
+        sqlx::query!(
+            "delete from photo_filters where photo_id = $1",
+            id
+        )
+        .execute(&mut *tx)
+        .await?;
+        for (i, item_id) in filter_ids.iter().enumerate() {
+            sqlx::query!(
+                "insert into photo_filters (photo_id, item_id, position) values ($1, $2, $3)",
+                id,
+                item_id,
+                i as i16
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+        crate::photos::filters_cache::rebuild(&mut tx, id).await?;
     }
 
     tx.commit().await?;
