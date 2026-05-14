@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sensor_type, color_type, cooled, sensor_model,\n                  pixel_size_um, sensor_width_px, sensor_height_px\n             from camera_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sensor_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "color_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "cooled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "sensor_model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "pixel_size_um",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "sensor_width_px",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "sensor_height_px",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c94bc07edd5ec949dc1c9812db07dcdb823bcbb3ade6a91e13676a727ede46bc"
+}

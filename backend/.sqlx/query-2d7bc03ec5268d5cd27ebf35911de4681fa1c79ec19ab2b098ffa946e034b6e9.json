@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select filter_type, bandwidth_nm, size, mounted\n             from filter_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "filter_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "bandwidth_nm",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "size",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "mounted",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "2d7bc03ec5268d5cd27ebf35911de4681fa1c79ec19ab2b098ffa946e034b6e9"
+}

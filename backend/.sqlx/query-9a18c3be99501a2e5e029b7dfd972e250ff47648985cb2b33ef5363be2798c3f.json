@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select design, aperture_mm, focal_length_mm, focal_ratio_f\n             from telescope_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "design",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "aperture_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "focal_length_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "focal_ratio_f",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "9a18c3be99501a2e5e029b7dfd972e250ff47648985cb2b33ef5363be2798c3f"
+}

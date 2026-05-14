@@ -275,6 +275,10 @@ pub fn router(
             axum::routing::post(crate::equipment::items_create::handler),
         )
         .route(
+            "/api/equipment/items/:id",
+            axum::routing::get(crate::equipment::items_get::handler),
+        )
+        .route(
             "/api/equipment/setups",
             axum::routing::get(crate::equipment::setups::list::handler)
                 .post(crate::equipment::setups::create::handler),
