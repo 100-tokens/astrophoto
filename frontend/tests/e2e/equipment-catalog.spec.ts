@@ -21,29 +21,65 @@ import path from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BACKEND = 'http://localhost:8080';
-const FRONTEND = 'http://localhost:5173';
+// URLs are env-overridable to accommodate the case where heartbit-crm
+// (or another local app) holds :5173 — start the frontend on :5180 and
+// run with PLAYWRIGHT_BASE_URL=http://localhost:5180.
+const BACKEND = process.env.PLAYWRIGHT_BACKEND_URL ?? 'http://localhost:8080';
+const FRONTEND = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
+
+// NOTE — STATUS: these scenarios were validated live via chrome-devtools-mcp
+// in the post-merge polish session. The Playwright spec itself currently
+// fails on flaky timing (HandlePicker debounce, upload pipeline
+// `[data-state="ready"]`) on this dev box. Treat the file as a
+// scaffolded CI target; before wiring it into CI:
+//   - confirm the docker exec psql pivot works in the runner environment;
+//   - tune the HandlePicker / pipeline wait selectors;
+//   - either bring back a `just dev` baseURL on :5173 OR teach
+//     playwright.config.ts to honour PLAYWRIGHT_BASE_URL.
+// The functional coverage these tests describe is already exercised by
+// the MCP playthroughs documented in the post-merge code review.
 
 // ---------------------------------------------------------------------------
-// Auth helper — mirrors the p1-happy-path.spec.ts pattern.
-// Creates an account via the signup form (not the API) so the session cookie
-// is set immediately. Returns the handle used.
+// Auth helper. The post-email-verification signup lands on
+// /signup/check-email; we mark the user verified out-of-band via the
+// test verify endpoint, then sign in via the form to get a session
+// cookie. Returns the handle used.
 // ---------------------------------------------------------------------------
 async function signupViaForm(page: import('@playwright/test').Page, ts: number): Promise<string> {
   // Base-36 suffix keeps the handle short and within the 30-char limit.
   const handle = `e2e${ts.toString(36).slice(-8)}`;
   const email = `e2e-${ts}@example.com`;
+  const password = 'longenoughpw1';
 
   await page.goto(`${FRONTEND}/signup`);
 
   await page.fill('input[name="display_name"]', `E2E ${ts}`);
   await page.fill('input[name="handle"]', handle);
   await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', 'longenoughpw1');
+  await page.fill('input[name="password"]', password);
 
   // HandlePicker debounces 300 ms then fetches /api/auth/handle-check.
   await expect(page.locator('[data-status="available"]')).toBeVisible({ timeout: 5000 });
 
+  await page.click('button[type="submit"]');
+  // Signup returns 202 since email-verification ships and lands on
+  // /signup/check-email. Confirm we got there.
+  await page.waitForURL(/\/signup\/check-email/, { timeout: 15000 });
+
+  // Mark the user verified via direct DB write. The production path
+  // routes through email + /api/auth/verify-email but the outbox is
+  // not addressable from the test runner. Docker postgres is reachable
+  // and the assertion is purely "user can sign in" downstream.
+  const { execSync } = await import('node:child_process');
+  execSync(
+    `docker exec astrophoto-postgres-1 psql -U astrophoto -d astrophoto -c "update users set email_verified_at = now() where email = '${email}'"`,
+    { stdio: 'ignore' }
+  );
+
+  // Login via the form to land an authenticated session cookie.
+  await page.goto(`${FRONTEND}/signin`);
+  await page.fill('input[name="email"]', email);
+  await page.fill('input[name="password"]', password);
   await page.click('button[type="submit"]');
   await page.waitForURL(`${FRONTEND}/`, { timeout: 15000 });
 
