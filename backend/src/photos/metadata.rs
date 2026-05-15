@@ -219,20 +219,29 @@ pub async fn handler(
     // When filter_item_ids is present, REPLACE the junction and rebuild the
     // cache string. This overrides any legacy `filters` text written above.
     if let Some(filter_ids) = &filter_item_ids {
+        // Dedup while preserving first-seen order. PK on (photo_id, item_id)
+        // would otherwise 500 if the same id appears twice.
+        let mut seen = std::collections::HashSet::new();
+        let unique_ids: Vec<uuid::Uuid> = filter_ids
+            .iter()
+            .filter(|id| seen.insert(**id))
+            .copied()
+            .collect();
+
         // Validate every id is kind='filter'.
-        let count: i64 = if filter_ids.is_empty() {
+        let count: i64 = if unique_ids.is_empty() {
             0
         } else {
             sqlx::query_scalar!(
                 "select count(*) from equipment_items
                   where id = any($1) and kind = 'filter'",
-                filter_ids
+                &unique_ids
             )
             .fetch_one(&mut *tx)
             .await?
             .unwrap_or(0)
         };
-        if (count as usize) != filter_ids.len() {
+        if (count as usize) != unique_ids.len() {
             return Err(AppError::Validation(
                 "filter_item_ids contains an unknown id or a non-filter kind".into(),
             ));
@@ -240,7 +249,7 @@ pub async fn handler(
         sqlx::query!("delete from photo_filters where photo_id = $1", id)
             .execute(&mut *tx)
             .await?;
-        for (i, item_id) in filter_ids.iter().enumerate() {
+        for (i, item_id) in unique_ids.iter().enumerate() {
             sqlx::query!(
                 "insert into photo_filters (photo_id, item_id, position) values ($1, $2, $3)",
                 id,

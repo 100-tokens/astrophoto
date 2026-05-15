@@ -262,6 +262,68 @@ async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
 }
 
 #[tokio::test]
+async fn put_photo_filter_item_ids_dedups_duplicates_no_pk_violation() {
+    // Regression: PK on (photo_id, item_id) made a duplicate id in the
+    // payload 500 with a PK violation. Now we dedup server-side, preserving
+    // first-seen order.
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "dup@example.com", "dup1").await;
+    let uid = common::lookup_user_id(&pool, "dup@example.com").await;
+    let photo_id = common::insert_stub_photo(&pool, uid, None, None, None).await;
+
+    let red: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('filter','red','Red',0,'approved',now()) returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let green: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at)
+            values ('filter','green','Green',0,'approved',now()) returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Payload has Red appearing twice — must not 500, and the second
+    // occurrence must be dropped.
+    let body = serde_json::json!({
+        "filter_item_ids": [red.to_string(), green.to_string(), red.to_string()],
+    });
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/photos/{photo_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+
+    let pairs: Vec<(uuid::Uuid, i16)> = sqlx::query!(
+        "select item_id, position from photo_filters where photo_id=$1 order by position",
+        photo_id
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap()
+    .into_iter()
+    .map(|r| (r.item_id, r.position))
+    .collect();
+    assert_eq!(pairs.len(), 2);
+    assert_eq!(pairs[0], (red, 0));
+    assert_eq!(pairs[1], (green, 1));
+}
+
+#[tokio::test]
 async fn get_photo_includes_typed_filter_items() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "mia@example.com", "mia1").await;
