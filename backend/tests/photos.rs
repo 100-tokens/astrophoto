@@ -17,6 +17,7 @@ use axum::{
 use bytes::Bytes;
 use http_body_util::BodyExt as _;
 use testcontainers::runners::AsyncRunner;
+use testcontainers::ImageExt;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -54,7 +55,7 @@ fn config_for(url: &str) -> Config {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn upload_pipeline_signup_upload_thumb() {
-    let pg = PgImage::default().start().await.unwrap();
+    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

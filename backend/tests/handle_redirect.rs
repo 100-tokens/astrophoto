@@ -3,6 +3,7 @@ use std::sync::Arc;
 use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{body::Body, http::Request};
 use testcontainers::runners::AsyncRunner;
+use testcontainers::ImageExt;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -45,7 +46,7 @@ fn config_for(url: &str) -> Config {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn redirect_published_photo_returns_308_to_canonical() {
-    let pg = PgImage::default().start().await.unwrap();
+    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -103,7 +104,7 @@ async fn redirect_published_photo_returns_308_to_canonical() {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn redirect_unknown_uuid_returns_404() {
-    let pg = PgImage::default().start().await.unwrap();
+    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -139,7 +140,7 @@ async fn redirect_unknown_uuid_returns_404() {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn redirect_draft_photo_returns_404() {
-    let pg = PgImage::default().start().await.unwrap();
+    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
