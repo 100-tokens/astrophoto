@@ -1,13 +1,20 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
+  import type { FilterType } from '$lib/api/FilterType';
   import FilterChip from './FilterChip.svelte';
 
-  // Shape returned by the autocomplete endpoint
+  // Shape returned by the autocomplete endpoint. `id`, `filter_type`,
+  // `bandwidth_nm` are populated for kind=filter rows so the popup chip
+  // can render typed without a follow-up GET, and add() can skip the
+  // resolve-or-create POST when the row already has a canonical id.
   interface AutocompleteItem {
+    id: string;
     canonical_name: string;
     display_name: string;
     usage_count: number;
+    filter_type?: FilterType | null;
+    bandwidth_nm?: number | null;
   }
 
   type Props = {
@@ -123,8 +130,27 @@
   }
 
   function add(row: AutocompleteItem) {
-    // Resolve-or-create: the autocomplete row has no id, so POST to get the canonical id.
-    resolveAndAdd(row.display_name);
+    // Fast path: the autocomplete row now carries the canonical id (and
+    // its typed specs when kind='filter'), so we can build the chip
+    // without a round-trip. Fall back to resolve-or-create only if the
+    // server somehow returned a row without an id (back-compat with an
+    // older backend).
+    if (!row.id) {
+      resolveAndAdd(row.display_name);
+      return;
+    }
+    const chip: PhotoFilterChip = {
+      id: row.id,
+      display_name: row.display_name,
+      filter_type: row.filter_type ?? null,
+      bandwidth_nm: row.bandwidth_nm ?? null,
+      position: items.length
+    };
+    const next = [...items, chip];
+    items = next;
+    onChange(next);
+    query = '';
+    focusIdx = 0;
   }
 
   function remove(id: string) {

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select ei.id, ei.canonical_name, ei.display_name, ei.usage_count,\n               fs.filter_type, fs.bandwidth_nm\n          from equipment_items ei\n          left join filter_specs fs on fs.item_id = ei.id and ei.kind = 'filter'\n         where ei.kind = $1\n           and (ei.canonical_name ilike $2 or ei.display_name ilike $2)\n         order by ei.usage_count desc\n         limit 10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "filter_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "bandwidth_nm",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "56c7513e4018164030871bb1bcc801ca1620afde2327bdb286a713a08fe6dd19"
+}

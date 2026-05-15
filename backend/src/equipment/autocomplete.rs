@@ -26,9 +26,17 @@ pub struct Q {
 
 #[derive(Serialize)]
 pub struct Item {
+    pub id: String,
     pub canonical_name: String,
     pub display_name: String,
     pub usage_count: i32,
+    /// Only populated when `kind = 'filter'` and the item has a
+    /// `filter_specs` row — lets `FilterChipInput` render the popup
+    /// chip with its real badge + bandwidth instead of "?".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filter_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bandwidth_nm: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -52,11 +60,13 @@ pub async fn handler(
     let pattern = format!("%{q}%");
     let rows = sqlx::query!(
         r#"
-        select canonical_name, display_name, usage_count
-          from equipment_items
-         where kind = $1
-           and (canonical_name ilike $2 or display_name ilike $2)
-         order by usage_count desc
+        select ei.id, ei.canonical_name, ei.display_name, ei.usage_count,
+               fs.filter_type, fs.bandwidth_nm
+          from equipment_items ei
+          left join filter_specs fs on fs.item_id = ei.id and ei.kind = 'filter'
+         where ei.kind = $1
+           and (ei.canonical_name ilike $2 or ei.display_name ilike $2)
+         order by ei.usage_count desc
          limit 10
         "#,
         qs.kind,
@@ -68,9 +78,12 @@ pub async fn handler(
     let items = rows
         .into_iter()
         .map(|r| Item {
+            id: r.id.to_string(),
             canonical_name: r.canonical_name,
             display_name: r.display_name,
             usage_count: r.usage_count,
+            filter_type: r.filter_type,
+            bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
         })
         .collect();
     Ok(Json(R { items }))
