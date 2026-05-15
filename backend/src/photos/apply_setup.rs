@@ -14,7 +14,7 @@ use axum::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::api_types::ApplySetupInput;
+use crate::api_types::{ApplySetupInput, PhotoFilterChip};
 use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
 use crate::http::AppState;
@@ -28,6 +28,10 @@ pub struct AppliedOut {
     pub mount: Option<String>,
     pub filters: Option<String>,
     pub guiding: Option<String>,
+    /// Typed filter chips after apply — read from the junction so the
+    /// frontend can refresh `FilterChipInput` without a follow-up
+    /// `GET /api/photos/:id`. Empty when no filters apply.
+    pub filter_items: Vec<PhotoFilterChip>,
 }
 
 pub async fn apply(
@@ -201,6 +205,33 @@ pub async fn apply(
 
     tx.commit().await?;
 
+    // Read the typed chips from the now-final junction. One round-trip
+    // outside the tx; the caller has just observed the write so this
+    // never reflects a stale state.
+    let filter_items: Vec<PhotoFilterChip> = sqlx::query!(
+        r#"select pf.item_id, pf.position, e.display_name as "display_name!",
+                  fs.filter_type, fs.bandwidth_nm
+             from photo_filters pf
+             join equipment_items e on e.id = pf.item_id
+        left join filter_specs fs on fs.item_id = pf.item_id
+            where pf.photo_id = $1
+            order by pf.position, e.display_name"#,
+        photo_id
+    )
+    .fetch_all(&state.pool)
+    .await?
+    .into_iter()
+    .map(|r| PhotoFilterChip {
+        id: r.item_id.to_string(),
+        display_name: r.display_name,
+        filter_type: r
+            .filter_type
+            .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()),
+        bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
+        position: r.position as i32,
+    })
+    .collect();
+
     Ok(Json(AppliedOut {
         setup_id: updated.setup_id.map(|u| u.to_string()),
         scope: updated.scope,
@@ -209,6 +240,7 @@ pub async fn apply(
         mount: updated.mount,
         filters: updated.filters,
         guiding: updated.guiding,
+        filter_items,
     }))
 }
 
