@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count)\n         values ('filter','oiii','OIII',0) returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bef720131bf8dff8ddd9f5c247e56189f2cbb0b7b9617e015aceb8b7cab14aa0"
+}

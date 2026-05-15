@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select email as \"e!: String\" from users where email like 'purge-%' order by email",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "e!: String",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "57ed1a14c3df52c7034a9421dfa571ceca645ceabb27e83f7105be4bce017b41"
+}

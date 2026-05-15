@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into photos\n                (id, owner_id, storage_key, original_name, bytes, mime,\n                 short_id, status, last_step, original_uploaded_at)\n            values ($1, $2, $3, 'test.jpg', 1000, 'image/jpeg',\n                    $4, 'ready', 'upload', now())\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "29284739304a104c1e71890521abbd86da1673bd14f7001e4d342ae3d1e3d26c"
+}
