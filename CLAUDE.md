@@ -175,6 +175,17 @@ Frontend-only (run from `frontend/`):
 
 ## Gotchas
 
+- **`photo_filters` is the source of truth — `photos.filters` is a
+  denormalized cache.** Every writer of the junction (metadata PUT
+  with `filter_item_ids`, apply-setup) must call
+  `crate::photos::filters_cache::rebuild(&mut tx, photo_id)` in the
+  same transaction. Do NOT update `photos.filters` directly except
+  via that helper. The legacy `filters: Option<String>` body on
+  metadata PUT survives for back-compat (it writes the string cache
+  but does not auto-populate the junction); when both are present in
+  the same request, the structured `filter_item_ids` branch wins
+  because `rebuild` runs last. See `backend/src/photos/metadata.rs`
+  and `apply_setup.rs`.
 - The `photos.status` field can be `processing` for a few seconds after
   upload while `spawn_blocking` decodes thumbnails. UI must handle this.
 - EXIF datetimes are naive (no timezone). We store as `timestamptz` and
