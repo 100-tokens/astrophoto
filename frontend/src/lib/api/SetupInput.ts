@@ -12,5 +12,9 @@ export type SetupInput = {
   is_remote: boolean;
   is_default: boolean;
   guiding: string | null;
+  /**
+   * "overwrite" | "fill_empty"
+   */
+  default_apply_mode: string;
   items: Array<SetupInputItem>;
 };
