@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::AppError;
 use crate::api_types::{
-    DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage, EquipmentPaired,
+    DiscoveryPage, DiscoveryPhoto, EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSibling,
 };
 use crate::discovery::cursor::{self, Cursor};
 use crate::http::AppState;
@@ -43,6 +43,13 @@ struct PairedRow {
     slug: String,
     display_name: String,
     shared_count: i64,
+}
+
+struct SiblingRow {
+    kind: String,
+    canonical_name: String,
+    display_name: String,
+    usage_count: i32,
 }
 
 struct Row {
@@ -475,6 +482,49 @@ pub async fn get(
     .fetch_all(&state.pool)
     .await?;
 
+    // "Other <brand>" sibling rail: same-kind catalog items whose
+    // canonical_name shares the leading brand token. Names without a
+    // space (single-token names) have no brand prefix → no siblings.
+    // Sort by usage_count desc so the most-used variants surface first.
+    let brand_prefix: Option<String> = item
+        .canonical_name
+        .split_whitespace()
+        .next()
+        .map(|t| t.to_string())
+        .filter(|_| item.canonical_name.contains(' '));
+
+    let siblings_rows: Vec<SiblingRow> = if let Some(ref brand) = brand_prefix {
+        // Escape '%' and '_' so a brand name containing them doesn't widen
+        // the match. Then concat with " %" to enforce the leading token
+        // boundary (matches "<brand> <rest>" only).
+        let escaped = brand.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+        let pattern = format!("{} %", escaped);
+        sqlx::query_as!(
+            SiblingRow,
+            r#"
+            select
+                kind            as "kind!",
+                canonical_name  as "canonical_name!",
+                display_name    as "display_name!",
+                usage_count     as "usage_count!"
+            from equipment_items
+            where kind = $1
+              and status = 'approved'
+              and canonical_name like $2 escape '\'
+              and canonical_name <> $3
+            order by usage_count desc, display_name asc
+            limit 6
+            "#,
+            item.kind,
+            pattern,
+            item.canonical_name
+        )
+        .fetch_all(&state.pool)
+        .await?
+    } else {
+        Vec::new()
+    };
+
     Ok(Json(EquipmentPage {
         equipment: EquipmentMeta {
             id: item.id.to_string(),
@@ -484,6 +534,15 @@ pub async fn get(
             display_name: item.display_name,
             photo_count,
         },
+        siblings: siblings_rows
+            .into_iter()
+            .map(|r| EquipmentSibling {
+                kind: r.kind,
+                slug: slug_for(&r.canonical_name),
+                display_name: r.display_name,
+                usage_count: r.usage_count,
+            })
+            .collect(),
         paired: paired_rows
             .into_iter()
             .map(|r| EquipmentPaired {

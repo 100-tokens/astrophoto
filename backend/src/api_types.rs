@@ -402,11 +402,27 @@ pub struct EquipmentPaired {
     pub shared_count: i64,
 }
 
+/// Same-brand sibling of an equipment item. Brand prefix = first
+/// whitespace-delimited token of `canonical_name` (e.g. "antlia" for
+/// "Antlia 3nm Hα Pro"). Items whose canonical_name has no space are
+/// considered brand-less and produce no siblings.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentSibling.ts")]
+pub struct EquipmentSibling {
+    pub kind: String,
+    pub slug: String,
+    pub display_name: String,
+    pub usage_count: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "EquipmentPage.ts")]
 pub struct EquipmentPage {
     pub equipment: EquipmentMeta,
     pub paired: Vec<EquipmentPaired>,
+    /// Same-brand siblings (same kind, canonical_name shares the
+    /// leading brand token). Sorted by usage_count desc. Up to 6 items.
+    pub siblings: Vec<EquipmentSibling>,
     pub page: DiscoveryPage,
 }
 
