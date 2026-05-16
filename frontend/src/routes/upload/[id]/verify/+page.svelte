@@ -328,6 +328,7 @@
               <FilterChipInput
                 value={filterChips}
                 orphans={data.orphans}
+                startOpen={!isPublished}
                 onChange={(next) => (filterChips = next)}
               />
               <input
