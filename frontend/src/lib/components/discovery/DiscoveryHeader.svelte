@@ -124,7 +124,11 @@
       </p>
       <h1 class="display display-equipment">{meta.display_name}</h1>
     </div>
-    <div class="header-right" style="display: flex; gap: 32px; align-items: flex-end;">
+    <div class="header-right">
+      <div class="header-actions">
+        <a class="btn btn-ghost" href="/equip/{meta.kind}/{meta.slug}/edit">Edit specs</a>
+        <a class="btn btn-primary" href="/settings/equipment/new">Add to setup</a>
+      </div>
       <div class="stat">
         <div class="stat-n">{fmt(meta.photo_count)}</div>
         <div class="stat-l">FRAMES</div>
@@ -174,6 +178,15 @@
   .header-right {
     flex-shrink: 0;
     text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 16px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
   }
 
   .eyebrow {
