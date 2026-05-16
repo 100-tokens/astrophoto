@@ -44,6 +44,8 @@ export const actions: Actions = {
       is_remote: detail.is_remote,
       is_default: true,
       guiding: detail.guiding,
+      // Preserve the existing apply-mode preference on a default-flip.
+      default_apply_mode: detail.default_apply_mode,
       items: detail.items.map((it) => ({ role: it.role, item_id: it.item.id }))
     };
 

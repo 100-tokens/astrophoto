@@ -106,8 +106,16 @@
   let error = $state<string | null>(null);
   let saving = $state(false);
 
-  // ── Apply behavior (visual-only, no backend field) ────────────────────────
-  let applyBehavior = $state<'overwrite' | 'fill_empty'>('overwrite');
+  // ── Apply behavior ─ persisted as setup.default_apply_mode ───────────────
+  // Backed by equipment_setups.default_apply_mode (migration 0019). The
+  // apply-setup endpoint still requires `mode` in its request body; this
+  // field is just the user's per-setup default that the verify form reads
+  // to pre-select the right radio.
+  let applyBehavior = $state<'overwrite' | 'fill_empty'>(
+    untrack(() =>
+      initial?.default_apply_mode === 'fill_empty' ? 'fill_empty' : 'overwrite'
+    )
+  );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function onRoleCommit(role: RoleState, committed: { id: string; display_name: string } | null) {
@@ -208,6 +216,7 @@
         is_remote: setupIsRemote,
         is_default: setupIsDefault,
         guiding: setupGuiding,
+        default_apply_mode: applyBehavior,
         items
       };
 
