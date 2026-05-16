@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status, approved_at from equipment_items where kind = 'filter' and canonical_name = 'astronomik oiii 6nm'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "c152bdcc7aefd96dd086c082117081586a9ae4c4828d6ffc54268448170d5b27"
+}

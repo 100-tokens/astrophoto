@@ -85,3 +85,25 @@ async fn canonical_match_preserves_first_seen_display() {
     );
     assert_eq!(usage, 2, "usage_count should be 2");
 }
+
+/// New rows are auto-approved and must carry an approved_at timestamp.
+#[tokio::test]
+async fn new_row_is_auto_approved_with_timestamp() {
+    let pool = fresh_db().await;
+
+    upsert(&pool, "filter", "Astronomik OIII 6nm").await.unwrap();
+
+    let row = sqlx::query!(
+        "select status, approved_at from equipment_items \
+         where kind = 'filter' and canonical_name = 'astronomik oiii 6nm'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.status, "approved");
+    assert!(
+        row.approved_at.is_some(),
+        "upsert must stamp approved_at on insert so the UI never shows \
+         '—' for auto-approved items"
+    );
+}
