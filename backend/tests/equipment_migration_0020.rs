@@ -62,7 +62,10 @@ async fn migration_0020_backfills_null_approved_at_for_approved_rows() {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(null_after, 0, "backfill should stamp every approved NULL row");
+    assert_eq!(
+        null_after, 0,
+        "backfill should stamp every approved NULL row"
+    );
 
     // The previously-stamped "fresh" row should NOT have its timestamp
     // overwritten by the backfill — we use coalesce(approved_at, …)?
