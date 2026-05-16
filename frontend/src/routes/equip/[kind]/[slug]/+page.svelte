@@ -242,47 +242,51 @@
   {baseHref}
 />
 
-{#if activeTab === 'photos'}
-  <FilterPills
-    variant="equipment"
-    sort={data.sort}
-    since={data.since}
-    {...data.category !== undefined ? { category: data.category } : {}}
-    onSortChange={(s) => applyFilter({ sort: s })}
-    onSinceChange={(s) => applyFilter({ since: s })}
-    onCategoryChange={(c) => applyFilter({ category: c })}
-  />
-  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
-    <CrossAuthorGrid
-      initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
-      loadMore={loadMoreFn}
-    />
-  {/key}
-  <EquipmentSiblingsCard siblings={data.initial.siblings} brand={siblingBrand} />
-  {#if data.item}
-    <EquipmentMetaCard item={data.item} />
-  {/if}
-  <EquipmentPairedRail items={data.initial.paired} />
-{:else if activeTab === 'used-with'}
-  <section class="used-with">
-    {#if data.initial.paired.length === 0}
-      <p class="empty">No co-used equipment yet — this catalog item hasn't shown up alongside others on a published frame.</p>
-    {:else}
-      <div class="paired-grid">
-        {#each data.initial.paired as item (item.kind + '/' + item.slug)}
-          <a class="paired-card" href="/equip/{item.kind}/{item.slug}">
-            <span class="kind">{item.kind}</span>
-            <span class="name">{item.display_name}</span>
-            <span class="count">{Number(item.shared_count).toLocaleString('en-US')} shared {Number(item.shared_count) === 1 ? 'frame' : 'frames'}</span>
-          </a>
-        {/each}
-      </div>
+<div class="equip-body">
+  <main class="equip-main">
+    {#if activeTab === 'photos'}
+      <FilterPills
+        variant="equipment"
+        sort={data.sort}
+        since={data.since}
+        {...data.category !== undefined ? { category: data.category } : {}}
+        onSortChange={(s) => applyFilter({ sort: s })}
+        onSinceChange={(s) => applyFilter({ since: s })}
+        onCategoryChange={(c) => applyFilter({ category: c })}
+      />
+      {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+        <CrossAuthorGrid
+          initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
+          loadMore={loadMoreFn}
+        />
+      {/key}
+    {:else if activeTab === 'used-with'}
+      <section class="used-with">
+        {#if data.initial.paired.length === 0}
+          <p class="empty">No co-used equipment yet — this catalog item hasn't shown up alongside others on a published frame.</p>
+        {:else}
+          <div class="paired-grid">
+            {#each data.initial.paired as item (item.kind + '/' + item.slug)}
+              <a class="paired-card" href="/equip/{item.kind}/{item.slug}">
+                <span class="kind">{item.kind}</span>
+                <span class="name">{item.display_name}</span>
+                <span class="count">{Number(item.shared_count).toLocaleString('en-US')} shared {Number(item.shared_count) === 1 ? 'frame' : 'frames'}</span>
+              </a>
+            {/each}
+          </div>
+        {/if}
+      </section>
     {/if}
-  </section>
-  <EquipmentSiblingsCard siblings={data.initial.siblings} brand={siblingBrand} />
-  {#if data.item}
-    <EquipmentMetaCard item={data.item} />
-  {/if}
+  </main>
+  <aside class="equip-rail">
+    <EquipmentSiblingsCard siblings={data.initial.siblings} brand={siblingBrand} />
+    {#if data.item}
+      <EquipmentMetaCard item={data.item} />
+    {/if}
+  </aside>
+</div>
+{#if activeTab === 'photos'}
+  <EquipmentPairedRail items={data.initial.paired} />
 {/if}
 <LightboxHost />
 <AppFooter />
@@ -309,6 +313,40 @@
   }
   .spec-line {
     color: var(--fg-secondary);
+  }
+  .equip-body {
+    display: grid;
+    /* Main keeps min-content (so FilterPills/CrossAuthorGrid can use
+       their own 64px horizontal padding). Right rail is fixed 320px. */
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 32px;
+    /* Right side gets the canonical 64px page padding via this margin;
+       the main column inherits padding from its child components
+       (FilterPills, CrossAuthorGrid) which already pad 0 64px. */
+    padding-right: 64px;
+    margin-bottom: 48px;
+  }
+  .equip-main {
+    min-width: 0;
+  }
+  .equip-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 24px;
+    position: sticky;
+    top: 24px;
+  }
+  @media (max-width: 1100px) {
+    .equip-body {
+      display: block;
+      padding-right: 0;
+    }
+    .equip-rail {
+      position: static;
+      padding: 24px 16px;
+    }
   }
   .used-with {
     padding: 40px 64px;

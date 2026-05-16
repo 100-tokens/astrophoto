@@ -25,9 +25,6 @@
     padding: 20px;
     border: 1px solid var(--border-subtle);
     background: var(--bg-raised);
-    margin: 0 64px 48px;
-    max-width: 320px;
-    margin-left: auto;
   }
   dl {
     margin: 16px 0 0;
