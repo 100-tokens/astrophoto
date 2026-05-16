@@ -99,7 +99,11 @@ async fn equipment_page_returns_brand_siblings() {
         )
         .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body.siblings.len(), 2, "two other Antlia filters, no Astrodon");
+    assert_eq!(
+        body.siblings.len(),
+        2,
+        "two other Antlia filters, no Astrodon"
+    );
     // usage_count desc → OIII (5) before SII (3).
     assert_eq!(body.siblings[0].slug, "antlia-3nm-oiii-pro");
     assert_eq!(body.siblings[0].usage_count, 5);

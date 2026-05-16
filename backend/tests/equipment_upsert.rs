@@ -91,7 +91,9 @@ async fn canonical_match_preserves_first_seen_display() {
 async fn new_row_is_auto_approved_with_timestamp() {
     let pool = fresh_db().await;
 
-    upsert(&pool, "filter", "Astronomik OIII 6nm").await.unwrap();
+    upsert(&pool, "filter", "Astronomik OIII 6nm")
+        .await
+        .unwrap();
 
     let row = sqlx::query!(
         "select status, approved_at from equipment_items \

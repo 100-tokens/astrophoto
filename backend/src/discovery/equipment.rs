@@ -497,7 +497,10 @@ pub async fn get(
         // Escape '%' and '_' so a brand name containing them doesn't widen
         // the match. Then concat with " %" to enforce the leading token
         // boundary (matches "<brand> <rest>" only).
-        let escaped = brand.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+        let escaped = brand
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
         let pattern = format!("{} %", escaped);
         sqlx::query_as!(
             SiblingRow,
