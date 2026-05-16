@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import SpecsPanel from '$lib/components/equipment/SpecsPanel.svelte';
   import Field from '$lib/components/equipment/Field.svelte';
   import { FIELDS_BY_KIND, type SpecField } from '$lib/equipment/specs-fields';
@@ -20,9 +21,9 @@
   }
   // The seed captures `data.item` at mount; the user's edits drive the
   // state from there. Wrapping in $derived would reset the user's edits
-  // on every reactivity tick.
-  // eslint-disable-next-line svelte/valid-compile
-  let specs = $state<Record<string, unknown>>(seedSpecs(data.item));
+  // on every reactivity tick. `untrack` makes the one-shot read explicit
+  // so svelte-check stops flagging it as a missed reactivity dependency.
+  let specs = $state<Record<string, unknown>>(untrack(() => seedSpecs(data.item)));
   let saving = $state(false);
   let error = $state<string | null>(null);
 
