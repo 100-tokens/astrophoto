@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { SetupSummary } from '$lib/api/SetupSummary';
   import type { SetupDetail } from '$lib/api/SetupDetail';
 
@@ -25,8 +26,10 @@
 
   // Initialized once from the parent's prop. Reset imperatively on apply/detach/cancel.
   // External prop changes never needed here: the only writers to photo_setup_id are
-  // this picker's own onapply/ondetach callbacks.
-  let selected = $state(currentSetupId ?? '');
+  // this picker's own onapply/ondetach callbacks. `untrack` makes the
+  // one-shot read explicit so svelte-check stops flagging it as a missed
+  // reactivity dependency.
+  let selected = $state(untrack(() => currentSetupId ?? ''));
   let busy = $state(false);
 
   function projectFromDetail(d: SetupDetail): Current {
