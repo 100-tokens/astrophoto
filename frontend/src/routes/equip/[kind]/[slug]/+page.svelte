@@ -11,6 +11,7 @@
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
   import EquipmentMetaCard from '$lib/components/equipment/EquipmentMetaCard.svelte';
+  import EquipmentSiblingsCard from '$lib/components/equipment/EquipmentSiblingsCard.svelte';
   import EquipTabs from '$lib/components/equipment/EquipTabs.svelte';
   import { fetchEquipmentPage } from '$lib/api/discoveryClient';
   import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
@@ -44,6 +45,14 @@
   let baseHref = $derived(
     `/equip/${encodeURIComponent(eq.kind)}/${encodeURIComponent(eq.slug)}`
   );
+
+  // Brand prefix for the siblings card heading.
+  // canonical_name e.g. "antlia 3nm hα pro" → display "Antlia".
+  let siblingBrand = $derived.by(() => {
+    const first = eq.canonical_name.split(' ', 1)[0] ?? '';
+    if (first.length === 0) return '';
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  });
 
   function applyFilter(next: { sort?: string; since?: string; category?: string | undefined }) {
     const u = new URL(window.location.href);
@@ -249,6 +258,7 @@
       loadMore={loadMoreFn}
     />
   {/key}
+  <EquipmentSiblingsCard siblings={data.initial.siblings} brand={siblingBrand} />
   {#if data.item}
     <EquipmentMetaCard item={data.item} />
   {/if}
@@ -269,6 +279,7 @@
       </div>
     {/if}
   </section>
+  <EquipmentSiblingsCard siblings={data.initial.siblings} brand={siblingBrand} />
   {#if data.item}
     <EquipmentMetaCard item={data.item} />
   {/if}

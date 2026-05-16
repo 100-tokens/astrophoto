@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select\n                kind            as \"kind!\",\n                canonical_name  as \"canonical_name!\",\n                display_name    as \"display_name!\",\n                usage_count     as \"usage_count!\"\n            from equipment_items\n            where kind = $1\n              and status = 'approved'\n              and canonical_name like $2 escape '\\'\n              and canonical_name <> $3\n            order by usage_count desc, display_name asc\n            limit 6\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "usage_count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "245789094876049a5ae7930b2d0d476ee0bd502fbc4b2e76eab658835e7b52af"
+}

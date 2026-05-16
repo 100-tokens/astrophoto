@@ -2,9 +2,15 @@
 import type { DiscoveryPage } from './DiscoveryPage';
 import type { EquipmentMeta } from './EquipmentMeta';
 import type { EquipmentPaired } from './EquipmentPaired';
+import type { EquipmentSibling } from './EquipmentSibling';
 
 export type EquipmentPage = {
   equipment: EquipmentMeta;
   paired: Array<EquipmentPaired>;
+  /**
+   * Same-brand siblings (same kind, canonical_name shares the
+   * leading brand token). Sorted by usage_count desc. Up to 6 items.
+   */
+  siblings: Array<EquipmentSibling>;
   page: DiscoveryPage;
 };
