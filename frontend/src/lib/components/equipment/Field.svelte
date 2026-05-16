@@ -23,7 +23,7 @@
     {#if showDetected}
       <span class="field-meta field-meta--detected">● DETECTED FROM EXIF</span>
     {:else if showAuto}
-      <span class="field-meta field-meta--auto">○ AUTO-FILL</span>
+      <span class="field-meta field-meta--auto">○ YOU FILL</span>
     {/if}
   </div>
   {#if children}

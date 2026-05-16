@@ -10,6 +10,7 @@
   import EquipmentPairedRail from '$lib/components/discovery/EquipmentPairedRail.svelte';
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
+  import EquipmentMetaCard from '$lib/components/equipment/EquipmentMetaCard.svelte';
   import { fetchEquipmentPage } from '$lib/api/discoveryClient';
   import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
   import type { PageData } from './$types';
@@ -229,6 +230,9 @@
     loadMore={loadMoreFn}
   />
 {/key}
+{#if data.item}
+  <EquipmentMetaCard item={data.item} />
+{/if}
 <EquipmentPairedRail items={data.initial.paired} />
 <LightboxHost />
 <AppFooter />

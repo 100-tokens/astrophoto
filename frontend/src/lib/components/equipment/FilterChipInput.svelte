@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { FilterType } from '$lib/api/FilterType';
+  import { FILTER_TYPE_META, bandwidthLabel } from '$lib/equipment/filter-types';
   import FilterChip from './FilterChip.svelte';
 
   // Shape returned by the autocomplete endpoint. `id`, `filter_type`,
@@ -41,6 +42,13 @@
   let focusIdx = $state(0);
   let dragId = $state<string | null>(null);
   let matches = $state<AutocompleteItem[]>([]);
+  // Count of autocomplete rows for the current query that are not yet
+  // picked, BEFORE the slice(0, 8) display cap. The popup header renders
+  // "{matches.length} OF {available}". Note: the server returns query-
+  // filtered (or "popular") results, not the full catalog, so this is
+  // an upper bound on "currently shown" / "matching the query", not
+  // "total catalog minus picked".
+  let available = $state(0);
   let inputEl = $state<HTMLInputElement | undefined>(undefined);
 
   // Sync items when the parent passes a fresh value reference.
@@ -58,6 +66,7 @@
     if (!isOpen) {
       untrack(() => {
         matches = [];
+        available = 0;
       });
       return;
     }
@@ -71,16 +80,15 @@
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then((data: { items: AutocompleteItem[] }) => {
-        const filtered = data.items
-          .filter(
-            (row) =>
-              !currentItems.some(
-                (i) => i.display_name.toLowerCase() === row.display_name.toLowerCase()
-              )
-          )
-          .slice(0, 8);
+        const dedup = data.items.filter(
+          (row) =>
+            !currentItems.some(
+              (i) => i.display_name.toLowerCase() === row.display_name.toLowerCase()
+            )
+        );
         untrack(() => {
-          matches = filtered;
+          available = dedup.length;
+          matches = dedup.slice(0, 8);
           focusIdx = 0;
         });
       })
@@ -267,7 +275,7 @@
     <div class="fchip-pop" onmousedown={(e) => e.preventDefault()}>
       <div class="fchip-pop-head">
         <span>{query ? `MATCHES "${query}"` : 'POPULAR FILTERS'}</span>
-        <span style="color: var(--fg-faint)">{matches.length} RESULTS</span>
+        <span style="color: var(--fg-faint)">{matches.length} OF {available}</span>
       </div>
       <div class="fchip-pop-list">
         {#if matches.length === 0}
@@ -279,6 +287,8 @@
           </div>
         {/if}
         {#each matches as f, i (f.display_name)}
+          {@const meta = f.filter_type ? FILTER_TYPE_META[f.filter_type] : null}
+          {@const bw = bandwidthLabel(f)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
@@ -288,15 +298,17 @@
           >
             <FilterChip
               filter={{
-                id: '',
+                id: f.id ?? '',
                 display_name: f.display_name,
-                filter_type: null,
-                bandwidth_nm: null,
+                filter_type: f.filter_type ?? null,
+                bandwidth_nm: f.bandwidth_nm ?? null,
                 position: 0
               }}
               compact
             />
-            <span class="meta">UNTYPED</span>
+            <span class="meta">
+              {#if meta}{meta.label.toUpperCase()}{#if bw} · {bw.toUpperCase()}{/if}{:else}UNTYPED{/if}
+            </span>
             <span class="usage">{f.usage_count.toLocaleString()} PHOTOS</span>
           </div>
         {/each}

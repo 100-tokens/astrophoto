@@ -1,19 +1,19 @@
 <script lang="ts">
-  // Three-step stepper for the upload flow. Mirrors the design handoff
-  // at docs/design/handoff/screens-2.jsx:119: completed steps carry a ✓,
-  // the active step is accent-colored, future steps are muted.
+  // Four-step stepper for the upload flow. Mirrors the equipment-catalog
+  // handoff at docs/superpowers/handoff/2026-05-14-equipment-catalog/
+  // screen-verify.jsx:40 — completed steps carry a ✓, the active step is
+  // accent-colored, future steps are muted.
   //
-  // currentStep is 1-based: 1 = upload, 2 = verify, 3 = caption.
+  // currentStep is 1-based: 1 = upload, 2 = verify data, 3 = equipment,
+  // 4 = caption & publish.
 
-  let { currentStep }: { currentStep: 1 | 2 | 3 } = $props();
+  let { currentStep }: { currentStep: 1 | 2 | 3 | 4 } = $props();
 
-  // Labels match docs/design/handoff-showcase/showcase-p1.jsx:86 — the
-  // verify step is "VERIFY EACH" (one frame at a time), and the third
-  // step is just "PUBLISH" (caption is part of verify in the handoff).
   const STEPS = [
-    { n: '01', label: 'UPLOAD' },
-    { n: '02', label: 'VERIFY EACH' },
-    { n: '03', label: 'PUBLISH' }
+    { id: 1, label: 'UPLOAD' },
+    { id: 2, label: 'VERIFY DATA' },
+    { id: 3, label: 'EQUIPMENT' },
+    { id: 4, label: 'CAPTION & PUBLISH' }
   ];
 
   function stateFor(idx: number): 'done' | 'active' | 'pending' {
@@ -27,7 +27,7 @@
   {#each STEPS as step, i}
     {@const s = stateFor(i)}
     <div class="step step-{s}" role="listitem" aria-current={s === 'active' ? 'step' : undefined}>
-      <span class="step-n">{step.n}</span>
+      <span class="step-n">{String(step.id).padStart(2, '0')}</span>
       <span>{step.label}</span>
       {#if s === 'done'}
         <span class="check" aria-hidden="true">✓</span>

@@ -188,6 +188,20 @@
             {#if dimensionLabel}{dimensionLabel}{/if}
           </span>
         </div>
+        <table class="exif">
+          <tbody>
+            <tr><th>Camera</th><td class="mono">{data.photo.camera ?? '—'}</td></tr>
+            <tr><th>ISO</th><td class="mono">{data.photo.iso ?? '—'}</td></tr>
+            <tr><th>Sub exposure</th><td class="mono">
+              {data.photo.exposure_s != null ? `${data.photo.exposure_s} s` : '—'}
+            </td></tr>
+            <tr><th>Gain</th><td class="mono">{data.photo.gain ?? '—'}</td></tr>
+            <tr><th>Sensor temp</th><td class="mono">
+              {data.photo.sensor_temp_c != null ? `${data.photo.sensor_temp_c} °C` : '—'}
+            </td></tr>
+            <tr><th>Frames captured</th><td class="mono">{data.photo.sessions ?? '—'}</td></tr>
+          </tbody>
+        </table>
         {#if !isPublished}
           <a class="replace-link" href="/upload" data-sveltekit-reload>← Replace file</a>
         {/if}
@@ -217,6 +231,7 @@
           </div>
 
           <!-- Row 2: numeric EXIF fields in 2-col grid -->
+          <div class="t-label section-label">ACQUISITION &amp; FRAMING</div>
           <div class="grid">
             <label>
               <span class="t-label">LENS</span>
@@ -297,6 +312,7 @@
           </div>
 
           <!-- Row 3: equipment pickers in 2-col grid -->
+          <div class="t-label section-label">EQUIPMENT</div>
           <div class="setup-row">
             <SetupPicker
               setups={data.setups}
@@ -328,6 +344,7 @@
               <FilterChipInput
                 value={filterChips}
                 orphans={data.orphans}
+                startOpen={!isPublished}
                 onChange={(next) => (filterChips = next)}
               />
               <input
@@ -392,7 +409,7 @@
   }
   .layout {
     display: grid;
-    grid-template-columns: 560px 1fr;
+    grid-template-columns: 520px 1fr;
     gap: 64px;
     align-items: start;
   }
@@ -460,6 +477,37 @@
     color: var(--fg-muted);
     letter-spacing: 0.04em;
   }
+  .exif {
+    margin-top: 20px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .exif th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-weight: 400;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    padding: 6px 16px 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .exif td {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--fg-secondary);
+  }
+  .exif td.mono {
+    font-family: var(--font-mono);
+  }
+  .exif tr:last-child th,
+  .exif tr:last-child td {
+    border-bottom: none;
+  }
   .filename {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -513,6 +561,10 @@
   }
   .field-full {
     margin-bottom: 16px;
+  }
+  .section-label {
+    margin: 24px 0 12px;
+    color: var(--fg-muted);
   }
   .grid {
     display: grid;

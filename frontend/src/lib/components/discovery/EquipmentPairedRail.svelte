@@ -8,6 +8,8 @@
 
 {#if visible.length > 0}
   <section class="paired-rail">
+    <!-- Handoff calls this "Other <brand>" siblings (same canonical brand prefix);
+         current backend returns co-used items instead. Label kept honest. -->
     <p class="rail-label">Often paired with</p>
     <div class="chips">
       {#each visible as item (item.kind + '/' + item.slug)}
