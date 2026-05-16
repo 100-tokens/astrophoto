@@ -393,6 +393,13 @@
                   </Field>
                 {/if}
               {/each}
+              <div class="callout-db">
+                <span class="t-label">DB-GENERATED</span>
+                <span class="callout-db-body">
+                  <code>focal_ratio_f</code> is a STORED column ·
+                  <code>focal_length_mm / aperture_mm</code> · not user-editable.
+                </span>
+              </div>
             </div>
           </SpecsPanel>
         {/snippet}
@@ -753,6 +760,29 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
+  }
+
+  /* DB-GENERATED callout under focal_ratio_f in telescope specs */
+  .callout-db {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px;
+    background: var(--bg-accent-tint, rgba(232, 164, 58, 0.07));
+    border-left: 2px solid var(--accent);
+    font-size: 12px;
+    color: var(--fg-secondary);
+    line-height: 1.5;
+    grid-column: span 2;
+  }
+
+  .callout-db .t-label {
+    color: var(--accent);
+  }
+
+  .callout-db code {
+    font-family: var(--font-mono);
+    color: var(--fg-primary);
   }
 
   /* Filters role row */
