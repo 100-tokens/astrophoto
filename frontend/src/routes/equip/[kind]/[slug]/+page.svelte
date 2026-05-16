@@ -11,6 +11,7 @@
   import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
   import EquipmentMetaCard from '$lib/components/equipment/EquipmentMetaCard.svelte';
+  import EquipTabs from '$lib/components/equipment/EquipTabs.svelte';
   import { fetchEquipmentPage } from '$lib/api/discoveryClient';
   import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
   import type { PageData } from './$types';
@@ -33,6 +34,16 @@
   $effect(() => {
     cursor = data.initial.page.next_cursor;
   });
+
+  // ── Tabs ───────────────────────────────────────────────────────
+  // Photos (default) vs Used with. Discussion / History are SOON
+  // placeholders that don't link anywhere — see EquipTabs.svelte.
+  let activeTab = $derived<'photos' | 'used-with'>(
+    page.url.searchParams.get('tab') === 'used-with' ? 'used-with' : 'photos'
+  );
+  let baseHref = $derived(
+    `/equip/${encodeURIComponent(eq.kind)}/${encodeURIComponent(eq.slug)}`
+  );
 
   function applyFilter(next: { sort?: string; since?: string; category?: string | undefined }) {
     const u = new URL(window.location.href);
@@ -215,25 +226,53 @@
   </div>
 {/if}
 
-<FilterPills
-  variant="equipment"
-  sort={data.sort}
-  since={data.since}
-  {...data.category !== undefined ? { category: data.category } : {}}
-  onSortChange={(s) => applyFilter({ sort: s })}
-  onSinceChange={(s) => applyFilter({ since: s })}
-  onCategoryChange={(c) => applyFilter({ category: c })}
+<EquipTabs
+  active={activeTab}
+  photoCount={eqPhotos}
+  usedWithCount={data.initial.paired.length}
+  {baseHref}
 />
-{#key `${data.sort}|${data.since}|${data.category ?? ''}`}
-  <CrossAuthorGrid
-    initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
-    loadMore={loadMoreFn}
+
+{#if activeTab === 'photos'}
+  <FilterPills
+    variant="equipment"
+    sort={data.sort}
+    since={data.since}
+    {...data.category !== undefined ? { category: data.category } : {}}
+    onSortChange={(s) => applyFilter({ sort: s })}
+    onSinceChange={(s) => applyFilter({ since: s })}
+    onCategoryChange={(c) => applyFilter({ category: c })}
   />
-{/key}
-{#if data.item}
-  <EquipmentMetaCard item={data.item} />
+  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+    <CrossAuthorGrid
+      initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
+      loadMore={loadMoreFn}
+    />
+  {/key}
+  {#if data.item}
+    <EquipmentMetaCard item={data.item} />
+  {/if}
+  <EquipmentPairedRail items={data.initial.paired} />
+{:else if activeTab === 'used-with'}
+  <section class="used-with">
+    {#if data.initial.paired.length === 0}
+      <p class="empty">No co-used equipment yet — this catalog item hasn't shown up alongside others on a published frame.</p>
+    {:else}
+      <div class="paired-grid">
+        {#each data.initial.paired as item (item.kind + '/' + item.slug)}
+          <a class="paired-card" href="/equip/{item.kind}/{item.slug}">
+            <span class="kind">{item.kind}</span>
+            <span class="name">{item.display_name}</span>
+            <span class="count">{Number(item.shared_count).toLocaleString('en-US')} shared {Number(item.shared_count) === 1 ? 'frame' : 'frames'}</span>
+          </a>
+        {/each}
+      </div>
+    {/if}
+  </section>
+  {#if data.item}
+    <EquipmentMetaCard item={data.item} />
+  {/if}
 {/if}
-<EquipmentPairedRail items={data.initial.paired} />
 <LightboxHost />
 <AppFooter />
 
@@ -259,6 +298,59 @@
   }
   .spec-line {
     color: var(--fg-secondary);
+  }
+  .used-with {
+    padding: 40px 64px;
+    min-height: 240px;
+  }
+  .empty {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--fg-muted);
+    margin: 0;
+  }
+  .paired-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .paired-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 20px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-raised);
+    color: var(--fg-secondary);
+    text-decoration: none;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .paired-card:hover {
+    border-color: var(--accent);
+    color: var(--fg-primary);
+  }
+  .paired-card .kind {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--fg-faint);
+    text-transform: uppercase;
+  }
+  .paired-card .name {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 18px;
+    color: inherit;
+  }
+  .paired-card .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--fg-muted);
+  }
+  @media (max-width: 768px) {
+    .used-with {
+      padding: 24px 16px;
+    }
   }
   .specs-add {
     color: var(--accent);
