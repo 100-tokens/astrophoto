@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { FilterType } from '$lib/api/FilterType';
+  import { FILTER_TYPE_META, bandwidthLabel } from '$lib/equipment/filter-types';
   import FilterChip from './FilterChip.svelte';
 
   // Shape returned by the autocomplete endpoint. `id`, `filter_type`,
@@ -279,6 +280,8 @@
           </div>
         {/if}
         {#each matches as f, i (f.display_name)}
+          {@const meta = f.filter_type ? FILTER_TYPE_META[f.filter_type] : null}
+          {@const bw = bandwidthLabel(f)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
@@ -296,7 +299,9 @@
               }}
               compact
             />
-            <span class="meta">UNTYPED</span>
+            <span class="meta">
+              {#if meta}{meta.label.toUpperCase()}{#if bw} · {bw.toUpperCase()}{/if}{:else}UNTYPED{/if}
+            </span>
             <span class="usage">{f.usage_count.toLocaleString()} PHOTOS</span>
           </div>
         {/each}
