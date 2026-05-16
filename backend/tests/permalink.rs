@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use astrophoto::{Config, db, http, storage::MemoryStorage};
 use axum::{body::Body, http::Request};
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -41,7 +41,11 @@ fn config_for(url: &str) -> Config {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn resolve_permalink_returns_photo_id() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -99,7 +103,11 @@ async fn resolve_permalink_returns_photo_id() {
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn resolve_permalink_unknown_short_id_returns_404() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -142,7 +150,11 @@ async fn resolve_permalink_unknown_short_id_returns_404() {
 async fn resolve_permalink_draft_returns_404() {
     // A photo with published_at = NULL (draft) must NOT be resolvable via
     // the public permalink endpoint — only published photos are accessible.
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

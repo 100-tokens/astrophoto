@@ -11,8 +11,8 @@ use axum::{
     body::Body,
     http::{Request, header},
 };
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 
@@ -121,7 +121,11 @@ async fn signup(
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn by_handle_hit_returns_200_with_correct_shape() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -173,7 +177,11 @@ async fn by_handle_hit_returns_200_with_correct_shape() {
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn by_handle_miss_returns_404() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -206,7 +214,11 @@ async fn by_handle_miss_returns_404() {
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn redirect_hit_returns_current_handle() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -262,7 +274,11 @@ async fn redirect_hit_returns_current_handle() {
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn redirect_miss_returns_404() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

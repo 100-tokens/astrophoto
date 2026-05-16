@@ -15,8 +15,8 @@ use axum::{
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sha2::Digest;
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -59,7 +59,11 @@ async fn boot() -> (
     Arc<Mutex<Vec<SentMail>>>,
     testcontainers::ContainerAsync<PgImage>,
 ) {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

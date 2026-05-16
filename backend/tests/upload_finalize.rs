@@ -7,8 +7,8 @@ use axum::{
 };
 use bytes::Bytes;
 use http_body_util::BodyExt as _;
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -159,7 +159,11 @@ async fn finalize(app: &axum::Router, photo_id: Uuid, cookie: &str) -> axum::res
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn finalize_404_unknown_photo() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -185,7 +189,11 @@ async fn finalize_404_unknown_photo() {
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn finalize_404_cross_owner() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -233,7 +241,11 @@ async fn finalize_404_cross_owner() {
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn finalize_408_no_s3_object() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -280,7 +292,11 @@ async fn finalize_408_no_s3_object() {
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn finalize_400_magic_byte_mismatch() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -338,7 +354,11 @@ async fn finalize_400_magic_byte_mismatch() {
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn finalize_happy_path_and_idempotent() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
