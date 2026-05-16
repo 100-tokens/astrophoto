@@ -14,8 +14,9 @@ pub async fn upsert(pool: &PgPool, kind: &str, freetext: &str) -> Result<(), App
     let canonical = display.to_lowercase();
     sqlx::query!(
         r#"
-        insert into equipment_items (kind, canonical_name, display_name, usage_count)
-            values ($1, $2, $3, 1)
+        insert into equipment_items
+            (kind, canonical_name, display_name, usage_count, approved_at)
+            values ($1, $2, $3, 1, now())
         on conflict (kind, canonical_name)
             do update set usage_count = equipment_items.usage_count + 1
         "#,

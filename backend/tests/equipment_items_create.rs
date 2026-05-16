@@ -35,10 +35,20 @@ async fn insert_on_miss_returns_row_with_zero_count() {
     assert_eq!(body["display_name"], "Sky-Watcher 200P");
     assert_eq!(body["canonical_name"], "sky-watcher 200p");
     assert_eq!(body["kind"], "telescope");
-    let count: i32 = sqlx::query_scalar!(
-        "select usage_count from equipment_items where kind='telescope' and canonical_name='sky-watcher 200p'"
-    ).fetch_one(&pool).await.unwrap();
-    assert_eq!(count, 0);
+    let row = sqlx::query!(
+        "select usage_count, status, approved_at
+           from equipment_items
+          where kind='telescope' and canonical_name='sky-watcher 200p'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.usage_count, 0);
+    assert_eq!(row.status, "approved");
+    assert!(
+        row.approved_at.is_some(),
+        "auto-approved items must carry an approved_at timestamp"
+    );
 }
 
 #[tokio::test]

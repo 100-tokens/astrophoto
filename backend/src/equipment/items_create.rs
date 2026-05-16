@@ -59,8 +59,9 @@ pub async fn handler(
     let row = sqlx::query!(
         r#"
         with ins as (
-            insert into equipment_items (kind, canonical_name, display_name, usage_count, submitted_by)
-                 values ($1, $2, $3, 0, $4)
+            insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, submitted_by, approved_at)
+                 values ($1, $2, $3, 0, $4, now())
             on conflict (kind, canonical_name) do nothing
             returning id, kind, canonical_name, display_name, usage_count
         )
