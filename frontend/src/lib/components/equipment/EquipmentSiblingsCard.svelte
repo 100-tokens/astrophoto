@@ -34,9 +34,6 @@
     padding: 20px;
     border: 1px solid var(--border-subtle);
     background: var(--bg-raised);
-    margin: 0 64px 24px;
-    max-width: 320px;
-    margin-left: auto;
   }
   ul {
     list-style: none;
@@ -74,11 +71,5 @@
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--fg-muted);
-  }
-  @media (max-width: 768px) {
-    .sib-card {
-      margin: 0 16px 24px;
-      max-width: none;
-    }
   }
 </style>

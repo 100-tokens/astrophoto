@@ -735,12 +735,34 @@
 
   .builder-body {
     display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 48px;
+    /* In the actual settings shell the SetupForm renders inside a
+       ~592px main column (240px left nav + 64px*2 settings-shell
+       padding + 64px*2 page-body padding eat the 1440px viewport).
+       That's not enough to host the handoff's 1fr+340px split — the
+       SpecsPanel inputs collide with the aside. Stack vertically
+       (aside on top so the "SHARED CATALOG" + "APPLY BEHAVIOR"
+       context reads before the form). The two columns return on
+       very wide viewports where the math works. */
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .builder-aside {
+    order: -1;
   }
 
   .builder-main {
     min-width: 0;
+  }
+
+  @media (min-width: 1600px) {
+    .builder-body {
+      grid-template-columns: minmax(420px, 1fr) 340px;
+      gap: 48px;
+    }
+    .builder-aside {
+      order: 0;
+    }
   }
 
   /* Header fields row */
@@ -904,16 +926,9 @@
     font-size: 12px;
   }
 
-  /* Responsive: collapse grid on narrow viewports */
+  /* header-fields stays side-by-side until the viewport really
+     can't host two columns. */
   @media (max-width: 900px) {
-    .builder-body {
-      grid-template-columns: 1fr;
-    }
-
-    .builder-aside {
-      order: -1;
-    }
-
     .header-fields {
       grid-template-columns: 1fr;
     }
