@@ -168,7 +168,15 @@ export const actions: Actions = {
     redirect(303, '/account/frames');
   },
 
-  save_changes_published: async ({ params }) => {
+  save_changes_published: async ({ request, params, fetch, cookies }) => {
+    const fd = await request.formData();
+    const patch = collectPatch(fd, 'verify');
+    const cookie = cookies
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join('; ');
+    const r = await callPut(fetch, cookie, params.id!, patch);
+    if (!r.ok) return fail(r.status, { error: await r.text() });
     redirect(303, `/photo/${params.id}`);
   },
 
