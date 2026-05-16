@@ -12,7 +12,9 @@ use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
 use crate::http::AppState;
 
-use super::{unique_conflict_to_422, unknown_item_to_422, validate_role};
+use super::{
+    unique_conflict_to_422, unknown_item_to_422, validate_default_apply_mode, validate_role,
+};
 
 pub async fn handler(
     State(state): State<AppState>,
@@ -23,6 +25,7 @@ pub async fn handler(
     if input.name.trim().is_empty() {
         return Err(AppError::Validation("name is required".into()));
     }
+    validate_default_apply_mode(&input.default_apply_mode)?;
     let mut item_uuids = Vec::with_capacity(input.items.len());
     for it in &input.items {
         validate_role(&it.role)?;
@@ -60,14 +63,16 @@ pub async fn handler(
         r#"update equipment_setups
               set name=$1, description=$2, location=$3,
                   is_remote=$4, is_default=$5, guiding=$6,
+                  default_apply_mode=$7,
                   updated_at=now()
-            where id=$7"#,
+            where id=$8"#,
         input.name.trim(),
         input.description.as_deref(),
         input.location.as_deref(),
         input.is_remote,
         input.is_default,
         input.guiding.as_deref(),
+        input.default_apply_mode,
         id
     )
     .execute(&mut *tx)

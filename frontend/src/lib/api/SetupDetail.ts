@@ -12,6 +12,10 @@ export type SetupDetail = {
   is_remote: boolean;
   is_default: boolean;
   guiding: string | null;
+  /**
+   * "overwrite" | "fill_empty"
+   */
+  default_apply_mode: string;
   created_at: string;
   updated_at: string;
   items: Array<SetupItem>;

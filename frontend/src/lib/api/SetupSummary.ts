@@ -12,6 +12,10 @@ export type SetupSummary = {
   is_remote: boolean;
   is_default: boolean;
   guiding: string | null;
+  /**
+   * "overwrite" | "fill_empty"
+   */
+  default_apply_mode: string;
   updated_at: string;
   /**
    * One entry per role with at least one item.
