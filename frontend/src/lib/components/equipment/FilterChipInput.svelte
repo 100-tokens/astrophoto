@@ -42,6 +42,13 @@
   let focusIdx = $state(0);
   let dragId = $state<string | null>(null);
   let matches = $state<AutocompleteItem[]>([]);
+  // Count of autocomplete rows for the current query that are not yet
+  // picked, BEFORE the slice(0, 8) display cap. The popup header renders
+  // "{matches.length} OF {available}". Note: the server returns query-
+  // filtered (or "popular") results, not the full catalog, so this is
+  // an upper bound on "currently shown" / "matching the query", not
+  // "total catalog minus picked".
+  let available = $state(0);
   let inputEl = $state<HTMLInputElement | undefined>(undefined);
 
   // Sync items when the parent passes a fresh value reference.
@@ -59,6 +66,7 @@
     if (!isOpen) {
       untrack(() => {
         matches = [];
+        available = 0;
       });
       return;
     }
@@ -72,16 +80,15 @@
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then((data: { items: AutocompleteItem[] }) => {
-        const filtered = data.items
-          .filter(
-            (row) =>
-              !currentItems.some(
-                (i) => i.display_name.toLowerCase() === row.display_name.toLowerCase()
-              )
-          )
-          .slice(0, 8);
+        const dedup = data.items.filter(
+          (row) =>
+            !currentItems.some(
+              (i) => i.display_name.toLowerCase() === row.display_name.toLowerCase()
+            )
+        );
         untrack(() => {
-          matches = filtered;
+          available = dedup.length;
+          matches = dedup.slice(0, 8);
           focusIdx = 0;
         });
       })
@@ -268,7 +275,7 @@
     <div class="fchip-pop" onmousedown={(e) => e.preventDefault()}>
       <div class="fchip-pop-head">
         <span>{query ? `MATCHES "${query}"` : 'POPULAR FILTERS'}</span>
-        <span style="color: var(--fg-faint)">{matches.length} RESULTS</span>
+        <span style="color: var(--fg-faint)">{matches.length} OF {available}</span>
       </div>
       <div class="fchip-pop-list">
         {#if matches.length === 0}
