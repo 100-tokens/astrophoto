@@ -80,9 +80,10 @@ mod tests_email_verified {
 
     #[tokio::test]
     async fn new_password_account_has_no_email_verified_at() {
-        let pg = testcontainers::runners::AsyncRunner::start(
-            testcontainers::ImageExt::with_tag(testcontainers_modules::postgres::Postgres::default(), "16-alpine"),
-        )
+        let pg = testcontainers::runners::AsyncRunner::start(testcontainers::ImageExt::with_tag(
+            testcontainers_modules::postgres::Postgres::default(),
+            "16-alpine",
+        ))
         .await
         .unwrap();
         let host = pg.get_host().await.unwrap();
@@ -103,9 +104,10 @@ mod tests_email_verified {
 
     #[tokio::test]
     async fn find_by_email_returns_verified_timestamp() {
-        let pg = testcontainers::runners::AsyncRunner::start(
-            testcontainers::ImageExt::with_tag(testcontainers_modules::postgres::Postgres::default(), "16-alpine"),
-        )
+        let pg = testcontainers::runners::AsyncRunner::start(testcontainers::ImageExt::with_tag(
+            testcontainers_modules::postgres::Postgres::default(),
+            "16-alpine",
+        ))
         .await
         .unwrap();
         let host = pg.get_host().await.unwrap();

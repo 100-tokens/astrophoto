@@ -6,8 +6,8 @@ use axum::{
     http::{Request, header},
 };
 use http_body_util::BodyExt as _;
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 
@@ -99,7 +99,11 @@ async fn signup_and_get_cookie(app: &axum::Router, pool: &sqlx::PgPool, email: &
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
 async fn upload_init_signs_url_and_dedups() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

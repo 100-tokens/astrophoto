@@ -227,7 +227,9 @@ pub async fn apply(
         filter_type: r
             .filter_type
             .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()),
-        bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
+        bandwidth_nm: r
+            .bandwidth_nm
+            .and_then(|n| n.to_string().parse::<f64>().ok()),
         position: r.position as i32,
     })
     .collect();

@@ -6,8 +6,8 @@ use axum::{
     http::{Request, header},
 };
 use http_body_util::BodyExt as _;
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 
@@ -42,7 +42,11 @@ fn config_for(url: &str) -> Config {
 
 #[tokio::test]
 async fn signup_login_me_logout_full_flow() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -187,7 +191,11 @@ async fn signup_login_me_logout_full_flow() {
 
 #[tokio::test]
 async fn signup_rejects_duplicate_handle() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");

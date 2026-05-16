@@ -176,9 +176,10 @@ mod tests {
 
     #[tokio::test]
     async fn issue_token_writes_a_row_we_can_find_by_hash() {
-        let pg = testcontainers::runners::AsyncRunner::start(
-            testcontainers::ImageExt::with_tag(testcontainers_modules::postgres::Postgres::default(), "16-alpine"),
-        )
+        let pg = testcontainers::runners::AsyncRunner::start(testcontainers::ImageExt::with_tag(
+            testcontainers_modules::postgres::Postgres::default(),
+            "16-alpine",
+        ))
         .await
         .unwrap();
         let host = pg.get_host().await.unwrap();

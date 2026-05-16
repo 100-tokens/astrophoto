@@ -83,7 +83,9 @@ pub async fn handler(
             display_name: r.display_name,
             usage_count: r.usage_count,
             filter_type: r.filter_type,
-            bandwidth_nm: r.bandwidth_nm.and_then(|n| n.to_string().parse::<f64>().ok()),
+            bandwidth_nm: r
+                .bandwidth_nm
+                .and_then(|n| n.to_string().parse::<f64>().ok()),
         })
         .collect();
     Ok(Json(R { items }))

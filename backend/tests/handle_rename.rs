@@ -5,8 +5,8 @@ use axum::{
     body::Body,
     http::{Request, header},
 };
-use testcontainers::runners::AsyncRunner;
 use testcontainers::ImageExt;
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
 use tower::ServiceExt;
 
@@ -109,7 +109,11 @@ fn config_for(url: &str) -> Config {
 
 #[tokio::test]
 async fn rename_handle_writes_redirect_row() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -173,7 +177,11 @@ async fn rename_handle_writes_redirect_row() {
 
 #[tokio::test]
 async fn rename_handle_same_handle_returns_204() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -224,7 +232,11 @@ async fn rename_handle_same_handle_returns_204() {
 
 #[tokio::test]
 async fn rename_handle_conflict_returns_409() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -267,7 +279,11 @@ async fn rename_handle_conflict_returns_409() {
 
 #[tokio::test]
 async fn rename_handle_unauthenticated_returns_401() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -302,7 +318,11 @@ async fn rename_handle_unauthenticated_returns_401() {
 
 #[tokio::test]
 async fn rename_handle_invalid_format_returns_422() {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
