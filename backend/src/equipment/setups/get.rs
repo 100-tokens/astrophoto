@@ -26,7 +26,7 @@ pub async fn handler(
 pub async fn load(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<SetupDetail, AppError> {
     let s = sqlx::query!(
         r#"select id, name, description, location, is_remote, is_default,
-                  guiding, created_at, updated_at
+                  guiding, default_apply_mode, created_at, updated_at
              from equipment_setups
             where id = $1 and owner_id = $2"#,
         id,
@@ -56,6 +56,7 @@ pub async fn load(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<SetupDetail
         is_remote: s.is_remote,
         is_default: s.is_default,
         guiding: s.guiding,
+        default_apply_mode: s.default_apply_mode,
         created_at: s.created_at.to_rfc3339(),
         updated_at: s.updated_at.to_rfc3339(),
         items: items

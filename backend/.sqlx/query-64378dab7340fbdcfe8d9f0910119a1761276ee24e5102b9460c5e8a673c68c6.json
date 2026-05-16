@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into equipment_setups\n            (owner_id, name, description, location, is_remote, is_default, guiding)\n            values ($1,$2,$3,$4,$5,$6,$7)\n            returning id",
+  "query": "insert into equipment_setups\n            (owner_id, name, description, location, is_remote, is_default,\n             guiding, default_apply_mode)\n            values ($1,$2,$3,$4,$5,$6,$7,$8)\n            returning id",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,7 @@
         "Text",
         "Bool",
         "Bool",
+        "Text",
         "Text"
       ]
     },
@@ -24,5 +25,5 @@
       false
     ]
   },
-  "hash": "10695b6120cf839bd39433d994a91904ac4c44eada8cbb4a565be2abed7f44f6"
+  "hash": "64378dab7340fbdcfe8d9f0910119a1761276ee24e5102b9460c5e8a673c68c6"
 }

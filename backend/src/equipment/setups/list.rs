@@ -15,7 +15,8 @@ pub async fn handler(
     let rows = sqlx::query!(
         r#"
         select s.id, s.name, s.description, s.location,
-               s.is_remote, s.is_default, s.guiding, s.updated_at,
+               s.is_remote, s.is_default, s.guiding,
+               s.default_apply_mode, s.updated_at,
                coalesce(
                  (select json_agg(json_build_object('role', si.role, 'count', si.cnt))
                     from (
@@ -46,6 +47,7 @@ pub async fn handler(
                 is_remote: r.is_remote,
                 is_default: r.is_default,
                 guiding: r.guiding,
+                default_apply_mode: r.default_apply_mode,
                 updated_at: r.updated_at.to_rfc3339(),
                 item_counts: serde_json::from_value::<Vec<RoleCount>>(r.item_counts)
                     .map_err(|e| AppError::Internal(format!("setup item_counts decode: {e}")))?,

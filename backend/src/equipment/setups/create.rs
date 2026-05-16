@@ -10,7 +10,9 @@ use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
 use crate::http::AppState;
 
-use super::{unique_conflict_to_422, unknown_item_to_422, validate_role};
+use super::{
+    unique_conflict_to_422, unknown_item_to_422, validate_default_apply_mode, validate_role,
+};
 
 pub async fn handler(
     State(state): State<AppState>,
@@ -20,6 +22,7 @@ pub async fn handler(
     if input.name.trim().is_empty() {
         return Err(AppError::Validation("name is required".into()));
     }
+    validate_default_apply_mode(&input.default_apply_mode)?;
     let mut item_uuids = Vec::with_capacity(input.items.len());
     for it in &input.items {
         validate_role(&it.role)?;
@@ -42,8 +45,9 @@ pub async fn handler(
 
     let row = sqlx::query!(
         r#"insert into equipment_setups
-            (owner_id, name, description, location, is_remote, is_default, guiding)
-            values ($1,$2,$3,$4,$5,$6,$7)
+            (owner_id, name, description, location, is_remote, is_default,
+             guiding, default_apply_mode)
+            values ($1,$2,$3,$4,$5,$6,$7,$8)
             returning id"#,
         user.0.id,
         input.name.trim(),
@@ -51,7 +55,8 @@ pub async fn handler(
         input.location.as_deref(),
         input.is_remote,
         input.is_default,
-        input.guiding.as_deref()
+        input.guiding.as_deref(),
+        input.default_apply_mode,
     )
     .fetch_one(&mut *tx)
     .await

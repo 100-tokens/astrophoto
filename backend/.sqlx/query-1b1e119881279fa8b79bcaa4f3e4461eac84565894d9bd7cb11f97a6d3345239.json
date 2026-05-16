@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update equipment_setups\n              set name=$1, description=$2, location=$3,\n                  is_remote=$4, is_default=$5, guiding=$6,\n                  default_apply_mode=$7,\n                  updated_at=now()\n            where id=$8",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Bool",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b1e119881279fa8b79bcaa4f3e4461eac84565894d9bd7cb11f97a6d3345239"
+}

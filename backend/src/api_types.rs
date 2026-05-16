@@ -479,6 +479,8 @@ pub struct SetupSummary {
     pub is_remote: bool,
     pub is_default: bool,
     pub guiding: Option<String>,
+    /// "overwrite" | "fill_empty"
+    pub default_apply_mode: String,
     pub updated_at: String, // RFC3339
     /// One entry per role with at least one item.
     pub item_counts: Vec<RoleCount>,
@@ -495,6 +497,8 @@ pub struct SetupDetail {
     pub is_remote: bool,
     pub is_default: bool,
     pub guiding: Option<String>,
+    /// "overwrite" | "fill_empty"
+    pub default_apply_mode: String,
     pub created_at: String,
     pub updated_at: String,
     pub items: Vec<SetupItem>,
@@ -518,6 +522,8 @@ pub struct SetupInput {
     pub is_remote: bool,
     pub is_default: bool,
     pub guiding: Option<String>,
+    /// "overwrite" | "fill_empty"
+    pub default_apply_mode: String,
     pub items: Vec<SetupInputItem>,
 }
 
