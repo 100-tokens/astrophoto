@@ -120,7 +120,7 @@
   <section class="header header-equipment">
     <div class="header-left">
       <p class="eyebrow">
-        ● EQUIPMENT · {EQUIPMENT_KIND_LABELS[meta.kind] ?? meta.kind.toUpperCase()} · /EQUIP/{meta.kind.toUpperCase()}/{meta.slug.toUpperCase()}
+        ● {EQUIPMENT_KIND_LABELS[meta.kind] ?? meta.kind.toUpperCase()} · {fmt(meta.photo_count)} {Number(meta.photo_count) === 1 ? 'PHOTO' : 'PHOTOS'} IN CATALOG
       </p>
       <h1 class="display display-equipment">{meta.display_name}</h1>
     </div>
@@ -200,8 +200,9 @@
   }
 
   .display-equipment {
-    font-size: 48px;
+    font-size: 64px;
     font-style: italic;
+    line-height: 1.05;
   }
 
   /* Target-specific */
