@@ -231,6 +231,7 @@
           </div>
 
           <!-- Row 2: numeric EXIF fields in 2-col grid -->
+          <div class="t-label section-label">ACQUISITION &amp; FRAMING</div>
           <div class="grid">
             <label>
               <span class="t-label">LENS</span>
@@ -311,6 +312,7 @@
           </div>
 
           <!-- Row 3: equipment pickers in 2-col grid -->
+          <div class="t-label section-label">EQUIPMENT</div>
           <div class="setup-row">
             <SetupPicker
               setups={data.setups}
@@ -407,7 +409,7 @@
   }
   .layout {
     display: grid;
-    grid-template-columns: 560px 1fr;
+    grid-template-columns: 520px 1fr;
     gap: 64px;
     align-items: start;
   }
@@ -559,6 +561,10 @@
   }
   .field-full {
     margin-bottom: 16px;
+  }
+  .section-label {
+    margin: 24px 0 12px;
+    color: var(--fg-muted);
   }
   .grid {
     display: grid;
