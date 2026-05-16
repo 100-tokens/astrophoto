@@ -298,10 +298,10 @@
           >
             <FilterChip
               filter={{
-                id: '',
+                id: f.id ?? '',
                 display_name: f.display_name,
-                filter_type: null,
-                bandwidth_nm: null,
+                filter_type: f.filter_type ?? null,
+                bandwidth_nm: f.bandwidth_nm ?? null,
                 position: 0
               }}
               compact
