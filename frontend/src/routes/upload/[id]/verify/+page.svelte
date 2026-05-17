@@ -49,7 +49,7 @@
 
   let target = $state<string>(_sp.target ?? '');
   let camera = $state<string>(_sp.camera ?? '');
-  let tags = $state<string[]>([]);
+  let tags = $state<string[]>(_sp.tags ?? []);
   let category = $state<string>(_sp.category ?? 'other');
   let scope = $state<string>(_sp.scope ?? '');
   let focal_modifier = $state<string>(_sp.focal_modifier ?? '');
@@ -60,7 +60,6 @@
   let filtersString = $derived(filterChips.map((f) => f.display_name).join(', '));
   let guiding = $state<string>(_sp.guiding ?? '');
   let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
-  // TODO(P2): load existing tags from photo_tags join in the load function.
 
   async function onApplySetup(req: { setup_id: string; mode: 'fill_empty' | 'overwrite' }) {
     const r = await fetch(`${API}/api/photos/${data.photo.id}/apply-setup`, {
