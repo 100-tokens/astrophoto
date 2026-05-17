@@ -3,12 +3,16 @@
     value = $bindable(''),
     name,
     action,
-    type = 'text'
+    type = 'text',
+    ariaLabel
   }: {
     value: string;
     name: string;
     action: string;
     type?: string;
+    /** Screen-reader name when the visible label sits outside the input
+        (e.g. inside a Row/Field wrapper that uses <span class="label">). */
+    ariaLabel?: string;
   } = $props();
 
   let saved = $state(false);
@@ -50,7 +54,7 @@
 </script>
 
 <div class="autosave">
-  <input {type} {name} {value} oninput={onInput} class="input" />
+  <input {type} {name} {value} oninput={onInput} class="input" aria-label={ariaLabel ?? name} />
   {#if saved}<span class="saved">● Saved</span>{/if}
   {#if error}<span class="err">● Save failed — retry</span>{/if}
 </div>

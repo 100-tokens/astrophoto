@@ -12,6 +12,6 @@
 
 <Section title="Profile" description="How you appear under your photos.">
   <Row label="DISPLAY NAME">
-    <AutosaveField bind:value={name} name="display_name" action="" />
+    <AutosaveField bind:value={name} name="display_name" action="" ariaLabel="Display name" />
   </Row>
 </Section>
