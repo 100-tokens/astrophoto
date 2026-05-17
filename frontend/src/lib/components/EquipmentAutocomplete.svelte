@@ -150,6 +150,7 @@
     onblur={onBlur}
     autocomplete="off"
     spellcheck="false"
+    aria-label={label ?? kind}
     aria-autocomplete="list"
     aria-expanded={items.length > 0}
   />
