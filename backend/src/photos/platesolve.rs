@@ -442,6 +442,7 @@ pub async fn save_error(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
 
