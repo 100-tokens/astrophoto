@@ -268,6 +268,7 @@
     onblur={() => setTimeout(() => (open = false), 150)}
     onkeydown={onKey}
     placeholder={items.length ? '' : placeholder}
+    aria-label={placeholder}
   />
 
   {#if open}

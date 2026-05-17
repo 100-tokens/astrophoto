@@ -58,7 +58,13 @@
     </span>
   {/if}
   {#if removable}
-    <button class="fchip-x" type="button" onclick={onRemove} title="Remove">
+    <button
+      class="fchip-x"
+      type="button"
+      onclick={onRemove}
+      title="Remove"
+      aria-label="Remove {filter.display_name}"
+    >
       <svg
         width="9"
         height="9"
