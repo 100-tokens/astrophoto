@@ -632,12 +632,16 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-top: 24px;
   }
   .action-share {
     margin-left: auto;
   }
+  /* The auto-margin on .action-share is a no-op when the row wraps
+     (the buttons land on a new line); flex-wrap is the safety net so
+     owner actions (Replace, Delete) don't clip on tablet widths. */
 
   .filter-strip-head {
     display: flex;
