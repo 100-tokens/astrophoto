@@ -83,6 +83,7 @@
       type="search"
       class="input search-input"
       placeholder="Search for an object…"
+      aria-label="Search for an object"
       value={q}
       oninput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
     />

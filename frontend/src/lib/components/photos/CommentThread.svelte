@@ -145,6 +145,7 @@
     <form class="composer" onsubmit={post}>
       <textarea
         placeholder="Add a comment…"
+        aria-label="Add a comment"
         bind:value={draft}
         rows="3"
         maxlength="2000"
