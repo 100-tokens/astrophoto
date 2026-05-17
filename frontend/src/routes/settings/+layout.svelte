@@ -133,4 +133,44 @@
     margin-top: 32px;
     line-height: 1.6;
   }
+
+  /* Mobile: stack nav above content, scrollable horizontal nav. */
+  @media (max-width: 900px) {
+    .settings-shell {
+      padding: 24px 16px;
+    }
+    h1 {
+      font-size: 32px;
+    }
+    .settings-grid {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .settings-nav {
+      position: static;
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      scrollbar-width: none;
+    }
+    .settings-nav::-webkit-scrollbar {
+      display: none;
+    }
+    .nav-item {
+      padding: 8px 0;
+      white-space: nowrap;
+    }
+    .nav-item.active {
+      border-left: none;
+      border-bottom: 2px solid var(--accent);
+      padding-left: 0;
+      padding-bottom: 6px;
+      background: transparent;
+    }
+    .footer-note {
+      display: none;
+    }
+  }
 </style>
