@@ -328,4 +328,34 @@
     color: inherit;
     text-decoration: underline;
   }
+
+  /* Mobile: tighten padding, stack header rows, downsize displays. */
+  @media (max-width: 768px) {
+    .header {
+      padding: 24px 16px;
+    }
+    .header-explore,
+    .header-target,
+    .header-equipment {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .header-right {
+      align-items: flex-start;
+      text-align: left;
+      flex-direction: row;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .display {
+      font-size: 32px;
+    }
+    .display-equipment {
+      font-size: 36px;
+    }
+    .target-slug {
+      font-size: 36px;
+    }
+  }
 </style>
