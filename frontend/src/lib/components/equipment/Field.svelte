@@ -17,7 +17,7 @@
   const showAuto = $derived(detected === 'auto');
 </script>
 
-<div class="field" class:is-full={full}>
+<label class="field" class:is-full={full}>
   <div class="field-head">
     <span class="t-label">{label}</span>
     {#if showDetected}
@@ -29,12 +29,12 @@
   {#if children}
     {@render children()}
   {:else}
-    <input class="input" class:input-mono={mono} {value} />
+    <input class="input" class:input-mono={mono} {value} aria-label={label} />
   {/if}
   {#if hint}
     <span class="field-hint t-meta">{hint}</span>
   {/if}
-</div>
+</label>
 
 <style>
   .field {
