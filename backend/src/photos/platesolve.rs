@@ -1,0 +1,557 @@
+//! HTTP client for the plate-solve service
+//! (xisf-rs-platesolve-server at `platesolve.astrophoto.pics`).
+//!
+//! # Scope today
+//!
+//! This module ships the typed client + a thin "save the result"
+//! helper. It does **not** wire into the upload pipeline yet —
+//! astrophoto's image pipeline only accepts JPEG/PNG/TIFF
+//! (`photos::magic`), but the plate-solve service only accepts XISF.
+//! Bridging the two requires a design decision (decode XISF into a
+//! derived JPEG inside astrophoto vs. accept XISF as a separate
+//! "calibrated master" alongside the existing photo upload). See
+//! `docs/platesolve-integration.md` for the deferred decision.
+//!
+//! What this module **does** ship:
+//!
+//! - [`PlatesolveClient`] — a `reqwest`-backed client with API-key
+//!   auth, timeouts, and structured error mapping.
+//! - [`PlatesolveResult`] — the parsed response shape, mirroring
+//!   the server's `SolveResp`.
+//! - [`save_result`] — writes the solve outcome onto a `photos` row
+//!   (RA/Dec → existing columns; ancillary telemetry → the new
+//!   `platesolve_*` columns added in migration 0021).
+//!
+//! Once the XISF-support question is settled, a small `solve_for_photo`
+//! that ties upload → solve → save can wrap these.
+//!
+//! # Configuration
+//!
+//! Two env vars (see [`crate::config::Config`]):
+//! - `APP_PLATESOLVE_BASE_URL` — `https://platesolve.astrophoto.pics` in
+//!   prod; unset disables the feature.
+//! - `APP_PLATESOLVE_API_KEY` — secret bearer token; required if
+//!   the base URL is set.
+//!
+//! # Error semantics
+//!
+//! Every variant of [`PlatesolveError`] maps 1:1 to a documented
+//! status the server returns (see
+//! `xisf-rs/docs/platesolve-service-spec.md`). Callers can branch on
+//! the variant to decide whether to retry (rate-limited /
+//! service-unavailable → yes, after the `retry_after_secs` hint),
+//! ask the user for more input (no-hint → "please fill RA/Dec"), or
+//! treat the file as unsolvable (solve-failed / unsupported-media).
+
+use std::time::Duration;
+
+use bytes::Bytes;
+use chrono::Utc;
+use reqwest::{Client, StatusCode, multipart};
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use thiserror::Error;
+use tracing::{info, warn};
+use ts_rs::TS;
+use uuid::Uuid;
+
+use crate::config::Config;
+use crate::error::AppError;
+
+/// Typed wrapper around the `/v1/solve` HTTP API. Construct once at
+/// boot via [`PlatesolveClient::from_config`] and share across the
+/// app via `Arc` — `reqwest::Client` is itself an `Arc` of a pool
+/// so cloning is cheap.
+#[derive(Debug, Clone)]
+pub struct PlatesolveClient {
+    inner: Client,
+    base_url: String,
+    api_key: String,
+}
+
+impl PlatesolveClient {
+    /// Build a client from the populated `[platesolve_*]` config
+    /// fields. Returns `Ok(None)` when the base URL is unset (the
+    /// feature is opt-in); returns `Err` when the URL is set but the
+    /// key is missing or empty (misconfiguration we want to surface
+    /// at boot, not at first solve attempt).
+    pub fn from_config(config: &Config) -> Result<Option<Self>, AppError> {
+        let Some(base_url) = config.platesolve_base_url.as_deref() else {
+            return Ok(None);
+        };
+        let key = config
+            .platesolve_api_key
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if key.is_empty() {
+            return Err(AppError::Internal(
+                "APP_PLATESOLVE_BASE_URL is set but APP_PLATESOLVE_API_KEY is missing — \
+                 the plate-solve service requires bearer auth"
+                    .into(),
+            ));
+        }
+        let inner = Client::builder()
+            .timeout(Duration::from_secs(config.platesolve_timeout_secs))
+            // Disable redirects — the service is HTTPS-direct, any
+            // redirect is suspicious (DNS hijack, MITM, captive
+            // portal). Fail fast instead.
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| AppError::Internal(format!("build reqwest client: {e}")))?;
+        Ok(Some(Self {
+            inner,
+            base_url: base_url.trim_end_matches('/').to_string(),
+            api_key: key,
+        }))
+    }
+
+    /// POST the XISF bytes to `/v1/solve` and return the parsed
+    /// response. The optional `caller_options` shadow any header-
+    /// derived hint (caller wins per field on the server side).
+    pub async fn solve_xisf(
+        &self,
+        xisf_bytes: Bytes,
+        filename: &str,
+        caller_options: Option<&SolveOptions>,
+    ) -> Result<PlatesolveResult, PlatesolveError> {
+        let part = multipart::Part::stream(reqwest::Body::from(xisf_bytes))
+            .file_name(filename.to_string())
+            .mime_str("application/x-xisf")
+            .map_err(|e| PlatesolveError::Internal(format!("mime construct: {e}")))?;
+        let mut form = multipart::Form::new().part("image", part);
+        if let Some(opts) = caller_options {
+            let json = serde_json::to_string(opts)
+                .map_err(|e| PlatesolveError::Internal(format!("options serialize: {e}")))?;
+            form = form.text("options", json);
+        }
+        let url = format!("{}/v1/solve", self.base_url);
+        let resp = self
+            .inner
+            .post(&url)
+            .bearer_auth(&self.api_key)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(PlatesolveError::from_reqwest)?;
+        let status = resp.status();
+        if status.is_success() {
+            return resp
+                .json::<PlatesolveResult>()
+                .await
+                .map_err(|e| PlatesolveError::Internal(format!("decode success body: {e}")));
+        }
+        // Try to parse the structured error body emitted by the
+        // server's `AppError::IntoResponse`. If decoding fails fall
+        // back to the raw status — happens for upstream-proxy errors
+        // (Caddy 502, body-limit 413 at the proxy) which return
+        // HTML / plain text.
+        let body_bytes = resp.bytes().await.unwrap_or_default();
+        let parsed: Option<ServerErrorBody> = serde_json::from_slice(&body_bytes).ok();
+        Err(PlatesolveError::from_status(status, parsed))
+    }
+}
+
+// ─────────────────────────────────────────────────────── request types
+
+/// Optional hint overrides for the solve. Every field set takes
+/// precedence over what the server extracts from the XISF header.
+/// Mirrors `xisf-rs-platesolve-server::handlers::solve::SolveOptions`
+/// — keep field names in sync.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export, rename_all = "camelCase")]
+pub struct SolveOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ra_deg: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dec_deg: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pixel_scale_arcsec: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rotation_deg: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flip_x: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub obs_epoch_jyear: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_catalog_stars: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub magnitude_limit: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detection_threshold: Option<f64>,
+}
+
+// ─────────────────────────────────────────────────────── response types
+
+/// Successful solve. Field names mirror the server's `SolveResp`.
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export, rename_all = "camelCase")]
+pub struct PlatesolveResult {
+    pub wcs: Wcs,
+    pub rms_arcsec: f64,
+    pub matched_count: usize,
+    pub detected_count: usize,
+    pub iterations: u32,
+    pub obs_epoch_jyear: f64,
+    pub hint_source: HintSource,
+    pub fits: Vec<FitsKeyword>,
+    pub pcl_properties: Vec<PclProperty>,
+    pub has_distortion: bool,
+    pub elapsed_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export, rename_all = "camelCase")]
+pub struct Wcs {
+    pub ra_deg: f64,
+    pub dec_deg: f64,
+    pub pixel_scale_arcsec: f64,
+    pub rotation_deg: f64,
+    pub flip_x: bool,
+    pub crpix_x: f64,
+    pub crpix_y: f64,
+    pub cd: [[f64; 2]; 2],
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct FitsKeyword {
+    pub name: String,
+    pub value: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub comment: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct PclProperty {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export, rename_all = "camelCase")]
+pub struct HintSource {
+    pub ra: String,
+    pub dec: String,
+    pub scale: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<String>,
+}
+
+// ─────────────────────────────────────────────────────── error model
+
+/// Structured failure modes returned by `/v1/solve`. Each variant
+/// maps to a documented status code per the service spec; callers
+/// can branch on the variant to decide retry / surface-to-user /
+/// give-up behaviour.
+#[derive(Debug, Error)]
+pub enum PlatesolveError {
+    /// Caller didn't provide a hint and the XISF header had none
+    /// either. The UI should ask the user to fill RA/Dec/scale.
+    /// HTTP 422 with `error="no-hint-available"`.
+    #[error("plate-solve needs a hint — pass RA/Dec/scale or upload an XISF with header metadata")]
+    NoHintAvailable,
+    /// The solver ran but didn't converge (too few matches, wrong
+    /// hint, sparse field, bad scale). Not retryable with the same
+    /// inputs. HTTP 422.
+    #[error("solve failed: {0}")]
+    SolveFailed(String),
+    /// The XISF parser rejected the upload (bad signature, malformed
+    /// header, over-limit dimensions). HTTP 415.
+    #[error("unsupported XISF: {0}")]
+    UnsupportedMedia(String),
+    /// 400 — malformed multipart, bad options JSON, etc.
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    /// 401 — API key wrong. Operator problem, not user-facing.
+    #[error("plate-solve service rejected our API key")]
+    Unauthorized,
+    /// 413 — upload too large for the configured server limit
+    /// (256 MB by default).
+    #[error("XISF too large for the plate-solve service (max 256 MB)")]
+    PayloadTooLarge,
+    /// 429 — service rate-limited us (per-key or per-IP). Retry
+    /// after `retry_after_secs`.
+    #[error("plate-solve service rate-limited; retry in {retry_after_secs}s")]
+    RateLimited { retry_after_secs: u32 },
+    /// 503 — service queue full or hit the wall-clock cap. Retry
+    /// after `retry_after_secs`.
+    #[error("plate-solve service unavailable; retry in {retry_after_secs}s")]
+    ServiceUnavailable { retry_after_secs: u32 },
+    /// Network / TLS / DNS / timeout — anything before the server
+    /// returned a status code.
+    #[error("network failure talking to plate-solve service: {0}")]
+    Transport(String),
+    /// 5xx from the server, or a body shape we couldn't decode.
+    /// Operator should check the service logs.
+    #[error("plate-solve internal error: {0}")]
+    Internal(String),
+}
+
+impl PlatesolveError {
+    fn from_status(status: StatusCode, body: Option<ServerErrorBody>) -> Self {
+        let detail = body
+            .as_ref()
+            .map(|b| b.detail.clone())
+            .unwrap_or_else(|| format!("status {status}"));
+        let retry_after = body.as_ref().and_then(|b| b.retry_after_secs).unwrap_or(30);
+        match status {
+            StatusCode::UNPROCESSABLE_ENTITY => match body.as_ref().map(|b| b.error.as_str()) {
+                Some("no-hint-available") => Self::NoHintAvailable,
+                _ => Self::SolveFailed(detail),
+            },
+            StatusCode::UNSUPPORTED_MEDIA_TYPE => Self::UnsupportedMedia(detail),
+            StatusCode::BAD_REQUEST => Self::BadRequest(detail),
+            StatusCode::UNAUTHORIZED => Self::Unauthorized,
+            StatusCode::PAYLOAD_TOO_LARGE => Self::PayloadTooLarge,
+            StatusCode::TOO_MANY_REQUESTS => Self::RateLimited {
+                retry_after_secs: retry_after,
+            },
+            StatusCode::SERVICE_UNAVAILABLE => Self::ServiceUnavailable {
+                retry_after_secs: retry_after,
+            },
+            _ => Self::Internal(format!("unexpected status {status}: {detail}")),
+        }
+    }
+
+    fn from_reqwest(e: reqwest::Error) -> Self {
+        if e.is_timeout() {
+            Self::Transport(format!("timeout: {e}"))
+        } else if e.is_connect() {
+            Self::Transport(format!("connection failed: {e}"))
+        } else {
+            Self::Transport(format!("{e}"))
+        }
+    }
+}
+
+/// Internal representation of the server's
+/// `{error, detail, retry_after_secs?, required?}` JSON body.
+#[derive(Debug, Deserialize)]
+struct ServerErrorBody {
+    error: String,
+    #[serde(default)]
+    detail: String,
+    #[serde(default)]
+    retry_after_secs: Option<u32>,
+}
+
+// ─────────────────────────────────────────────────────── persistence
+
+/// Write the successful solve onto the photo's database row. RA/Dec
+/// overwrite the existing columns (which were previously manually
+/// surfaced via the verify form); the ancillary telemetry lands in
+/// the `platesolve_*` columns added by migration 0021.
+///
+/// On a previous failed attempt (`platesolve_error` was set), this
+/// clears the error so the success replaces the failure cleanly.
+pub async fn save_result(
+    pool: &PgPool,
+    photo_id: Uuid,
+    result: &PlatesolveResult,
+) -> Result<(), AppError> {
+    let embed_json = serde_json::json!({
+        "wcs": result.wcs,
+        "fits": result.fits,
+        "pcl_properties": result.pcl_properties,
+        "hint_source": result.hint_source,
+        "rms_arcsec": result.rms_arcsec,
+        "matched_count": result.matched_count,
+        "detected_count": result.detected_count,
+        "iterations": result.iterations,
+        "obs_epoch_jyear": result.obs_epoch_jyear,
+        "has_distortion": result.has_distortion,
+    });
+    let solved_at = Utc::now();
+    // Runtime query (not `sqlx::query!`) on purpose — the new
+    // `platesolve_*` columns ship with migration 0021. Until
+    // `cargo sqlx prepare` is rerun against a DB that has the
+    // migration applied, the compile-time-checked macro would fail
+    // the build. The runtime form trades off-the-shelf type checking
+    // for the ability to ship the module and the migration together.
+    // Promote to `sqlx::query!` after regenerating .sqlx/.
+    sqlx::query(
+        r#"
+        update photos
+           set ra_deg                        = $1,
+               dec_deg                       = $2,
+               platesolve_pixel_scale_arcsec = $3,
+               platesolve_rotation_deg       = $4,
+               platesolve_rms_arcsec         = $5,
+               platesolve_matched_count      = $6,
+               platesolve_detected_count     = $7,
+               platesolve_solved_at          = $8,
+               platesolve_embed_json         = $9,
+               platesolve_error              = null
+         where id = $10
+        "#,
+    )
+    .bind(result.wcs.ra_deg)
+    .bind(result.wcs.dec_deg)
+    .bind(result.wcs.pixel_scale_arcsec as f32)
+    .bind(result.wcs.rotation_deg as f32)
+    .bind(result.rms_arcsec as f32)
+    .bind(result.matched_count as i32)
+    .bind(result.detected_count as i32)
+    .bind(solved_at)
+    .bind(embed_json)
+    .bind(photo_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::from)?;
+    info!(
+        photo_id = %photo_id,
+        rms_arcsec = result.rms_arcsec,
+        matched = result.matched_count,
+        "plate-solve persisted"
+    );
+    Ok(())
+}
+
+/// Record a failed solve attempt. The success path will clear the
+/// `platesolve_error` column on the next successful run. Surfaces a
+/// short human-readable reason — full diagnostic detail goes to
+/// `tracing`.
+pub async fn save_error(
+    pool: &PgPool,
+    photo_id: Uuid,
+    error: &PlatesolveError,
+) -> Result<(), AppError> {
+    let reason = error.to_string();
+    warn!(
+        photo_id = %photo_id,
+        error = %error,
+        "plate-solve failure recorded"
+    );
+    // Runtime query — see note in `save_result` above.
+    sqlx::query(r#"update photos set platesolve_error = $1 where id = $2"#)
+        .bind(&reason)
+        .bind(photo_id)
+        .execute(pool)
+        .await
+        .map_err(AppError::from)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with_base_url(base: Option<&str>, key: Option<&str>) -> Config {
+        Config {
+            bind: "0.0.0.0:0".into(),
+            log: "info".into(),
+            database_url: "postgres://x".into(),
+            session_domain: "localhost".into(),
+            session_secure: false,
+            public_base_url: "http://localhost".into(),
+            s3_endpoint: None,
+            s3_region: "us-east-1".into(),
+            s3_bucket: "b".into(),
+            s3_access_key: "a".into(),
+            s3_secret_key: "s".into(),
+            s3_path_style: true,
+            cdn_base_url: "http://localhost".into(),
+            cdn_local_fallback: false,
+            cors_origin: None,
+            oauth_google_client_id: String::new(),
+            oauth_google_client_secret: String::new(),
+            oauth_google_redirect_url: String::new(),
+            smtp_host: "localhost".into(),
+            smtp_port: 1025,
+            smtp_user: String::new(),
+            smtp_pass: String::new(),
+            mail_from: "x@x".into(),
+            smtp_tls: false,
+            platesolve_base_url: base.map(str::to_string),
+            platesolve_api_key: key.map(str::to_string),
+            platesolve_timeout_secs: 90,
+        }
+    }
+
+    #[test]
+    fn from_config_returns_none_when_base_url_unset() {
+        let cfg = config_with_base_url(None, None);
+        let result = PlatesolveClient::from_config(&cfg).expect("ok");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn from_config_errors_when_key_missing() {
+        let cfg = config_with_base_url(Some("https://platesolve.astrophoto.pics"), None);
+        let err = PlatesolveClient::from_config(&cfg)
+            .err()
+            .expect("must fail without key");
+        match err {
+            AppError::Internal(msg) => assert!(msg.contains("APP_PLATESOLVE_API_KEY")),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn from_config_builds_client() {
+        let cfg = config_with_base_url(
+            Some("https://platesolve.astrophoto.pics/"),
+            Some("test-key"),
+        );
+        let client = PlatesolveClient::from_config(&cfg)
+            .expect("ok")
+            .expect("client built");
+        // Trailing slash gets stripped so URLs concatenate cleanly.
+        assert_eq!(client.base_url, "https://platesolve.astrophoto.pics");
+        assert_eq!(client.api_key, "test-key");
+    }
+
+    #[test]
+    fn from_status_maps_no_hint_to_typed_variant() {
+        let body = ServerErrorBody {
+            error: "no-hint-available".into(),
+            detail: "no hint".into(),
+            retry_after_secs: None,
+        };
+        let e = PlatesolveError::from_status(StatusCode::UNPROCESSABLE_ENTITY, Some(body));
+        assert!(matches!(e, PlatesolveError::NoHintAvailable));
+    }
+
+    #[test]
+    fn from_status_maps_solve_failed() {
+        let body = ServerErrorBody {
+            error: "solve-failed".into(),
+            detail: "too few stars".into(),
+            retry_after_secs: None,
+        };
+        let e = PlatesolveError::from_status(StatusCode::UNPROCESSABLE_ENTITY, Some(body));
+        match e {
+            PlatesolveError::SolveFailed(s) => assert_eq!(s, "too few stars"),
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn from_status_preserves_retry_after_on_rate_limit() {
+        let body = ServerErrorBody {
+            error: "rate-limited".into(),
+            detail: "slow down".into(),
+            retry_after_secs: Some(45),
+        };
+        let e = PlatesolveError::from_status(StatusCode::TOO_MANY_REQUESTS, Some(body));
+        match e {
+            PlatesolveError::RateLimited { retry_after_secs } => assert_eq!(retry_after_secs, 45),
+            other => panic!("unexpected: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn from_status_falls_back_to_internal_on_unknown_status() {
+        let e = PlatesolveError::from_status(StatusCode::IM_A_TEAPOT, None);
+        assert!(matches!(e, PlatesolveError::Internal(_)));
+    }
+}
