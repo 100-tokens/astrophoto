@@ -14,6 +14,7 @@ pub mod magic;
 pub mod metadata;
 pub mod permalink;
 pub mod pipeline;
+pub mod platesolve;
 pub mod publish;
 pub mod queries;
 pub mod redirect;
