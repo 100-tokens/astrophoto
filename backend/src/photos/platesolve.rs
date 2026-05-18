@@ -1,29 +1,25 @@
 //! HTTP client for the plate-solve service
 //! (xisf-rs-platesolve-server at `platesolve.astrophoto.pics`).
 //!
-//! # Scope today
+//! # Scope
 //!
-//! This module ships the typed client + a thin "save the result"
-//! helper. It does **not** wire into the upload pipeline yet —
-//! astrophoto's image pipeline only accepts JPEG/PNG/TIFF
-//! (`photos::magic`), but the plate-solve service only accepts XISF.
-//! Bridging the two requires a design decision (decode XISF into a
-//! derived JPEG inside astrophoto vs. accept XISF as a separate
-//! "calibrated master" alongside the existing photo upload). See
-//! `docs/platesolve-integration.md` for the deferred decision.
-//!
-//! What this module **does** ship:
+//! This module ships the typed client + the persistence /
+//! concurrency primitives used by the side-channel upload handler
+//! in [`crate::photos::platesolve_upload`]. XISF is accepted only
+//! via that endpoint — it is NOT a member of the standard upload
+//! pipeline's mime allowlist. See `docs/platesolve-integration.md`
+//! for the strategy choice (v1 = "Strategy A", side-channel).
 //!
 //! - [`PlatesolveClient`] — a `reqwest`-backed client with API-key
 //!   auth, timeouts, and structured error mapping.
 //! - [`PlatesolveResult`] — the parsed response shape, mirroring
 //!   the server's `SolveResp`.
 //! - [`save_result`] — writes the solve outcome onto a `photos` row
-//!   (RA/Dec → existing columns; ancillary telemetry → the new
+//!   (RA/Dec → existing columns; ancillary telemetry → the
 //!   `platesolve_*` columns added in migration 0021).
-//!
-//! Once the XISF-support question is settled, a small `solve_for_photo`
-//! that ties upload → solve → save can wrap these.
+//! - [`try_claim`] / [`mark_aborted_if_solving`] —
+//!   atomic in-progress sentinel management used by the spawned
+//!   background task.
 //!
 //! # Configuration
 //!
@@ -57,6 +53,28 @@ use uuid::Uuid;
 
 use crate::config::Config;
 use crate::error::AppError;
+
+/// Hard cap on the size of an XISF body the side-channel
+/// `/api/photos/:id/platesolve` endpoint will accept. Sized for the
+/// Koyeb Nano/Micro tier (≤512 MB RSS) with concurrency bounded to 1
+/// in `http::AppState::platesolve_permits`. The upstream service caps
+/// at 256 MB (see `xisf-rs/docs/platesolve-service-spec.md`); we
+/// reject earlier so we never buffer something the service would
+/// refuse anyway.
+pub const MAX_XISF_BYTES: usize = 128 * 1024 * 1024;
+
+/// Sentinel value written to `photos.platesolve_error` while a solve
+/// is in flight. The UI distinguishes "solving" from "failed" by
+/// matching on this exact string. Cleared by [`save_result`] /
+/// [`save_error`] on completion, or by [`mark_aborted_if_solving`] if
+/// the background task panics / the process dies mid-solve.
+pub const SOLVING_SENTINEL: &str = "solving";
+
+/// Replaces [`SOLVING_SENTINEL`] when the background task drops without
+/// ever calling [`save_result`] or [`save_error`] — i.e. it panicked
+/// or the tokio runtime is shutting down. Surfaces to the UI as
+/// "you can retry to clear" rather than leaving the photo stuck.
+pub const ABORTED_SENTINEL: &str = "stuck: solver aborted, retry to clear";
 
 /// Typed wrapper around the `/v1/solve` HTTP API. Construct once at
 /// boot via [`PlatesolveClient::from_config`] and share across the
@@ -441,6 +459,111 @@ pub async fn save_error(
     Ok(())
 }
 
+/// Outcome of an atomic attempt to mark a photo as "solving in
+/// progress". The handler maps each variant to a distinct status
+/// code (404 / 409 / 202).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaimOutcome {
+    /// Sentinel was set; caller now owns the lock and must call
+    /// either `save_result` / `save_error` (success path) or
+    /// [`mark_aborted_if_solving`] (drop-guard path) before the
+    /// background task ends.
+    Claimed,
+    /// Photo doesn't exist or isn't owned by `user_id`.
+    NotFound,
+    /// `platesolve_error` was already set to [`SOLVING_SENTINEL`].
+    /// Another solve is in flight; bounce the caller with 409.
+    AlreadySolving,
+}
+
+/// Atomically mark a photo as "solving" iff it's owned by `user_id`
+/// and not already mid-solve. One UPDATE under the hood — no TOCTOU
+/// between a separate ownership check and the sentinel write.
+///
+/// Note that *retrying* a previously-failed solve is allowed: any
+/// non-null `platesolve_error` that isn't the in-flight sentinel
+/// gets overwritten. The success path (`save_result`) clears the
+/// sentinel cleanly when the new attempt converges.
+pub async fn try_claim(
+    pool: &PgPool,
+    photo_id: Uuid,
+    user_id: Uuid,
+) -> Result<ClaimOutcome, AppError> {
+    // Two queries: a cheap ownership check to distinguish 404 from
+    // 409, then the atomic claim. The race window between them is
+    // benign — a concurrent delete makes the claim return 0 rows,
+    // which we report as AlreadySolving and the caller sees 409;
+    // a concurrent solve attempt simply means one wins the claim
+    // and the other is correctly rejected.
+    let owner: Option<Uuid> = sqlx::query_scalar(r#"select owner_id from photos where id = $1"#)
+        .bind(photo_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::from)?;
+    let Some(owner_id) = owner else {
+        return Ok(ClaimOutcome::NotFound);
+    };
+    if owner_id != user_id {
+        // Same as upload_finalize: hide existence under 404 rather
+        // than reveal it via 403.
+        return Ok(ClaimOutcome::NotFound);
+    }
+    // Runtime query — see note in `save_result`.
+    let rows = sqlx::query(
+        r#"
+        update photos
+           set platesolve_error = $1
+         where id = $2
+           and (platesolve_error is null or platesolve_error <> $1)
+        "#,
+    )
+    .bind(SOLVING_SENTINEL)
+    .bind(photo_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::from)?
+    .rows_affected();
+    if rows == 0 {
+        Ok(ClaimOutcome::AlreadySolving)
+    } else {
+        Ok(ClaimOutcome::Claimed)
+    }
+}
+
+/// Drop-guard cleanup: if the spawned background task is dropped
+/// (panic, runtime shutdown) while the sentinel is still set, swap
+/// the sentinel for [`ABORTED_SENTINEL`] so the photo is resolvable
+/// again on the next user action. Best-effort; logs but does not
+/// propagate errors (we're already in a failure path).
+///
+/// Fires-and-forgets a tokio task because `Drop` is synchronous. If
+/// the runtime is itself shutting down the spawn won't run — this is
+/// the documented gap. Future work: a periodic `photos::cleanup`
+/// sweep that ages out `platesolve_error = SOLVING_SENTINEL` rows
+/// older than N minutes.
+pub fn mark_aborted_if_solving(pool: PgPool, photo_id: Uuid) {
+    tokio::spawn(async move {
+        // Runtime query — see note in `save_result`.
+        let res = sqlx::query(
+            r#"update photos set platesolve_error = $1 where id = $2 and platesolve_error = $3"#,
+        )
+        .bind(ABORTED_SENTINEL)
+        .bind(photo_id)
+        .bind(SOLVING_SENTINEL)
+        .execute(&pool)
+        .await;
+        if let Err(e) = res {
+            // Don't bubble — we're already a cleanup path. Visibility
+            // via tracing is enough.
+            warn!(
+                photo_id = %photo_id,
+                error = %e,
+                "failed to mark aborted plate-solve sentinel; operator may need to clear manually"
+            );
+        }
+    });
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -488,9 +611,7 @@ mod tests {
     #[test]
     fn from_config_errors_when_key_missing() {
         let cfg = config_with_base_url(Some("https://platesolve.astrophoto.pics"), None);
-        let err = PlatesolveClient::from_config(&cfg)
-            .err()
-            .expect("must fail without key");
+        let err = PlatesolveClient::from_config(&cfg).expect_err("must fail without key");
         match err {
             AppError::Internal(msg) => assert!(msg.contains("APP_PLATESOLVE_API_KEY")),
             other => panic!("unexpected error: {other:?}"),

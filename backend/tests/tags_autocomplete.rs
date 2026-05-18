@@ -41,6 +41,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -59,7 +62,13 @@ async fn make_app() -> (axum::Router, sqlx::PgPool) {
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
     // Keep `pg` alive for the duration of the test by leaking it.
     std::mem::forget(pg);
-    let router = http::router(pool.clone(), config_for(&url), storage, Arc::new(mailer));
+    let router = http::router(
+        pool.clone(),
+        config_for(&url),
+        storage,
+        Arc::new(mailer),
+        None,
+    );
     (router, pool)
 }
 

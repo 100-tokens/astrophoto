@@ -46,6 +46,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -75,9 +78,9 @@ async fn boot() -> (
     let (mailer, outbox) = Mailer::for_test();
     // Wrap with MockConnectInfo so ConnectInfo<SocketAddr> extracts correctly
     // without needing a real TCP listener.
-    let app = http::router(pool.clone(), cfg, storage, Arc::new(mailer)).layer(MockConnectInfo(
-        std::net::SocketAddr::from(([127, 0, 0, 1], 9999)),
-    ));
+    let app = http::router(pool.clone(), cfg, storage, Arc::new(mailer), None).layer(
+        MockConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 9999))),
+    );
     (app, pool, outbox, pg)
 }
 

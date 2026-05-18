@@ -104,6 +104,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -126,6 +129,7 @@ async fn rename_handle_writes_redirect_row() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // 1. Sign up as 'marie'.
@@ -194,6 +198,7 @@ async fn rename_handle_same_handle_returns_204() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // Sign up as 'astro'.
@@ -249,6 +254,7 @@ async fn rename_handle_conflict_returns_409() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // Sign up 'user1'.
@@ -296,6 +302,7 @@ async fn rename_handle_unauthenticated_returns_401() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // No cookie provided.
@@ -335,6 +342,7 @@ async fn rename_handle_invalid_format_returns_422() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // Sign up a user.

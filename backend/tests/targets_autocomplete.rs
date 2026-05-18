@@ -41,6 +41,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -60,7 +63,7 @@ async fn make_app() -> axum::Router {
     // Keep `pg` alive for the duration of the test by leaking it.
     // testcontainers drops the container when the handle is dropped.
     std::mem::forget(pg);
-    http::router(pool, config_for(&url), storage, Arc::new(mailer))
+    http::router(pool, config_for(&url), storage, Arc::new(mailer), None)
 }
 
 async fn get_json(app: axum::Router, uri: &str) -> serde_json::Value {

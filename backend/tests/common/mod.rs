@@ -54,6 +54,9 @@ pub fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -80,6 +83,7 @@ pub async fn make_app_and_pool() -> (Router, sqlx::PgPool) {
         config_for(&url),
         std::sync::Arc::new(astrophoto::storage::MemoryStorage::new()),
         std::sync::Arc::new(mailer),
+        None,
     );
     (router, pool)
 }
@@ -220,6 +224,7 @@ impl TestApp {
             config_for(&url),
             Arc::new(MemoryStorage::new()),
             Arc::new(mailer),
+            None,
         );
         Self { app, pool, _pg: pg }
     }
