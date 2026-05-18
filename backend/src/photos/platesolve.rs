@@ -200,6 +200,12 @@ pub struct SolveOptions {
     pub image_index: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detection_threshold: Option<f64>,
+    /// Ask the service to bundle a display-ready JPEG render of the
+    /// XISF in the response. When `Some(true)`, the response gains a
+    /// [`Render`] field. Default `None` (no render) keeps the
+    /// existing contract for callers that only want the WCS.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub render: Option<bool>,
 }
 
 // ─────────────────────────────────────────────────────── response types
@@ -219,6 +225,27 @@ pub struct PlatesolveResult {
     pub pcl_properties: Vec<PclProperty>,
     pub has_distortion: bool,
     pub elapsed_ms: u64,
+    /// Present iff `SolveOptions::render == Some(true)` AND the
+    /// service successfully decoded the XISF into a JPEG. Render
+    /// failure on the success path is non-fatal — the field is
+    /// omitted and the WCS still ships, so callers must `match`
+    /// rather than assume.
+    #[serde(default)]
+    pub render: Option<Render>,
+}
+
+/// Display-ready JPEG bundled with the solve response. The bytes are
+/// base64-encoded over the wire (33 % size inflation accepted in
+/// exchange for keeping the multipart parser simple on both ends).
+/// Decode with `base64::engine::general_purpose::STANDARD.decode(...)`
+/// before persisting to S3.
+#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export, rename_all = "camelCase")]
+pub struct Render {
+    pub mime: String,
+    pub width: u32,
+    pub height: u32,
+    pub bytes_b64: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, TS)]
@@ -675,5 +702,50 @@ mod tests {
     fn from_status_falls_back_to_internal_on_unknown_status() {
         let e = PlatesolveError::from_status(StatusCode::IM_A_TEAPOT, None);
         assert!(matches!(e, PlatesolveError::Internal(_)));
+    }
+
+    #[test]
+    fn parses_response_with_render_field() {
+        // New shape: the server included `render` because the caller
+        // passed `options.render = true`. The deserializer must pick
+        // it up cleanly.
+        let body = r#"{
+            "wcs": { "ra_deg": 1, "dec_deg": 2, "pixel_scale_arcsec": 1.0,
+                     "rotation_deg": 0, "flip_x": false,
+                     "crpix_x": 0, "crpix_y": 0, "cd": [[1,0],[0,1]] },
+            "rms_arcsec": 1.0, "matched_count": 10, "detected_count": 100,
+            "iterations": 1, "obs_epoch_jyear": 2024.5,
+            "hint_source": { "ra": "x", "dec": "x", "scale": "x" },
+            "fits": [], "pcl_properties": [],
+            "has_distortion": false, "elapsed_ms": 100,
+            "render": { "mime": "image/jpeg", "width": 100, "height": 100,
+                        "bytes_b64": "AAAA" }
+        }"#;
+        let r: PlatesolveResult = serde_json::from_str(body).expect("parse");
+        let render = r.render.expect("render present");
+        assert_eq!(render.mime, "image/jpeg");
+        assert_eq!(render.width, 100);
+        assert_eq!(render.height, 100);
+        assert_eq!(render.bytes_b64, "AAAA");
+    }
+
+    #[test]
+    fn parses_response_without_render_field() {
+        // Back-compat: callers that don't pass `options.render = true`
+        // (or services older than the render rollout) return a body
+        // with NO `render` key. `#[serde(default)]` on the field
+        // means deserialization must still succeed with `None`.
+        let body = r#"{
+            "wcs": { "ra_deg": 1, "dec_deg": 2, "pixel_scale_arcsec": 1.0,
+                     "rotation_deg": 0, "flip_x": false,
+                     "crpix_x": 0, "crpix_y": 0, "cd": [[1,0],[0,1]] },
+            "rms_arcsec": 1.0, "matched_count": 10, "detected_count": 100,
+            "iterations": 1, "obs_epoch_jyear": 2024.5,
+            "hint_source": { "ra": "x", "dec": "x", "scale": "x" },
+            "fits": [], "pcl_properties": [],
+            "has_distortion": false, "elapsed_ms": 100
+        }"#;
+        let r: PlatesolveResult = serde_json::from_str(body).expect("parse");
+        assert!(r.render.is_none());
     }
 }
