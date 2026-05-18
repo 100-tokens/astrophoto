@@ -44,7 +44,10 @@
       if (!items) return;
       const files: File[] = [];
       for (const item of items) {
-        if (item.kind === 'file' && item.type.startsWith('image/')) {
+        // XISF gets a `.xisf` extension but the browser leaves
+        // item.type empty, so the `image/*` shortcut would miss it.
+        const isXisf = item.kind === 'file' && /\.xisf$/i.test(item.getAsFile()?.name ?? '');
+        if (item.kind === 'file' && (item.type.startsWith('image/') || isXisf)) {
           const f = item.getAsFile();
           if (f) files.push(f);
         }
@@ -97,14 +100,15 @@
   </svg>
   <span class="dz-headline t-display">Drop photos here, or click to browse</span>
   <span class="t-meta dz-sub">
-    JPEG · PNG · TIFF (16-bit) &nbsp;·&nbsp; up to {tier === 'subscriber' ? '200 MB' : '50 MB'} per file
-    &nbsp;·&nbsp; up to 12 at once
+    JPEG · PNG · TIFF (16-bit) · XISF &nbsp;·&nbsp; up to {tier === 'subscriber'
+      ? '200 MB'
+      : '50 MB'} per file &nbsp;·&nbsp; up to 12 at once
   </span>
   <input
     id={inputId}
     type="file"
     multiple
-    accept="image/jpeg,image/png,image/tiff"
+    accept="image/jpeg,image/png,image/tiff,.xisf,application/x-xisf"
     class="dz-input"
     disabled={overQuota}
     onchange={(e) => {

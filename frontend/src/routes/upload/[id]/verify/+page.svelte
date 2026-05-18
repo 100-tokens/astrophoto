@@ -237,7 +237,15 @@
   }
 
   let isPublished = $derived(!data.photo.is_draft);
-  let isProcessing = $derived(data.photo.status === 'processing');
+  // `awaiting-calibration` is the XISF-primary-upload equivalent of
+  // `processing`: the auto-platesolve background task is fetching the
+  // XISF, calling the service, persisting the render JPEG, and will
+  // transition the row to `ready` when done. The verify form treats
+  // it the same as `processing` (gated controls + polling).
+  let isProcessing = $derived(
+    data.photo.status === 'processing' || data.photo.status === 'awaiting-calibration'
+  );
+  let isAwaitingCalibration = $derived(data.photo.status === 'awaiting-calibration');
   let isFailed = $derived(data.photo.status === 'failed');
 
   // Count fields the upload pipeline recovered from EXIF for the
@@ -310,7 +318,9 @@
         <div class="preview-frame">
           {#if isProcessing}
             <div class="processing-overlay">
-              <div class="processing-eyebrow">● PROCESSING THUMBNAILS</div>
+              <div class="processing-eyebrow">
+                ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'}
+              </div>
               <div class="processing-bar" aria-hidden="true"><span></span></div>
             </div>
           {/if}
@@ -555,7 +565,10 @@
         </fieldset>
 
         {#if isProcessing}
-          <p class="t-meta">● PROCESSING THUMBNAILS — polling every 2 s</p>
+          <p class="t-meta">
+            ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'} — polling every
+            2 s
+          </p>
         {/if}
         {#if form?.error}
           <p class="t-meta form-error">{form.error}</p>

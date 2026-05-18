@@ -96,7 +96,13 @@
           const target = slots[idx];
           if (!target) return;
           target.hash = pre.hash;
-          target.thumbDataUrl = pre.thumbDataUrl;
+          // XISF: preflight returns an empty thumb (no browser decoder).
+          // Leave thumbDataUrl undefined so UploadFileRow falls back to
+          // its generic icon instead of rendering an empty <img>.
+          if (pre.thumbDataUrl) target.thumbDataUrl = pre.thumbDataUrl;
+          // Preflight resolves the wire mime (browsers report "" for
+          // `.xisf`; preflight maps it to `application/x-xisf`).
+          target.mime = pre.mime;
           target.progress = { state: 'queued', pct: 0 };
 
           const abort = new AbortController();
