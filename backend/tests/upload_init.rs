@@ -192,3 +192,139 @@ async fn upload_init_signs_url_and_dedups() {
         .unwrap();
     assert_eq!(r3.status(), 413, "oversized file should return 413");
 }
+
+#[allow(clippy::unwrap_used)]
+#[tokio::test]
+async fn upload_init_rejects_xisf_when_platesolve_unconfigured() {
+    // XISF is opt-in primary upload — it requires the plate-solve
+    // service for the auto-calibrate trigger. Without that, an XISF
+    // upload would sit in `awaiting-calibration` forever. The
+    // upload_init gate should reject early so the user gets a clean
+    // 400 instead of a stuck row.
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    // `config_for` has platesolve_base_url=None, so http::router
+    // builds AppState with platesolve=None.
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+        None,
+    );
+
+    let cookie = signup_and_get_cookie(&app, &pool, "xisfgate@example.com").await;
+
+    let body = serde_json::json!({
+        "files": [{
+            "name": "master.xisf",
+            "size": 10_000_000,
+            "mime": "application/x-xisf",
+            "hash": "xisf-no-platesolve-test"
+        }]
+    });
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/uploads/init")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status(),
+        400,
+        "XISF mime without configured plate-solve must 400 (UnsupportedFormat)"
+    );
+    let bytes = r.into_body().collect().await.unwrap().to_bytes();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let msg = v["message"].as_str().unwrap_or("");
+    assert!(
+        msg.contains("application/x-xisf"),
+        "error message should name the rejected mime; got: {msg}"
+    );
+    assert!(
+        msg.contains("not configured"),
+        "error message should explain why XISF was rejected; got: {msg}"
+    );
+}
+
+#[allow(clippy::unwrap_used)]
+#[tokio::test]
+async fn upload_init_accepts_xisf_when_platesolve_configured() {
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let mut cfg = config_for(&url);
+    cfg.platesolve_base_url = Some("http://127.0.0.1:1".into()); // unreachable, never called by init
+    cfg.platesolve_api_key = Some("test-key".into());
+    let client = astrophoto::photos::platesolve::PlatesolveClient::from_config(&cfg)
+        .unwrap()
+        .map(Arc::new);
+    let app = http::router(
+        pool.clone(),
+        cfg,
+        Arc::new(MemoryStorage::new()),
+        Arc::new(mailer),
+        client,
+    );
+
+    let cookie = signup_and_get_cookie(&app, &pool, "xisfok@example.com").await;
+
+    let body = serde_json::json!({
+        "files": [{
+            "name": "master.xisf",
+            "size": 10_000_000,
+            "mime": "application/x-xisf",
+            "hash": "xisf-with-platesolve-test"
+        }]
+    });
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/uploads/init")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status(),
+        200,
+        "XISF mime with configured plate-solve must 200 (returns presigned PUT)"
+    );
+    let bytes = r.into_body().collect().await.unwrap().to_bytes();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        v["files"][0]["presigned_put_url"].is_string(),
+        "XISF upload init should return a presigned PUT URL; got: {v}"
+    );
+}

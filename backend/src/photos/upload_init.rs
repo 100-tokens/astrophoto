@@ -71,8 +71,17 @@ pub async fn handler(
             // Pipeline auto-triggers plate-solve on the external service
             // which returns the WCS + a display JPEG + structured FITS/PCL
             // metadata. Status stays `awaiting-calibration` until that
-            // round-trip completes.
-            "application/x-xisf" => {}
+            // round-trip completes. The platesolve client must be
+            // configured on this deployment — otherwise the photo would
+            // get stuck `awaiting-calibration` forever.
+            "application/x-xisf" => {
+                if state.platesolve.is_none() {
+                    return Err(AppError::UnsupportedFormat(format!(
+                        "{} (plate-solve service not configured)",
+                        f.mime
+                    )));
+                }
+            }
             _ => return Err(AppError::UnsupportedFormat(f.mime.clone())),
         }
     }
