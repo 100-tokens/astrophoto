@@ -8,9 +8,18 @@ use axum::{
     routing::{get, post},
 };
 use sqlx::PgPool;
+use tokio::sync::Semaphore;
 use tower_http::cors::CorsLayer;
 
 use crate::config::Config;
+use crate::photos::platesolve::PlatesolveClient;
+
+/// Maximum concurrent plate-solve uploads held in memory at once. Each
+/// in-flight solve owns the full XISF body (capped by the
+/// `/platesolve` route's `DefaultBodyLimit`) for the duration of the
+/// upstream call + retries — so this bounds RSS. Sized for the Koyeb
+/// Nano/Micro tier (≤512 MB); bump once we move to a larger instance.
+const PLATESOLVE_MAX_CONCURRENT: usize = 1;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -18,6 +27,15 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub storage: Arc<dyn crate::storage::Storage>,
     pub mailer: Arc<crate::mail::Mailer>,
+    /// `None` when `APP_PLATESOLVE_BASE_URL` is unset — the
+    /// `/api/photos/:id/platesolve` route is conditionally mounted
+    /// only when this is `Some(_)`, so consumers will see a clean
+    /// 404 rather than a runtime "not configured" check.
+    pub platesolve: Option<Arc<PlatesolveClient>>,
+    /// Bounds concurrent solves so we don't OOM on small Koyeb tiers.
+    /// Always present even when `platesolve` is `None` so the handler
+    /// can short-circuit before claiming a permit.
+    pub platesolve_permits: Arc<Semaphore>,
 }
 
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
@@ -42,12 +60,15 @@ pub fn router(
     config: Config,
     storage: Arc<dyn crate::storage::Storage>,
     mailer: Arc<crate::mail::Mailer>,
+    platesolve: Option<Arc<PlatesolveClient>>,
 ) -> Router {
     let state = AppState {
         pool,
         config: Arc::new(config),
         storage,
         mailer,
+        platesolve,
+        platesolve_permits: Arc::new(Semaphore::new(PLATESOLVE_MAX_CONCURRENT)),
     };
     let mut router = Router::new()
         .route("/healthz", get(health::healthz))
@@ -338,6 +359,19 @@ pub fn router(
             "/api/search",
             axum::routing::get(crate::discovery::search::get),
         );
+
+    // Mount the side-channel plate-solve endpoint only when the
+    // upstream client is configured. Tests / dev installs without
+    // `APP_PLATESOLVE_BASE_URL` get a clean 404 from axum's matcher
+    // rather than a 500 from a runtime "not configured" check.
+    if state.platesolve.is_some() {
+        router = router.route(
+            "/api/photos/:id/platesolve",
+            post(crate::photos::platesolve_upload::handler).layer(
+                axum::extract::DefaultBodyLimit::max(crate::photos::platesolve::MAX_XISF_BYTES),
+            ),
+        );
+    }
 
     // Mount the dev CDN only when CDN_BASE_URL points back at this process.
     // In production, CloudFront is in front and this route is not needed.

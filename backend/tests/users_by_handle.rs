@@ -42,6 +42,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -138,6 +141,7 @@ async fn by_handle_hit_returns_200_with_correct_shape() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let (app, _) = signup(app, &pool, "nova@example.com", "nova", "Nova Star").await;
@@ -194,6 +198,7 @@ async fn by_handle_miss_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let resp = app
@@ -231,6 +236,7 @@ async fn redirect_hit_returns_current_handle() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // Sign up as 'oldhandle', then rename to 'newhandle'.
@@ -291,6 +297,7 @@ async fn redirect_miss_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let resp = app

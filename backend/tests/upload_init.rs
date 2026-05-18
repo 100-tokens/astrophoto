@@ -37,6 +37,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -116,6 +119,7 @@ async fn upload_init_signs_url_and_dedups() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let cookie = signup_and_get_cookie(&app, &pool, "marie@example.com").await;

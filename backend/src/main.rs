@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use astrophoto::{Config, db, http, storage::S3Storage};
+use astrophoto::{Config, db, http, photos::platesolve::PlatesolveClient, storage::S3Storage};
 use axum::http::HeaderValue;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -37,6 +37,12 @@ async fn main() -> Result<()> {
 
     let mailer = std::sync::Arc::new(astrophoto::mail::Mailer::from_env(&cfg)?);
 
+    // Build the plate-solve client up front so config errors surface
+    // at boot, not at first solve attempt. `from_config` returns
+    // `Ok(None)` when the feature is unset, `Err(_)` if the URL is
+    // set but the API key is missing/empty.
+    let platesolve = PlatesolveClient::from_config(&cfg)?.map(Arc::new);
+
     // Spawn background workers before handing pool/storage to the router.
     astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
     astrophoto::photos::cleanup::spawn_periodic(pool.clone(), storage.clone());
@@ -49,7 +55,7 @@ async fn main() -> Result<()> {
         .unwrap_or("http://localhost:5173")
         .parse()
         .expect("APP_CORS_ORIGIN is not a valid HTTP origin header value");
-    let app = http::router(pool, cfg.clone(), storage, mailer)
+    let app = http::router(pool, cfg.clone(), storage, mailer, platesolve)
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());
 

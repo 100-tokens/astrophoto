@@ -47,6 +47,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -189,7 +192,13 @@ async fn boot_app() -> (
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
     let storage = Arc::new(MemoryStorage::new());
     let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
-    let app = http::router(pool.clone(), config_for(&url), storage, Arc::new(mailer));
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        storage,
+        Arc::new(mailer),
+        None,
+    );
     (app, pool, pg)
 }
 

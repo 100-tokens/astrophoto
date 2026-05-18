@@ -37,6 +37,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -59,6 +62,7 @@ async fn signup_login_me_logout_full_flow() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // 1. signup — now returns 202 Accepted with no session cookie
@@ -208,6 +212,7 @@ async fn signup_rejects_duplicate_handle() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let body1 = serde_json::json!({

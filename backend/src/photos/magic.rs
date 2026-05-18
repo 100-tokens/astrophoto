@@ -7,8 +7,17 @@ pub enum SniffResult {
     Jpeg,
     Png,
     Tiff,
+    /// XISF (PixInsight Extensible Image Serialization Format). Recognised
+    /// for the side-channel plate-solve upload only — NOT a member of the
+    /// standard upload allowlist (`matches_mime`). See
+    /// `crate::photos::platesolve` and `docs/platesolve-integration.md`.
+    Xisf,
     Unknown,
 }
+
+/// 8-byte ASCII signature at offset 0 of every XISF v1 file
+/// (`xisf-rs-core::utils::constants::XISF_SIGNATURE`).
+const XISF_SIGNATURE: &[u8; 8] = b"XISF0100";
 
 pub fn sniff(bytes: &[u8]) -> SniffResult {
     if bytes.len() < 4 {
@@ -23,6 +32,9 @@ pub fn sniff(bytes: &[u8]) -> SniffResult {
     if bytes.starts_with(&[b'I', b'I', 0x2A, 0x00]) || bytes.starts_with(&[b'M', b'M', 0x00, 0x2A])
     {
         return SniffResult::Tiff;
+    }
+    if bytes.starts_with(XISF_SIGNATURE) {
+        return SniffResult::Xisf;
     }
     SniffResult::Unknown
 }
@@ -59,6 +71,19 @@ mod tests {
     }
 
     #[test]
+    fn xisf_signature() {
+        assert_eq!(sniff(b"XISF0100\x00\x00\x00\x00"), SniffResult::Xisf);
+    }
+
+    #[test]
+    fn xisf_wrong_version_rejected() {
+        // The current spec is v1 only ("XISF0100"); higher versions are
+        // not transparently accepted — when XISF v2 ships the parser
+        // (and this sniff) must opt in explicitly.
+        assert_eq!(sniff(b"XISF0200\x00\x00\x00\x00"), SniffResult::Unknown);
+    }
+
+    #[test]
     fn no_match_for_random() {
         assert_eq!(sniff(b"hello, world!"), SniffResult::Unknown);
     }
@@ -68,5 +93,13 @@ mod tests {
         assert!(matches_mime(SniffResult::Jpeg, "image/jpeg"));
         assert!(!matches_mime(SniffResult::Jpeg, "image/png"));
         assert!(!matches_mime(SniffResult::Unknown, "image/jpeg"));
+    }
+
+    #[test]
+    fn xisf_not_in_standard_mime_allowlist() {
+        // XISF is accepted only via the side-channel /platesolve endpoint;
+        // it must NOT pass the upload pipeline's mime check.
+        assert!(!matches_mime(SniffResult::Xisf, "image/jpeg"));
+        assert!(!matches_mime(SniffResult::Xisf, "application/x-xisf"));
     }
 }

@@ -148,7 +148,10 @@ mod tests {
             jail.set_env("APP_MAIL_FROM", "Astrophoto <noreply@astrophoto.local>");
             jail.set_env("APP_SMTP_TLS", "false");
 
-            jail.set_env("APP_PLATESOLVE_BASE_URL", "https://platesolve.astrophoto.pics");
+            jail.set_env(
+                "APP_PLATESOLVE_BASE_URL",
+                "https://platesolve.astrophoto.pics",
+            );
             jail.set_env("APP_PLATESOLVE_API_KEY", "secret-key");
             jail.set_env("APP_PLATESOLVE_TIMEOUT_SECS", "120");
 

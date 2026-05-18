@@ -49,6 +49,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -73,6 +76,7 @@ async fn upload_pipeline_signup_upload_thumb() {
         config_for(&url),
         storage.clone(),
         Arc::new(mailer),
+        None,
     );
 
     // 1. Signup: POST signup, mark verified, then login to get session cookie.

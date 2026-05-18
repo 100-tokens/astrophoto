@@ -39,6 +39,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -176,6 +179,7 @@ async fn finalize_404_unknown_photo() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let cookie = signup_and_get_cookie(&app, &pool, "alice1@example.com", "alice1").await;
@@ -206,6 +210,7 @@ async fn finalize_404_cross_owner() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // Sign up two users.
@@ -259,6 +264,7 @@ async fn finalize_408_no_s3_object() {
         config_for(&url),
         Arc::clone(&storage),
         Arc::new(mailer),
+        None,
     );
 
     let cookie = signup_and_get_cookie(&app, &pool, "alice3@example.com", "alice3").await;
@@ -310,6 +316,7 @@ async fn finalize_400_magic_byte_mismatch() {
         config_for(&url),
         Arc::clone(&storage),
         Arc::new(mailer),
+        None,
     );
 
     let cookie = signup_and_get_cookie(&app, &pool, "alice4@example.com", "alice4").await;
@@ -372,6 +379,7 @@ async fn finalize_happy_path_and_idempotent() {
         config_for(&url),
         Arc::clone(&storage),
         Arc::new(mailer),
+        None,
     );
 
     let cookie = signup_and_get_cookie(&app, &pool, "alice5@example.com", "alice5").await;
