@@ -17,6 +17,7 @@ use astrophoto::api_types::{
     SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
     TargetPage, TargetPreviewThumb, User, UserPublic,
 };
+use astrophoto::photos::platesolve_status::PlatesolveStatus;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
@@ -84,6 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SiteStats::export_all_to(out_dir)?;
     EquipmentItemDetail::export_all_to(out_dir)?;
     PhotoFilterChip::export_all_to(out_dir)?;
+    PlatesolveStatus::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())
