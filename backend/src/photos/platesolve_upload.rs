@@ -195,7 +195,7 @@ pub async fn run_solve(
     xisf_bytes: Bytes,
     filename: String,
     options: Option<SolveOptions>,
-) -> Result<(), PlatesolveError> {
+) -> Result<platesolve::PlatesolveResult, PlatesolveError> {
     // Acquire the concurrency permit. `acquire_owned` so the permit
     // lives inside the spawned task without borrowing.
     let permit = match Arc::clone(&permits).acquire_owned().await {
@@ -253,13 +253,13 @@ pub async fn run_solve(
                         "platesolve render persist failed; display_key not updated"
                     );
                 }
-                Ok(())
+                Ok(result)
             } else {
                 warn!(
                     photo_id = %photo_id,
                     "platesolve render missing from response; display_key not updated"
                 );
-                Ok(())
+                Ok(result)
             }
         }
         Err(e) => {
@@ -389,7 +389,23 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
         .await;
 
         match result {
-            Ok(()) => {
+            Ok(result) => {
+                // Pull the XISF header instrumentation (camera /
+                // exposure / focal length / gain / sensor temp /
+                // taken_at / target / etc.) out of the FITS + PCL
+                // arrays the service returned, and write any fields
+                // the user hasn't already set. `xisf_meta::apply`
+                // uses COALESCE so existing values are preserved.
+                let meta = crate::photos::xisf_meta::extract(&result);
+                if let Err(e) = crate::photos::xisf_meta::apply(&state.pool, photo_id, &meta).await
+                {
+                    warn!(
+                        photo_id = %photo_id,
+                        error = %e,
+                        "auto-calibrate: xisf_meta::apply failed — proceeding to mark ready anyway"
+                    );
+                }
+
                 // Transition to `ready`. `width` / `height` are read
                 // from the persisted render telemetry if we have it;
                 // otherwise they stay null and the gallery falls back
