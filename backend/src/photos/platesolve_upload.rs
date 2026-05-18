@@ -38,8 +38,9 @@ use crate::error::AppError;
 use crate::http::AppState;
 use crate::photos::magic::{self, SniffResult};
 use crate::photos::platesolve::{
-    self, ClaimOutcome, MAX_XISF_BYTES, PlatesolveClient, PlatesolveError, SolveOptions,
+    self, ClaimOutcome, MAX_XISF_BYTES, PlatesolveClient, PlatesolveError, Render, SolveOptions,
 };
+use crate::storage::Storage;
 
 /// Maximum number of attempts (including the initial one) before
 /// we give up on retryable failures (rate-limit / 503 / transport).
@@ -89,10 +90,12 @@ pub async fn handler(
     // Spawn the background solve. The handler returns 202 immediately;
     // the result lands on the photo row asynchronously.
     let pool = state.pool.clone();
+    let storage = Arc::clone(&state.storage);
     let permits = Arc::clone(&state.platesolve_permits);
     tokio::spawn(async move {
         run_solve(
             pool,
+            storage,
             permits,
             client,
             id,
@@ -165,8 +168,10 @@ async fn parse_multipart(mut mp: Multipart, photo_id: Uuid) -> Result<UploadPart
 /// outside the drop guard so a queue-wait doesn't leave the sentinel
 /// pending without back-pressure. The guard fires iff we drop without
 /// `disarm()` being called — i.e. on panic / runtime shutdown.
+#[allow(clippy::too_many_arguments)]
 async fn run_solve(
     pool: PgPool,
+    storage: Arc<dyn Storage>,
     permits: Arc<Semaphore>,
     client: Arc<PlatesolveClient>,
     photo_id: Uuid,
@@ -194,8 +199,21 @@ async fn run_solve(
     // once `save_result` / `save_error` has cleared the sentinel.
     let guard = SentinelGuard::new(pool.clone(), photo_id);
 
-    let outcome =
-        solve_with_retries(&client, photo_id, &xisf_bytes, &filename, options.as_ref()).await;
+    // Force render=true: the side-channel calibration flow always
+    // wants the display JPEG so a calibrated XISF appears in the
+    // gallery without a separate JPEG upload. User-supplied options
+    // are preserved for everything else.
+    let mut effective_options = options.unwrap_or_default();
+    effective_options.render = Some(true);
+
+    let outcome = solve_with_retries(
+        &client,
+        photo_id,
+        &xisf_bytes,
+        &filename,
+        Some(&effective_options),
+    )
+    .await;
     match outcome {
         Ok(result) => {
             if let Err(e) = platesolve::save_result(&pool, photo_id, &result).await {
@@ -209,6 +227,24 @@ async fn run_solve(
                     &PlatesolveError::Internal(format!("DB write after solve: {e}")),
                 )
                 .await;
+            } else if let Some(render) = &result.render {
+                // Persist the bundled JPEG as the display master so
+                // the photo renders in the gallery. Render failure is
+                // logged but doesn't undo the successful solve — the
+                // WCS row is the load-bearing artifact, display can
+                // be re-derived later.
+                if let Err(e) = persist_render(&storage, &pool, photo_id, render).await {
+                    warn!(
+                        photo_id = %photo_id,
+                        error = %e,
+                        "platesolve render persist failed; display_key not updated"
+                    );
+                }
+            } else {
+                warn!(
+                    photo_id = %photo_id,
+                    "platesolve render missing from response; display_key not updated"
+                );
             }
         }
         Err(e) => {
@@ -222,6 +258,40 @@ async fn run_solve(
     // Drop is a no-op.
     guard.disarm();
     drop(permit);
+}
+
+/// Decode the base64 JPEG bundled in the solve response, write it as
+/// the display master in S3, and point `photos.display_key` at it.
+///
+/// Runtime sqlx query for the same reason as the other plate-solve
+/// helpers — the column already exists on `photos`, no migration.
+async fn persist_render(
+    storage: &Arc<dyn Storage>,
+    pool: &PgPool,
+    photo_id: Uuid,
+    render: &Render,
+) -> Result<(), AppError> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&render.bytes_b64)
+        .map_err(|e| AppError::Internal(format!("decode render bytes: {e}")))?;
+    let byte_count = bytes.len();
+    let key = format!("display/{photo_id}.jpg");
+    storage.put(&key, &render.mime, Bytes::from(bytes)).await?;
+    sqlx::query("update photos set display_key = $1 where id = $2")
+        .bind(&key)
+        .bind(photo_id)
+        .execute(pool)
+        .await
+        .map_err(AppError::from)?;
+    info!(
+        photo_id = %photo_id,
+        bytes = byte_count,
+        width = render.width,
+        height = render.height,
+        "platesolve render persisted as display master"
+    );
+    Ok(())
 }
 
 /// One attempt per loop iteration. On retryable errors, backs off

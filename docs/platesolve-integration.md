@@ -101,6 +101,23 @@ state. Future work (not in v1): a periodic sweep in
 minutes — covers the runtime-shutdown case the drop guard can't
 reach.
 
+### Bundled JPEG render → `display_key`
+
+The side-channel handler always passes `options.render = true` to
+`/v1/solve`. The service bundles a display-ready JPEG (≤ 4096 px long
+edge, q=85) into the response as `render: { mime, width, height,
+bytes_b64 }`. On a successful solve the background task base64-
+decodes the bytes, stores them at `display/<photo_id>.jpg` in S3,
+and points `photos.display_key` at the new key — closing the loop so
+a calibrated XISF appears in the gallery without a separate JPEG
+upload.
+
+Render failure is non-fatal: when the service omits the `render`
+field (e.g. decoder edge case) the WCS still ships, `save_result`
+still runs, and the operator sees a `tracing::warn!` rather than a
+user-visible failure. The photo's existing `display_key` is left
+untouched in that path.
+
 ### Config
 
 `backend/src/config.rs` gains three env-driven fields:
