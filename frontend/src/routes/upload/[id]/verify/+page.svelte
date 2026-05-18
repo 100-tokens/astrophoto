@@ -12,15 +12,159 @@
   import TargetPicker from '$lib/components/TargetPicker.svelte';
   import UploadStepper from '$lib/components/UploadStepper.svelte';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
+  import type { PlatesolveStatus } from '$lib/api/PlatesolveStatus';
   import type { SetupSummary } from '$lib/api/SetupSummary';
   import type { PageProps } from './$types';
 
   const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+  // Mirrors backend/src/photos/platesolve.rs::MAX_XISF_BYTES. Kept as a
+  // literal here so the client surfaces a friendly "too large" error
+  // before uploading a body the server would reject with 413.
+  const PLATESOLVE_MAX_BYTES = 128 * 1024 * 1024;
+  const PLATESOLVE_POLL_INTERVAL_MS = 2000;
 
   let { data, form }: PageProps = $props();
   // Silence unused-import warning: SetupSummary is used only for the type cast below.
   type _SetupSummary = SetupSummary;
   let polling = $state<number | null>(null);
+
+  // Plate-solve panel state. Initial status is seeded by the server
+  // load so the panel renders the correct UI on the first paint;
+  // subsequent updates come from the polling loop below. The data
+  // read is wrapped in a function to dodge the "only captures the
+  // initial value" lint — initial seeding is intentional here, the
+  // polling loop owns updates thereafter.
+  function initialPlatesolveStatus(): PlatesolveStatus | null {
+    return data.platesolveStatus ?? null;
+  }
+  let psStatus = $state<PlatesolveStatus | null>(initialPlatesolveStatus());
+  let psFile = $state<File | null>(null);
+  let psSubmitting = $state(false);
+  let psLocalError = $state<string | null>(null);
+  let psPollHandle = $state<number | null>(null);
+  let psState = $derived(psStatus?.state ?? 'idle');
+  let psIsSolving = $derived(psState === 'solving');
+
+  function onPickXisf(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    psLocalError = null;
+    if (!file) {
+      psFile = null;
+      return;
+    }
+    if (file.size > PLATESOLVE_MAX_BYTES) {
+      psLocalError = `File is ${(file.size / (1024 * 1024)).toFixed(0)} MB — the plate-solve service accepts up to ${PLATESOLVE_MAX_BYTES / (1024 * 1024)} MB.`;
+      psFile = null;
+      input.value = '';
+      return;
+    }
+    psFile = file;
+  }
+
+  async function onCalibrate() {
+    if (!psFile || psSubmitting) return;
+    psSubmitting = true;
+    psLocalError = null;
+    try {
+      const body = new FormData();
+      // The field name matches the backend handler's `match field.name() { Some("file") => ... }`.
+      body.append('file', psFile);
+      const r = await fetch(`${API}/api/photos/${data.photo.id}/platesolve`, {
+        method: 'POST',
+        credentials: 'include',
+        body
+      });
+      if (r.status === 202 || r.status === 409) {
+        // 202 = our solve just kicked off. 409 = a concurrent solve
+        // (e.g. another tab) is already in flight — either way we
+        // join the same in-progress state and start polling.
+        psStatus = { ...(psStatus ?? emptyStatus()), state: 'solving', error: null };
+        startPolling();
+      } else {
+        const text = await r.text();
+        psLocalError = `Upload failed (${r.status}): ${text.slice(0, 200)}`;
+      }
+    } catch (e) {
+      psLocalError = `Network error: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      psSubmitting = false;
+    }
+  }
+
+  function emptyStatus(): PlatesolveStatus {
+    return {
+      state: 'idle',
+      error: null,
+      solvedAt: null,
+      raDeg: null,
+      decDeg: null,
+      pixelScaleArcsec: null,
+      rotationDeg: null,
+      rmsArcsec: null,
+      matchedCount: null,
+      detectedCount: null
+    };
+  }
+
+  async function fetchPlatesolveStatus(): Promise<PlatesolveStatus | null> {
+    try {
+      const r = await fetch(`${API}/api/photos/${data.photo.id}/platesolve-status`, {
+        credentials: 'include'
+      });
+      if (!r.ok) return null;
+      return (await r.json()) as PlatesolveStatus;
+    } catch {
+      return null;
+    }
+  }
+
+  function startPolling() {
+    if (psPollHandle !== null) return;
+    psPollHandle = window.setInterval(async () => {
+      const next = await fetchPlatesolveStatus();
+      if (!next) return;
+      const wasSolving = psStatus?.state === 'solving';
+      psStatus = next;
+      if (next.state !== 'solving') {
+        stopPolling();
+        if (wasSolving && next.state === 'solved') {
+          // Refresh PhotoDetail so ra_deg/dec_deg inputs pick up the
+          // server-side value. invalidateAll() re-runs the load.
+          void invalidateAll();
+        }
+      }
+    }, PLATESOLVE_POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (psPollHandle !== null) {
+      clearInterval(psPollHandle);
+      psPollHandle = null;
+    }
+  }
+
+  // Seed polling on mount if the server says we're already mid-solve
+  // (e.g. user navigated away and came back).
+  $effect(() => {
+    if (psIsSolving) startPolling();
+    else stopPolling();
+    return () => stopPolling();
+  });
+
+  function formatTelemetry(s: PlatesolveStatus): string {
+    const parts: string[] = [];
+    if (s.raDeg != null && s.decDeg != null) {
+      parts.push(`RA ${s.raDeg.toFixed(4)}° · Dec ${s.decDeg.toFixed(4)}°`);
+    }
+    if (s.pixelScaleArcsec != null) parts.push(`${s.pixelScaleArcsec.toFixed(3)}″/px`);
+    if (s.rotationDeg != null) parts.push(`rot ${s.rotationDeg.toFixed(2)}°`);
+    if (s.rmsArcsec != null) parts.push(`RMS ${s.rmsArcsec.toFixed(3)}″`);
+    if (s.matchedCount != null && s.detectedCount != null) {
+      parts.push(`matched ${s.matchedCount}/${s.detectedCount}`);
+    }
+    return parts.join(' · ');
+  }
 
   // The generated PhotoDetail type still doesn't include the per-photo
   // equipment freetext fields (category, scope, mount, guiding) —
@@ -191,13 +335,17 @@
           <tbody>
             <tr><th>Camera</th><td class="mono">{data.photo.camera ?? '—'}</td></tr>
             <tr><th>ISO</th><td class="mono">{data.photo.iso ?? '—'}</td></tr>
-            <tr><th>Sub exposure</th><td class="mono">
-              {data.photo.exposure_s != null ? `${data.photo.exposure_s} s` : '—'}
-            </td></tr>
+            <tr
+              ><th>Sub exposure</th><td class="mono">
+                {data.photo.exposure_s != null ? `${data.photo.exposure_s} s` : '—'}
+              </td></tr
+            >
             <tr><th>Gain</th><td class="mono">{data.photo.gain ?? '—'}</td></tr>
-            <tr><th>Sensor temp</th><td class="mono">
-              {data.photo.sensor_temp_c != null ? `${data.photo.sensor_temp_c} °C` : '—'}
-            </td></tr>
+            <tr
+              ><th>Sensor temp</th><td class="mono">
+                {data.photo.sensor_temp_c != null ? `${data.photo.sensor_temp_c} °C` : '—'}
+              </td></tr
+            >
             <tr><th>Frames captured</th><td class="mono">{data.photo.sessions ?? '—'}</td></tr>
           </tbody>
         </table>
@@ -299,15 +447,58 @@
             </label>
           </div>
 
-          <!-- Optional plate-solve hint per design handoff. The action is a
-               placeholder until the plate-solve worker is built — it just
-               surfaces the affordance so users know it's coming. -->
+          <!-- Side-channel plate-solve: upload an XISF master, the server
+               forwards it to platesolve.astrophoto.pics and writes the
+               WCS result onto the photo row. XISF is NOT stored. -->
           <div class="plate-solve">
             <span class="t-label plate-solve-label">OPTIONAL · PLATE SOLVE</span>
             <p class="plate-solve-body">
-              Run plate-solving to recover RA/Dec, scale, and rotation precisely. Takes ~30 s.
-              <span class="plate-solve-soon">(coming soon)</span>
+              Upload an XISF master to recover RA/Dec, scale, and rotation precisely. Takes ~30 s.
+              The XISF is not stored — only the solved coordinates.
             </p>
+
+            {#if psState === 'solving'}
+              <p class="t-meta plate-solve-progress">
+                ● SOLVING — polling every {PLATESOLVE_POLL_INTERVAL_MS / 1000} s
+              </p>
+            {:else if psState === 'solved' && psStatus}
+              <p class="t-meta plate-solve-solved">● SOLVED · {formatTelemetry(psStatus)}</p>
+            {:else if psState === 'failed' && psStatus?.error}
+              <p class="t-meta plate-solve-failed">● FAILED · {psStatus.error}</p>
+            {/if}
+
+            <div class="plate-solve-controls">
+              <label class="plate-solve-file">
+                <span class="t-label">XISF FILE</span>
+                <input
+                  type="file"
+                  accept=".xisf,application/x-xisf"
+                  disabled={psIsSolving || psSubmitting}
+                  onchange={onPickXisf}
+                />
+              </label>
+              <Button
+                variant="primary"
+                type="button"
+                disabled={!psFile || psSubmitting || psIsSolving}
+                onclick={onCalibrate}
+              >
+                {#if psSubmitting}
+                  Uploading…
+                {:else if psIsSolving}
+                  Solving…
+                {:else if psState === 'solved'}
+                  Re-calibrate
+                {:else if psState === 'failed'}
+                  Retry
+                {:else}
+                  Calibrate
+                {/if}
+              </Button>
+            </div>
+            {#if psLocalError}
+              <p class="t-meta plate-solve-failed">{psLocalError}</p>
+            {/if}
           </div>
 
           <!-- Row 3: equipment pickers in 2-col grid -->
@@ -555,8 +746,35 @@
     font-size: 12px;
     color: var(--fg-secondary);
   }
-  .plate-solve-soon {
-    color: var(--fg-muted);
+  .plate-solve-progress {
+    margin: 12px 0 0;
+    color: var(--accent);
+  }
+  .plate-solve-solved {
+    margin: 12px 0 0;
+    color: var(--accent);
+  }
+  .plate-solve-failed {
+    margin: 12px 0 0;
+    color: var(--danger);
+  }
+  .plate-solve-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .plate-solve-file {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .plate-solve-file input[type='file'] {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--fg-secondary);
   }
   .field-full {
     margin-bottom: 16px;

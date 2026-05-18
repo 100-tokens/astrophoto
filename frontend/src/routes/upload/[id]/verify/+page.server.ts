@@ -75,7 +75,21 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
   );
   const orphans = cacheTokens.filter((t: string) => !known.has(t));
 
-  return { photo, setups, queueIds, queueIndex, orphans };
+  // Seed the plate-solve panel so the first paint reflects whether a
+  // solve is already in flight (e.g. user opened a second tab) or
+  // previously completed. Treated as best-effort: failures land in
+  // the UI as `null`, which the panel renders as the idle state.
+  let platesolveStatus = null;
+  try {
+    const psr = await fetch(`${API}/api/photos/${params.id}/platesolve-status`, {
+      headers: { Cookie: cookie }
+    });
+    if (psr.ok) platesolveStatus = await psr.json();
+  } catch {
+    // best-effort
+  }
+
+  return { photo, setups, queueIds, queueIndex, orphans, platesolveStatus };
 };
 
 async function callPut(
