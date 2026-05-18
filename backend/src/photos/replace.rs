@@ -12,7 +12,12 @@ use crate::http::AppState;
 use crate::photos::{pipeline, queries};
 
 const MAX_BYTES: usize = 50 * 1024 * 1024;
-const ALLOWED_MIMES: &[&str] = &["image/jpeg", "image/png", "image/tiff"];
+const ALLOWED_MIMES: &[&str] = &[
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "application/x-xisf",
+];
 
 pub async fn handler(
     State(state): State<AppState>,

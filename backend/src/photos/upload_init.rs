@@ -64,7 +64,15 @@ pub async fn handler(
             )));
         }
         match f.mime.as_str() {
+            // Standard formats: decoded inline by the upload pipeline
+            // (EXIF, thumbnails, display master, blurhash).
             "image/jpeg" | "image/png" | "image/tiff" => {}
+            // XISF: NOT decoded inline (no XISF decoder in astrophoto).
+            // Pipeline auto-triggers plate-solve on the external service
+            // which returns the WCS + a display JPEG + structured FITS/PCL
+            // metadata. Status stays `awaiting-calibration` until that
+            // round-trip completes.
+            "application/x-xisf" => {}
             _ => return Err(AppError::UnsupportedFormat(f.mime.clone())),
         }
     }

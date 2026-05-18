@@ -59,6 +59,21 @@ pub async fn handler(
         return Err(AppError::MagicByteMismatch(format!("{sig:?}")));
     }
 
+    // XISF takes a different path: astrophoto has no XISF decoder, so
+    // the standard EXIF / thumbnail / display-master / blurhash pipeline
+    // can't run. We mark the photo `awaiting-calibration` and hand off
+    // to the auto-platesolve trigger (separate background task) which
+    // fetches the original from S3, forwards it to the plate-solve
+    // service with `render=true`, persists the returned JPEG as the
+    // display master, then transitions status to `ready`.
+    if row.mime == "application/x-xisf" {
+        queries::mark_awaiting_calibration(&state.pool, id).await?;
+        return Ok(Json(FinalizeResp {
+            status: "awaiting-calibration".into(),
+            display_key: None,
+        }));
+    }
+
     // Run the full pipeline (EXIF + thumbnails + display master + blurhash).
     // On error, mark the photo failed so the caller knows it needs to re-init.
     if let Err(e) = pipeline::finalize(

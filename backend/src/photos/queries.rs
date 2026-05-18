@@ -168,6 +168,22 @@ pub async fn mark_failed(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), Ap
     Ok(())
 }
 
+/// Mark an XISF upload as awaiting calibration: astrophoto has no XISF
+/// decoder, so the standard pipeline (EXIF / thumbnails / display master
+/// / blurhash) is skipped. The auto-platesolve trigger picks the photo
+/// up next and fills in `display_key` + telemetry via the external
+/// service, then transitions status to `ready`.
+pub async fn mark_awaiting_calibration(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
+    // Runtime query — the cached `.sqlx/` doesn't have this exact SQL
+    // yet. Promoted to `sqlx::query!` after `cargo sqlx prepare`.
+    sqlx::query("update photos set status='awaiting-calibration', pipeline_error=null where id=$1")
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(AppError::from)?;
+    Ok(())
+}
+
 pub async fn pending_deletes_for(pool: &PgPool, photo_id: Uuid) -> Result<Vec<String>, AppError> {
     let rows = sqlx::query_scalar!(
         "select storage_key from photo_pending_deletes where photo_id = $1",

@@ -429,3 +429,88 @@ async fn finalize_happy_path_and_idempotent() {
         "display_key should still be populated on idempotent call; got: {v2}"
     );
 }
+
+#[allow(clippy::unwrap_used)]
+#[tokio::test]
+async fn finalize_xisf_marks_awaiting_calibration() {
+    // XISF can't be decoded by astrophoto (no XISF crate dependency).
+    // The standard EXIF / thumbnail / display-master / blurhash
+    // pipeline is skipped; the photo transitions to
+    // `awaiting-calibration` and the auto-platesolve trigger picks it
+    // up next to fill in display_key + telemetry via the external
+    // service. This test verifies the upload-side path; the trigger
+    // itself is covered by `platesolve_upload.rs` tests.
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let storage: Arc<dyn astrophoto::storage::Storage> = Arc::new(MemoryStorage::new());
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::clone(&storage),
+        Arc::new(mailer),
+        None,
+    );
+
+    let cookie = signup_and_get_cookie(&app, &pool, "xisfup@example.com", "xisfup").await;
+    let user_id: Uuid = sqlx::query_scalar::<_, Uuid>("select id from users where email = $1")
+        .bind("xisfup@example.com")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    let key = "originals/xisf-finalize-test";
+    let photo_id =
+        insert_pending_photo(&pool, user_id, key, "application/x-xisf", "hash-xisf").await;
+
+    // Minimal XISF body: signature (8 bytes ASCII `XISF0100`) plus
+    // enough bytes to clear the 4-byte sniff floor in `magic::sniff`.
+    let mut xisf_body = b"XISF0100".to_vec();
+    xisf_body.extend_from_slice(&[0u8; 16]);
+    storage
+        .put(key, "application/x-xisf", Bytes::from(xisf_body))
+        .await
+        .unwrap();
+
+    let resp = finalize(&app, photo_id, &cookie).await;
+    assert_eq!(
+        resp.status(),
+        200,
+        "XISF finalize should return 200 (handed off to calibration)"
+    );
+    let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let v: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(v["status"], "awaiting-calibration");
+    assert!(
+        v["display_key"].is_null(),
+        "display_key must be null until auto-platesolve completes; got: {v}"
+    );
+
+    let status: String = sqlx::query_scalar::<_, String>("select status from photos where id = $1")
+        .bind(photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(status, "awaiting-calibration");
+
+    // No thumbnails should have been generated (pipeline was skipped).
+    let thumb_count: i64 =
+        sqlx::query_scalar::<_, i64>("select count(*) from thumbnails where photo_id = $1")
+            .bind(photo_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        thumb_count, 0,
+        "no thumbnails should be generated for XISF — pipeline skipped"
+    );
+}
