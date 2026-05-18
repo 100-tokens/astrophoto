@@ -35,6 +35,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -63,6 +66,7 @@ async fn redirect_published_photo_returns_308_to_canonical() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let user_id = Uuid::new_v4();
@@ -125,6 +129,7 @@ async fn redirect_unknown_uuid_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     // A random UUID that has never been inserted — DB returns None → 404.
@@ -165,6 +170,7 @@ async fn redirect_draft_photo_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let user_id = Uuid::new_v4();

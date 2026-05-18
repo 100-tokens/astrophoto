@@ -35,6 +35,9 @@ fn config_for(url: &str) -> Config {
         smtp_pass: String::new(),
         mail_from: "test <test@astrophoto.local>".into(),
         smtp_tls: false,
+        platesolve_base_url: None,
+        platesolve_api_key: None,
+        platesolve_timeout_secs: 90,
     }
 }
 
@@ -58,6 +61,7 @@ async fn resolve_permalink_returns_photo_id() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let user_id = Uuid::new_v4();
@@ -120,6 +124,7 @@ async fn resolve_permalink_unknown_short_id_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let user_id = Uuid::new_v4();
@@ -167,6 +172,7 @@ async fn resolve_permalink_draft_returns_404() {
         config_for(&url),
         Arc::new(MemoryStorage::new()),
         Arc::new(mailer),
+        None,
     );
 
     let user_id = Uuid::new_v4();
