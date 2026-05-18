@@ -160,6 +160,10 @@ pub fn router(
                 .layer(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
         .route(
+            "/api/photos/:id/platesolve-status",
+            get(crate::photos::platesolve_status::handler),
+        )
+        .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )

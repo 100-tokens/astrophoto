@@ -15,6 +15,7 @@ pub mod metadata;
 pub mod permalink;
 pub mod pipeline;
 pub mod platesolve;
+pub mod platesolve_status;
 pub mod platesolve_upload;
 pub mod publish;
 pub mod queries;

@@ -232,3 +232,133 @@ async fn conflict_when_already_solving() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["error"], "conflict");
 }
+
+// ─────────────────────────────────────────────────────── /platesolve-status
+
+async fn get_status(app: &Router, photo_id: Uuid, cookie: &str) -> (StatusCode, serde_json::Value) {
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/photos/{photo_id}/platesolve-status"))
+                .header(header::COOKIE, cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = resp.status();
+    let bytes = to_bytes(resp.into_body(), 4096).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+    (status, v)
+}
+
+#[tokio::test]
+async fn status_idle_when_never_solved() {
+    // Mount without the upstream client to confirm the status route
+    // is independent of the POST route's conditional mount.
+    let (app, pool) = launch(false).await;
+    let cookie = signup_and_cookie(&app, &pool, "dave@example.com", "dave").await;
+    let user = user_id(&pool, "dave@example.com").await;
+    let photo_id = insert_photo(&pool, user).await;
+
+    let (status, body) = get_status(&app, photo_id, &cookie).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["state"], "idle");
+    assert!(body["error"].is_null());
+    assert!(body["solvedAt"].is_null());
+}
+
+#[tokio::test]
+async fn status_solving_when_sentinel_set() {
+    let (app, pool) = launch(false).await;
+    let cookie = signup_and_cookie(&app, &pool, "eve@example.com", "everyone").await;
+    let user = user_id(&pool, "eve@example.com").await;
+    let photo_id = insert_photo(&pool, user).await;
+
+    sqlx::query(r#"update photos set platesolve_error = $1 where id = $2"#)
+        .bind(SOLVING_SENTINEL)
+        .bind(photo_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (status, body) = get_status(&app, photo_id, &cookie).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["state"], "solving");
+    assert!(
+        body["error"].is_null(),
+        "in-progress state hides the sentinel"
+    );
+}
+
+#[tokio::test]
+async fn status_solved_when_solved_at_set() {
+    let (app, pool) = launch(false).await;
+    let cookie = signup_and_cookie(&app, &pool, "frank@example.com", "frank").await;
+    let user = user_id(&pool, "frank@example.com").await;
+    let photo_id = insert_photo(&pool, user).await;
+
+    sqlx::query(
+        r#"update photos
+              set ra_deg = $1,
+                  dec_deg = $2,
+                  platesolve_pixel_scale_arcsec = $3,
+                  platesolve_rms_arcsec = $4,
+                  platesolve_matched_count = $5,
+                  platesolve_detected_count = $6,
+                  platesolve_solved_at = now()
+            where id = $7"#,
+    )
+    .bind(202.4697_f64)
+    .bind(47.1953_f64)
+    .bind(0.524_f32)
+    .bind(0.017_f32)
+    .bind(45_i32)
+    .bind(4297_i32)
+    .bind(photo_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let (status, body) = get_status(&app, photo_id, &cookie).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["state"], "solved");
+    assert!(body["solvedAt"].is_string());
+    assert_eq!(body["raDeg"].as_f64().unwrap(), 202.4697);
+    assert_eq!(body["matchedCount"].as_i64().unwrap(), 45);
+    assert_eq!(body["detectedCount"].as_i64().unwrap(), 4297);
+}
+
+#[tokio::test]
+async fn status_failed_when_error_set() {
+    let (app, pool) = launch(false).await;
+    let cookie = signup_and_cookie(&app, &pool, "grace@example.com", "grace").await;
+    let user = user_id(&pool, "grace@example.com").await;
+    let photo_id = insert_photo(&pool, user).await;
+
+    sqlx::query(r#"update photos set platesolve_error = $1 where id = $2"#)
+        .bind("solve failed: too few stars")
+        .bind(photo_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (status, body) = get_status(&app, photo_id, &cookie).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["state"], "failed");
+    assert_eq!(body["error"], "solve failed: too few stars");
+}
+
+#[tokio::test]
+async fn status_cross_owner_returns_404() {
+    let (app, pool) = launch(false).await;
+    let _alice = signup_and_cookie(&app, &pool, "alice3@example.com", "alice3").await;
+    let bob = signup_and_cookie(&app, &pool, "bob3@example.com", "bob3").await;
+    let alice = user_id(&pool, "alice3@example.com").await;
+    let photo_id = insert_photo(&pool, alice).await;
+
+    let (status, _body) = get_status(&app, photo_id, &bob).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
