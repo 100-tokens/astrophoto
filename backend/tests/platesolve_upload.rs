@@ -18,6 +18,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode, header},
 };
+use bytes::Bytes;
 use testcontainers::ImageExt;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres as PgImage;
@@ -361,4 +362,119 @@ async fn status_cross_owner_returns_404() {
 
     let (status, _body) = get_status(&app, photo_id, &bob).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+// ──────────────────────────────────────────── auto-calibrate (Phase 3)
+
+#[tokio::test]
+async fn auto_calibrate_marks_photo_failed_when_upstream_unreachable() {
+    // Exercises the primary-XISF-upload auto-trigger end-to-end with
+    // an unreachable plate-solve URL. The spawned task fetches the
+    // XISF from storage, calls run_solve (which fails with Transport
+    // after 3 attempts × 1s/2s/4s backoff), then marks the photo
+    // `failed` with the error in `pipeline_error`. Polling-with-
+    // timeout because the spawned task is fire-and-forget.
+    use std::time::{Duration, Instant};
+
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+    let (mailer, _outbox) = Mailer::for_test();
+
+    let mut cfg = config_with_platesolve(&url, Some("http://127.0.0.1:1"), Some("test-key"));
+    cfg.platesolve_timeout_secs = 2; // tight so the test finishes quickly
+    let client = PlatesolveClient::from_config(&cfg)
+        .expect("client builds")
+        .map(Arc::new);
+    let storage: Arc<dyn astrophoto::storage::Storage> = Arc::new(MemoryStorage::new());
+    let permits = Arc::new(tokio::sync::Semaphore::new(1));
+    // We need AppState directly (auto_calibrate_xisf takes it),
+    // bypassing the http::router builder.
+    let state = astrophoto::http::AppState {
+        pool: pool.clone(),
+        config: Arc::new(cfg),
+        storage: Arc::clone(&storage),
+        mailer: Arc::new(mailer),
+        platesolve: client,
+        platesolve_permits: permits,
+    };
+
+    // Build a photo in `awaiting-calibration` state with a real
+    // storage key holding a minimal XISF body.
+    let owner = sqlx::query_scalar::<_, Uuid>(
+        r#"insert into users (email, password_hash, display_name, handle)
+            values ('autocal@example.com',
+                    '$argon2id$v=19$m=19456,t=2,p=1$AAAA$AAAA',
+                    'Auto', 'autocal') returning id"#,
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let photo_id = Uuid::new_v4();
+    let storage_key = format!("originals/{photo_id}");
+    sqlx::query(
+        r#"insert into photos
+              (id, owner_id, storage_key, original_name, bytes, mime, status,
+               short_id, original_uploaded_at)
+            values ($1, $2, $3, 'master.xisf', 1024, 'application/x-xisf',
+                    'awaiting-calibration', $4, now())"#,
+    )
+    .bind(photo_id)
+    .bind(owner)
+    .bind(&storage_key)
+    .bind(Uuid::new_v4().to_string())
+    .execute(&pool)
+    .await
+    .unwrap();
+    // Seed storage with a minimal XISF body (signature only — the
+    // upstream never gets to validate it because the connect fails).
+    let mut xisf = b"XISF0100".to_vec();
+    xisf.extend_from_slice(&[0u8; 16]);
+    storage
+        .put(&storage_key, "application/x-xisf", Bytes::from(xisf))
+        .await
+        .unwrap();
+
+    // Fire the auto-trigger. Spawn returns immediately.
+    astrophoto::photos::platesolve_upload::auto_calibrate_xisf(state, photo_id, storage_key, owner);
+
+    // Poll for the terminal state. 3 attempts × (1s + 2s + 4s
+    // backoff + 2s timeout) ≈ 21s worst case; pad to 30s.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let mut final_status: String = "(timeout)".into();
+    let mut final_error: Option<String> = None;
+    while Instant::now() < deadline {
+        let row: (String, Option<String>) = sqlx::query_as::<_, (String, Option<String>)>(
+            "select status, pipeline_error from photos where id = $1",
+        )
+        .bind(photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        if row.0 == "failed" || row.0 == "ready" {
+            final_status = row.0;
+            final_error = row.1;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    assert_eq!(
+        final_status, "failed",
+        "auto-calibrate against unreachable URL should transition to failed (got `{final_status}`, error: {final_error:?})"
+    );
+    let err = final_error.unwrap_or_default();
+    assert!(
+        err.contains("network failure")
+            || err.contains("connection")
+            || err.contains("timeout")
+            || err.contains("Transport"),
+        "pipeline_error should mention a network/transport failure; got: {err}"
+    );
 }

@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::auth::middleware::CurrentUser;
 use crate::error::AppError;
 use crate::http::AppState;
-use crate::photos::{magic, pipeline, queries};
+use crate::photos::{magic, pipeline, platesolve_upload, queries};
 
 #[derive(Serialize)]
 pub struct FinalizeResp {
@@ -57,6 +57,27 @@ pub async fn handler(
     if !magic::matches_mime(sig, &row.mime) {
         queries::mark_failed(&state.pool, id, "magic-byte mismatch").await?;
         return Err(AppError::MagicByteMismatch(format!("{sig:?}")));
+    }
+
+    // XISF takes a different path: astrophoto has no XISF decoder, so
+    // the standard EXIF / thumbnail / display-master / blurhash pipeline
+    // can't run. We mark the photo `awaiting-calibration`, fire the
+    // auto-platesolve trigger (background task — fetches the original
+    // from S3, forwards to the plate-solve service with `render=true`,
+    // persists the returned JPEG as the display master, transitions
+    // status to `ready` or `failed`), and return 200 immediately.
+    if row.mime == "application/x-xisf" {
+        queries::mark_awaiting_calibration(&state.pool, id).await?;
+        platesolve_upload::auto_calibrate_xisf(
+            state.clone(),
+            id,
+            row.storage_key.clone(),
+            row.owner_id,
+        );
+        return Ok(Json(FinalizeResp {
+            status: "awaiting-calibration".into(),
+            display_key: None,
+        }));
     }
 
     // Run the full pipeline (EXIF + thumbnails + display master + blurhash).

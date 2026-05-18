@@ -128,6 +128,57 @@ untouched in that path.
   is set (boot fails otherwise).
 - `APP_PLATESOLVE_TIMEOUT_SECS` — per-request timeout, default 90.
 
+### Primary XISF upload — auto-calibrate on finalize
+
+`POST /api/uploads/init` now accepts `application/x-xisf` (gated on
+`APP_PLATESOLVE_BASE_URL` being configured — otherwise the photo
+would sit in `awaiting-calibration` forever, so the init handler
+returns 400 `unsupported-format` early).
+
+When `upload_finalize` sees an XISF original, it skips the JPEG
+decode pipeline (no XISF decoder in astrophoto), marks the photo
+`status='awaiting-calibration'`, and fires
+[`platesolve_upload::auto_calibrate_xisf`] in a background task.
+
+The auto-trigger:
+
+1. Fetches the XISF bytes from S3 via `storage.get(storage_key)`.
+2. Claims the sentinel via `platesolve::try_claim(pool, photo_id, owner_id)`.
+3. Calls `run_solve` (same code path as the side-channel POST):
+   - The bundled JPEG render lands as `display/<photo_id>.jpg`.
+   - WCS lands on the existing `ra_deg`/`dec_deg`/`platesolve_*` columns.
+4. On success: transitions `status='ready'` (pipeline_error cleared).
+5. On terminal failure: transitions `status='failed'` with the
+   reason in `pipeline_error` (matches the JPEG-pipeline failure
+   shape so the UI surfaces it the same way).
+
+Concurrency between auto-trigger and side-channel POST is bounded
+by the same `platesolve_permits` semaphore + sentinel claim: a
+concurrent side-channel POST for the same photo gets 409; the
+auto-trigger detects an already-claimed sentinel and skips
+gracefully (logged for operator visibility).
+
+### XISF header → photo columns (EXIF analog)
+
+After `run_solve` returns successfully, [`platesolve_upload::auto_calibrate_xisf`]
+calls [`xisf_meta::extract`] to map common FITS keywords + PCL
+properties to the existing photo columns (`camera`, `exposure_s`,
+`focal_mm`, `gain`, `sensor_temp_c`, `sessions`, `taken_at`,
+`target`), then [`xisf_meta::apply`] UPDATEs the row with
+`COALESCE(column, $param)` so any value the user already set is
+preserved.
+
+**Service-side prerequisite, not yet shipped.** As of this commit
+the platesolve service's `/v1/solve` response only echoes the
+WCS-relevant FITS keywords + `AstrometricSolution:*` /
+`Observation:Center:*` PCL properties it produces itself. The
+input XISF's `Instrument:*` and `EXPTIME` / `FOCALLEN` / etc. are
+read by the solver (for hint derivation, see `hint_source`) but
+not echoed back. A follow-up service change to passthrough those
+keys is what makes this extractor populate real values; the
+consumer code (and its 8 unit tests against synthetic FITS+PCL
+arrays) lands first so the wiring is in place when that lands.
+
 ## Open question — XISF as primary upload (Strategy B)
 
 Strategy A above keeps XISF out of the storage pipeline. Strategy B

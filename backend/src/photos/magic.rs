@@ -45,6 +45,7 @@ pub fn matches_mime(s: SniffResult, mime: &str) -> bool {
         (SniffResult::Jpeg, "image/jpeg")
             | (SniffResult::Png, "image/png")
             | (SniffResult::Tiff, "image/tiff")
+            | (SniffResult::Xisf, "application/x-xisf")
     )
 }
 
@@ -96,10 +97,13 @@ mod tests {
     }
 
     #[test]
-    fn xisf_not_in_standard_mime_allowlist() {
-        // XISF is accepted only via the side-channel /platesolve endpoint;
-        // it must NOT pass the upload pipeline's mime check.
+    fn xisf_matches_application_x_xisf() {
+        // XISF was originally side-channel-only; once XISF became a
+        // primary upload format the magic-byte sniff has to accept
+        // the matching MIME for the standard finalize gate to pass.
+        assert!(matches_mime(SniffResult::Xisf, "application/x-xisf"));
+        // …but it still must NOT pose as a raster image MIME.
         assert!(!matches_mime(SniffResult::Xisf, "image/jpeg"));
-        assert!(!matches_mime(SniffResult::Xisf, "application/x-xisf"));
+        assert!(!matches_mime(SniffResult::Xisf, "image/png"));
     }
 }

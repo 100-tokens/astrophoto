@@ -88,12 +88,16 @@ pub async fn handler(
     }
 
     // Spawn the background solve. The handler returns 202 immediately;
-    // the result lands on the photo row asynchronously.
+    // the result lands on the photo row asynchronously. The side-channel
+    // flow enriches an already-`ready` photo with WCS + display JPEG and
+    // does NOT transition `photos.status` — the row stays whatever it
+    // was (typically `ready`). The auto-trigger flow on a primary XISF
+    // upload reads the same `run_solve` result and does transition status.
     let pool = state.pool.clone();
     let storage = Arc::clone(&state.storage);
     let permits = Arc::clone(&state.platesolve_permits);
     tokio::spawn(async move {
-        run_solve(
+        let _ = run_solve(
             pool,
             storage,
             permits,
@@ -164,12 +168,25 @@ async fn parse_multipart(mut mp: Multipart, photo_id: Uuid) -> Result<UploadPart
     })
 }
 
-/// Owned by the spawned task. The semaphore permit is acquired
-/// outside the drop guard so a queue-wait doesn't leave the sentinel
-/// pending without back-pressure. The guard fires iff we drop without
-/// `disarm()` being called — i.e. on panic / runtime shutdown.
+/// Run a plate-solve for `photo_id` against the upstream service,
+/// persist the WCS + bundled JPEG, and report the outcome.
+///
+/// Shared by the side-channel `POST /api/photos/:id/platesolve`
+/// handler (which discards the return value — the photo row stays
+/// whatever status it was) and the primary-XISF-upload auto-trigger
+/// (which uses the return value to transition `photos.status` to
+/// `ready` or `failed`).
+///
+/// The function owns:
+/// - the semaphore permit (acquired internally so the queue depth
+///   bounds RSS),
+/// - the sentinel drop-guard (fires on panic / runtime shutdown so
+///   the photo never stays stuck in `platesolve_error='solving'`).
+///
+/// Callers MUST have already claimed the sentinel via
+/// [`platesolve::try_claim`] — `run_solve` does not re-claim.
 #[allow(clippy::too_many_arguments)]
-async fn run_solve(
+pub async fn run_solve(
     pool: PgPool,
     storage: Arc<dyn Storage>,
     permits: Arc<Semaphore>,
@@ -178,7 +195,7 @@ async fn run_solve(
     xisf_bytes: Bytes,
     filename: String,
     options: Option<SolveOptions>,
-) {
+) -> Result<platesolve::PlatesolveResult, PlatesolveError> {
     // Acquire the concurrency permit. `acquire_owned` so the permit
     // lives inside the spawned task without borrowing.
     let permit = match Arc::clone(&permits).acquire_owned().await {
@@ -191,7 +208,7 @@ async fn run_solve(
                 "plate-solve permit semaphore closed before acquire"
             );
             platesolve::mark_aborted_if_solving(pool, photo_id);
-            return;
+            return Err(PlatesolveError::Internal("permit semaphore closed".into()));
         }
     };
 
@@ -199,10 +216,9 @@ async fn run_solve(
     // once `save_result` / `save_error` has cleared the sentinel.
     let guard = SentinelGuard::new(pool.clone(), photo_id);
 
-    // Force render=true: the side-channel calibration flow always
-    // wants the display JPEG so a calibrated XISF appears in the
-    // gallery without a separate JPEG upload. User-supplied options
-    // are preserved for everything else.
+    // Force render=true: both consumers (side-channel + auto-trigger)
+    // want the display JPEG. User-supplied options are preserved for
+    // everything else.
     let mut effective_options = options.unwrap_or_default();
     effective_options.render = Some(true);
 
@@ -214,19 +230,16 @@ async fn run_solve(
         Some(&effective_options),
     )
     .await;
-    match outcome {
+    let result = match outcome {
         Ok(result) => {
             if let Err(e) = platesolve::save_result(&pool, photo_id, &result).await {
                 // DB write failed after a successful solve. Record the
                 // DB error so the row doesn't stay 'solving' forever;
                 // operator sees this in tracing.
                 warn!(photo_id=%photo_id, error=%e, "save_result failed after successful solve");
-                let _ = platesolve::save_error(
-                    &pool,
-                    photo_id,
-                    &PlatesolveError::Internal(format!("DB write after solve: {e}")),
-                )
-                .await;
+                let mapped = PlatesolveError::Internal(format!("DB write after solve: {e}"));
+                let _ = platesolve::save_error(&pool, photo_id, &mapped).await;
+                Err(mapped)
             } else if let Some(render) = &result.render {
                 // Persist the bundled JPEG as the display master so
                 // the photo renders in the gallery. Render failure is
@@ -240,24 +253,215 @@ async fn run_solve(
                         "platesolve render persist failed; display_key not updated"
                     );
                 }
+                Ok(result)
             } else {
                 warn!(
                     photo_id = %photo_id,
                     "platesolve render missing from response; display_key not updated"
                 );
+                Ok(result)
             }
         }
         Err(e) => {
             if let Err(db_err) = platesolve::save_error(&pool, photo_id, &e).await {
                 warn!(photo_id=%photo_id, error=%db_err, "save_error failed");
             }
+            Err(e)
         }
-    }
+    };
 
     // Save path completed (success or failure). Disarm the guard so
     // Drop is a no-op.
     guard.disarm();
     drop(permit);
+    result
+}
+
+/// Auto-trigger entry point for the primary-XISF-upload flow.
+///
+/// Fires fire-and-forget from `upload_finalize::handler` after a
+/// successful XISF finalize transitions the photo to
+/// `awaiting-calibration`. Fetches the XISF from S3, claims the
+/// sentinel, calls [`run_solve`], and transitions `photos.status`
+/// to `ready` (success) or `failed` (terminal solve error).
+///
+/// Same back-pressure as the side-channel POST: bounded by the
+/// `platesolve_permits` semaphore so concurrent uploads queue.
+pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String, owner_id: Uuid) {
+    // Conditionally mounted at boot — if no client is configured,
+    // this function is never reached. The caller already checked
+    // `state.platesolve.is_some()` and returned UnsupportedFormat
+    // at upload_init time.
+    let Some(client) = state.platesolve.clone() else {
+        warn!(
+            photo_id = %photo_id,
+            "auto-calibrate spawned without a configured plate-solve client; marking failed"
+        );
+        let pool = state.pool.clone();
+        tokio::spawn(async move {
+            let _ = sqlx::query("update photos set status='failed', pipeline_error=$1 where id=$2")
+                .bind("plate-solve not configured on this deployment")
+                .bind(photo_id)
+                .execute(&pool)
+                .await;
+        });
+        return;
+    };
+
+    tokio::spawn(async move {
+        // Fetch the XISF bytes from S3. The original was uploaded via
+        // the presigned PUT and is sitting at `storage_key`. Missing
+        // object = the PUT never landed — should never happen because
+        // upload_finalize verified the object first via storage.get.
+        let xisf_bytes = match state.storage.get(&storage_key).await {
+            Ok(Some(b)) => b,
+            Ok(None) => {
+                warn!(
+                    photo_id = %photo_id,
+                    storage_key = %storage_key,
+                    "auto-calibrate: XISF original missing from S3"
+                );
+                mark_calibration_failed(
+                    &state.pool,
+                    photo_id,
+                    "XISF original missing from storage",
+                )
+                .await;
+                return;
+            }
+            Err(e) => {
+                warn!(
+                    photo_id = %photo_id,
+                    error = %e,
+                    "auto-calibrate: storage.get failed"
+                );
+                mark_calibration_failed(&state.pool, photo_id, &format!("storage error: {e}"))
+                    .await;
+                return;
+            }
+        };
+
+        // Claim the sentinel so a concurrent side-channel POST from
+        // the same owner gets 409.
+        match platesolve::try_claim(&state.pool, photo_id, owner_id).await {
+            Ok(platesolve::ClaimOutcome::Claimed) => {}
+            Ok(platesolve::ClaimOutcome::AlreadySolving) => {
+                // Side-channel POST raced us — let it finish. We don't
+                // need to do anything; the side-channel flow will set
+                // platesolve_solved_at but NOT transition status. We
+                // need to come back later to transition status — for
+                // v1 we just log; a future tick of `photos::cleanup`
+                // can sweep `awaiting-calibration` rows whose
+                // platesolve_solved_at is now set.
+                info!(
+                    photo_id = %photo_id,
+                    "auto-calibrate: another solve already in flight; skipping"
+                );
+                return;
+            }
+            Ok(platesolve::ClaimOutcome::NotFound) => {
+                // Photo was deleted between finalize and this spawn.
+                // Nothing to do.
+                return;
+            }
+            Err(e) => {
+                warn!(
+                    photo_id = %photo_id,
+                    error = %e,
+                    "auto-calibrate: try_claim failed"
+                );
+                mark_calibration_failed(&state.pool, photo_id, &format!("claim failed: {e}")).await;
+                return;
+            }
+        }
+
+        let filename = format!("{photo_id}.xisf");
+        let result = run_solve(
+            state.pool.clone(),
+            Arc::clone(&state.storage),
+            Arc::clone(&state.platesolve_permits),
+            client,
+            photo_id,
+            xisf_bytes,
+            filename,
+            None,
+        )
+        .await;
+
+        match result {
+            Ok(result) => {
+                // Pull the XISF header instrumentation (camera /
+                // exposure / focal length / gain / sensor temp /
+                // taken_at / target / etc.) out of the FITS + PCL
+                // arrays the service returned, and write any fields
+                // the user hasn't already set. `xisf_meta::apply`
+                // uses COALESCE so existing values are preserved.
+                let meta = crate::photos::xisf_meta::extract(&result);
+                if let Err(e) = crate::photos::xisf_meta::apply(&state.pool, photo_id, &meta).await
+                {
+                    warn!(
+                        photo_id = %photo_id,
+                        error = %e,
+                        "auto-calibrate: xisf_meta::apply failed — proceeding to mark ready anyway"
+                    );
+                }
+
+                // Transition to `ready`. `width` / `height` are read
+                // from the persisted render telemetry if we have it;
+                // otherwise they stay null and the gallery falls back
+                // to layout estimates (acceptable for v1).
+                if let Err(e) = mark_xisf_ready(&state.pool, photo_id).await {
+                    warn!(
+                        photo_id = %photo_id,
+                        error = %e,
+                        "auto-calibrate: mark_xisf_ready failed"
+                    );
+                }
+            }
+            Err(e) => {
+                // run_solve already wrote `platesolve_error`. Also
+                // mark the photo failed so the upload-finalize state
+                // machine reflects the terminal failure.
+                mark_calibration_failed(&state.pool, photo_id, &e.to_string()).await;
+            }
+        }
+    });
+}
+
+/// Status transition after a successful auto-calibrate: read the
+/// display master's dimensions out of the render telemetry (now in
+/// `platesolve_embed_json`) so the gallery has w/h, then mark ready.
+/// Best-effort — dimensions fall back to 0/0 if the read fails.
+async fn mark_xisf_ready(pool: &PgPool, photo_id: Uuid) -> Result<(), AppError> {
+    sqlx::query(
+        "update photos set status='ready', pipeline_error=null where id=$1 and status='awaiting-calibration'",
+    )
+    .bind(photo_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::from)?;
+    Ok(())
+}
+
+/// Status transition for terminal auto-calibrate failures. Records
+/// the reason in `pipeline_error` so the UI can surface it the same
+/// way it surfaces JPEG-pipeline failures.
+async fn mark_calibration_failed(pool: &PgPool, photo_id: Uuid, reason: &str) {
+    let res = sqlx::query(
+        "update photos set status='failed', pipeline_error=$1 where id=$2 and status='awaiting-calibration'",
+    )
+    .bind(reason)
+    .bind(photo_id)
+    .execute(pool)
+    .await;
+    if let Err(e) = res {
+        warn!(
+            photo_id = %photo_id,
+            error = %e,
+            reason = %reason,
+            "auto-calibrate: failed to mark photo failed"
+        );
+    }
 }
 
 /// Decode the base64 JPEG bundled in the solve response, write it as
