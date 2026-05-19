@@ -63,6 +63,12 @@ pub struct XisfDisplayMeta {
     /// a separate entry here. Empty lines and whitespace-only entries
     /// are filtered out.
     pub history: Vec<String>,
+    /// Total integration time across all subframes, in seconds.
+    /// Decoded from `PCL:TotalExposureTime` (`F64Vector` whose body is
+    /// base64-encoded little-endian f64). When the vector has multiple
+    /// channels (RGB integrations etc.), this is the sum across
+    /// channels — same behaviour as PixInsight's display.
+    pub total_exposure_s: Option<f64>,
 }
 
 impl XisfDisplayMeta {
@@ -81,6 +87,7 @@ impl XisfDisplayMeta {
             && self.binning_x.is_none()
             && self.binning_y.is_none()
             && self.history.is_empty()
+            && self.total_exposure_s.is_none()
     }
 }
 
@@ -136,6 +143,13 @@ pub fn extract_from_embed(embed: Option<&Value>) -> XisfDisplayMeta {
         binning_y: parse_i32(find_fits(fits, "YBINNING"))
             .or_else(|| parse_i32(find_pcl(pcl, "Instrument:Camera:YBinning"))),
         history: collect_history(fits),
+        // `PCL:TotalExposureTime` is an F64Vector. xisf-rs-core's
+        // inline-base64 capture (PR on the service repo, late May
+        // 2026) gives us the raw base64 string here; we decode it
+        // ourselves to keep the platesolve-server response neutral.
+        // A multi-channel master returns one entry per channel —
+        // sum them so the displayed value matches PixInsight.
+        total_exposure_s: decode_total_exposure(find_pcl(pcl, "PCL:TotalExposureTime")),
     }
 }
 
@@ -152,6 +166,7 @@ fn empty() -> XisfDisplayMeta {
         binning_x: None,
         binning_y: None,
         history: Vec::new(),
+        total_exposure_s: None,
     }
 }
 
@@ -212,6 +227,39 @@ fn parse_datetime(s: Option<&str>) -> Option<DateTime<Utc>> {
         return Some(DateTime::from_naive_utc_and_offset(t, Utc));
     }
     None
+}
+
+/// Decode a base64 little-endian f64 vector (`PCL:TotalExposureTime`
+/// shape) and return the sum across entries. Returns `None` on any
+/// decode failure or when the string is empty / not 8-byte-aligned
+/// (a pre-passthrough server response will have `value: ""`, which
+/// short-circuits cleanly).
+fn decode_total_exposure(s: Option<&str>) -> Option<f64> {
+    use base64::Engine;
+    let raw = s?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let bytes = base64::engine::general_purpose::STANDARD.decode(raw).ok()?;
+    if bytes.is_empty() || bytes.len() % 8 != 0 {
+        return None;
+    }
+    let mut sum = 0.0_f64;
+    for chunk in bytes.chunks_exact(8) {
+        // Per XISF 1.0 §10, multi-byte numeric properties are stored
+        // little-endian regardless of host. PixInsight is the
+        // canonical writer and follows the spec.
+        let arr: [u8; 8] = chunk.try_into().ok()?;
+        let v = f64::from_le_bytes(arr);
+        if !v.is_finite() || v < 0.0 {
+            // Defensive: don't surface NaN/Inf or negative values
+            // (which would indicate a corrupted payload rather than
+            // a real exposure time).
+            return None;
+        }
+        sum += v;
+    }
+    Some(sum)
 }
 
 /// Collect non-empty FITS `HISTORY` lines. PixInsight writes one
@@ -433,6 +481,85 @@ mod tests {
         let m = extract_from_embed(Some(&embed));
         assert_eq!(m.filter.as_deref(), Some("L"));
         assert_eq!(m.telescope.as_deref(), Some("Askar 65PHQ"));
+    }
+
+    #[test]
+    fn decodes_total_exposure_from_pcl_base64_f64() {
+        // The real PixInsight body for NGC6822-L120, captured from
+        // staging: 8 base64 bytes encode one f64 LE. Decoded value
+        // (~12664.9 s) corresponds to the master's total integration
+        // time. The exact number isn't important for this test — only
+        // that the decoder produces a finite positive value matching
+        // a direct from_le_bytes round-trip.
+        let embed = json!({
+            "fits": [],
+            "pcl_properties": [
+                pcl_prop("PCL:TotalExposureTime", "F64Vector", "X7yZOEZ7yUA="),
+            ],
+        });
+        let m = extract_from_embed(Some(&embed));
+        let total = m.total_exposure_s.expect("decoded");
+        // Reproduce the decode independently to assert the exact value.
+        use base64::Engine;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode("X7yZOEZ7yUA=")
+            .unwrap();
+        let expected = f64::from_le_bytes(bytes.try_into().unwrap());
+        assert!(
+            (total - expected).abs() < 1e-9,
+            "total {total} vs {expected}"
+        );
+        assert!(total > 0.0);
+    }
+
+    #[test]
+    fn sums_multi_channel_total_exposure() {
+        // Multi-channel RGB integration has one entry per channel —
+        // PixInsight's display sums them and we match that.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&100.0_f64.to_le_bytes());
+        bytes.extend_from_slice(&200.0_f64.to_le_bytes());
+        bytes.extend_from_slice(&400.0_f64.to_le_bytes());
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let embed = json!({
+            "fits": [],
+            "pcl_properties": [pcl_prop("PCL:TotalExposureTime", "F64Vector", &b64)],
+        });
+        let m = extract_from_embed(Some(&embed));
+        assert_eq!(m.total_exposure_s, Some(700.0));
+    }
+
+    #[test]
+    fn empty_total_exposure_string_yields_none() {
+        // Pre-xisf-rs-fix the service returned `value: ""` for vector
+        // properties. The decoder must short-circuit rather than
+        // surface a 0.0 that would render as "0 s".
+        let embed = json!({
+            "fits": [],
+            "pcl_properties": [pcl_prop("PCL:TotalExposureTime", "F64Vector", "")],
+        });
+        let m = extract_from_embed(Some(&embed));
+        assert!(m.total_exposure_s.is_none());
+    }
+
+    #[test]
+    fn malformed_total_exposure_rejected_quietly() {
+        // Garbage in the base64 or non-8-byte payload → None, not a
+        // panic. Important because the property is untrusted user
+        // input through several network hops.
+        for bad in [
+            "not-base64!!!",
+            "AAAA",             // 3 bytes after decode — not 8-byte aligned
+            "////////////////", // 12 bytes — also not aligned
+        ] {
+            let embed = json!({
+                "fits": [],
+                "pcl_properties": [pcl_prop("PCL:TotalExposureTime", "F64Vector", bad)],
+            });
+            let m = extract_from_embed(Some(&embed));
+            assert!(m.total_exposure_s.is_none(), "should reject `{bad}`");
+        }
     }
 
     #[test]

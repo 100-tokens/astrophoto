@@ -82,8 +82,24 @@
       m.subframes == null &&
       m.binningX == null &&
       m.binningY == null &&
-      m.history.length === 0
+      m.history.length === 0 &&
+      m.totalExposureS == null
     );
+  }
+
+  /** Compose a "12664 s = 3 h 31 min · ~105 subs of 120 s" label. */
+  function totalExposureLabel(totalS: number, perSubS: number | null | undefined): string {
+    const round = (x: number) => Math.round(x);
+    const parts: string[] = [`${round(totalS)} s`];
+    const hours = Math.floor(totalS / 3600);
+    const mins = Math.round((totalS - hours * 3600) / 60);
+    parts.push(`= ${hours} h ${mins.toString().padStart(2, '0')} min`);
+    if (perSubS && perSubS > 0) {
+      const subs = totalS / perSubS;
+      const subsLabel = Number.isInteger(subs) ? `${subs}` : `~${Math.round(subs)}`;
+      parts.push(`· ${subsLabel} subs of ${round(perSubS)} s`);
+    }
+    return parts.join(' ');
   }
 
   /** Compose a human "5 nights · 4 d 02 h" label from start/end ISO timestamps. */
@@ -445,6 +461,13 @@
                 {/if}
                 {#if xisfMeta.subframes != null}
                   <tr><th>Subframes</th><td class="mono">{xisfMeta.subframes}</td></tr>
+                {/if}
+                {#if xisfMeta.totalExposureS != null}
+                  <tr
+                    ><th>Integration</th><td class="mono"
+                      >{totalExposureLabel(xisfMeta.totalExposureS, data.photo.exposure_s)}</td
+                    ></tr
+                  >
                 {/if}
                 {#if xisfMeta.binningX != null && xisfMeta.binningY != null}
                   <tr
