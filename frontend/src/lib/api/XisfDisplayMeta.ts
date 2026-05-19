@@ -52,4 +52,12 @@ export type XisfDisplayMeta = {
    * are filtered out.
    */
   history: Array<string>;
+  /**
+   * Total integration time across all subframes, in seconds.
+   * Decoded from `PCL:TotalExposureTime` (`F64Vector` whose body is
+   * base64-encoded little-endian f64). When the vector has multiple
+   * channels (RGB integrations etc.), this is the sum across
+   * channels — same behaviour as PixInsight's display.
+   */
+  totalExposureS: number | null;
 };
