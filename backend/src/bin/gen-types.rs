@@ -19,6 +19,7 @@ use astrophoto::api_types::{
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
+use astrophoto::photos::xisf_display::XisfDisplayMeta;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
@@ -89,6 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     PlatesolveStatus::export_all_to(out_dir)?;
     PlatesolveResult::export_all_to(out_dir)?;
     SolveOptions::export_all_to(out_dir)?;
+    XisfDisplayMeta::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

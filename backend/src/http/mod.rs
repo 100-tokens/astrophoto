@@ -164,6 +164,10 @@ pub fn router(
             get(crate::photos::platesolve_status::handler),
         )
         .route(
+            "/api/photos/:id/xisf-meta",
+            get(crate::photos::xisf_display_handler::handler),
+        )
+        .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )

@@ -14,6 +14,7 @@
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { PlatesolveStatus } from '$lib/api/PlatesolveStatus';
   import type { SetupSummary } from '$lib/api/SetupSummary';
+  import type { XisfDisplayMeta } from '$lib/api/XisfDisplayMeta';
   import type { PageProps } from './$types';
 
   const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
@@ -44,6 +45,70 @@
   let psPollHandle = $state<number | null>(null);
   let psState = $derived(psStatus?.state ?? 'idle');
   let psIsSolving = $derived(psState === 'solving');
+
+  // XISF processing history sidebar — populated from the persisted
+  // platesolve_embed_json via /api/photos/:id/xisf-meta. Fetched once
+  // when the photo enters a "solved" state (no polling — once written
+  // by the auto-trigger it doesn't change).
+  let xisfMeta = $state<XisfDisplayMeta | null>(null);
+  let xisfMetaLoaded = $state(false);
+
+  async function fetchXisfMeta() {
+    if (xisfMetaLoaded) return;
+    xisfMetaLoaded = true; // mark before await to dedupe concurrent calls
+    try {
+      const r = await fetch(`${API}/api/photos/${data.photo.id}/xisf-meta`, {
+        credentials: 'include'
+      });
+      if (!r.ok) {
+        xisfMetaLoaded = false; // allow retry on next state change
+        return;
+      }
+      xisfMeta = (await r.json()) as XisfDisplayMeta;
+    } catch {
+      xisfMetaLoaded = false;
+    }
+  }
+
+  function xisfMetaIsEmpty(m: XisfDisplayMeta): boolean {
+    return (
+      !m.filter &&
+      !m.telescope &&
+      !m.observationStart &&
+      !m.observationEnd &&
+      m.latitudeDeg == null &&
+      m.longitudeDeg == null &&
+      m.elevationM == null &&
+      m.subframes == null &&
+      m.binningX == null &&
+      m.binningY == null &&
+      m.history.length === 0
+    );
+  }
+
+  /** Compose a human "5 nights · 4 d 02 h" label from start/end ISO timestamps. */
+  function observationSpan(startIso: string, endIso: string): string {
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    const ms = end.getTime() - start.getTime();
+    if (!Number.isFinite(ms) || ms < 0) return '';
+    const hours = ms / (1000 * 60 * 60);
+    if (hours < 24) return `${hours.toFixed(1)} h`;
+    const days = Math.floor(hours / 24);
+    const remHours = Math.round(hours - days * 24);
+    return `${days} d ${remHours.toString().padStart(2, '0')} h`;
+  }
+
+  function fmtDateShort(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  function fmtCoord(deg: number, suffix: [string, string]): string {
+    const sign = deg >= 0 ? suffix[0] : suffix[1];
+    return `${Math.abs(deg).toFixed(4)}° ${sign}`;
+  }
 
   function onPickXisf(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
@@ -150,6 +215,13 @@
     if (psIsSolving) startPolling();
     else stopPolling();
     return () => stopPolling();
+  });
+
+  // Lazy-fetch the XISF processing-history view once the plate-solve
+  // is finished — `platesolve_embed_json` only gets written after a
+  // successful solve, so before that there's nothing useful to render.
+  $effect(() => {
+    if (psState === 'solved') void fetchXisfMeta();
   });
 
   function formatTelemetry(s: PlatesolveStatus): string {
@@ -359,6 +431,68 @@
             <tr><th>Frames captured</th><td class="mono">{data.photo.sessions ?? '—'}</td></tr>
           </tbody>
         </table>
+
+        {#if xisfMeta && !xisfMetaIsEmpty(xisfMeta)}
+          <div class="xisf-history">
+            <div class="t-label xisf-history-label">PROCESSING HISTORY</div>
+            <table class="exif xisf-history-table">
+              <tbody>
+                {#if xisfMeta.filter}
+                  <tr><th>Filter</th><td class="mono">{xisfMeta.filter}</td></tr>
+                {/if}
+                {#if xisfMeta.telescope}
+                  <tr><th>Telescope</th><td class="mono">{xisfMeta.telescope}</td></tr>
+                {/if}
+                {#if xisfMeta.subframes != null}
+                  <tr><th>Subframes</th><td class="mono">{xisfMeta.subframes}</td></tr>
+                {/if}
+                {#if xisfMeta.binningX != null && xisfMeta.binningY != null}
+                  <tr
+                    ><th>Binning</th><td class="mono">{xisfMeta.binningX}×{xisfMeta.binningY}</td
+                    ></tr
+                  >
+                {/if}
+                {#if xisfMeta.observationStart && xisfMeta.observationEnd}
+                  <tr
+                    ><th>Sessions</th><td class="mono"
+                      >{fmtDateShort(xisfMeta.observationStart)} → {fmtDateShort(
+                        xisfMeta.observationEnd
+                      )} ({observationSpan(xisfMeta.observationStart, xisfMeta.observationEnd)})</td
+                    ></tr
+                  >
+                {:else if xisfMeta.observationStart}
+                  <tr
+                    ><th>Captured</th><td class="mono">{fmtDateShort(xisfMeta.observationStart)}</td
+                    ></tr
+                  >
+                {/if}
+                {#if xisfMeta.latitudeDeg != null && xisfMeta.longitudeDeg != null}
+                  <tr
+                    ><th>Site</th><td class="mono"
+                      >{fmtCoord(xisfMeta.latitudeDeg, ['N', 'S'])} ·
+                      {fmtCoord(xisfMeta.longitudeDeg, ['E', 'W'])}{#if xisfMeta.elevationM != null}
+                        · {Math.round(xisfMeta.elevationM)} m{/if}</td
+                    ></tr
+                  >
+                {/if}
+              </tbody>
+            </table>
+            {#if xisfMeta.history.length > 0}
+              <details class="xisf-history-details">
+                <summary class="t-label"
+                  >FITS HISTORY · {xisfMeta.history.length}
+                  {xisfMeta.history.length === 1 ? 'line' : 'lines'}</summary
+                >
+                <ol class="xisf-history-list">
+                  {#each xisfMeta.history as line (line)}
+                    <li class="mono">{line}</li>
+                  {/each}
+                </ol>
+              </details>
+            {/if}
+          </div>
+        {/if}
+
         {#if !isPublished}
           <a class="replace-link" href="/upload" data-sveltekit-reload>← Replace file</a>
         {/if}
@@ -710,6 +844,45 @@
   .exif tr:last-child th,
   .exif tr:last-child td {
     border-bottom: none;
+  }
+  .xisf-history {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border-default);
+  }
+  .xisf-history-label {
+    color: var(--accent);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .xisf-history-table {
+    margin-top: 0;
+  }
+  .xisf-history-details {
+    margin-top: 12px;
+  }
+  .xisf-history-details summary {
+    cursor: pointer;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 0;
+  }
+  .xisf-history-details summary:hover {
+    color: var(--accent);
+  }
+  .xisf-history-list {
+    margin: 8px 0 0;
+    padding: 0 0 0 18px;
+    font-size: 11px;
+    color: var(--fg-secondary);
+    line-height: 1.45;
+  }
+  .xisf-history-list li {
+    margin-bottom: 4px;
+    word-break: break-word;
   }
   .filename {
     overflow: hidden;

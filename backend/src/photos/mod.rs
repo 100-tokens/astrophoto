@@ -31,4 +31,6 @@ pub mod thumbs;
 pub mod upload_cancel;
 pub mod upload_finalize;
 pub mod upload_init;
+pub mod xisf_display;
+pub mod xisf_display_handler;
 pub mod xisf_meta;
