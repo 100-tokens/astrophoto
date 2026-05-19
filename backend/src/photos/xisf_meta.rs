@@ -77,8 +77,8 @@ pub fn extract(result: &PlatesolveResult) -> XisfMetadata {
     let pcl = &result.pcl_properties;
     XisfMetadata {
         camera: find_fits(fits, "INSTRUME")
-            .map(str::to_string)
-            .or_else(|| find_pcl(pcl, "Instrument:Camera:Name").map(str::to_string)),
+            .map(strip_fits_quotes)
+            .or_else(|| find_pcl(pcl, "Instrument:Camera:Name").map(strip_fits_quotes)),
         // FITS EXPTIME / EXPOSURE are both seconds. Some camera
         // control software writes EXPOSURE only.
         exposure_s: parse_f64(find_fits(fits, "EXPTIME"))
@@ -106,9 +106,22 @@ pub fn extract(result: &PlatesolveResult) -> XisfMetadata {
         taken_at: parse_datetime(find_fits(fits, "DATE-OBS"))
             .or_else(|| parse_datetime(find_pcl(pcl, "Observation:Time:Start"))),
         target: find_fits(fits, "OBJECT")
-            .map(str::to_string)
-            .or_else(|| find_pcl(pcl, "Observation:Object:Name").map(str::to_string)),
+            .map(strip_fits_quotes)
+            .or_else(|| find_pcl(pcl, "Observation:Object:Name").map(strip_fits_quotes)),
     }
+}
+
+/// Strip the FITS single-quote string convention (`'NGC 6822'` →
+/// `NGC 6822`) and surrounding whitespace. PCL string values aren't
+/// quoted but harmlessly pass through.
+fn strip_fits_quotes(s: &str) -> String {
+    let v = s.trim();
+    let stripped = if v.starts_with('\'') && v.ends_with('\'') && v.len() >= 2 {
+        v[1..v.len() - 1].trim()
+    } else {
+        v
+    };
+    stripped.to_string()
 }
 
 /// Persist whatever non-`None` fields the extractor produced. Uses
@@ -367,5 +380,33 @@ mod tests {
         r.fits = vec![fits("EXPTIME", "'120.5'")];
         let m = extract(&r);
         assert_eq!(m.exposure_s, Some(120.5));
+    }
+
+    #[test]
+    fn quoted_fits_string_values_are_unquoted() {
+        // FITS strings are wrapped in single quotes per the spec; the
+        // service hands them through verbatim. Strip them so the UI
+        // doesn't render `'NGC 6822'` to the user.
+        let mut r = empty_result();
+        r.fits = vec![
+            fits("INSTRUME", "'ZWO ASI533MM Pro'"),
+            fits("OBJECT", "'NGC 6822'"),
+        ];
+        let m = extract(&r);
+        assert_eq!(m.camera.as_deref(), Some("ZWO ASI533MM Pro"));
+        assert_eq!(m.target.as_deref(), Some("NGC 6822"));
+    }
+
+    #[test]
+    fn unquoted_string_values_pass_through() {
+        // PCL string values aren't quoted; the strip must be a no-op.
+        let mut r = empty_result();
+        r.pcl_properties = vec![
+            pcl("Instrument:Camera:Name", "String", "QHY 268M"),
+            pcl("Observation:Object:Name", "String", "M31"),
+        ];
+        let m = extract(&r);
+        assert_eq!(m.camera.as_deref(), Some("QHY 268M"));
+        assert_eq!(m.target.as_deref(), Some("M31"));
     }
 }
