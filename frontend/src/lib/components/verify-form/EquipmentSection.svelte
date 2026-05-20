@@ -70,6 +70,9 @@
 
   <div class="equip-setup">
     {#if appliedSpec && currentSetupId}
+      <!-- Applied setup: show the tinted summary + Detach. The combobox is
+           hidden because keeping both on screen reads as duplicate state.
+           Detach drops back to the combobox for picking a different setup. -->
       <div class="equip-applied">
         <span class="equip-applied-square" aria-hidden="true"></span>
         <span class="equip-applied-name">{appliedSpec.name}</span>
@@ -82,14 +85,15 @@
           >Detach</button
         >
       </div>
+    {:else}
+      <SetupPicker
+        {setups}
+        {currentSetupId}
+        current={{ scope, focal_modifier, camera, mount, filters: filtersString, guiding }}
+        onapply={onApply}
+        ondetach={onDetach}
+      />
     {/if}
-    <SetupPicker
-      {setups}
-      {currentSetupId}
-      current={{ scope, focal_modifier, camera, mount, filters: filtersString, guiding }}
-      onapply={onApply}
-      ondetach={onDetach}
-    />
   </div>
 
   <div class="equip-grid">

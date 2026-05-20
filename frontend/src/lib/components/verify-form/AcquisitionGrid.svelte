@@ -6,6 +6,8 @@
   // when blank. The new TextField primitive uses inputmode=decimal (NOT
   // type=number) so the browser spinner is gone and the aria-invalid-on-
   // typing bug from the previous implementation is structurally avoided.
+  // Because the inputs are type=text, the `step` HTML attribute would be
+  // a no-op — we drop it and rely on the server's Number() coercion.
 
   interface Props {
     lens?: string;
@@ -55,7 +57,6 @@
     bind:value={focal_mm}
     suffix="mm"
     numeric
-    step="any"
     detected={has('focal_mm')}
     {disabled}
   />
@@ -64,7 +65,6 @@
     label="APERTURE"
     bind:value={aperture_f}
     numeric
-    step="0.1"
     detected={has('aperture_f')}
     {disabled}
   />
@@ -73,7 +73,6 @@
     label="ISO"
     bind:value={iso}
     numeric
-    step="1"
     detected={has('iso')}
     placeholder="auto / N/A"
     {disabled}
@@ -84,26 +83,16 @@
     bind:value={exposure_s}
     suffix="s"
     numeric
-    step="any"
     detected={has('exposure_s')}
     {disabled}
   />
-  <TextField
-    name="gain"
-    label="GAIN"
-    bind:value={gain}
-    numeric
-    step="any"
-    detected={has('gain')}
-    {disabled}
-  />
+  <TextField name="gain" label="GAIN" bind:value={gain} numeric detected={has('gain')} {disabled} />
   <TextField
     name="sensor_temp_c"
     label="SENSOR TEMP"
     bind:value={sensor_temp_c}
     suffix="°C"
     numeric
-    step="0.1"
     detected={has('sensor_temp_c')}
     {disabled}
   />
@@ -112,7 +101,6 @@
     label="SESSIONS"
     bind:value={sessions}
     numeric
-    step="1"
     placeholder="nights"
     detected={has('sessions')}
     {disabled}
@@ -122,7 +110,6 @@
     label="RA"
     bind:value={ra_deg}
     numeric
-    step="any"
     span={2}
     detected={has('ra_deg')}
     hint="J2000 · decimal degrees · auto from solve"
@@ -133,7 +120,6 @@
     label="DEC"
     bind:value={dec_deg}
     numeric
-    step="any"
     span={2}
     detected={has('dec_deg')}
     hint="J2000 · decimal degrees · auto from solve"

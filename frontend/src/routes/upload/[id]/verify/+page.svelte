@@ -191,7 +191,10 @@
   const _fc = initialFilterChips();
 
   let target = $state<string>(_sp.target ?? '');
-  let category = $state<string>(_sp.category ?? 'dso');
+  // Default 'other' (matches CategorySegmented's prior behavior). The visible
+  // segmented row highlights nothing in this state — the user must click DSO
+  // / Planetary / etc. to commit, or the discrete "Other" link below.
+  let category = $state<string>(_sp.category ?? 'other');
   // Text-encoded numerics — TextField uses inputmode=decimal, the server
   // coerces back to number via Number(). Strings here let blank ↔ null
   // round-trip without special-casing 0.
@@ -214,17 +217,21 @@
   let tags = $state<string[]>(_sp.tags ?? []);
   let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
 
-  // Re-pull data.photo.ra_deg / dec_deg whenever the load function reruns
-  // (plate-solve completion calls invalidateAll). The ra_deg/dec_deg
-  // strings should track the server value when the user hasn't touched
-  // them — but if they have, leave their typed value alone.
+  // Plate-solve completion calls invalidateAll(), which re-runs the load.
+  // Push the freshly-solved RA/Dec into the inputs IFF the page started
+  // with no value and the user hasn't typed anything since. After the
+  // first sync we stop tracking — a typed-and-then-cleared value should
+  // stay cleared.
+  let raDecSynced = $state(_sp.ra_deg != null || _sp.dec_deg != null);
   $effect(() => {
+    if (raDecSynced) return;
     const newRa = data.photo.ra_deg;
     const newDec = data.photo.dec_deg;
-    // Only auto-update when our local value matches the empty string;
-    // a typed override should not be clobbered.
-    if (ra_deg === '' && newRa != null) ra_deg = String(newRa);
-    if (dec_deg === '' && newDec != null) dec_deg = String(newDec);
+    if (newRa != null || newDec != null) {
+      if (newRa != null && ra_deg === '') ra_deg = String(newRa);
+      if (newDec != null && dec_deg === '') dec_deg = String(newDec);
+      raDecSynced = true;
+    }
   });
 
   let filtersString = $derived(filterChips.map((f) => f.display_name).join(', '));
@@ -347,9 +354,13 @@
   // remain the canonical save mechanism.
   // --------------------------------------------------------------------
   type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-  let saveState = $state<SaveState>('idle');
-  let lastEditAt = $state<number | null>(null);
+  // 'saved' is the default — the page was just loaded from the server so
+  // the displayed state matches what's persisted. Future edits move it to
+  // 'saving' / 'saved' on a real round-trip (stubbed for now: see below).
+  let saveState = $state<SaveState>('saved');
+  let lastEditAt = $state<number>(Date.now());
   let now = $state(Date.now());
+  let firstSyncDone = $state(false);
   $effect(() => {
     const h = window.setInterval(() => {
       now = Date.now();
@@ -357,7 +368,9 @@
     return () => clearInterval(h);
   });
   // Reactivity-only: touching every field bumps the lastEditAt clock so
-  // the indicator says "auto-saved Xs ago". This is presentational only.
+  // the indicator says "auto-saved Xs ago". This is presentational only —
+  // there is no fetch attached. The first effect run is the seed pass
+  // (no real user edit), so we gate the timestamp update via `firstSyncDone`.
   $effect(() => {
     // Reference every editable field so the effect re-runs on any edit.
     void target;
@@ -379,13 +392,14 @@
     void guiding;
     void filterChips;
     void tags;
-    if (lastEditAt !== null) {
-      // Don't flag the very first run (the seed-from-server one).
-      saveState = 'idle';
+    if (!firstSyncDone) {
+      firstSyncDone = true;
+      return;
     }
+    saveState = 'saved';
     lastEditAt = Date.now();
   });
-  let secondsSinceSaved = $derived(lastEditAt != null ? (now - lastEditAt) / 1000 : null);
+  let secondsSinceSaved = $derived((now - lastEditAt) / 1000);
 </script>
 
 <svelte:head><title>Verify data — Astrophoto</title></svelte:head>
