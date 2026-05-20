@@ -14,6 +14,13 @@ function parseCookie(header: string, name: string): string | null {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  // Apex → www redirect. The canonical host is www.astrophoto.pics; apex
+  // visitors get a 301 so bookmarks and links collapse on one canonical host.
+  // Only kicks in once the apex DNS resolves to this app — see infra runbook.
+  if (event.url.host === 'astrophoto.pics') {
+    redirect(301, `https://www.astrophoto.pics${event.url.pathname}${event.url.search}`);
+  }
+
   // Redirect removed /caption route to /verify so old bookmarks keep working.
   const captionMatch = event.url.pathname.match(/^\/upload\/([0-9a-f-]{36})\/caption\/?$/);
   if (captionMatch) {
