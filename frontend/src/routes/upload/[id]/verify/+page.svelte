@@ -346,31 +346,65 @@
   });
 
   // --------------------------------------------------------------------
-  // Autosave indicator — STUBBED. The footer shows a derived
-  // "ms-since-last-edit" indicator, but does NOT actually POST. Wiring
-  // real autosave requires either a dedicated endpoint or careful reuse
-  // of the existing PUT path with debouncing — out of scope for this PR.
-  // The "Continue →" / "Save as draft" / "Save changes" form actions
-  // remain the canonical save mechanism.
+  // Autosave — debounced PUT through the same-origin /api proxy. The
+  // form-action save path ("Continue →", "Save as draft", "Save changes")
+  // remains the canonical commit on navigation; this autosave is purely
+  // for resilience between commits.
+  //
+  // Skipped when the photo is already published (the published-edit path
+  // is gated behind the explicit "Save changes" action — silent writes
+  // would surprise the user). The first effect run is the seed pass, not
+  // a real edit, so a `firstSyncDone` flag suppresses it.
   // --------------------------------------------------------------------
+  const AUTOSAVE_DEBOUNCE_MS = 1500;
   type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-  // 'saved' is the default — the page was just loaded from the server so
-  // the displayed state matches what's persisted. Future edits move it to
-  // 'saving' / 'saved' on a real round-trip (stubbed for now: see below).
   let saveState = $state<SaveState>('saved');
-  let lastEditAt = $state<number>(Date.now());
+  let lastSavedAt = $state<number>(Date.now());
   let now = $state(Date.now());
   let firstSyncDone = $state(false);
+  let autosaveAbort: AbortController | null = null;
   $effect(() => {
     const h = window.setInterval(() => {
       now = Date.now();
     }, 1000);
     return () => clearInterval(h);
   });
-  // Reactivity-only: touching every field bumps the lastEditAt clock so
-  // the indicator says "auto-saved Xs ago". This is presentational only —
-  // there is no fetch attached. The first effect run is the seed pass
-  // (no real user edit), so we gate the timestamp update via `firstSyncDone`.
+
+  function buildAutosavePatch() {
+    const numOrNull = (s: string): number | null => {
+      if (s.trim() === '') return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    };
+    const strOrNull = (s: string): string | null => {
+      const t = s.trim();
+      return t === '' ? null : t;
+    };
+    return {
+      target: strOrNull(target),
+      category: strOrNull(category),
+      lens: strOrNull(lens),
+      iso: numOrNull(iso),
+      exposure_s: numOrNull(exposure_s),
+      focal_mm: numOrNull(focal_mm),
+      aperture_f: numOrNull(aperture_f),
+      gain: numOrNull(gain),
+      sensor_temp_c: numOrNull(sensor_temp_c),
+      sessions: numOrNull(sessions),
+      ra_deg: numOrNull(ra_deg),
+      dec_deg: numOrNull(dec_deg),
+      camera: strOrNull(camera),
+      scope: strOrNull(scope),
+      focal_modifier: strOrNull(focal_modifier),
+      mount: strOrNull(mount),
+      filters: filtersString === '' ? null : filtersString,
+      guiding: strOrNull(guiding),
+      tags,
+      filter_item_ids: filterChips.map((f) => f.id),
+      last_step: 'verify' as const
+    };
+  }
+
   $effect(() => {
     // Reference every editable field so the effect re-runs on any edit.
     void target;
@@ -396,10 +430,43 @@
       firstSyncDone = true;
       return;
     }
-    saveState = 'saved';
-    lastEditAt = Date.now();
+    // Don't autosave a published photo — that path requires explicit
+    // confirmation via the "Save changes" form action.
+    if (isPublished) return;
+
+    const patch = buildAutosavePatch();
+    const handle = window.setTimeout(async () => {
+      // Cancel any in-flight save so a stale 200 can't overwrite a
+      // newer edit's "saving" state.
+      if (autosaveAbort) autosaveAbort.abort();
+      const ctrl = new AbortController();
+      autosaveAbort = ctrl;
+      saveState = 'saving';
+      try {
+        const r = await fetch(`/api/photos/${data.photo.id}`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+          signal: ctrl.signal
+        });
+        if (ctrl.signal.aborted) return;
+        if (r.ok) {
+          saveState = 'saved';
+          lastSavedAt = Date.now();
+        } else {
+          saveState = 'error';
+        }
+      } catch (e) {
+        if ((e as { name?: string }).name === 'AbortError') return;
+        saveState = 'error';
+      } finally {
+        if (autosaveAbort === ctrl) autosaveAbort = null;
+      }
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
   });
-  let secondsSinceSaved = $derived((now - lastEditAt) / 1000);
+  let secondsSinceSaved = $derived((now - lastSavedAt) / 1000);
 </script>
 
 <svelte:head><title>Verify data — Astrophoto</title></svelte:head>
