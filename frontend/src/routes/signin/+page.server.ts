@@ -3,13 +3,17 @@ import type { Actions, PageServerLoad } from './$types';
 
 // Resolve the public backend origin at server-runtime. Koyeb staging sets
 // BACKEND_URL but build-time VITE_API_BASE_URL isn't visible to client
-// bundles, so the OAuth button needs the URL plumbed through PageData.
+// bundles, so the form action below needs the URL plumbed through PageData.
 const API = process.env.BACKEND_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (locals.user) throw redirect(303, '/');
   return {
-    googleOauthUrl: `${API}/api/auth/oauth/google/start`
+    // Relative path → goes through the SvelteKit /api proxy so the session
+    // cookie set by the OAuth callback lands on the *frontend* origin. If
+    // this ever points at api.<domain> directly, the __Host-session cookie
+    // ends up scoped to the API host and the frontend can never see it.
+    googleOauthUrl: '/api/auth/oauth/google/start'
   };
 };
 
