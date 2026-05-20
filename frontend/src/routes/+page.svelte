@@ -243,15 +243,33 @@
   <div class="masonry">
     {#each data.photos as photo, i}
       <div class="masonry-item">
-        <a href="/photo/{photo.slug}" class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
-          <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
-            <Photo
-              target={photo.target ?? ''}
-              src={photo.thumbSrc}
-              style="position: absolute; inset: 0; height: 100%;"
-            />
+        {#if data.isReal}
+          <a
+            href="/photo/{photo.slug}"
+            class="masonry-link"
+            aria-label={photo.target ?? 'Untitled'}
+          >
+            <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
+              <Photo
+                target={photo.target ?? ''}
+                src={photo.thumbSrc}
+                style="position: absolute; inset: 0; height: 100%;"
+              />
+            </div>
+          </a>
+        {:else}
+          <!-- Demo seed grid (DB empty): cards are visual placeholders only;
+               no link, since the slugs don't resolve in the backend. -->
+          <div class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
+            <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
+              <Photo
+                target={photo.target ?? ''}
+                src={photo.thumbSrc}
+                style="position: absolute; inset: 0; height: 100%;"
+              />
+            </div>
           </div>
-        </a>
+        {/if}
         <div class="photo-meta-row">
           <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span
           >
