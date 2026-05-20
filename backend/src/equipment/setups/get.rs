@@ -38,7 +38,8 @@ pub async fn load(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<SetupDetail
 
     let items = sqlx::query!(
         r#"select si.role,
-                  ei.id, ei.kind, ei.canonical_name, ei.display_name
+                  ei.id, ei.kind, ei.canonical_name, ei.display_name,
+                  ei.brand, ei.model, ei.variant
              from setup_items si
              join equipment_items ei on ei.id = si.item_id
             where si.setup_id = $1
@@ -68,6 +69,9 @@ pub async fn load(pool: &PgPool, owner_id: Uuid, id: Uuid) -> Result<SetupDetail
                     kind: r.kind,
                     canonical_name: r.canonical_name,
                     display_name: r.display_name,
+                    brand: r.brand,
+                    model: r.model,
+                    variant: r.variant,
                 },
             })
             .collect(),

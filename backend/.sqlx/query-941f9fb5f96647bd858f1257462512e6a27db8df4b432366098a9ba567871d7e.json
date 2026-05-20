@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select mount_type, payload_kg, goto,\n                  self_weight_kg, periodic_error_arcsec, tripod_included, control_protocol\n             from mount_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mount_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "payload_kg",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "goto",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "self_weight_kg",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "periodic_error_arcsec",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "tripod_included",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "control_protocol",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "941f9fb5f96647bd858f1257462512e6a27db8df4b432366098a9ba567871d7e"
+}

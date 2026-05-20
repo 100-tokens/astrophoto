@@ -14,4 +14,15 @@ export type EquipmentItemInput = {
    * resolved) without touching any `<kind>_specs` table.
    */
   specs: EquipmentSpecsPayload | null;
+  /**
+   * Catalog v2 (migration 0022): structured brand/model/variant.
+   * All three are optional to preserve back-compat with callers that
+   * only send `{ kind, display_name }` — when absent, the handler
+   * derives brand="" and model=trim(display_name) (the freetext
+   * fallback). When present, they take precedence and the handler
+   * regenerates display_name + canonical_name from them.
+   */
+  brand: string | null;
+  model: string | null;
+  variant: string | null;
 };

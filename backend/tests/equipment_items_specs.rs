@@ -19,8 +19,10 @@ async fn get_item_returns_specs_when_present() {
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia ha 3nm','Antlia Ha 3nm',12,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia ha 3nm','Antlia Ha 3nm',12,'approved',now(),
+                    'Antlia','Ha 3nm')
             returning id"#
     )
     .fetch_one(&pool)
@@ -65,8 +67,10 @@ async fn get_item_returns_null_specs_when_absent() {
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('telescope','sw 200p','Sky-Watcher 200P',1,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('telescope','sw 200p','Sky-Watcher 200P',1,'approved',now(),
+                    'Sky-Watcher','200P')
             returning id"#
     )
     .fetch_one(&pool)
@@ -245,8 +249,10 @@ async fn patch_item_replaces_specs_row() {
     // Seed an item with filter_specs (h_alpha, bandwidth_nm=5.0).
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia oiii 3nm patch test','Antlia OIII 3nm Patch',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia oiii 3nm patch test','Antlia OIII 3nm Patch',0,'approved',now(),
+                    'Antlia','OIII 3nm Patch')
             returning id"#
     )
     .fetch_one(&pool)
@@ -302,8 +308,10 @@ async fn patch_item_renames_display_name_and_canonical() {
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('telescope','old name','Old Name',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('telescope','old name','Old Name',0,'approved',now(),
+                    '','Old Name')
             returning id"#
     )
     .fetch_one(&pool)
@@ -343,8 +351,10 @@ async fn patch_item_with_wrong_kind_specs_returns_422() {
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('telescope','sw 200p wrong kind','SW 200P Wrong Kind',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('telescope','sw 200p wrong kind','SW 200P Wrong Kind',0,'approved',now(),
+                    '','SW 200P Wrong Kind')
             returning id"#
     )
     .fetch_one(&pool)
@@ -420,8 +430,10 @@ async fn patch_item_empty_display_name_returns_422() {
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('mount','celestron avx empty name','Celestron AVX',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('mount','celestron avx empty name','Celestron AVX',0,'approved',now(),
+                    'Celestron','AVX')
             returning id"#
     )
     .fetch_one(&pool)

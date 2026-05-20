@@ -8,4 +8,11 @@ export type EquipmentItemRef = {
   kind: string;
   canonical_name: string;
   display_name: string;
+  /**
+   * Catalog v2 (migration 0022): structured brand/model/variant on
+   * the shared header. `brand=""` denotes an unknown brand.
+   */
+  brand: string;
+  model: string;
+  variant: string | null;
 };

@@ -28,15 +28,15 @@ async fn fill_empty_preserves_existing_camera_and_fills_missing_columns() {
     .await
     .unwrap();
     let cam_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('camera','asi2600','ZWO ASI2600',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('camera','asi2600','ZWO ASI2600',0,'ZWO','ASI2600') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let scope_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('telescope','sw 200p','Sky-Watcher 200P',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('telescope','sw 200p','Sky-Watcher 200P',0,'Sky-Watcher','200P') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -108,8 +108,8 @@ async fn overwrite_writes_all_columns_verbatim() {
     .await
     .unwrap();
     let cam_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('camera','asi2600','ZWO ASI2600',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('camera','asi2600','ZWO ASI2600',0,'ZWO','ASI2600') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -168,22 +168,22 @@ async fn multiple_filters_join_alphabetical() {
     .await
     .unwrap();
     let f1 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','sii','SII',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','sii','SII',0,'','SII') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let f2 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','ha','Hα',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','ha','Hα',0,'','Hα') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let f3 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','oiii','OIII',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','oiii','OIII',0,'','OIII') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -342,8 +342,8 @@ async fn apply_replaces_existing_setup_id_and_columns_in_overwrite_mode() {
     .await
     .unwrap();
     let cam_b = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('camera','asi6200','ZWO ASI6200',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('camera','asi6200','ZWO ASI6200',0,'ZWO','ASI6200') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -413,15 +413,15 @@ async fn apply_setup_overwrite_syncs_junction_and_cache() {
 
     // Red and Green filters — alphabetical by display_name: Green (0), Red (1).
     let red_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','red','Red',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','red','Red',0,'','Red') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let green_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','green','Green',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','green','Green',0,'','Green') returning id"
     )
     .fetch_one(&pool)
     .await

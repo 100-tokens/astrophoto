@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select sensor_type, color_type, cooled, sensor_model,\n                  pixel_size_um, sensor_width_px, sensor_height_px,\n                  self_weight_g, full_well_capacity_e, read_noise_e,\n                  mount_thread, backfocus_mm\n             from camera_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sensor_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "color_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "cooled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "sensor_model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "pixel_size_um",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "sensor_width_px",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "sensor_height_px",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "self_weight_g",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "full_well_capacity_e",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "read_noise_e",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "mount_thread",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "backfocus_mm",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "db6ba3e3c8f580087f45c912bd875051bd3b9708aea493b6a1a0b0c1fbf5cf72"
+}

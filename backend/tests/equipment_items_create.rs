@@ -56,8 +56,8 @@ async fn idempotent_on_hit_does_not_increment() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "bob@example.com", "bob1").await;
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('telescope', 'celestron c8', 'Celestron C8', 7)"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('telescope', 'celestron c8', 'Celestron C8', 7, 'Celestron', 'C8')"
     )
     .execute(&pool)
     .await

@@ -5,4 +5,11 @@ export type MountSpecs = {
   mount_type: MountType | null;
   payload_kg: number | null;
   goto: boolean | null;
+  /**
+   * Catalog v2 (migration 0022): completeness fields.
+   */
+  self_weight_kg: number | null;
+  periodic_error_arcsec: number | null;
+  tripod_included: boolean | null;
+  control_protocol: string | null;
 };

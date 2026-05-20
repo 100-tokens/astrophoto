@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        with ins as (\n            insert into equipment_items\n                (kind, canonical_name, display_name, usage_count, submitted_by, approved_at,\n                 brand, model, variant)\n                 values ($1, $2, $3, 0, $4, now(), $5, $6, $7)\n            on conflict (kind, canonical_name) do nothing\n            returning id, kind, canonical_name, display_name, usage_count, brand, model, variant\n        )\n        select id as \"id!\", kind as \"kind!\", canonical_name as \"canonical_name!\",\n               display_name as \"display_name!\", usage_count as \"usage_count!\",\n               brand as \"brand!\", model as \"model!\", variant\n          from ins\n         union all\n        select id, kind, canonical_name, display_name, usage_count, brand, model, variant\n          from equipment_items\n         where kind = $1 and canonical_name = $2\n         limit 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "brand!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "model!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "variant",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "bf237fa8e98f13f61c9ce7f8549ce3f9bbf4ba5bf40ef007362fbc4069765159"
+}

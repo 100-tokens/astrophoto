@@ -23,9 +23,11 @@ async fn migration_0020_backfills_null_approved_at_for_approved_rows() {
     // second time stamps them.
     sqlx::query(
         "insert into equipment_items (kind, canonical_name, display_name, usage_count,
-                                       status, approved_at)
-             values ('filter', 'legacy null', 'Legacy null', 0, 'approved', null),
-                    ('filter', 'fresh stamped', 'Fresh stamped', 0, 'approved', now())",
+                                       status, approved_at, brand, model)
+             values ('filter', 'legacy null', 'Legacy null', 0, 'approved', null,
+                     '', 'Legacy null'),
+                    ('filter', 'fresh stamped', 'Fresh stamped', 0, 'approved', now(),
+                     '', 'Fresh stamped')",
     )
     .execute(&pool)
     .await

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)\n         values ('filter','green','Green',0,'','Green') returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "69eb03ee68811a2d5676375c7fdd9fccc93b6fcc68346ae7be4253119a898f8d"
+}

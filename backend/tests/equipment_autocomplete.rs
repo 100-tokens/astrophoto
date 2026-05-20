@@ -30,23 +30,25 @@ async fn get_json(app: axum::Router, uri: &str) -> serde_json::Value {
 async fn finds_camera_by_display_name() {
     let (app, pool) = common::make_app_and_pool().await;
 
-    // Insert test rows.
+    // Insert test rows. brand/model are required NOT NULL since 0022;
+    // these fixtures use brand='' (unknown) and model=display_name to
+    // match the upsert.rs freetext path.
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values ($1, $2, $3, $4)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values ($1, $2, $3, $4, '', $3)",
         "camera", "zwo asi2600mc", "ZWO ASI2600MC", 10_i32
     )
     .execute(&pool)
     .await
     .unwrap();
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values ($1, $2, $3, $4)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values ($1, $2, $3, $4, '', $3)",
         "camera", "canon r6", "Canon R6", 5_i32
     )
     .execute(&pool)
     .await
     .unwrap();
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values ($1, $2, $3, $4)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values ($1, $2, $3, $4, '', $3)",
         "telescope", "redcat 51", "RedCat 51", 8_i32
     )
     .execute(&pool)
@@ -106,14 +108,14 @@ async fn results_ordered_by_usage_count_desc() {
 
     // Insert two cameras both matching "ASI".
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values ($1, $2, $3, $4)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values ($1, $2, $3, $4, '', $3)",
         "camera", "zwo asi533mc pro", "ZWO ASI533MC Pro", 3_i32
     )
     .execute(&pool)
     .await
     .unwrap();
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values ($1, $2, $3, $4)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values ($1, $2, $3, $4, '', $3)",
         "camera", "zwo asi2600mc", "ZWO ASI2600MC", 15_i32
     )
     .execute(&pool)
@@ -163,8 +165,8 @@ async fn all_valid_kinds_accepted() {
 async fn guiding_kind_returns_matching_items() {
     let (app, pool) = common::make_app_and_pool().await;
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('guiding','unguided','unguided',3)"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('guiding','unguided','unguided',3,'','unguided')"
     )
     .execute(&pool)
     .await
@@ -181,8 +183,8 @@ async fn guiding_kind_returns_matching_items() {
 async fn focal_modifier_kind_is_supported() {
     let (app, pool) = common::make_app_and_pool().await;
     sqlx::query!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('focal_modifier','antares 0.7x reducer','Antares 0.7x Reducer',3)"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('focal_modifier','antares 0.7x reducer','Antares 0.7x Reducer',3,'','Antares 0.7x Reducer')"
     )
     .execute(&pool)
     .await

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from guiding_specs where item_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4a48c4a1be9b8b7c8b88efaaa9a798f7e814b0babe25833964e2cdeb20fdf05d"
+}

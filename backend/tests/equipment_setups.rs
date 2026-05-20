@@ -43,15 +43,15 @@ async fn list_returns_owner_setups_only_with_role_counts() {
     .unwrap();
 
     let f1 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','ha','Hα',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','ha','Hα',0,'','Hα') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let f2 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('filter','oiii','OIII',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('filter','oiii','OIII',0,'','OIII') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -106,8 +106,8 @@ async fn create_persists_setup_with_items_and_clears_other_default() {
     .await
     .unwrap();
     let scope_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind,canonical_name,display_name,usage_count)
-         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+        "insert into equipment_items (kind,canonical_name,display_name,usage_count,brand,model)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0,'Sky-Watcher','200P') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -226,8 +226,8 @@ async fn get_one_returns_full_expansion() {
     .await
     .unwrap();
     let scope_id = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0,'Sky-Watcher','200P') returning id"
     )
     .fetch_one(&pool)
     .await
@@ -303,15 +303,15 @@ async fn update_replaces_items_and_meta() {
     .await
     .unwrap();
     let i1 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0,'Sky-Watcher','200P') returning id"
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let i2 = sqlx::query_scalar!(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
-         values ('camera','asi2600','ZWO ASI2600',0) returning id"
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)
+         values ('camera','asi2600','ZWO ASI2600',0,'ZWO','ASI2600') returning id"
     )
     .fetch_one(&pool)
     .await

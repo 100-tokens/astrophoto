@@ -20,8 +20,10 @@ async fn put_photo_filter_item_ids_writes_junction_and_rebuilds_cache() {
     // Insert 3 filter items: Ha, OIII, SII
     let ha_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia ha','Antlia Hα',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia ha','Antlia Hα',0,'approved',now(),
+                    'Antlia','Hα')
             returning id"#
     )
     .fetch_one(&pool)
@@ -30,8 +32,10 @@ async fn put_photo_filter_item_ids_writes_junction_and_rebuilds_cache() {
 
     let oiii_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia oiii','Antlia OIII',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia oiii','Antlia OIII',0,'approved',now(),
+                    'Antlia','OIII')
             returning id"#
     )
     .fetch_one(&pool)
@@ -40,8 +44,10 @@ async fn put_photo_filter_item_ids_writes_junction_and_rebuilds_cache() {
 
     let sii_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia sii','Antlia SII',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia sii','Antlia SII',0,'approved',now(),
+                    'Antlia','SII')
             returning id"#
     )
     .fetch_one(&pool)
@@ -105,8 +111,10 @@ async fn put_photo_filter_item_ids_with_non_filter_kind_returns_422() {
     // Insert a telescope item (not a filter).
     let telescope_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('telescope','sw 200p','Sky-Watcher 200P',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('telescope','sw 200p','Sky-Watcher 200P',0,'approved',now(),
+                    'Sky-Watcher','200P')
             returning id"#
     )
     .fetch_one(&pool)
@@ -202,8 +210,10 @@ async fn put_photo_structured_wins_over_legacy_text_when_both_present() {
     // Insert 1 filter item.
     let x_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','x-filter','X-filter',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','x-filter','X-filter',0,'approved',now(),
+                    '','X-filter')
             returning id"#
     )
     .fetch_one(&pool)
@@ -273,16 +283,18 @@ async fn put_photo_filter_item_ids_dedups_duplicates_no_pk_violation() {
 
     let red: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','red','Red',0,'approved',now()) returning id"#
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','red','Red',0,'approved',now(),'','Red') returning id"#
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     let green: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','green','Green',0,'approved',now()) returning id"#
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','green','Green',0,'approved',now(),'','Green') returning id"#
     )
     .fetch_one(&pool)
     .await
@@ -333,8 +345,10 @@ async fn get_photo_includes_typed_filter_items() {
     // Insert a filter item "Antlia Hα".
     let filter_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','antlia ha typed','Antlia Hα',0,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','antlia ha typed','Antlia Hα',0,'approved',now(),
+                    'Antlia','Hα')
             returning id"#
     )
     .fetch_one(&pool)

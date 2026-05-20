@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)\n         values ('guiding','unguided','unguided',3,'','unguided')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "85713b52fdcf916ae80c13039ec2e2cd3eef1419ae307789e017ab8899b55b64"
+}

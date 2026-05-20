@@ -1,8 +1,9 @@
 //! GET /api/equipment/items/:id — item + joined specs.
 //!
 //! Returns `EquipmentItemDetail`. Specs are loaded from the per-kind
-//! sub-table when present; `kind = 'guiding'` (legacy) returns
-//! `specs: null` since no sub-table exists for it.
+//! sub-table when present; rows with no matching sub-table row return
+//! `specs: null`. Catalog v2 (migration 0022) adds the new
+//! `guiding_specs` sub-table — `kind = 'guiding'` now joins through it.
 
 use axum::{Json, extract::Path, extract::State, response::IntoResponse};
 use sqlx::PgPool;
@@ -11,8 +12,8 @@ use uuid::Uuid;
 
 use crate::api_types::{
     CameraColorType, CameraSensorType, CameraSpecs, EquipmentItemDetail, EquipmentSpecsPayload,
-    FilterSize, FilterSpecs, FilterType, FocalModifierSpecs, FocalModifierType, MountSpecs,
-    MountType, TelescopeDesign, TelescopeSpecs,
+    FilterSize, FilterSpecs, FilterType, FocalModifierSpecs, FocalModifierType, GuidingSetupKind,
+    GuidingSpecs, MountSpecs, MountType, TelescopeDesign, TelescopeSpecs,
 };
 use crate::error::AppError;
 use crate::http::AppState;
@@ -23,7 +24,8 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     let row = sqlx::query!(
         r#"select id, kind, canonical_name, display_name, usage_count,
-                  status, submitted_by, approved_at, created_at
+                  status, submitted_by, approved_at, created_at,
+                  brand, model, variant
              from equipment_items where id = $1"#,
         id
     )
@@ -37,6 +39,7 @@ pub async fn handler(
         "filter" => load_filter(&state.pool, row.id).await?,
         "mount" => load_mount(&state.pool, row.id).await?,
         "focal_modifier" => load_focal_modifier(&state.pool, row.id).await?,
+        "guiding" => load_guiding(&state.pool, row.id).await?,
         _ => None,
     };
 
@@ -51,6 +54,9 @@ pub async fn handler(
         approved_at: row.approved_at.map(|t| t.to_rfc3339()),
         created_at: row.created_at.to_rfc3339(),
         specs,
+        brand: row.brand,
+        model: row.model,
+        variant: row.variant,
     }))
 }
 
@@ -70,7 +76,8 @@ async fn load_telescope(
     item_id: Uuid,
 ) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
-        r#"select design, aperture_mm, focal_length_mm, focal_ratio_f
+        r#"select design, aperture_mm, focal_length_mm, focal_ratio_f,
+                  self_weight_kg, optical_length_mm, backfocus_mm
              from telescope_specs where item_id = $1"#,
         item_id
     )
@@ -82,6 +89,9 @@ async fn load_telescope(
             aperture_mm: r.aperture_mm,
             focal_length_mm: r.focal_length_mm,
             focal_ratio_f: decimal_to_f64(r.focal_ratio_f),
+            self_weight_kg: decimal_to_f64(r.self_weight_kg),
+            optical_length_mm: r.optical_length_mm,
+            backfocus_mm: decimal_to_f64(r.backfocus_mm),
         })
     }))
 }
@@ -92,7 +102,9 @@ async fn load_camera(
 ) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
         r#"select sensor_type, color_type, cooled, sensor_model,
-                  pixel_size_um, sensor_width_px, sensor_height_px
+                  pixel_size_um, sensor_width_px, sensor_height_px,
+                  self_weight_g, full_well_capacity_e, read_noise_e,
+                  mount_thread, backfocus_mm
              from camera_specs where item_id = $1"#,
         item_id
     )
@@ -107,6 +119,11 @@ async fn load_camera(
             pixel_size_um: decimal_to_f64(r.pixel_size_um),
             sensor_width_px: r.sensor_width_px,
             sensor_height_px: r.sensor_height_px,
+            self_weight_g: r.self_weight_g,
+            full_well_capacity_e: r.full_well_capacity_e,
+            read_noise_e: decimal_to_f64(r.read_noise_e),
+            mount_thread: r.mount_thread,
+            backfocus_mm: decimal_to_f64(r.backfocus_mm),
         })
     }))
 }
@@ -116,7 +133,8 @@ async fn load_filter(
     item_id: Uuid,
 ) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
-        r#"select filter_type, bandwidth_nm, size, mounted
+        r#"select filter_type, bandwidth_nm, size, mounted,
+                  mounted_diameter_mm, thickness_mm, peak_transmission_pct
              from filter_specs where item_id = $1"#,
         item_id
     )
@@ -128,6 +146,9 @@ async fn load_filter(
             bandwidth_nm: decimal_to_f64(r.bandwidth_nm),
             size: parse_enum::<FilterSize>(r.size),
             mounted: r.mounted,
+            mounted_diameter_mm: decimal_to_f64(r.mounted_diameter_mm),
+            thickness_mm: decimal_to_f64(r.thickness_mm),
+            peak_transmission_pct: decimal_to_f64(r.peak_transmission_pct),
         })
     }))
 }
@@ -137,7 +158,8 @@ async fn load_mount(
     item_id: Uuid,
 ) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
-        r#"select mount_type, payload_kg, goto
+        r#"select mount_type, payload_kg, goto,
+                  self_weight_kg, periodic_error_arcsec, tripod_included, control_protocol
              from mount_specs where item_id = $1"#,
         item_id
     )
@@ -148,6 +170,10 @@ async fn load_mount(
             mount_type: parse_enum::<MountType>(r.mount_type),
             payload_kg: decimal_to_f64(r.payload_kg),
             goto: r.goto,
+            self_weight_kg: decimal_to_f64(r.self_weight_kg),
+            periodic_error_arcsec: decimal_to_f64(r.periodic_error_arcsec),
+            tripod_included: r.tripod_included,
+            control_protocol: r.control_protocol,
         })
     }))
 }
@@ -157,7 +183,8 @@ async fn load_focal_modifier(
     item_id: Uuid,
 ) -> Result<Option<EquipmentSpecsPayload>, AppError> {
     let r = sqlx::query!(
-        r#"select modifier_type, factor
+        r#"select modifier_type, factor,
+                  self_weight_g, backfocus_mm, image_circle_mm
              from focal_modifier_specs where item_id = $1"#,
         item_id
     )
@@ -167,6 +194,33 @@ async fn load_focal_modifier(
         EquipmentSpecsPayload::FocalModifier(FocalModifierSpecs {
             modifier_type: parse_enum::<FocalModifierType>(r.modifier_type),
             factor: decimal_to_f64(r.factor),
+            self_weight_g: r.self_weight_g,
+            backfocus_mm: decimal_to_f64(r.backfocus_mm),
+            image_circle_mm: decimal_to_f64(r.image_circle_mm),
+        })
+    }))
+}
+
+async fn load_guiding(
+    pool: &PgPool,
+    item_id: Uuid,
+) -> Result<Option<EquipmentSpecsPayload>, AppError> {
+    let r = sqlx::query!(
+        r#"select setup_kind, guide_focal_mm, guide_aperture_mm, guide_camera
+             from guiding_specs where item_id = $1"#,
+        item_id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(r.map(|r| {
+        EquipmentSpecsPayload::Guiding(GuidingSpecs {
+            // setup_kind is NOT NULL in the DB, but parse_enum is the same
+            // path the other specs use — wrap and unwrap_or fallback to
+            // Other so a future enum-value drift can't crash the GET.
+            setup_kind: parse_enum::<GuidingSetupKind>(Some(r.setup_kind)),
+            guide_focal_mm: r.guide_focal_mm,
+            guide_aperture_mm: r.guide_aperture_mm,
+            guide_camera: r.guide_camera,
         })
     }))
 }
