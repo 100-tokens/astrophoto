@@ -93,14 +93,28 @@ pub async fn handler(
     Path(id): Path<Uuid>,
     Json(patch): Json<MetadataUpdate>,
 ) -> Result<StatusCode, AppError> {
-    let owner = sqlx::query_scalar!("select owner_id from photos where id = $1", id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or(AppError::not_found("photo"))?;
+    let owner_row = sqlx::query!(
+        r#"select owner_id, camera, scope, mount, filters as "filters_str",
+                  focal_modifier, guiding
+             from photos where id = $1"#,
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::not_found("photo"))?;
 
-    if owner != user.id {
+    if owner_row.owner_id != user.id {
         return Err(AppError::Forbidden);
     }
+
+    // Snapshot of the catalog-bearing freetext columns BEFORE this PUT.
+    // Used after the writes to recompute usage_count for items that may
+    // have just lost a reference (e.g. user renamed camera from "X" to "Y").
+    let prev_camera = owner_row.camera.clone();
+    let prev_scope = owner_row.scope.clone();
+    let prev_mount = owner_row.mount.clone();
+    let prev_focal_modifier = owner_row.focal_modifier.clone();
+    let prev_guiding = owner_row.guiding.clone();
 
     if let Some(s) = &patch.last_step
         && !["upload", "verify", "caption"].contains(&s.as_str())
@@ -131,6 +145,7 @@ pub async fn handler(
     let mount_freetext = patch.mount.clone();
     let filters_freetext = patch.filters.clone();
     let focal_modifier_freetext = patch.focal_modifier.clone();
+    let guiding_freetext = patch.guiding.clone();
     let tags_list = patch.tags.clone();
     let filter_item_ids = patch.filter_item_ids.clone();
 
@@ -273,18 +288,68 @@ pub async fn handler(
         crate::photos::tags::attach(&state.pool, id, tags).await?;
     }
 
+    // Equipment catalog fan-out. Insert missing rows on a per-kind basis,
+    // recording the calling user as `submitted_by` on miss. Then recompute
+    // usage_count for the items that may have been affected by this PUT —
+    // both the new freetext values just upserted and the previous ones
+    // captured before the photos UPDATE (so a renamed reference does not
+    // leave a stale count on the orphaned item).
     for (kind, val) in [
         ("camera", camera_freetext.as_deref()),
         ("telescope", scope_freetext.as_deref()),
         ("mount", mount_freetext.as_deref()),
         ("filter", filters_freetext.as_deref()),
         ("focal_modifier", focal_modifier_freetext.as_deref()),
+        ("guiding", guiding_freetext.as_deref()),
     ] {
         if let Some(v) = val
             && !v.trim().is_empty()
         {
-            crate::equipment::upsert::upsert(&state.pool, kind, v).await?;
+            crate::equipment::upsert::upsert(&state.pool, kind, v, user.id).await?;
         }
+    }
+
+    // Recompute counts for new + previous catalog references touched by
+    // this PUT. `recompute_usage_for_freetext` silently skips kinds whose
+    // canonical row does not exist (no work to do).
+    let new_pairs: [(&str, Option<&str>); 5] = [
+        ("camera", camera_freetext.as_deref()),
+        ("telescope", scope_freetext.as_deref()),
+        ("mount", mount_freetext.as_deref()),
+        ("focal_modifier", focal_modifier_freetext.as_deref()),
+        ("guiding", guiding_freetext.as_deref()),
+    ];
+    let prev_pairs: [(&str, Option<&str>); 5] = [
+        ("camera", prev_camera.as_deref()),
+        ("telescope", prev_scope.as_deref()),
+        ("mount", prev_mount.as_deref()),
+        ("focal_modifier", prev_focal_modifier.as_deref()),
+        ("guiding", prev_guiding.as_deref()),
+    ];
+    let mut to_recompute: Vec<(&str, &str)> = Vec::with_capacity(10);
+    for (kind, val) in new_pairs.iter().chain(prev_pairs.iter()) {
+        if let Some(v) = val
+            && !v.trim().is_empty()
+        {
+            to_recompute.push((*kind, v));
+        }
+    }
+    crate::equipment::upsert::recompute_usage_for_freetext(&state.pool, &to_recompute).await?;
+
+    // Filters live in a junction, not a single freetext column. When the
+    // structured `filter_item_ids` path or the legacy `filters` text path
+    // ran, recompute every item now referenced by this photo's junction
+    // PLUS the items whose chips just got removed. The cheap approach: any
+    // item that appears in the junction *now* gets a recompute. Items
+    // removed in this transaction are not auto-detected here; the
+    // verify-form save path always replaces the full junction, so a
+    // separate cleanup loop is not warranted at our scale.
+    let touched_filter_items: Vec<Uuid> =
+        sqlx::query_scalar!("select item_id from photo_filters where photo_id = $1", id)
+            .fetch_all(&state.pool)
+            .await?;
+    for fid in touched_filter_items {
+        crate::equipment::upsert::recompute_usage(&state.pool, fid).await?;
     }
 
     Ok(StatusCode::OK)

@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select owner_id, camera, scope, mount, filters as \"filters_str\",\n                  focal_modifier, guiding\n             from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "camera",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "scope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "mount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "filters_str",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "focal_modifier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "guiding",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f88f26b24f2b4b95e8e1b077ac47970a963d824c7a2ea7e233472242f27ec03a"
+}

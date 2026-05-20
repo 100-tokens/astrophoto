@@ -94,7 +94,12 @@ pub async fn apply(
     let mut mount: Option<String> = None;
     // filter_pairs: (display_name, item_id) — sorted alphabetically by display_name below.
     let mut filter_pairs: Vec<(String, Uuid)> = vec![];
+    // Catalog item ids touched by this apply, used after the write to refresh
+    // their usage_count via recompute_usage_tx — see fix #8 in the May 2026
+    // catalog audit.
+    let mut touched_item_ids: Vec<Uuid> = vec![];
     for r in items {
+        touched_item_ids.push(r.item_id);
         match r.role.as_str() {
             "optical_tube" => scope = Some(r.display_name),
             "focal_modifier" => focal_mod = Some(r.display_name),
@@ -201,6 +206,13 @@ pub async fn apply(
             // junction is source of truth for the cache.
             crate::photos::filters_cache::rebuild(&mut tx, photo_id).await?;
         }
+    }
+
+    // Refresh usage_count on every item this apply touched. Runs in the
+    // same transaction so the count and the new references commit atomically;
+    // a failure here rolls back the apply and keeps the catalog honest.
+    for item_id in &touched_item_ids {
+        crate::equipment::upsert::recompute_usage_tx(&mut tx, *item_id).await?;
     }
 
     tx.commit().await?;
