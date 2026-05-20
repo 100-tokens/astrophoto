@@ -18,11 +18,9 @@ use serde::Serialize;
 
 use crate::api_types::EquipmentItemInput;
 use crate::auth::middleware::CurrentUser;
-use crate::equipment::specs;
+use crate::equipment::{VALID_KINDS, specs};
 use crate::error::AppError;
 use crate::http::AppState;
-
-const VALID_KINDS: &[&str] = &["telescope", "camera", "mount", "filter", "focal_modifier"];
 
 #[derive(Serialize)]
 pub struct Out {
@@ -40,14 +38,14 @@ pub async fn handler(
 ) -> Result<impl IntoResponse, AppError> {
     if !VALID_KINDS.contains(&input.kind.as_str()) {
         return Err(AppError::Validation(
-            "kind must be telescope|camera|mount|filter|focal_modifier".into(),
+            "kind must be telescope|camera|mount|filter|focal_modifier|guiding".into(),
         ));
     }
     let display = input.display_name.trim();
     if display.is_empty() {
         return Err(AppError::Validation("display_name is required".into()));
     }
-    let canonical = display.to_lowercase();
+    let canonical = crate::equipment::normalize_canonical(display);
 
     // Validate specs kind before opening the transaction.
     if let Some(ref payload) = input.specs {

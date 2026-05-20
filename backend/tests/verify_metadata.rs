@@ -324,8 +324,8 @@ async fn full_verify_put_writes_all_fields() {
         .unwrap_or(0);
         assert_eq!(eq_count, 1, "expected equipment_items row for kind={kind}");
     }
-    // Guiding is intentionally non-canonical: free-text on photo only,
-    // no equipment_items entry. Confirm no row was created.
+    // Guiding is now a first-class catalog kind: the verify-form fan-out
+    // creates an equipment_items row alongside camera/telescope/mount/filter.
     let guiding_count: i64 =
         sqlx::query_scalar!("select count(*) from equipment_items where kind = 'guiding'")
             .fetch_one(&h.pool)
@@ -333,8 +333,8 @@ async fn full_verify_put_writes_all_fields() {
             .unwrap()
             .unwrap_or(0);
     assert_eq!(
-        guiding_count, 0,
-        "guiding should not create equipment_items rows"
+        guiding_count, 1,
+        "guiding should now create an equipment_items row (catalog kind, migration 0017)"
     );
 }
 

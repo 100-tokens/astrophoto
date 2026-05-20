@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update equipment_items ei\n           set usage_count = (\n                 select count(distinct p.id) from photos p\n                  where (p.camera         = ei.display_name and ei.kind = 'camera')\n                     or (p.scope          = ei.display_name and ei.kind = 'telescope')\n                     or (p.mount          = ei.display_name and ei.kind = 'mount')\n                     or (p.focal_modifier = ei.display_name and ei.kind = 'focal_modifier')\n                     or (p.guiding        = ei.display_name and ei.kind = 'guiding')\n               ) + (\n                 select count(distinct pf.photo_id) from photo_filters pf\n                  where pf.item_id = ei.id\n               ) + (\n                 select count(distinct p.id) from photos p\n                    join setup_items si on si.setup_id = p.setup_id\n                   where si.item_id = ei.id\n               )\n         where ei.id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "070ba38252c5f7d3b094af35509e64da333936bc97beb48c1b77e67376c45d41"
+}

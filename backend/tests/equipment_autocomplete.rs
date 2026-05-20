@@ -133,10 +133,19 @@ async fn results_ordered_by_usage_count_desc() {
     assert_eq!(items[1]["usage_count"], 3);
 }
 
-/// All five valid kinds are accepted (no 422).
+/// All six valid kinds are accepted (no 422). `guiding` is included
+/// because the DB check constraint allows it (migration 0017) and
+/// `equipment::VALID_KINDS` lists it as a real, autocompletable kind.
 #[tokio::test]
 async fn all_valid_kinds_accepted() {
-    for kind in &["telescope", "camera", "mount", "filter", "focal_modifier"] {
+    for kind in &[
+        "telescope",
+        "camera",
+        "mount",
+        "filter",
+        "focal_modifier",
+        "guiding",
+    ] {
         let (app, _pool) = common::make_app_and_pool().await;
         let uri = format!("/api/equipment/autocomplete?kind={kind}&q=nothing");
         let v = get_json(app, &uri).await;
@@ -147,21 +156,24 @@ async fn all_valid_kinds_accepted() {
     }
 }
 
-/// guiding is free-text only; the autocomplete endpoint must reject it with 422.
+/// `guiding` items in the catalog are discoverable via autocomplete.
+/// Staging has a real `guiding="unguided"` row with usage_count>0 that
+/// was previously unreachable through the API.
 #[tokio::test]
-async fn guiding_kind_is_no_longer_supported() {
-    let (app, _pool) = common::make_app_and_pool().await;
-    let r = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/api/equipment/autocomplete?kind=guiding&q=foo")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(r.status(), 422);
+async fn guiding_kind_returns_matching_items() {
+    let (app, pool) = common::make_app_and_pool().await;
+    sqlx::query!(
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count)
+         values ('guiding','unguided','unguided',3)"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let v = get_json(app, "/api/equipment/autocomplete?kind=guiding&q=ung").await;
+    let items = v["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1, "expected exactly 1 match, got: {items:?}");
+    assert_eq!(items[0]["display_name"], "unguided");
 }
 
 /// focal_modifier kind is supported and returns matching items.

@@ -45,7 +45,7 @@ pub async fn handler(
         if display.is_empty() {
             return Err(AppError::Validation("display_name cannot be empty".into()));
         }
-        let canonical = display.to_lowercase();
+        let canonical = crate::equipment::normalize_canonical(display);
         sqlx::query!(
             r#"update equipment_items
                   set display_name = $1, canonical_name = $2
