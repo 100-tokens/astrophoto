@@ -1,5 +1,7 @@
 <script lang="ts">
   import TextField from './TextField.svelte';
+  import FieldShell from './FieldShell.svelte';
+  import { parseRaToDeg, parseDecToDeg, formatRaHms, formatDecDms } from '$lib/utils/coords';
 
   // AcquisitionGrid — 10 numeric/freetext fields in a 4-col grid. RA/DEC
   // span two cells each. Every field is optional; the backend stores nulls
@@ -8,6 +10,16 @@
   // typing bug from the previous implementation is structurally avoided.
   // Because the inputs are type=text, the `step` HTML attribute would be
   // a no-op — we drop it and rely on the server's Number() coercion.
+  //
+  // RA / DEC are a special case. The bound `ra_deg`/`dec_deg` values are
+  // decimal-degree strings (server contract, see +page.server.ts::collectPatch
+  // → numOrNull). The visible <input>, however, accepts and displays
+  // sexagesimal (HMS for RA, DMS for DEC) as well as bare decimals. To
+  // keep the server contract intact, the visible field is name-less and a
+  // hidden <input name="ra_deg|dec_deg"> carries the decimal canonical
+  // value for FormData. On blur, the typed string is parsed and the
+  // canonical decimal-degree value is bubbled back via the bound prop;
+  // the display is then re-formatted from the canonical.
 
   interface Props {
     lens?: string;
@@ -42,6 +54,94 @@
 
   function has(k: string) {
     return fromExif.has(k);
+  }
+
+  // --- RA / DEC display layer -------------------------------------------
+  //
+  // `*Display` mirrors what the user sees in the input. While focused, it
+  // tracks raw keystrokes. While unfocused, it's the canonical sexagesimal
+  // formatting of the bound decimal — so a parent updating ra_deg (e.g.
+  // after plate-solve completes) flows through to the visible input.
+
+  function fmtRa(decimalStr: string): string {
+    if (decimalStr === '') return '';
+    const n = Number(decimalStr);
+    return Number.isFinite(n) ? formatRaHms(n) : decimalStr;
+  }
+  function fmtDec(decimalStr: string): string {
+    if (decimalStr === '') return '';
+    const n = Number(decimalStr);
+    return Number.isFinite(n) ? formatDecDms(n) : decimalStr;
+  }
+
+  let raFocused = $state(false);
+  let decFocused = $state(false);
+  let raTyping = $state<string | null>(null);
+  let decTyping = $state<string | null>(null);
+  let raBlurred = $state(false);
+  let decBlurred = $state(false);
+  let raInvalid = $state(false);
+  let decInvalid = $state(false);
+
+  let raDisplay = $derived(raFocused && raTyping !== null ? raTyping : fmtRa(ra_deg));
+  let decDisplay = $derived(decFocused && decTyping !== null ? decTyping : fmtDec(dec_deg));
+
+  function onRaInput(e: Event) {
+    raTyping = (e.target as HTMLInputElement).value;
+    // Don't compute aria-invalid while typing per spec — only on blur.
+  }
+  function onRaFocus() {
+    raFocused = true;
+    raTyping = fmtRa(ra_deg);
+  }
+  function onRaBlur() {
+    raBlurred = true;
+    const raw = raTyping ?? '';
+    raFocused = false;
+    raTyping = null;
+    if (raw.trim() === '') {
+      ra_deg = '';
+      raInvalid = false;
+      return;
+    }
+    const parsed = parseRaToDeg(raw);
+    if (parsed === null) {
+      // Keep the user's text on screen so they can fix it. Mark invalid.
+      raTyping = raw;
+      raFocused = true;
+      raInvalid = true;
+      return;
+    }
+    raInvalid = false;
+    ra_deg = String(parsed);
+  }
+
+  function onDecInput(e: Event) {
+    decTyping = (e.target as HTMLInputElement).value;
+  }
+  function onDecFocus() {
+    decFocused = true;
+    decTyping = fmtDec(dec_deg);
+  }
+  function onDecBlur() {
+    decBlurred = true;
+    const raw = decTyping ?? '';
+    decFocused = false;
+    decTyping = null;
+    if (raw.trim() === '') {
+      dec_deg = '';
+      decInvalid = false;
+      return;
+    }
+    const parsed = parseDecToDeg(raw);
+    if (parsed === null) {
+      decTyping = raw;
+      decFocused = true;
+      decInvalid = true;
+      return;
+    }
+    decInvalid = false;
+    dec_deg = String(parsed);
   }
 </script>
 
@@ -105,26 +205,54 @@
     detected={has('sessions')}
     {disabled}
   />
-  <TextField
-    name="ra_deg"
+
+  <!-- RA: HMS-aware display with a hidden decimal-degree carrier. -->
+  <FieldShell
     label="RA"
-    bind:value={ra_deg}
-    numeric
-    span={2}
+    hint="J2000 · HMS or decimal degrees · auto from solve"
     detected={has('ra_deg')}
-    hint="J2000 · decimal degrees · auto from solve"
-    {disabled}
-  />
-  <TextField
-    name="dec_deg"
-    label="DEC"
-    bind:value={dec_deg}
-    numeric
     span={2}
+  >
+    <input
+      class="input input-mono"
+      type="text"
+      inputmode="decimal"
+      autocomplete="off"
+      spellcheck={false}
+      placeholder="20h 59m 17.2s"
+      value={raDisplay}
+      aria-invalid={raBlurred && raInvalid ? 'true' : undefined}
+      {disabled}
+      oninput={onRaInput}
+      onfocus={onRaFocus}
+      onblur={onRaBlur}
+    />
+    <input type="hidden" name="ra_deg" value={ra_deg} />
+  </FieldShell>
+
+  <!-- DEC: DMS-aware display with a hidden decimal-degree carrier. -->
+  <FieldShell
+    label="DEC"
+    hint="J2000 · DMS or decimal degrees · auto from solve"
     detected={has('dec_deg')}
-    hint="J2000 · decimal degrees · auto from solve"
-    {disabled}
-  />
+    span={2}
+  >
+    <input
+      class="input input-mono"
+      type="text"
+      inputmode="decimal"
+      autocomplete="off"
+      spellcheck={false}
+      placeholder="+44° 31′ 44.0″"
+      value={decDisplay}
+      aria-invalid={decBlurred && decInvalid ? 'true' : undefined}
+      {disabled}
+      oninput={onDecInput}
+      onfocus={onDecFocus}
+      onblur={onDecBlur}
+    />
+    <input type="hidden" name="dec_deg" value={dec_deg} />
+  </FieldShell>
 </div>
 
 <style>
