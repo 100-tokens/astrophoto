@@ -28,6 +28,12 @@ pub struct PhotoRow {
     pub dec_deg: Option<f64>,
     pub target: Option<String>,
     pub caption: Option<String>,
+    // Migration 0009: user-entered acquisition fields (no EXIF source)
+    // and the small fixed-taxonomy `category` column.
+    pub scope: Option<String>,
+    pub mount: Option<String>,
+    pub guiding: Option<String>,
+    pub category: Option<String>,
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub published_at: Option<DateTime<Utc>>,
@@ -282,7 +288,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
-               target, caption, status, created_at,
+               target, caption, scope, mount, guiding, category, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
                setup_id, focal_modifier, filters
         from photos where id = $1
@@ -305,7 +311,7 @@ pub async fn list_by_owner(
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
-               target, caption, status, created_at,
+               target, caption, scope, mount, guiding, category, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
                setup_id, focal_modifier, filters
         from photos
@@ -328,7 +334,7 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
-               target, caption, status, created_at,
+               target, caption, scope, mount, guiding, category, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
                setup_id, focal_modifier, filters
         from photos
@@ -355,7 +361,8 @@ pub async fn list_following(
                p.width, p.height, p.taken_at, p.camera, p.lens, p.iso,
                p.exposure_s, p.focal_mm,
                p.aperture_f, p.gain, p.sensor_temp_c, p.sessions, p.ra_deg, p.dec_deg,
-               p.target, p.caption, p.status, p.created_at,
+               p.target, p.caption, p.scope, p.mount, p.guiding, p.category,
+               p.status, p.created_at,
                p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error,
                p.setup_id, p.focal_modifier, p.filters
         from photos p
@@ -408,7 +415,7 @@ pub async fn list_drafts_by_owner(
         select id, owner_id, short_id, storage_key, original_name, bytes, mime,
                width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,
                aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,
-               target, caption, status, created_at,
+               target, caption, scope, mount, guiding, category, status, created_at,
                published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,
                setup_id, focal_modifier, filters
         from photos
