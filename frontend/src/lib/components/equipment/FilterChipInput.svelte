@@ -276,15 +276,22 @@
     <div class="fchip-pop" onmousedown={(e) => e.preventDefault()}>
       <div class="fchip-pop-head">
         <span>{query ? `MATCHES "${query}"` : 'POPULAR FILTERS'}</span>
-        <span style="color: var(--fg-faint)">{matches.length} OF {available}</span>
+        {#if available > 0}
+          <span style="color: var(--fg-faint)">{matches.length} OF {available}</span>
+        {/if}
       </div>
       <div class="fchip-pop-list">
         {#if matches.length === 0}
           <div
             style="padding: 14px; color: var(--fg-muted); font-size: 12px; font-family: var(--font-mono)"
           >
-            No matches. Press <span style="color: var(--accent)">↵ Enter</span> to create a new filter
-            item.
+            {#if query.trim()}
+              No matches — press <span style="color: var(--accent)">↵ Enter</span> to create "<span
+                style="color: var(--fg-primary)">{query.trim()}</span
+              >"
+            {:else}
+              No filters yet — type to search or create one.
+            {/if}
           </div>
         {/if}
         {#each matches as f, i (f.display_name)}
@@ -308,7 +315,8 @@
               compact
             />
             <span class="meta">
-              {#if meta}{meta.label.toUpperCase()}{#if bw} · {bw.toUpperCase()}{/if}{:else}UNTYPED{/if}
+              {#if meta}{meta.label.toUpperCase()}{#if bw}
+                  · {bw.toUpperCase()}{/if}{:else}UNTYPED{/if}
             </span>
             <span class="usage">{f.usage_count.toLocaleString()} PHOTOS</span>
           </div>
