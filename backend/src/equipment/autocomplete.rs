@@ -109,8 +109,11 @@ pub async fn handler(
                -- focal modifier
                fms.modifier_type  as fms_modifier_type,
                fms.factor         as fms_factor,
-               -- guiding
-               gs.setup_kind      as gs_setup_kind,
+               -- guiding (force-nullable: `setup_kind` is NOT NULL in
+               -- guiding_specs but the LEFT JOIN makes it NULL when no
+               -- spec row exists — sqlx's static inference doesn't see
+               -- that, so we override via the "?:" cast).
+               gs.setup_kind      as "gs_setup_kind?: String",
                gs.guide_focal_mm  as gs_guide_focal_mm
           from equipment_items ei
           left join filter_specs         fs  on fs.item_id  = ei.id and ei.kind = 'filter'
