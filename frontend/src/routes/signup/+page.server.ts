@@ -10,7 +10,10 @@ export const load: PageServerLoad = async ({ locals }) => {
   // Already authenticated → no need to see the signup form.
   if (locals.user) throw redirect(303, '/');
   return {
-    googleOauthUrl: `${API}/api/auth/oauth/google/start`
+    // Relative — see signin/+page.server.ts for why. Routing through the
+    // SvelteKit /api proxy is what scopes the session cookie to the
+    // frontend origin.
+    googleOauthUrl: '/api/auth/oauth/google/start'
   };
 };
 
