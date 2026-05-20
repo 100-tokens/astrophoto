@@ -1,0 +1,238 @@
+/* ============================================================
+   Shared "create with specs" sub-form styles.
+
+   Used by FilterChipInput, BrandModelInput, and the per-kind
+   *SpecsForm components for the catalog v2 saisie-forcée flow.
+   Same visual vocabulary as the original .fchip-create-* rules
+   in filter-chip.css — generalised here under .ec-create-* so
+   non-filter callers can opt in without depending on the chip
+   stylesheet.
+
+   Imported by:
+     - FilterChipInput.svelte (alongside filter-chip.css)
+     - EquipmentAutocomplete.svelte (popover create flow)
+     - BrandModelInput.svelte (and indirectly any *SpecsForm)
+   ============================================================ */
+
+.ec-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-3) var(--s-2);
+}
+
+.ec-create-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.ec-create-section-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding-top: var(--s-1);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ec-create-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: var(--s-3);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  color: var(--fg-secondary);
+}
+
+.ec-create-row.is-stacked {
+  grid-template-columns: 1fr;
+  gap: var(--s-2);
+}
+
+.ec-create-row.is-split {
+  /* Two side-by-side inputs (Brand | Model) sharing the value column. */
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.ec-create-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+/* The accent dot next to required field labels. */
+.ec-create-label.is-required::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.ec-create-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--fg-faint);
+  text-transform: lowercase;
+}
+
+.ec-create-name {
+  color: var(--fg-primary);
+  font-size: var(--t-sm);
+}
+
+.ec-create-input {
+  width: 100%;
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  outline: 0;
+  min-width: 0;
+}
+
+.ec-create-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 164, 58, 0.12);
+}
+
+.ec-create-input:disabled {
+  color: var(--fg-faint);
+  background: var(--bg-canvas);
+  cursor: not-allowed;
+}
+
+.ec-create-unit-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.ec-create-unit-wrap .ec-create-input {
+  flex: 1 1 auto;
+}
+
+.ec-create-unit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-muted);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.ec-create-error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--danger);
+  letter-spacing: 0.02em;
+}
+
+.ec-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}
+
+.ec-create-btn {
+  appearance: none;
+  background: var(--bg-base);
+  color: var(--fg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.ec-create-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--fg-primary);
+}
+
+.ec-create-btn.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.ec-create-btn.is-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.ec-create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Fold-out section ("more details") inside a sub-form — collapses
+   the optional completeness fields by default so the required rows
+   read first. */
+.ec-create-details {
+  margin-top: var(--s-2);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--s-2);
+}
+
+.ec-create-details > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 4px 0;
+  user-select: none;
+}
+
+.ec-create-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ec-create-details > summary::before {
+  content: '+';
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 700;
+  width: 10px;
+}
+
+.ec-create-details[open] > summary::before {
+  content: '−';
+}
+
+.ec-create-details[open] > summary {
+  color: var(--fg-secondary);
+}
+
+.ec-create-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+}
