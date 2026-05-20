@@ -1,0 +1,149 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select ei.id, ei.canonical_name, ei.display_name, ei.usage_count,\n               ei.brand, ei.model, ei.variant,\n               -- filter\n               fs.filter_type     as fs_filter_type,\n               fs.bandwidth_nm    as fs_bandwidth_nm,\n               -- telescope\n               ts.aperture_mm     as ts_aperture_mm,\n               ts.focal_length_mm as ts_focal_length_mm,\n               ts.focal_ratio_f   as ts_focal_ratio_f,\n               -- camera\n               cs.sensor_model    as cs_sensor_model,\n               cs.pixel_size_um   as cs_pixel_size_um,\n               cs.cooled          as cs_cooled,\n               -- mount\n               ms.mount_type      as ms_mount_type,\n               ms.payload_kg      as ms_payload_kg,\n               ms.goto            as ms_goto,\n               -- focal modifier\n               fms.modifier_type  as fms_modifier_type,\n               fms.factor         as fms_factor,\n               -- guiding\n               gs.setup_kind      as gs_setup_kind,\n               gs.guide_focal_mm  as gs_guide_focal_mm\n          from equipment_items ei\n          left join filter_specs         fs  on fs.item_id  = ei.id and ei.kind = 'filter'\n          left join telescope_specs      ts  on ts.item_id  = ei.id and ei.kind = 'telescope'\n          left join camera_specs         cs  on cs.item_id  = ei.id and ei.kind = 'camera'\n          left join mount_specs          ms  on ms.item_id  = ei.id and ei.kind = 'mount'\n          left join focal_modifier_specs fms on fms.item_id = ei.id and ei.kind = 'focal_modifier'\n          left join guiding_specs        gs  on gs.item_id  = ei.id and ei.kind = 'guiding'\n         where ei.kind = $1\n           and (ei.canonical_name ilike $2 or ei.display_name ilike $2)\n         order by ei.usage_count desc\n         limit 10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "fs_filter_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "fs_bandwidth_nm",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "ts_aperture_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "ts_focal_length_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "ts_focal_ratio_f",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 12,
+        "name": "cs_sensor_model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "cs_pixel_size_um",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 14,
+        "name": "cs_cooled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "ms_mount_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
+        "name": "ms_payload_kg",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 17,
+        "name": "ms_goto",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 18,
+        "name": "fms_modifier_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 19,
+        "name": "fms_factor",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 20,
+        "name": "gs_setup_kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 21,
+        "name": "gs_guide_focal_mm",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "826b57a3d78227a03882e3f1a975db888a4c8c82a606617c8bd51f7da7117da8"
+}
