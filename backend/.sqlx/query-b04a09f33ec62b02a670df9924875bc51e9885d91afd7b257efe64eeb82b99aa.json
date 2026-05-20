@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,\n               setup_id, focal_modifier, filters\n        from photos\n        where published_at is not null\n        order by published_at desc\n        limit $1\n        ",
+  "query": "\n        select id, owner_id, short_id, storage_key, original_name, bytes, mime,\n               width, height, taken_at, camera, lens, iso, exposure_s, focal_mm,\n               aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg,\n               target, caption, scope, mount, guiding, category, status, created_at,\n               published_at, replaced_at, original_uploaded_at, last_step, pipeline_error,\n               setup_id, focal_modifier, filters\n        from photos\n        where published_at is not null\n        order by published_at desc\n        limit $1\n        ",
   "describe": {
     "columns": [
       {
@@ -120,51 +120,71 @@
       },
       {
         "ordinal": 23,
-        "name": "status",
+        "name": "scope",
         "type_info": "Text"
       },
       {
         "ordinal": 24,
+        "name": "mount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 25,
+        "name": "guiding",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 26,
+        "name": "category",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 27,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 28,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 25,
+        "ordinal": 29,
         "name": "published_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 26,
+        "ordinal": 30,
         "name": "replaced_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 27,
+        "ordinal": 31,
         "name": "original_uploaded_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 28,
+        "ordinal": 32,
         "name": "last_step",
         "type_info": "Text"
       },
       {
-        "ordinal": 29,
+        "ordinal": 33,
         "name": "pipeline_error",
         "type_info": "Text"
       },
       {
-        "ordinal": 30,
+        "ordinal": 34,
         "name": "setup_id",
         "type_info": "Uuid"
       },
       {
-        "ordinal": 31,
+        "ordinal": 35,
         "name": "focal_modifier",
         "type_info": "Text"
       },
       {
-        "ordinal": 32,
+        "ordinal": 36,
         "name": "filters",
         "type_info": "Text"
       }
@@ -198,6 +218,10 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
+      true,
       false,
       false,
       true,
@@ -210,5 +234,5 @@
       true
     ]
   },
-  "hash": "7ed624ffa8ef910def453d9529d888795d63561ce29b768a4fa2c15db36d2d87"
+  "hash": "b04a09f33ec62b02a670df9924875bc51e9885d91afd7b257efe64eeb82b99aa"
 }
