@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)\n         values ('focal_modifier','antares 0.7x reducer','Antares 0.7x Reducer',3,'','Antares 0.7x Reducer')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "d0850340207a9047b42e88c23febe6c5cec5a3b384f87ee2ec6fbed7e236ccee"
+}

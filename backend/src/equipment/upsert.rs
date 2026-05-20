@@ -29,6 +29,11 @@ use crate::error::AppError;
 /// `usage_count` is NOT touched here. Call [`recompute_usage`] after the
 /// caller's write transaction commits so the count reflects the new set
 /// of references.
+///
+/// Catalog v2 (migration 0022): writes brand='' and model=trim(freetext)
+/// on insert. The verify-form save path is the freetext entry point —
+/// brand-aware parsing belongs to the admin merge tool / Phase 2 of the
+/// catalog UX, not here.
 pub async fn upsert(
     pool: &PgPool,
     kind: &str,
@@ -43,8 +48,9 @@ pub async fn upsert(
     sqlx::query!(
         r#"
         insert into equipment_items
-            (kind, canonical_name, display_name, usage_count, submitted_by, approved_at)
-            values ($1, $2, $3, 0, $4, now())
+            (kind, canonical_name, display_name, usage_count, submitted_by, approved_at,
+             brand, model)
+            values ($1, $2, $3, 0, $4, now(), '', $3)
         on conflict (kind, canonical_name) do nothing
         "#,
         kind,

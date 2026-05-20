@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select si.role,\n                  ei.id, ei.kind, ei.canonical_name, ei.display_name,\n                  ei.brand, ei.model, ei.variant\n             from setup_items si\n             join equipment_items ei on ei.id = si.item_id\n            where si.setup_id = $1\n            order by si.role, ei.canonical_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "variant",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "098d1779520d24bde45d8cd3bf0129203ab0ac8200855dc69846b6458d6ddb4d"
+}

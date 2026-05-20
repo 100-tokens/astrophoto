@@ -2,6 +2,7 @@
 import type { CameraSpecs } from './CameraSpecs';
 import type { FilterSpecs } from './FilterSpecs';
 import type { FocalModifierSpecs } from './FocalModifierSpecs';
+import type { GuidingSpecs } from './GuidingSpecs';
 import type { MountSpecs } from './MountSpecs';
 import type { TelescopeSpecs } from './TelescopeSpecs';
 
@@ -13,4 +14,5 @@ export type EquipmentSpecsPayload =
   | ({ kind: 'camera' } & CameraSpecs)
   | ({ kind: 'filter' } & FilterSpecs)
   | ({ kind: 'mount' } & MountSpecs)
-  | ({ kind: 'focal_modifier' } & FocalModifierSpecs);
+  | ({ kind: 'focal_modifier' } & FocalModifierSpecs)
+  | ({ kind: 'guiding' } & GuidingSpecs);

@@ -9,4 +9,10 @@ export type TelescopeSpecs = {
    * Computed (DB-generated). Returned in GET, ignored in PATCH/POST.
    */
   focal_ratio_f: number | null;
+  /**
+   * Catalog v2 (migration 0022): completeness fields.
+   */
+  self_weight_kg: number | null;
+  optical_length_mm: number | null;
+  backfocus_mm: number | null;
 };

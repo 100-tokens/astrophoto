@@ -19,8 +19,8 @@ async fn equipment_page_returns_meta_photos_and_paired_rail() {
     // converted via dash→space before lookup, see
     // discovery::equipment::canonical_for).
     sqlx::query(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) \
-         values ('camera', 'asi2600mc pro', 'ASI2600MC Pro', 1)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) \
+         values ('camera', 'asi2600mc pro', 'ASI2600MC Pro', 1, '', 'ASI2600MC Pro')",
     )
     .execute(&app.pool)
     .await
@@ -38,8 +38,8 @@ async fn equipment_page_returns_meta_photos_and_paired_rail() {
     // Insert a second equipment item (a telescope) that co-occurs on the same photo
     // so the paired rail has something to show.
     sqlx::query(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) \
-         values ('telescope', 'at80ed', 'AT80ED', 1)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) \
+         values ('telescope', 'at80ed', 'AT80ED', 1, '', 'AT80ED')",
     )
     .execute(&app.pool)
     .await
@@ -80,11 +80,11 @@ async fn equipment_page_returns_brand_siblings() {
     // the brand filter actually filters. Different usage_count so we
     // can assert ordering.
     sqlx::query(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values
-            ('filter', 'antlia 3nm h alpha pro', 'Antlia 3nm H-alpha Pro', 1),
-            ('filter', 'antlia 3nm oiii pro',    'Antlia 3nm OIII Pro',   5),
-            ('filter', 'antlia 3nm sii pro',     'Antlia 3nm SII Pro',    3),
-            ('filter', 'astrodon ha 5nm',        'Astrodon Hα 5nm',       9)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values
+            ('filter', 'antlia 3nm h alpha pro', 'Antlia 3nm H-alpha Pro', 1, 'Antlia',  '3nm H-alpha Pro'),
+            ('filter', 'antlia 3nm oiii pro',    'Antlia 3nm OIII Pro',    5, 'Antlia',  '3nm OIII Pro'),
+            ('filter', 'antlia 3nm sii pro',     'Antlia 3nm SII Pro',     3, 'Antlia',  '3nm SII Pro'),
+            ('filter', 'astrodon ha 5nm',        'Astrodon Hα 5nm',        9, 'Astrodon','Hα 5nm')",
     )
     .execute(&app.pool)
     .await
@@ -121,9 +121,9 @@ async fn equipment_page_returns_brand_siblings() {
 async fn equipment_page_no_siblings_for_brandless_name() {
     let app = TestApp::launch().await;
     sqlx::query(
-        "insert into equipment_items (kind, canonical_name, display_name, usage_count) values
-            ('mount', 'cem40',                  'CEM40',                  1),
-            ('mount', 'sky-watcher eq6-r pro',  'Sky-Watcher EQ6-R Pro',  9)",
+        "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model) values
+            ('mount', 'cem40',                  'CEM40',                  1, '',            'CEM40'),
+            ('mount', 'sky-watcher eq6-r pro',  'Sky-Watcher EQ6-R Pro',  9, 'Sky-Watcher', 'EQ6-R Pro')",
     )
     .execute(&app.pool)
     .await

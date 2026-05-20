@@ -7,4 +7,10 @@ export type FilterSpecs = {
   bandwidth_nm: number | null;
   size: FilterSize | null;
   mounted: boolean | null;
+  /**
+   * Catalog v2 (migration 0022): completeness fields.
+   */
+  mounted_diameter_mm: number | null;
+  thickness_mm: number | null;
+  peak_transmission_pct: number | null;
 };

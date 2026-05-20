@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        insert into equipment_items\n            (kind, canonical_name, display_name, usage_count, submitted_by, approved_at,\n             brand, model)\n            values ($1, $2, $3, 0, $4, now(), '', $3)\n        on conflict (kind, canonical_name) do nothing\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06f4c9b920bbd01c72fc97f20b3b824d65bb3fb25d7e9c37266c5f1197dcf0eb"
+}

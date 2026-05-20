@@ -1,17 +1,22 @@
 //! Per-kind validation and INSERT helpers for `EquipmentSpecsPayload`.
 //!
-//! The DB check constraints (in migration 0018) are the hard rules.
-//! This layer catches mismatched (kind, payload) pairs before the SQL
-//! and centralises the per-sub-table INSERT, called by both
+//! The DB check constraints (in migrations 0018 + 0022) are the hard
+//! rules. This layer catches mismatched (kind, payload) pairs before
+//! the SQL and centralises the per-sub-table INSERT, called by both
 //! `items_create` (after a fresh or resolved equipment_items row) and
 //! `items_update` (after a delete of the existing sub-table row).
+//!
+//! Catalog v2 (migration 0022): added Guiding variant + insert path,
+//! plus extended each existing insert to write the new completeness
+//! columns (self_weight_*, backfocus_mm, etc.).
 
 use sqlx::types::BigDecimal;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::api_types::{
-    CameraSpecs, EquipmentSpecsPayload, FilterSpecs, FocalModifierSpecs, MountSpecs, TelescopeSpecs,
+    CameraSpecs, EquipmentSpecsPayload, FilterSpecs, FocalModifierSpecs, GuidingSpecs, MountSpecs,
+    TelescopeSpecs,
 };
 use crate::error::AppError;
 
@@ -25,6 +30,7 @@ pub fn ensure_matches_kind(kind: &str, payload: &EquipmentSpecsPayload) -> Resul
             | ("filter", EquipmentSpecsPayload::Filter(_))
             | ("mount", EquipmentSpecsPayload::Mount(_))
             | ("focal_modifier", EquipmentSpecsPayload::FocalModifier(_))
+            | ("guiding", EquipmentSpecsPayload::Guiding(_))
     );
     if ok {
         Ok(())
@@ -72,6 +78,11 @@ pub async fn delete_specs_row(
             .execute(&mut **tx)
             .await?;
         }
+        "guiding" => {
+            sqlx::query!("delete from guiding_specs where item_id = $1", item_id)
+                .execute(&mut **tx)
+                .await?;
+        }
         other => {
             return Err(AppError::Validation(format!(
                 "unknown kind '{other}' in delete_specs_row"
@@ -94,6 +105,7 @@ pub async fn insert_specs_row(
         EquipmentSpecsPayload::Filter(s) => insert_filter(tx, item_id, s).await,
         EquipmentSpecsPayload::Mount(s) => insert_mount(tx, item_id, s).await,
         EquipmentSpecsPayload::FocalModifier(s) => insert_focal_modifier(tx, item_id, s).await,
+        EquipmentSpecsPayload::Guiding(s) => insert_guiding(tx, item_id, s).await,
     }
 }
 
@@ -114,12 +126,17 @@ async fn insert_telescope(
     s: &TelescopeSpecs,
 ) -> Result<(), AppError> {
     sqlx::query!(
-        r#"insert into telescope_specs (item_id, design, aperture_mm, focal_length_mm)
-            values ($1, $2, $3, $4)"#,
+        r#"insert into telescope_specs
+            (item_id, design, aperture_mm, focal_length_mm,
+             self_weight_kg, optical_length_mm, backfocus_mm)
+            values ($1, $2, $3, $4, $5, $6, $7)"#,
         item_id,
         enum_to_text(&s.design),
         s.aperture_mm,
         s.focal_length_mm,
+        f64_to_decimal(s.self_weight_kg),
+        s.optical_length_mm,
+        f64_to_decimal(s.backfocus_mm),
     )
     .execute(&mut **tx)
     .await?;
@@ -134,8 +151,10 @@ async fn insert_camera(
     sqlx::query!(
         r#"insert into camera_specs (
                 item_id, sensor_type, color_type, cooled, sensor_model,
-                pixel_size_um, sensor_width_px, sensor_height_px
-            ) values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+                pixel_size_um, sensor_width_px, sensor_height_px,
+                self_weight_g, full_well_capacity_e, read_noise_e,
+                mount_thread, backfocus_mm
+            ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)"#,
         item_id,
         enum_to_text(&s.sensor_type),
         enum_to_text(&s.color_type),
@@ -144,6 +163,11 @@ async fn insert_camera(
         f64_to_decimal(s.pixel_size_um),
         s.sensor_width_px,
         s.sensor_height_px,
+        s.self_weight_g,
+        s.full_well_capacity_e,
+        f64_to_decimal(s.read_noise_e),
+        s.mount_thread.as_deref(),
+        f64_to_decimal(s.backfocus_mm),
     )
     .execute(&mut **tx)
     .await?;
@@ -156,13 +180,18 @@ async fn insert_filter(
     s: &FilterSpecs,
 ) -> Result<(), AppError> {
     sqlx::query!(
-        r#"insert into filter_specs (item_id, filter_type, bandwidth_nm, size, mounted)
-            values ($1, $2, $3, $4, $5)"#,
+        r#"insert into filter_specs
+            (item_id, filter_type, bandwidth_nm, size, mounted,
+             mounted_diameter_mm, thickness_mm, peak_transmission_pct)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         item_id,
         enum_to_text(&s.filter_type),
         f64_to_decimal(s.bandwidth_nm),
         enum_to_text(&s.size),
         s.mounted,
+        f64_to_decimal(s.mounted_diameter_mm),
+        f64_to_decimal(s.thickness_mm),
+        f64_to_decimal(s.peak_transmission_pct),
     )
     .execute(&mut **tx)
     .await?;
@@ -175,12 +204,18 @@ async fn insert_mount(
     s: &MountSpecs,
 ) -> Result<(), AppError> {
     sqlx::query!(
-        r#"insert into mount_specs (item_id, mount_type, payload_kg, goto)
-            values ($1, $2, $3, $4)"#,
+        r#"insert into mount_specs
+            (item_id, mount_type, payload_kg, goto,
+             self_weight_kg, periodic_error_arcsec, tripod_included, control_protocol)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         item_id,
         enum_to_text(&s.mount_type),
         f64_to_decimal(s.payload_kg),
         s.goto,
+        f64_to_decimal(s.self_weight_kg),
+        f64_to_decimal(s.periodic_error_arcsec),
+        s.tripod_included,
+        s.control_protocol.as_deref(),
     )
     .execute(&mut **tx)
     .await?;
@@ -193,11 +228,40 @@ async fn insert_focal_modifier(
     s: &FocalModifierSpecs,
 ) -> Result<(), AppError> {
     sqlx::query!(
-        r#"insert into focal_modifier_specs (item_id, modifier_type, factor)
-            values ($1, $2, $3)"#,
+        r#"insert into focal_modifier_specs
+            (item_id, modifier_type, factor,
+             self_weight_g, backfocus_mm, image_circle_mm)
+            values ($1, $2, $3, $4, $5, $6)"#,
         item_id,
         enum_to_text(&s.modifier_type),
         f64_to_decimal(s.factor),
+        s.self_weight_g,
+        f64_to_decimal(s.backfocus_mm),
+        f64_to_decimal(s.image_circle_mm),
+    )
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+async fn insert_guiding(
+    tx: &mut Transaction<'_, Postgres>,
+    item_id: Uuid,
+    s: &GuidingSpecs,
+) -> Result<(), AppError> {
+    // setup_kind is NOT NULL on the DB row; reject early with a clear
+    // 422 instead of letting Postgres surface a generic constraint error.
+    let setup_kind = enum_to_text(&s.setup_kind)
+        .ok_or_else(|| AppError::Validation("guiding specs require setup_kind".into()))?;
+    sqlx::query!(
+        r#"insert into guiding_specs
+            (item_id, setup_kind, guide_focal_mm, guide_aperture_mm, guide_camera)
+            values ($1, $2, $3, $4, $5)"#,
+        item_id,
+        setup_kind,
+        s.guide_focal_mm,
+        s.guide_aperture_mm,
+        s.guide_camera.as_deref(),
     )
     .execute(&mut **tx)
     .await?;
@@ -207,7 +271,7 @@ async fn insert_focal_modifier(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api_types::{EquipmentSpecsPayload, FilterSpecs, TelescopeSpecs};
+    use crate::api_types::{EquipmentSpecsPayload, FilterSpecs, GuidingSpecs, TelescopeSpecs};
 
     #[test]
     fn rejects_payload_of_wrong_kind_for_item() {
@@ -220,6 +284,12 @@ mod tests {
     fn accepts_matching_kind() {
         let payload = EquipmentSpecsPayload::Telescope(TelescopeSpecs::default());
         ensure_matches_kind("telescope", &payload).unwrap();
+    }
+
+    #[test]
+    fn accepts_guiding_kind() {
+        let payload = EquipmentSpecsPayload::Guiding(GuidingSpecs::default());
+        ensure_matches_kind("guiding", &payload).unwrap();
     }
 
     #[test]

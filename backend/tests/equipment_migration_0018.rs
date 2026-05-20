@@ -77,8 +77,9 @@ async fn backfill_populates_photo_filters_from_legacy_string() {
 
     let r_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','r','R',1,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','r','R',1,'approved',now(),'','R')
             returning id"#
     )
     .fetch_one(&pool)
@@ -86,8 +87,9 @@ async fn backfill_populates_photo_filters_from_legacy_string() {
     .unwrap();
     let g_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
-                (kind, canonical_name, display_name, usage_count, status, approved_at)
-            values ('filter','g','G',1,'approved',now())
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('filter','g','G',1,'approved',now(),'','G')
             returning id"#
     )
     .fetch_one(&pool)

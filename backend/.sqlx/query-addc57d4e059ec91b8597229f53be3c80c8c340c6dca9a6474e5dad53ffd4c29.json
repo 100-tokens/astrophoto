@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into mount_specs\n            (item_id, mount_type, payload_kg, goto,\n             self_weight_kg, periodic_error_arcsec, tripod_included, control_protocol)\n            values ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Numeric",
+        "Bool",
+        "Numeric",
+        "Numeric",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "addc57d4e059ec91b8597229f53be3c80c8c340c6dca9a6474e5dad53ffd4c29"
+}

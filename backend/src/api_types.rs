@@ -464,9 +464,15 @@ pub struct SearchResults {
 #[ts(export, export_to = "EquipmentItemRef.ts")]
 pub struct EquipmentItemRef {
     pub id: String,
-    pub kind: String, // 'telescope'|'camera'|'mount'|'filter'|'focal_modifier'
+    pub kind: String, // 'telescope'|'camera'|'mount'|'filter'|'focal_modifier'|'guiding'
     pub canonical_name: String,
     pub display_name: String,
+    /// Catalog v2 (migration 0022): structured brand/model/variant on
+    /// the shared header. `brand=""` denotes an unknown brand.
+    pub brand: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
 }
 
 /// One member of a setup (link between a setup and a canonical item).
@@ -555,6 +561,18 @@ pub struct EquipmentItemInput {
     /// resolved) without touching any `<kind>_specs` table.
     #[serde(default)]
     pub specs: Option<EquipmentSpecsPayload>,
+    /// Catalog v2 (migration 0022): structured brand/model/variant.
+    /// All three are optional to preserve back-compat with callers that
+    /// only send `{ kind, display_name }` — when absent, the handler
+    /// derives brand="" and model=trim(display_name) (the freetext
+    /// fallback). When present, they take precedence and the handler
+    /// regenerates display_name + canonical_name from them.
+    #[serde(default)]
+    pub brand: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub variant: Option<String>,
 }
 
 /// Body for POST /api/photos/:id/apply-setup.
@@ -778,6 +796,16 @@ pub enum FocalModifierType {
     Corrector,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[ts(export, export_to = "GuidingSetupKind.ts")]
+#[serde(rename_all = "snake_case")]
+pub enum GuidingSetupKind {
+    Oag,
+    Guidescope,
+    OagPrism,
+    Other,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
 #[ts(export, export_to = "TelescopeSpecs.ts")]
 pub struct TelescopeSpecs {
@@ -787,6 +815,13 @@ pub struct TelescopeSpecs {
     /// Computed (DB-generated). Returned in GET, ignored in PATCH/POST.
     #[serde(default)]
     pub focal_ratio_f: Option<f64>,
+    /// Catalog v2 (migration 0022): completeness fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub self_weight_kg: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub optical_length_mm: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backfocus_mm: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
@@ -799,6 +834,17 @@ pub struct CameraSpecs {
     pub pixel_size_um: Option<f64>,
     pub sensor_width_px: Option<i32>,
     pub sensor_height_px: Option<i32>,
+    /// Catalog v2 (migration 0022): completeness fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub self_weight_g: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub full_well_capacity_e: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read_noise_e: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount_thread: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backfocus_mm: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
@@ -808,6 +854,13 @@ pub struct FilterSpecs {
     pub bandwidth_nm: Option<f64>,
     pub size: Option<FilterSize>,
     pub mounted: Option<bool>,
+    /// Catalog v2 (migration 0022): completeness fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mounted_diameter_mm: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thickness_mm: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak_transmission_pct: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
@@ -816,6 +869,15 @@ pub struct MountSpecs {
     pub mount_type: Option<MountType>,
     pub payload_kg: Option<f64>,
     pub goto: Option<bool>,
+    /// Catalog v2 (migration 0022): completeness fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub self_weight_kg: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub periodic_error_arcsec: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tripod_included: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control_protocol: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
@@ -823,6 +885,28 @@ pub struct MountSpecs {
 pub struct FocalModifierSpecs {
     pub modifier_type: Option<FocalModifierType>,
     pub factor: Option<f64>,
+    /// Catalog v2 (migration 0022): completeness fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub self_weight_g: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backfocus_mm: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_circle_mm: Option<f64>,
+}
+
+/// Catalog v2 (migration 0022): guiding equipment spec sub-table.
+/// `setup_kind` is required (the DB CHECK enforces it); the rest are
+/// optional just like the other spec structs.
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "GuidingSpecs.ts")]
+pub struct GuidingSpecs {
+    pub setup_kind: Option<GuidingSetupKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guide_focal_mm: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guide_aperture_mm: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guide_camera: Option<String>,
 }
 
 /// Tagged union — `kind` discriminator on the wire matches `equipment_items.kind`.
@@ -835,6 +919,8 @@ pub enum EquipmentSpecsPayload {
     Filter(FilterSpecs),
     Mount(MountSpecs),
     FocalModifier(FocalModifierSpecs),
+    /// Catalog v2 (migration 0022): typed specs for guiding equipment.
+    Guiding(GuidingSpecs),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -859,6 +945,14 @@ pub struct EquipmentItemDetail {
     pub approved_at: Option<String>,
     pub created_at: String,
     pub specs: Option<EquipmentSpecsPayload>,
+    /// Catalog v2 (migration 0022): structured brand/model/variant on
+    /// the shared header. `brand=""` denotes an unknown brand (typically
+    /// a freetext-created row that hasn't been moderated). `model` is
+    /// always populated.
+    pub brand: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into telescope_specs\n            (item_id, design, aperture_mm, focal_length_mm,\n             self_weight_kg, optical_length_mm, backfocus_mm)\n            values ($1, $2, $3, $4, $5, $6, $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Int4",
+        "Numeric",
+        "Int4",
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "557d8d9cf5db68d95aff706c5e1839817c689e153685214cecb9423b246864cb"
+}

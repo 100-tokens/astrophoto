@@ -10,4 +10,12 @@ export type CameraSpecs = {
   pixel_size_um: number | null;
   sensor_width_px: number | null;
   sensor_height_px: number | null;
+  /**
+   * Catalog v2 (migration 0022): completeness fields.
+   */
+  self_weight_g: number | null;
+  full_well_capacity_e: number | null;
+  read_noise_e: number | null;
+  mount_thread: string | null;
+  backfocus_mm: number | null;
 };

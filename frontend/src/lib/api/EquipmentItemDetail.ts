@@ -12,4 +12,13 @@ export type EquipmentItemDetail = {
   approved_at: string | null;
   created_at: string;
   specs: EquipmentSpecsPayload | null;
+  /**
+   * Catalog v2 (migration 0022): structured brand/model/variant on
+   * the shared header. `brand=""` denotes an unknown brand (typically
+   * a freetext-created row that hasn't been moderated). `model` is
+   * always populated.
+   */
+  brand: string;
+  model: string;
+  variant: string | null;
 };

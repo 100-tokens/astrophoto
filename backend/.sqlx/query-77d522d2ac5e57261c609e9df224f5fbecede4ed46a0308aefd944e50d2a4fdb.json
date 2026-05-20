@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n                (kind, canonical_name, display_name, usage_count, status, approved_at,\n                 brand, model)\n            values ('filter','antlia ha 3nm','Antlia Ha 3nm',12,'approved',now(),\n                    'Antlia','Ha 3nm')\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "77d522d2ac5e57261c609e9df224f5fbecede4ed46a0308aefd944e50d2a4fdb"
+}
