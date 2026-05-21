@@ -6,15 +6,21 @@
   import RoleRow from '$lib/components/equipment/RoleRow.svelte';
   import SpecsPanel from '$lib/components/equipment/SpecsPanel.svelte';
   import FilterChipInput from '$lib/components/equipment/FilterChipInput.svelte';
+  // Catalog v2 (Phase 2): the in-line per-field grid was replaced with
+  // the shared *SpecsForm components so create/edit shares one source
+  // of truth with the FilterChipInput and EquipmentAutocomplete popovers.
+  import TelescopeSpecsForm from '$lib/components/equipment/specs/TelescopeSpecsForm.svelte';
+  import CameraSpecsForm from '$lib/components/equipment/specs/CameraSpecsForm.svelte';
+  import MountSpecsForm from '$lib/components/equipment/specs/MountSpecsForm.svelte';
+  import FocalModifierSpecsForm from '$lib/components/equipment/specs/FocalModifierSpecsForm.svelte';
+  import '$lib/components/equipment/equipment-create-form.css';
   import type { SetupDetail } from '$lib/api/SetupDetail';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
-  import {
-    TELESCOPE_FIELDS,
-    CAMERA_FIELDS,
-    MOUNT_FIELDS,
-    FOCAL_MODIFIER_FIELDS
-  } from '$lib/equipment/specs-fields';
+  import type { TelescopeSpecs } from '$lib/api/TelescopeSpecs';
+  import type { CameraSpecs } from '$lib/api/CameraSpecs';
+  import type { MountSpecs } from '$lib/api/MountSpecs';
+  import type { FocalModifierSpecs } from '$lib/api/FocalModifierSpecs';
 
   // ── Item-level detail fetched server-side and passed in for edit mode ─────
   export type ItemPrefill = {
@@ -112,9 +118,7 @@
   // field is just the user's per-setup default that the verify form reads
   // to pre-select the right radio.
   let applyBehavior = $state<'overwrite' | 'fill_empty'>(
-    untrack(() =>
-      initial?.default_apply_mode === 'fill_empty' ? 'fill_empty' : 'overwrite'
-    )
+    untrack(() => (initial?.default_apply_mode === 'fill_empty' ? 'fill_empty' : 'overwrite'))
   );
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -252,15 +256,67 @@
     }
   }
 
-  // ── Spec field renderer helper ────────────────────────────────────────────
-  function specVal(role: RoleState, name: string): string {
-    const v = role.specs[name];
-    if (v === null || v === undefined) return '';
-    return String(v);
+  // ── Typed views over role.specs ───────────────────────────────────────────
+  //
+  // The shared *SpecsForm components are strictly typed; role.specs is
+  // a Record<string, unknown> at the SetupForm level (so all four roles
+  // share one shape). These $derived getters pull a typed view out of
+  // role.specs for the form; the setters spread the typed updates back
+  // into role.specs. Missing fields default to null which is what the
+  // backend expects.
+  function pickTelescope(s: Record<string, unknown>): TelescopeSpecs {
+    return {
+      design: (s.design as TelescopeSpecs['design']) ?? null,
+      aperture_mm: (s.aperture_mm as number | null) ?? null,
+      focal_length_mm: (s.focal_length_mm as number | null) ?? null,
+      focal_ratio_f: (s.focal_ratio_f as number | null) ?? null,
+      self_weight_kg: (s.self_weight_kg as number | null) ?? null,
+      optical_length_mm: (s.optical_length_mm as number | null) ?? null,
+      backfocus_mm: (s.backfocus_mm as number | null) ?? null
+    };
+  }
+  function pickCamera(s: Record<string, unknown>): CameraSpecs {
+    return {
+      sensor_type: (s.sensor_type as CameraSpecs['sensor_type']) ?? null,
+      color_type: (s.color_type as CameraSpecs['color_type']) ?? null,
+      cooled: (s.cooled as boolean | null) ?? null,
+      sensor_model: (s.sensor_model as string | null) ?? null,
+      pixel_size_um: (s.pixel_size_um as number | null) ?? null,
+      sensor_width_px: (s.sensor_width_px as number | null) ?? null,
+      sensor_height_px: (s.sensor_height_px as number | null) ?? null,
+      self_weight_g: (s.self_weight_g as number | null) ?? null,
+      full_well_capacity_e: (s.full_well_capacity_e as number | null) ?? null,
+      read_noise_e: (s.read_noise_e as number | null) ?? null,
+      mount_thread: (s.mount_thread as string | null) ?? null,
+      backfocus_mm: (s.backfocus_mm as number | null) ?? null
+    };
+  }
+  function pickMount(s: Record<string, unknown>): MountSpecs {
+    return {
+      mount_type: (s.mount_type as MountSpecs['mount_type']) ?? null,
+      payload_kg: (s.payload_kg as number | null) ?? null,
+      goto: (s.goto as boolean | null) ?? null,
+      self_weight_kg: (s.self_weight_kg as number | null) ?? null,
+      periodic_error_arcsec: (s.periodic_error_arcsec as number | null) ?? null,
+      tripod_included: (s.tripod_included as boolean | null) ?? null,
+      control_protocol: (s.control_protocol as string | null) ?? null
+    };
+  }
+  function pickFocalMod(s: Record<string, unknown>): FocalModifierSpecs {
+    return {
+      modifier_type: (s.modifier_type as FocalModifierSpecs['modifier_type']) ?? null,
+      factor: (s.factor as number | null) ?? null,
+      self_weight_g: (s.self_weight_g as number | null) ?? null,
+      backfocus_mm: (s.backfocus_mm as number | null) ?? null,
+      image_circle_mm: (s.image_circle_mm as number | null) ?? null
+    };
   }
 
-  function setSpecVal(role: RoleState, name: string, value: string | boolean | number | null) {
-    role.specs = { ...role.specs, [name]: value };
+  // Setter: merge the typed update back into role.specs. The form may
+  // emit null for cleared fields, which is what saveSpecs already
+  // filters out before POST/PATCH.
+  function setSpecs(role: RoleState, next: Record<string, unknown>) {
+    role.specs = { ...role.specs, ...next };
   }
 </script>
 
@@ -322,85 +378,19 @@
             onSave={() => saveSpecsForRole(telescope, 'telescope')}
             onDiscard={() => (telescope.open = false)}
           >
-            <div class="specs-grid">
-              {#each TELESCOPE_FIELDS as field (field.name)}
-                {#if field.type === 'computed'}
-                  <Field label={field.label} mono>
-                    <input
-                      class="input input-mono"
-                      value={focalRatio}
-                      readonly
-                      style="background: var(--bg-raised); color: var(--fg-muted);"
-                    />
-                  </Field>
-                {:else if field.type === 'enum'}
-                  <Field label={field.label}>
-                    <select
-                      class="select"
-                      value={specVal(telescope, field.name)}
-                      onchange={(e) =>
-                        setSpecVal(
-                          telescope,
-                          field.name,
-                          (e.target as HTMLSelectElement).value || null
-                        )}
-                    >
-                      <option value="">—</option>
-                      {#each field.options as opt (opt.value)}
-                        <option value={opt.value}>{opt.label}</option>
-                      {/each}
-                    </select>
-                  </Field>
-                {:else if field.type === 'number'}
-                  <Field label={field.label} mono>
-                    <input
-                      class="input input-mono"
-                      type="number"
-                      value={specVal(telescope, field.name)}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      oninput={(e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        setSpecVal(telescope, field.name, v === '' ? null : Number(v));
-                      }}
-                    />
-                  </Field>
-                {:else if field.type === 'bool'}
-                  <Field label={field.label}>
-                    <label class="bool-field">
-                      <input
-                        type="checkbox"
-                        checked={telescope.specs[field.name] === true}
-                        onchange={(e) =>
-                          setSpecVal(telescope, field.name, (e.target as HTMLInputElement).checked)}
-                      />
-                      {field.label}
-                    </label>
-                  </Field>
-                {:else if field.type === 'text'}
-                  <Field label={field.label}>
-                    <input
-                      class="input"
-                      value={specVal(telescope, field.name)}
-                      oninput={(e) =>
-                        setSpecVal(
-                          telescope,
-                          field.name,
-                          (e.target as HTMLInputElement).value || null
-                        )}
-                    />
-                  </Field>
-                {/if}
-              {/each}
+            <TelescopeSpecsForm
+              value={pickTelescope(telescope.specs)}
+              onChange={(next) => setSpecs(telescope, next)}
+            />
+            {#if focalRatio}
               <div class="callout-db">
                 <span class="t-label">DB-GENERATED</span>
                 <span class="callout-db-body">
-                  <code>focal_ratio_f</code> is a STORED column ·
-                  <code>focal_length_mm / aperture_mm</code> · not user-editable.
+                  <code>focal_ratio_f</code> · <strong>{focalRatio}</strong> · STORED column,
+                  recomputed from <code>focal_length_mm / aperture_mm</code> on save.
                 </span>
               </div>
-            </div>
+            {/if}
           </SpecsPanel>
         {/snippet}
       </RoleRow>
@@ -430,69 +420,10 @@
             onSave={() => saveSpecsForRole(camera, 'camera')}
             onDiscard={() => (camera.open = false)}
           >
-            <div class="specs-grid">
-              {#each CAMERA_FIELDS as field (field.name)}
-                {#if field.type === 'enum'}
-                  <Field label={field.label}>
-                    <select
-                      class="select"
-                      value={specVal(camera, field.name)}
-                      onchange={(e) =>
-                        setSpecVal(
-                          camera,
-                          field.name,
-                          (e.target as HTMLSelectElement).value || null
-                        )}
-                    >
-                      <option value="">—</option>
-                      {#each field.options as opt (opt.value)}
-                        <option value={opt.value}>{opt.label}</option>
-                      {/each}
-                    </select>
-                  </Field>
-                {:else if field.type === 'number'}
-                  <Field label={field.label} mono>
-                    <input
-                      class="input input-mono"
-                      type="number"
-                      value={specVal(camera, field.name)}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      oninput={(e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        setSpecVal(camera, field.name, v === '' ? null : Number(v));
-                      }}
-                    />
-                  </Field>
-                {:else if field.type === 'bool'}
-                  <Field label={field.label}>
-                    <label class="bool-field">
-                      <input
-                        type="checkbox"
-                        checked={camera.specs[field.name] === true}
-                        onchange={(e) =>
-                          setSpecVal(camera, field.name, (e.target as HTMLInputElement).checked)}
-                      />
-                      {field.label}
-                    </label>
-                  </Field>
-                {:else if field.type === 'text'}
-                  <Field label={field.label}>
-                    <input
-                      class="input"
-                      value={specVal(camera, field.name)}
-                      oninput={(e) =>
-                        setSpecVal(
-                          camera,
-                          field.name,
-                          (e.target as HTMLInputElement).value || null
-                        )}
-                    />
-                  </Field>
-                {/if}
-              {/each}
-            </div>
+            <CameraSpecsForm
+              value={pickCamera(camera.specs)}
+              onChange={(next) => setSpecs(camera, next)}
+            />
           </SpecsPanel>
         {/snippet}
       </RoleRow>
@@ -522,56 +453,10 @@
             onSave={() => saveSpecsForRole(mount, 'mount')}
             onDiscard={() => (mount.open = false)}
           >
-            <div class="specs-grid">
-              {#each MOUNT_FIELDS as field (field.name)}
-                {#if field.type === 'enum'}
-                  <Field label={field.label}>
-                    <select
-                      class="select"
-                      value={specVal(mount, field.name)}
-                      onchange={(e) =>
-                        setSpecVal(
-                          mount,
-                          field.name,
-                          (e.target as HTMLSelectElement).value || null
-                        )}
-                    >
-                      <option value="">—</option>
-                      {#each field.options as opt (opt.value)}
-                        <option value={opt.value}>{opt.label}</option>
-                      {/each}
-                    </select>
-                  </Field>
-                {:else if field.type === 'number'}
-                  <Field label={field.label} mono>
-                    <input
-                      class="input input-mono"
-                      type="number"
-                      value={specVal(mount, field.name)}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      oninput={(e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        setSpecVal(mount, field.name, v === '' ? null : Number(v));
-                      }}
-                    />
-                  </Field>
-                {:else if field.type === 'bool'}
-                  <Field label={field.label}>
-                    <label class="bool-field">
-                      <input
-                        type="checkbox"
-                        checked={mount.specs[field.name] === true}
-                        onchange={(e) =>
-                          setSpecVal(mount, field.name, (e.target as HTMLInputElement).checked)}
-                      />
-                      {field.label}
-                    </label>
-                  </Field>
-                {/if}
-              {/each}
-            </div>
+            <MountSpecsForm
+              value={pickMount(mount.specs)}
+              onChange={(next) => setSpecs(mount, next)}
+            />
           </SpecsPanel>
         {/snippet}
       </RoleRow>
@@ -601,44 +486,10 @@
             onSave={() => saveSpecsForRole(focalMod, 'focal_modifier')}
             onDiscard={() => (focalMod.open = false)}
           >
-            <div class="specs-grid">
-              {#each FOCAL_MODIFIER_FIELDS as field (field.name)}
-                {#if field.type === 'enum'}
-                  <Field label={field.label}>
-                    <select
-                      class="select"
-                      value={specVal(focalMod, field.name)}
-                      onchange={(e) =>
-                        setSpecVal(
-                          focalMod,
-                          field.name,
-                          (e.target as HTMLSelectElement).value || null
-                        )}
-                    >
-                      <option value="">—</option>
-                      {#each field.options as opt (opt.value)}
-                        <option value={opt.value}>{opt.label}</option>
-                      {/each}
-                    </select>
-                  </Field>
-                {:else if field.type === 'number'}
-                  <Field label={field.label} mono>
-                    <input
-                      class="input input-mono"
-                      type="number"
-                      value={specVal(focalMod, field.name)}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      oninput={(e) => {
-                        const v = (e.target as HTMLInputElement).value;
-                        setSpecVal(focalMod, field.name, v === '' ? null : Number(v));
-                      }}
-                    />
-                  </Field>
-                {/if}
-              {/each}
-            </div>
+            <FocalModifierSpecsForm
+              value={pickFocalMod(focalMod.specs)}
+              onChange={(next) => setSpecs(focalMod, next)}
+            />
           </SpecsPanel>
         {/snippet}
       </RoleRow>
@@ -777,13 +628,6 @@
     margin-bottom: 8px;
   }
 
-  /* Specs grid inside panel */
-  .specs-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-
   /* DB-GENERATED callout under focal_ratio_f in telescope specs */
   .callout-db {
     display: flex;
@@ -805,6 +649,12 @@
   .callout-db code {
     font-family: var(--font-mono);
     color: var(--fg-primary);
+  }
+
+  .callout-db strong {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
   }
 
   /* Filters role row */
@@ -851,16 +701,6 @@
 
   .save-row-spacer {
     flex: 1;
-  }
-
-  /* Bool field */
-  .bool-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--fg-secondary);
   }
 
   /* Right rail */

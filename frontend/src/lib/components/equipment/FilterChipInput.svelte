@@ -2,27 +2,27 @@
   import { tick, untrack } from 'svelte';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { FilterType } from '$lib/api/FilterType';
+  import type { FilterSpecs } from '$lib/api/FilterSpecs';
   import { FILTER_TYPE_META, bandwidthLabel } from '$lib/equipment/filter-types';
   import FilterChip from './FilterChip.svelte';
+  import BrandModelInput, { type BrandModel } from './BrandModelInput.svelte';
+  import FilterSpecsForm from './specs/FilterSpecsForm.svelte';
+  import './equipment-create-form.css';
 
-  // Filter types are declared in `$lib/api/FilterType` and the badge/label
-  // metadata lives in `$lib/equipment/filter-types`. Iterating the meta map
-  // gives us a single source of truth for the select options. `showBandwidth`
-  // doubles as our "narrowband-style → bandwidth_nm required" predicate.
-  const FILTER_TYPE_OPTIONS = Object.entries(FILTER_TYPE_META).map(([value, meta]) => ({
-    value: value as FilterType,
-    label: meta.label
-  }));
-
-  // Shape returned by the autocomplete endpoint. `id`, `filter_type`,
-  // `bandwidth_nm` are populated for kind=filter rows so the popup chip
-  // can render typed without a follow-up GET, and add() can skip the
-  // resolve-or-create POST when the row already has a canonical id.
+  // Shape returned by the autocomplete endpoint. Catalog v2 adds
+  // `brand`, `model`, and `specs_summary` per row — used by the
+  // popup to render `<strong>brand</strong> · model` plus a small
+  // spec line. `filter_type` + `bandwidth_nm` are still populated
+  // server-side for the FilterChip badge fast-path on add().
   interface AutocompleteItem {
     id: string;
     canonical_name: string;
     display_name: string;
     usage_count: number;
+    brand?: string;
+    model?: string;
+    variant?: string | null;
+    specs_summary?: string | null;
     filter_type?: FilterType | null;
     bandwidth_nm?: number | null;
   }
@@ -61,23 +61,38 @@
   let inputEl = $state<HTMLInputElement | undefined>(undefined);
 
   // Create-with-specs sub-form state. When `creatingName` is non-null the
-  // popup body is replaced by a small spec form prompting for the
-  // mandatory `filter_type` (and `bandwidth_nm` when narrowband) before
-  // posting to /api/equipment/items. This enforces issue #6 of the
-  // catalog coherence audit: every new filter item must carry typed
-  // specs so the chip renders with its proper badge instead of "?".
+  // popup body is replaced by the catalog v2 saisie-forcée create form:
+  // <BrandModelInput> + <FilterSpecsForm> + actions. The user-typed
+  // `creatingName` pre-fills `model` (brand and variant stay empty until
+  // edited). The actual POST runs in `confirmCreate()`.
   let creatingName = $state<string | null>(null);
-  let createFilterType = $state<FilterType | ''>('');
-  let createBandwidth = $state<string>('');
+  let createBM = $state<BrandModel>({ brand: '', model: '', variant: '' });
+  let createSpecs = $state<FilterSpecs>({
+    filter_type: null,
+    bandwidth_nm: null,
+    size: null,
+    mounted: null,
+    mounted_diameter_mm: null,
+    thickness_mm: null,
+    peak_transmission_pct: null
+  });
   let createBusy = $state(false);
   let createError = $state<string | null>(null);
-  let filterTypeSelectEl = $state<HTMLSelectElement | undefined>(undefined);
+  let createFormEl = $state<HTMLDivElement | undefined>(undefined);
+
+  // Preview the display_name the backend will regenerate from
+  // brand + model + variant. Empty brand → just model (+ variant).
+  const displayPreview = $derived(
+    [createBM.brand.trim(), createBM.model.trim(), createBM.variant.trim()]
+      .filter(Boolean)
+      .join(' ')
+  );
 
   // Bandwidth is required only for narrowband-style types — we reuse
   // `showBandwidth` from the chip metadata so the predicate stays in
   // one place.
   const needsBandwidth = $derived(
-    !!createFilterType && FILTER_TYPE_META[createFilterType].showBandwidth
+    !!createSpecs.filter_type && FILTER_TYPE_META[createSpecs.filter_type].showBandwidth
   );
 
   // Sync items when the parent passes a fresh value reference.
@@ -128,23 +143,30 @@
     return () => controller.abort();
   });
 
-  // POST /api/equipment/items to resolve-or-create, then add as chip.
-  // The autocomplete endpoint does not return item ids, so every "add" goes
-  // through this resolve-or-create call. For existing items it is idempotent.
-  // When `specs` is provided the chip is pushed with its typed badge so the
-  // FilterChip UI renders the proper code instead of "?".
-  async function resolveAndAdd(
-    displayName: string,
-    specs: { filter_type: FilterType; bandwidth_nm: number | null } | null = null
-  ): Promise<boolean> {
-    const body: Record<string, unknown> = { kind: 'filter', display_name: displayName };
-    if (specs !== null) {
-      body.specs = {
+  // POST /api/equipment/items to create the canonical row, then push it
+  // as a chip. Catalog v2: the body carries brand/model/variant (server
+  // regenerates display_name + canonical_name from them) and the typed
+  // FilterSpecs payload. We use the response's `display_name` for the
+  // chip — that's what's stored in the catalog and what FilterChip will
+  // render everywhere else.
+  async function postNewItem(): Promise<boolean> {
+    const body: Record<string, unknown> = {
+      kind: 'filter',
+      // display_name kept for back-compat; the backend regenerates it
+      // from brand/model/variant when those are non-empty.
+      display_name: displayPreview,
+      brand: createBM.brand.trim(),
+      model: createBM.model.trim(),
+      variant: createBM.variant.trim() || null,
+      specs: {
         kind: 'filter',
-        filter_type: specs.filter_type,
-        bandwidth_nm: specs.bandwidth_nm
-      };
-    }
+        filter_type: createSpecs.filter_type,
+        bandwidth_nm: needsBandwidth ? createSpecs.bandwidth_nm : null,
+        mounted_diameter_mm: createSpecs.mounted_diameter_mm,
+        thickness_mm: createSpecs.thickness_mm,
+        peak_transmission_pct: createSpecs.peak_transmission_pct
+      }
+    };
 
     let res: Response;
     try {
@@ -169,8 +191,8 @@
     const chip: PhotoFilterChip = {
       id: item.id,
       display_name: item.display_name,
-      filter_type: specs ? specs.filter_type : null,
-      bandwidth_nm: specs ? specs.bandwidth_nm : null,
+      filter_type: createSpecs.filter_type,
+      bandwidth_nm: needsBandwidth ? createSpecs.bandwidth_nm : null,
       position: items.length
     };
     const next = [...items, chip];
@@ -184,11 +206,11 @@
   function add(row: AutocompleteItem) {
     // Fast path: the autocomplete row now carries the canonical id (and
     // its typed specs when kind='filter'), so we can build the chip
-    // without a round-trip. Fall back to resolve-or-create only if the
-    // server somehow returned a row without an id (back-compat with an
-    // older backend).
+    // without a round-trip.
     if (!row.id) {
-      resolveAndAdd(row.display_name);
+      // Older backends (no id in the autocomplete payload) are no longer
+      // a supported path now that the create flow has moved to a typed
+      // popover — fail safe by ignoring rather than creating untyped.
       return;
     }
     const chip: PhotoFilterChip = {
@@ -225,66 +247,78 @@
   function createNew() {
     const name = query.trim();
     if (!name) return;
-    // Open the spec sub-form. The actual POST is deferred to
-    // `confirmCreate()` once the user picks a filter_type (and bandwidth
-    // when relevant). We do NOT fall back to a typeless create — that
-    // would re-introduce the "?" badge issue we're fixing.
+    // Seed model with the user-typed name; leave brand + variant empty
+    // for the user to fill. Auto-splitting on whitespace would lie for
+    // multi-word brands ("Sky-Watcher Esprit 100 ED"), so we don't.
     creatingName = name;
-    createFilterType = '';
-    createBandwidth = '';
+    createBM = { brand: '', model: name, variant: '' };
+    createSpecs = {
+      filter_type: null,
+      bandwidth_nm: null,
+      size: null,
+      mounted: null,
+      mounted_diameter_mm: null,
+      thickness_mm: null,
+      peak_transmission_pct: null
+    };
     createError = null;
-    // Autofocus the type select once the form is in the DOM.
-    void tick().then(() => filterTypeSelectEl?.focus());
+    // Autofocus the first input (Brand) once the form is in the DOM.
+    // The first <input> inside BrandModelInput is the Brand field.
+    void tick().then(() => {
+      const first = createFormEl?.querySelector<HTMLInputElement>('input');
+      first?.focus();
+    });
   }
 
   function cancelCreate() {
     creatingName = null;
-    createFilterType = '';
-    createBandwidth = '';
     createError = null;
     // Return focus to the chip-input so the user can keep typing.
     inputEl?.focus();
   }
 
+  function validate(): string | null {
+    if (!createBM.brand.trim()) {
+      // Brand is allowed to be empty (the canonical row can carry
+      // brand=""), but UX-wise we want the catalog to be useful — push
+      // the user to fill it. Soft-validate by suggesting, not blocking,
+      // when the model field looks like a multi-word descriptor that
+      // probably contains the brand. Hard requirement: model non-empty.
+    }
+    if (!createBM.model.trim()) return 'Model is required.';
+    if (!createSpecs.filter_type) return 'Pick a filter type.';
+    if (needsBandwidth) {
+      const bw = createSpecs.bandwidth_nm;
+      if (bw === null || !Number.isFinite(bw) || bw <= 0) {
+        return 'Bandwidth (nm) is required for this filter type.';
+      }
+    }
+    if (
+      createSpecs.mounted_diameter_mm === null ||
+      !Number.isFinite(createSpecs.mounted_diameter_mm) ||
+      createSpecs.mounted_diameter_mm <= 0
+    ) {
+      return 'Mounted diameter is required.';
+    }
+    return null;
+  }
+
   async function confirmCreate() {
     if (creatingName === null) return;
-    if (!createFilterType) {
-      createError = 'Pick a filter type.';
+    const err = validate();
+    if (err) {
+      createError = err;
       return;
     }
-
-    let bandwidth: number | null = null;
-    if (FILTER_TYPE_META[createFilterType].showBandwidth) {
-      const raw = createBandwidth.trim();
-      if (!raw) {
-        createError = 'Bandwidth (nm) is required for this filter type.';
-        return;
-      }
-      const parsed = Number(raw);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        createError = 'Bandwidth must be a positive number.';
-        return;
-      }
-      bandwidth = parsed;
-    }
-
     createBusy = true;
     createError = null;
-    const ok = await resolveAndAdd(creatingName, {
-      filter_type: createFilterType,
-      bandwidth_nm: bandwidth
-    });
+    const ok = await postNewItem();
     createBusy = false;
-
     if (!ok) {
       createError = 'Could not create the filter item. Try again.';
       return;
     }
-
-    // Reset and return focus to the chip-input for the next entry.
     creatingName = null;
-    createFilterType = '';
-    createBandwidth = '';
     inputEl?.focus();
   }
 
@@ -316,12 +350,13 @@
   }
 
   function onFormKey(e: KeyboardEvent) {
+    // Cancel on Escape; Enter is intentionally NOT bound to confirm —
+    // the user often hits Enter inside a number input to commit a digit,
+    // and we don't want that to fire the POST. The "Create filter"
+    // button is the only confirm path.
     if (e.key === 'Escape') {
       e.preventDefault();
       cancelCreate();
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      void confirmCreate();
     }
   }
 </script>
@@ -398,61 +433,39 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="fchip-pop">
       {#if creatingName !== null}
-        <!-- Spec sub-form: forces filter_type (and bandwidth_nm when
-             narrowband) before the POST so the new chip renders typed.
-             Without this the row would land in `equipment_items` without
-             a `filter_specs` partner and the FilterChip would show "?". -->
+        <!-- Catalog v2 saisie-forcée: BrandModelInput on top + the
+             canonical FilterSpecsForm. The popup body becomes a real
+             create dialog while the user fills the required fields.
+             Forces brand/model/filter_type/(bandwidth)/mounted_diameter
+             so every new row lands typed and indexable. -->
         <div class="fchip-pop-head">
           <span>NEW FILTER · DETAILS</span>
           <span style="color: var(--fg-faint)">REQUIRED</span>
         </div>
-        <div class="fchip-create-form" onkeydown={onFormKey}>
-          <div class="fchip-create-row">
-            <span class="fchip-create-label">Name</span>
-            <span class="fchip-create-name">{creatingName}</span>
-          </div>
-          <label class="fchip-create-row">
-            <span class="fchip-create-label">Type</span>
-            <select
-              bind:this={filterTypeSelectEl}
-              class="fchip-create-input"
-              bind:value={createFilterType}
-              disabled={createBusy}
-            >
-              <option value="" disabled>Pick a filter type…</option>
-              {#each FILTER_TYPE_OPTIONS as opt (opt.value)}
-                <option value={opt.value}>{opt.label}</option>
-              {/each}
-            </select>
-          </label>
-          <label class="fchip-create-row">
-            <span class="fchip-create-label">
-              Bandwidth
-              {#if !needsBandwidth && createFilterType}
-                <span class="fchip-create-hint">n/a</span>
-              {/if}
-            </span>
-            <span class="fchip-create-bw">
-              <input
-                class="fchip-create-input"
-                type="number"
-                min="0"
-                step="0.1"
-                inputmode="decimal"
-                placeholder={needsBandwidth ? 'e.g. 6' : '—'}
-                bind:value={createBandwidth}
-                disabled={!needsBandwidth || createBusy}
-              />
-              <span class="fchip-create-unit">nm</span>
-            </span>
-          </label>
+        <div class="ec-create-form" bind:this={createFormEl} onkeydown={onFormKey}>
+          <BrandModelInput
+            value={createBM}
+            disabled={createBusy}
+            label={displayPreview || null}
+            onChange={(next) => {
+              createBM = next;
+              // Focus the Brand input on first open. The first
+              // <input> rendered by BrandModelInput is the Brand
+              // field — we capture it via a small effect below.
+            }}
+          />
+          <FilterSpecsForm
+            value={createSpecs}
+            disabled={createBusy}
+            onChange={(next) => (createSpecs = next)}
+          />
           {#if createError}
-            <div class="fchip-create-error">{createError}</div>
+            <div class="ec-create-error">{createError}</div>
           {/if}
-          <div class="fchip-create-actions">
+          <div class="ec-create-actions">
             <button
               type="button"
-              class="fchip-create-btn"
+              class="ec-create-btn"
               onclick={cancelCreate}
               disabled={createBusy}
             >
@@ -460,7 +473,7 @@
             </button>
             <button
               type="button"
-              class="fchip-create-btn is-primary"
+              class="ec-create-btn is-primary"
               onclick={() => {
                 void confirmCreate();
               }}
@@ -496,6 +509,7 @@
             {#each matches as f, i (f.display_name)}
               {@const meta = f.filter_type ? FILTER_TYPE_META[f.filter_type] : null}
               {@const bw = bandwidthLabel(f)}
+              {@const hasBrand = (f.brand ?? '').trim().length > 0}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
@@ -513,9 +527,22 @@
                   }}
                   compact
                 />
+                <span class="brand-model">
+                  {#if hasBrand}
+                    <strong>{f.brand}</strong> · {f.model}
+                  {:else}
+                    {f.display_name}
+                  {/if}
+                </span>
                 <span class="meta">
-                  {#if meta}{meta.label.toUpperCase()}{#if bw}
-                      · {bw.toUpperCase()}{/if}{:else}UNTYPED{/if}
+                  {#if f.specs_summary}
+                    {f.specs_summary.toUpperCase()}
+                  {:else if meta}
+                    {meta.label.toUpperCase()}{#if bw}
+                      · {bw.toUpperCase()}{/if}
+                  {:else}
+                    UNTYPED
+                  {/if}
                 </span>
                 <span class="usage">{f.usage_count.toLocaleString()} PHOTOS</span>
               </div>
@@ -544,3 +571,21 @@
     </div>
   {/if}
 </div>
+
+<style>
+  /* The popup item now renders a brand-model line plus the spec
+     summary — give those their own typography (brand-model is
+     ui-font, meta stays mono). */
+  :global(.fchip-pop-item .brand-model) {
+    flex: 1;
+    color: var(--fg-secondary);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :global(.fchip-pop-item .brand-model strong) {
+    color: var(--fg-primary);
+    font-weight: 600;
+  }
+</style>
