@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select ei.id, ei.kind, ei.canonical_name, ei.display_name, ei.usage_count,\n                       ei.status, ei.submitted_by, ei.approved_at, ei.created_at,\n                       ei.brand, ei.model, ei.variant,\n                       ts.design, ts.aperture_mm, ts.focal_length_mm, ts.focal_ratio_f,\n                       ts.self_weight_kg, ts.optical_length_mm, ts.backfocus_mm\n                  from equipment_items ei\n                  left join telescope_specs ts on ts.item_id = ei.id\n                 where ei.kind = 'telescope'\n                   and ($1::text is null or\n                        ei.canonical_name ilike $1 or\n                        ei.display_name ilike $1 or\n                        (ei.brand || ' ' || ei.model ||\n                            coalesce(' ' || ei.variant, '')) ilike $1)\n                   and ($2::text[] is null or ei.brand = any($2))\n                   and ($3::int4 is null or ts.aperture_mm >= $3)\n                   and ($4::int4 is null or ts.aperture_mm <= $4)\n                 order by\n                    case when $5::text = 'aperture_desc' then ts.aperture_mm end desc nulls last,\n                    case when $5::text = 'brand_asc'     then ei.brand end asc,\n                    case when $5::text = 'brand_asc'     then ei.model end asc,\n                    case when $5::text = 'recent'        then ei.created_at end desc,\n                    case when $5::text = 'most_used'     then ei.usage_count end desc,\n                    ei.usage_count desc,\n                    ei.canonical_name asc\n                 limit $6 offset $7\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "submitted_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "design",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "aperture_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "focal_length_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 15,
+        "name": "focal_ratio_f",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 16,
+        "name": "self_weight_kg",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 17,
+        "name": "optical_length_mm",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 18,
+        "name": "backfocus_mm",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Int4",
+        "Int4",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "3a3eb635d8b5981ab362e8157a65e8180424d54d1f53e2a1d4e0724a7f15472e"
+}

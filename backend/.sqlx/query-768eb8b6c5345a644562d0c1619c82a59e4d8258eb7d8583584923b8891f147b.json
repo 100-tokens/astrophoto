@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n            (kind, canonical_name, display_name, usage_count, status, approved_at,\n             brand, model)\n            values ('telescope', $1, $2, 0, 'approved', now(), '', $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "768eb8b6c5345a644562d0c1619c82a59e4d8258eb7d8583584923b8891f147b"
+}

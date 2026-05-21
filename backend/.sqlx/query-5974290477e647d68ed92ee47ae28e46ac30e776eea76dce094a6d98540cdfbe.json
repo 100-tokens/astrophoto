@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select count(*)::int8 as \"n!\"\n              from equipment_items ei\n              left join telescope_specs ts on ts.item_id = ei.id\n             where ei.kind = 'telescope'\n               and ($1::text is null or\n                    ei.canonical_name ilike $1 or\n                    ei.display_name ilike $1 or\n                    (ei.brand || ' ' || ei.model ||\n                        coalesce(' ' || ei.variant, '')) ilike $1)\n               and ($2::text[] is null or ei.brand = any($2))\n               and ($3::int4 is null or ts.aperture_mm >= $3)\n               and ($4::int4 is null or ts.aperture_mm <= $4)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5974290477e647d68ed92ee47ae28e46ac30e776eea76dce094a6d98540cdfbe"
+}

@@ -16,6 +16,13 @@ pub struct ListQuery {
     pub limit: Option<i64>,
     pub following: Option<bool>,
     pub drafts: Option<bool>,
+    /// Catalog v2 (browse phase): when set, narrow the list to
+    /// published photos that reference the given equipment item via
+    /// `photo_filters` (filter chips). Used by `/equip/filter/[slug]`
+    /// to show "photos using this filter". Mutually exclusive with
+    /// `following`/`drafts`/`owner_id` filters — when present those
+    /// are ignored.
+    pub filter_item_id: Option<Uuid>,
 }
 
 #[derive(Serialize)]
@@ -44,7 +51,9 @@ pub async fn handler(
         }));
     }
 
-    let rows = if q.following.unwrap_or(false) {
+    let rows = if let Some(filter_id) = q.filter_item_id {
+        queries::list_by_filter_item(&state.pool, filter_id, limit).await?
+    } else if q.following.unwrap_or(false) {
         let follower = user.0.ok_or(AppError::Unauthorized)?;
         queries::list_following(&state.pool, follower.id, limit).await?
     } else if let Some(id) = q.owner_id {

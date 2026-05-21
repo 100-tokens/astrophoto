@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(ms.mount_type, '_none_') as \"v!\", count(*)::int8 as \"n!\"\n                     from equipment_items ei\n                     join mount_specs ms on ms.item_id = ei.id\n                    where ei.kind = 'mount'\n                      and ($1::text is null or\n                           ei.canonical_name ilike $1 or\n                           ei.display_name ilike $1 or\n                           (ei.brand || ' ' || ei.model ||\n                                coalesce(' ' || ei.variant, '')) ilike $1)\n                    group by ms.mount_type\n                    order by count(*) desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f2593efb94ea882c6a0fa65fc5c9c0121f2e737302584529ab90fd0e1d325e6a"
+}

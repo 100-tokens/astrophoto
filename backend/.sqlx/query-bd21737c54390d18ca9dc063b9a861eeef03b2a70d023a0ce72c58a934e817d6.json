@@ -1,0 +1,134 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select ei.id, ei.kind, ei.canonical_name, ei.display_name, ei.usage_count,\n                       ei.status, ei.submitted_by, ei.approved_at, ei.created_at,\n                       ei.brand, ei.model, ei.variant,\n                       fs.filter_type, fs.bandwidth_nm, fs.size, fs.mounted,\n                       fs.mounted_diameter_mm, fs.thickness_mm, fs.peak_transmission_pct\n                  from equipment_items ei\n                  left join filter_specs fs on fs.item_id = ei.id\n                 where ei.kind = 'filter'\n                   and ($1::text is null or\n                        ei.canonical_name ilike $1 or\n                        ei.display_name ilike $1 or\n                        (ei.brand || ' ' || ei.model ||\n                            coalesce(' ' || ei.variant, '')) ilike $1)\n                   and ($2::text[] is null or ei.brand = any($2))\n                 order by\n                    case when $3::text = 'brand_asc' then ei.brand end asc,\n                    case when $3::text = 'brand_asc' then ei.model end asc,\n                    case when $3::text = 'recent'    then ei.created_at end desc,\n                    case when $3::text = 'most_used' then ei.usage_count end desc,\n                    ei.usage_count desc,\n                    ei.canonical_name asc\n                 limit $4 offset $5\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "submitted_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "filter_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "bandwidth_nm",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 14,
+        "name": "size",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "mounted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "mounted_diameter_mm",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 17,
+        "name": "thickness_mm",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 18,
+        "name": "peak_transmission_pct",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "bd21737c54390d18ca9dc063b9a861eeef03b2a70d023a0ce72c58a934e817d6"
+}

@@ -87,6 +87,12 @@ pub async fn handler(
     // qualified on `ei.kind = '<x>'` so a row only ever pulls from its own
     // sub-table; the others contribute NULLs. Cheap because the spec
     // tables are PK-joined on item_id and the kind filter is selective.
+    //
+    // The WHERE clause matches the legacy canonical_name + display_name
+    // AND the structured `brand || ' ' || model || variant` concatenation
+    // (catalog v2). New rows already share those columns with display_name,
+    // but the dual match keeps the path warm for slightly-renamed legacy
+    // items and lets a freshly typed "esprit 100" match "Sky-Watcher Esprit 100 ED".
     let rows = sqlx::query!(
         r#"
         select ei.id, ei.canonical_name, ei.display_name, ei.usage_count,
@@ -123,7 +129,10 @@ pub async fn handler(
           left join focal_modifier_specs fms on fms.item_id = ei.id and ei.kind = 'focal_modifier'
           left join guiding_specs        gs  on gs.item_id  = ei.id and ei.kind = 'guiding'
          where ei.kind = $1
-           and (ei.canonical_name ilike $2 or ei.display_name ilike $2)
+           and (ei.canonical_name ilike $2
+                or ei.display_name ilike $2
+                or (ei.brand || ' ' || ei.model
+                    || coalesce(' ' || ei.variant, '')) ilike $2)
          order by ei.usage_count desc
          limit 10
         "#,

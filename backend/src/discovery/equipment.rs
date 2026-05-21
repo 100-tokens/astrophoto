@@ -81,12 +81,24 @@ pub async fn get(
     // use the hyphenated URL form against `canonical_name` columns.
     let slug = canonical_for(&slug);
     let canonical = slug.clone();
+    // Catalog v2: a brand like "Sky-Watcher" lands in `canonical_name`
+    // as `"sky-watcher esprit 100"` (one hyphen + spaces). The browse
+    // page builds its URL by collapsing both into `-`, so the slug
+    // arrives here as `"sky-watcher-esprit-100"`; the naive
+    // `canonical_for` (replace '-' with ' ') turns that back into
+    // `"sky watcher esprit 100"` which doesn't equal the DB row.
+    // Match against both forms so hyphenated brands work without
+    // a separate slug column. The non-hyphen case stays a fast
+    // index lookup; the second predicate is the fallback when the
+    // first misses.
     let item = sqlx::query!(
         r#"
         select id as "id!", kind as "kind!", canonical_name as "canonical_name!",
                display_name as "display_name!", usage_count as "usage_count!"
         from equipment_items
-        where kind = $1 and canonical_name = $2
+        where kind = $1
+          and (canonical_name = $2 or replace(canonical_name, '-', ' ') = $2)
+        limit 1
         "#,
         kind,
         canonical

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select coalesce(cs.color_type, '_none_') as \"v!\", count(*)::int8 as \"n!\"\n                     from equipment_items ei\n                     join camera_specs cs on cs.item_id = ei.id\n                    where ei.kind = 'camera'\n                      and ($1::text is null or\n                           ei.canonical_name ilike $1 or\n                           ei.display_name ilike $1 or\n                           (ei.brand || ' ' || ei.model ||\n                                coalesce(' ' || ei.variant, '')) ilike $1)\n                    group by cs.color_type\n                    order by count(*) desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "95312afe54e2e05f2d165797a3192b3e808a3318d606dbe10665cd16463da920"
+}

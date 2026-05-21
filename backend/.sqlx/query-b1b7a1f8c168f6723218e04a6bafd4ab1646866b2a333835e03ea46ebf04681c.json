@@ -1,0 +1,164 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select ei.id, ei.kind, ei.canonical_name, ei.display_name, ei.usage_count,\n                       ei.status, ei.submitted_by, ei.approved_at, ei.created_at,\n                       ei.brand, ei.model, ei.variant,\n                       cs.sensor_type, cs.color_type, cs.cooled, cs.sensor_model,\n                       cs.pixel_size_um, cs.sensor_width_px, cs.sensor_height_px,\n                       cs.self_weight_g, cs.full_well_capacity_e, cs.read_noise_e,\n                       cs.mount_thread, cs.backfocus_mm\n                  from equipment_items ei\n                  left join camera_specs cs on cs.item_id = ei.id\n                 where ei.kind = 'camera'\n                   and ($1::text is null or\n                        ei.canonical_name ilike $1 or\n                        ei.display_name ilike $1 or\n                        (ei.brand || ' ' || ei.model ||\n                            coalesce(' ' || ei.variant, '')) ilike $1)\n                   and ($2::text[] is null or ei.brand = any($2))\n                 order by\n                    case when $3::text = 'brand_asc' then ei.brand end asc,\n                    case when $3::text = 'brand_asc' then ei.model end asc,\n                    case when $3::text = 'recent'    then ei.created_at end desc,\n                    case when $3::text = 'most_used' then ei.usage_count end desc,\n                    ei.usage_count desc,\n                    ei.canonical_name asc\n                 limit $4 offset $5\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "submitted_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "sensor_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "color_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "cooled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "sensor_model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 16,
+        "name": "pixel_size_um",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 17,
+        "name": "sensor_width_px",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 18,
+        "name": "sensor_height_px",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 19,
+        "name": "self_weight_g",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 20,
+        "name": "full_well_capacity_e",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 21,
+        "name": "read_noise_e",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 22,
+        "name": "mount_thread",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 23,
+        "name": "backfocus_mm",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b1b7a1f8c168f6723218e04a6bafd4ab1646866b2a333835e03ea46ebf04681c"
+}

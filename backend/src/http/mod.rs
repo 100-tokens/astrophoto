@@ -300,6 +300,10 @@ pub fn router(
             axum::routing::get(crate::equipment::autocomplete::handler),
         )
         .route(
+            "/api/equipment/catalog",
+            axum::routing::get(crate::equipment::catalog_browse::handler),
+        )
+        .route(
             "/api/equipment/items",
             axum::routing::post(crate::equipment::items_create::handler),
         )
