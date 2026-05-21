@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n            (kind, canonical_name, display_name, usage_count, status, approved_at,\n             brand, model)\n            values ('telescope', $1, $2, $3, 'approved', now(), $4, $5)\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8d30bc592440d46ad862c186cc5c507c900c0f1e41a33b4db3c904367745548a"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select count(*)::int8 as \"n!\"\n              from equipment_items ei\n             where ei.kind = $1\n               and ($2::text is null or\n                    ei.canonical_name ilike $2 or\n                    ei.display_name ilike $2 or\n                    (ei.brand || ' ' || ei.model ||\n                        coalesce(' ' || ei.variant, '')) ilike $2)\n               and ($3::text[] is null or ei.brand = any($3))\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "95a8cc1f51b9bff79adb4885476b9a24257d420462d72abaf54b4b1c3986e589"
+}

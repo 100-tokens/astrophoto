@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select case when cs.cooled is null then '_none_'\n                              when cs.cooled then 'yes' else 'no' end as \"v!\",\n                          count(*)::int8 as \"n!\"\n                     from equipment_items ei\n                     join camera_specs cs on cs.item_id = ei.id\n                    where ei.kind = 'camera'\n                      and ($1::text is null or\n                           ei.canonical_name ilike $1 or\n                           ei.display_name ilike $1 or\n                           (ei.brand || ' ' || ei.model ||\n                                coalesce(' ' || ei.variant, '')) ilike $1)\n                    group by 1\n                    order by count(*) desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "9621741fa649439c951b089a6689702c51020defb1ad299c7ac1809dced80baf"
+}

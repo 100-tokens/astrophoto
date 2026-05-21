@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                select coalesce(ts.design, '_none_') as \"v!\", count(*)::int8 as \"n!\"\n                  from equipment_items ei\n                  join telescope_specs ts on ts.item_id = ei.id\n                 where ei.kind = 'telescope'\n                   and ($1::text is null or\n                        ei.canonical_name ilike $1 or\n                        ei.display_name ilike $1 or\n                        (ei.brand || ' ' || ei.model ||\n                            coalesce(' ' || ei.variant, '')) ilike $1)\n                 group by ts.design\n                 order by count(*) desc\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "n!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "706bfdbc77856fc6833d09d78b3188d5bcdc1202f2a22ac56ba648174d613c03"
+}

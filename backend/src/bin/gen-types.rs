@@ -7,15 +7,15 @@ use ts_rs::TS;
 use astrophoto::api_types::{
     ApplySetupInput, AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest,
     BatchPublishResponse, CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem,
-    DraftListResponse, EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta,
-    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
-    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
-    PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
-    PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
-    SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
-    SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
-    TargetPage, TargetPreviewThumb, User, UserPublic,
+    DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets,
+    EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage,
+    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
+    HeroStats, LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail,
+    PhotoFilterChip, PhotographerIndexPage, PhotographerListItem, Preferences, Profile,
+    PublicProfile, PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit,
+    SessionRow, SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats,
+    SkipReason, SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage,
+    TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
@@ -86,6 +86,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     PhotographerIndexPage::export_all_to(out_dir)?;
     SiteStats::export_all_to(out_dir)?;
     EquipmentItemDetail::export_all_to(out_dir)?;
+    EquipmentFacetBucket::export_all_to(out_dir)?;
+    EquipmentFacets::export_all_to(out_dir)?;
+    EquipmentCatalogResponse::export_all_to(out_dir)?;
     PhotoFilterChip::export_all_to(out_dir)?;
     PlatesolveStatus::export_all_to(out_dir)?;
     PlatesolveResult::export_all_to(out_dir)?;

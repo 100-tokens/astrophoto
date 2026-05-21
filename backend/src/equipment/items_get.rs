@@ -22,11 +22,20 @@ pub async fn handler(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
+    // Catalog v2 (browse phase): join the submitter handle so the
+    // detail page's "added by @handle" footer works without a second
+    // round-trip, and count distinct setups referencing this item so
+    // the "Delete" affordance can hide when the item is in use.
     let row = sqlx::query!(
-        r#"select id, kind, canonical_name, display_name, usage_count,
-                  status, submitted_by, approved_at, created_at,
-                  brand, model, variant
-             from equipment_items where id = $1"#,
+        r#"select ei.id, ei.kind, ei.canonical_name, ei.display_name, ei.usage_count,
+                  ei.status, ei.submitted_by, ei.approved_at, ei.created_at,
+                  ei.brand, ei.model, ei.variant,
+                  u.handle as "submitted_by_handle?",
+                  (select count(distinct setup_id) from setup_items where item_id = ei.id)
+                      as "setup_count!"
+             from equipment_items ei
+             left join users u on u.id = ei.submitted_by
+            where ei.id = $1"#,
         id
     )
     .fetch_optional(&state.pool)
@@ -57,6 +66,8 @@ pub async fn handler(
         brand: row.brand,
         model: row.model,
         variant: row.variant,
+        submitted_by_handle: row.submitted_by_handle,
+        setup_count: row.setup_count,
     }))
 }
 

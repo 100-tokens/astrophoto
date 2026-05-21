@@ -953,6 +953,72 @@ pub struct EquipmentItemDetail {
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub variant: Option<String>,
+    /// Submitter handle, surfaced for the detail page's "added by
+    /// @handle" footer. None when `submitted_by` is null OR when the
+    /// submitter has been deleted (FK is ON DELETE SET NULL upstream).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub submitted_by_handle: Option<String>,
+    /// Number of distinct `equipment_setups` referencing this item via
+    /// `setup_items`. Drives the detail-page stat strip and the
+    /// "Delete" affordance (only shown when zero setups + zero photos).
+    #[serde(default)]
+    pub setup_count: i64,
+}
+
+// ============================================================
+// Catalog browse — facet counts + filtered/sorted item list.
+// Returned by GET /api/equipment/catalog?kind=... — used by the
+// `/equip/[kind]` browse page.
+// ============================================================
+
+/// One facet bucket: a category value and the number of items in the
+/// catalog (for the given kind) that have that value.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentFacetBucket.ts")]
+pub struct EquipmentFacetBucket {
+    pub value: String,
+    pub count: i64,
+}
+
+/// Sidebar facets for the browse page. Each per-kind enum facet stays
+/// `Some(_)` only when the kind has that field — irrelevant facets are
+/// omitted so the frontend can branch on `Option::is_some()` rather
+/// than counting empty vectors.
+#[derive(Debug, Clone, Serialize, Deserialize, TS, Default)]
+#[ts(export, export_to = "EquipmentFacets.ts")]
+pub struct EquipmentFacets {
+    pub brands: Vec<EquipmentFacetBucket>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub designs: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor_types: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_types: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooled: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount_types: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_types: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_types: Option<Vec<EquipmentFacetBucket>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub setup_kinds: Option<Vec<EquipmentFacetBucket>>,
+}
+
+/// Page response for the browse endpoint. Items are fully expanded
+/// (joined to their per-kind spec table) so the grid card can render
+/// the right summary line without a second round trip.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "EquipmentCatalogResponse.ts")]
+pub struct EquipmentCatalogResponse {
+    pub items: Vec<EquipmentItemDetail>,
+    pub facets: EquipmentFacets,
+    pub total: i64,
+    /// Page size used to compute `total / limit` pagination on the
+    /// frontend. Mirrors the request param (clamped server-side).
+    pub limit: i64,
+    pub offset: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

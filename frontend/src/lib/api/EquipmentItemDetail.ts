@@ -21,4 +21,16 @@ export type EquipmentItemDetail = {
   brand: string;
   model: string;
   variant: string | null;
+  /**
+   * Submitter handle, surfaced for the detail page's "added by
+   * @handle" footer. None when `submitted_by` is null OR when the
+   * submitter has been deleted (FK is ON DELETE SET NULL upstream).
+   */
+  submitted_by_handle: string | null;
+  /**
+   * Number of distinct `equipment_setups` referencing this item via
+   * `setup_items`. Drives the detail-page stat strip and the
+   * "Delete" affordance (only shown when zero setups + zero photos).
+   */
+  setup_count: bigint;
 };

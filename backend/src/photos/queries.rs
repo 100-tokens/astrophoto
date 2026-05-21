@@ -379,6 +379,42 @@ pub async fn list_following(
     Ok(rows)
 }
 
+/// List published photos that reference the given equipment item via
+/// the `photo_filters` junction. Used by the catalog item-detail page
+/// for `kind = 'filter'` so the "photos using this filter" grid can
+/// be sourced authoritatively (the legacy `photos.filters` text cache
+/// is brittle for that lookup — see `gotchas` in CLAUDE.md).
+pub async fn list_by_filter_item(
+    pool: &PgPool,
+    filter_item_id: Uuid,
+    limit: i64,
+) -> Result<Vec<PhotoRow>, AppError> {
+    // `photo_filters.(photo_id, item_id)` is the PK so the inner join
+    // produces at most one row per photo for a given item_id — no
+    // DISTINCT needed.
+    let rows = sqlx::query_as!(
+        PhotoRow,
+        r#"
+        select p.id, p.owner_id, p.short_id, p.storage_key, p.original_name, p.bytes, p.mime,
+               p.width, p.height, p.taken_at, p.camera, p.lens, p.iso, p.exposure_s, p.focal_mm,
+               p.aperture_f, p.gain, p.sensor_temp_c, p.sessions, p.ra_deg, p.dec_deg,
+               p.target, p.caption, p.scope, p.mount, p.guiding, p.category, p.status, p.created_at,
+               p.published_at, p.replaced_at, p.original_uploaded_at, p.last_step, p.pipeline_error,
+               p.setup_id, p.focal_modifier, p.filters
+        from photos p
+        join photo_filters pf on pf.photo_id = p.id
+        where pf.item_id = $1 and p.published_at is not null
+        order by p.published_at desc, p.id desc
+        limit $2
+        "#,
+        filter_item_id,
+        limit
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 pub async fn thumb_storage_key(
     pool: &PgPool,
     photo_id: Uuid,
