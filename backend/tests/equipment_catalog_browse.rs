@@ -392,6 +392,54 @@ async fn brand_unknown_label_filters_empty_string_rows() {
     }
 }
 
+/// Regression: hyphenated brand canonical_names round-trip cleanly
+/// through the catalog browse → detail navigation. The browse page
+/// builds a URL slug via `canonical_name.replace(/\s+/g, '-')`. For
+/// `brand="Sky-Watcher" model="Esprit"`, canonical_name is
+/// `"sky-watcher esprit"` (one hyphen + one space); the resulting
+/// slug `"sky-watcher-esprit"` collapses both separators. The
+/// discovery handler used to reverse that with a strict
+/// `replace('-', ' ')`, producing `"sky watcher esprit"` — no match
+/// in the DB.
+///
+/// The fix lives in `discovery::equipment::get`: the canonical
+/// lookup now matches against both forms (`canonical_name = $slug`
+/// OR `replace(canonical_name, '-', ' ') = $slug`). The same
+/// tolerance extends to the per-kind photo_count queries below.
+#[tokio::test]
+async fn hyphenated_brand_slug_resolves_to_canonical_name() {
+    let (app, pool) = common::make_app_and_pool().await;
+    sqlx::query!(
+        r#"insert into equipment_items
+            (kind, canonical_name, display_name, usage_count, status, approved_at,
+             brand, model)
+            values ('telescope', 'sky-watcher esprit 100 ed',
+                    'Sky-Watcher Esprit 100 ED', 0, 'approved', now(),
+                    'Sky-Watcher', 'Esprit 100 ED')"#
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // The catalog browse page builds this exact URL by replacing all
+    // whitespace runs in canonical_name with hyphens. The discovery
+    // handler must resolve it back to the canonical row.
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/equipment/telescope/sky-watcher-esprit-100-ed")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "hyphenated brand slug should resolve to the canonical row"
+    );
+}
+
 /// Pagination: limit + page returns the right slice and `total` stays
 /// the full count.
 #[tokio::test]
