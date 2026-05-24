@@ -5,7 +5,15 @@
   // close inspection — this is the core of that experience.
   import { cdn } from '$lib/cdn';
 
-  let { photoId, alt, w = 2560 }: { photoId: string; alt: string; w?: number } = $props();
+  // `maxHeight` caps the image so it fits the viewport; pass a context-
+  // specific value (photo page vs fullscreen lightbox). Self-contained:
+  // the component sizes its own image, no parent CSS required.
+  let {
+    photoId,
+    alt,
+    w = 2560,
+    maxHeight = '80vh'
+  }: { photoId: string; alt: string; w?: number; maxHeight?: string } = $props();
 
   let viewer: HTMLDivElement | undefined = $state();
   let img: HTMLImageElement | undefined = $state();
@@ -113,6 +121,7 @@
   class:zoomed
   class:dragging
   bind:this={viewer}
+  style="--zi-max-h: {maxHeight}"
   onwheel={onWheel}
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
@@ -147,7 +156,9 @@
     touch-action: none;
     cursor: zoom-in;
     background: var(--bg-base);
-    line-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .viewer.zoomed {
     cursor: grab;
@@ -155,15 +166,17 @@
   .viewer.zoomed.dragging {
     cursor: grabbing;
   }
-  /* The image sizes itself (the frame follows); overflow on .viewer clips
-     it when zoomed. max-height matches the page's stage so big astrophotos
-     don't overflow the viewport. */
+  /* Self-sizing: the image is capped by max-height (per-context via the
+     --zi-max-h prop) and the viewer's width; the frame follows it, and
+     overflow:hidden clips it when zoomed. Works on the photo page and in
+     the fullscreen lightbox with no parent CSS. */
   img {
     display: block;
-    width: 100%;
+    max-width: 100%;
+    max-height: var(--zi-max-h, 80vh);
+    width: auto;
     height: auto;
     object-fit: contain;
-    margin: 0 auto;
     transform-origin: center center;
     will-change: transform;
     user-select: none;

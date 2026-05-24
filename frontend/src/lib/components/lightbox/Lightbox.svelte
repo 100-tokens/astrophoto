@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Img from '$lib/components/Img.svelte';
+  import ZoomableImage from '$lib/components/photos/ZoomableImage.svelte';
   import LightboxExifPanel from './LightboxExifPanel.svelte';
   import MoreFromPhotographerStrip from './MoreFromPhotographerStrip.svelte';
   import type { PhotoDetail } from '$lib/api/types';
@@ -84,13 +84,7 @@
       {/if}
 
       <div class="image-wrap">
-        <Img
-          photoId={photo.id}
-          w={2400}
-          alt={title}
-          sizes="(max-width: 768px) 100vw, calc(100vw - 380px)"
-          class="big-img"
-        />
+        <ZoomableImage photoId={photo.id} alt={title} w={2400} maxHeight="calc(100vh - 96px)" />
       </div>
 
       {#if onNext}
@@ -180,13 +174,8 @@
     box-sizing: border-box;
   }
 
-  .image-wrap :global(.big-img) {
+  .image-wrap :global(.viewer) {
     max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    display: block;
   }
 
   .arrow {

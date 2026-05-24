@@ -364,7 +364,7 @@
   <!-- Image stage: full-bleed black, ratio held by the photo -->
   <div class="stage">
     <div class="stage-frame">
-      <ZoomableImage photoId={p.id} alt={title} w={2560} />
+      <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)" />
       <!-- Corner reticles, accent-colored, per the spec -->
       <span class="reticle reticle-tl" aria-hidden="true"></span>
       <span class="reticle reticle-tr" aria-hidden="true"></span>
@@ -536,14 +536,7 @@
     position: relative;
     width: 100%;
     max-width: 100%;
-  }
-  .stage-frame :global(img) {
-    width: 100%;
-    height: auto;
-    display: block;
-    max-height: calc(100dvh - 64px - 96px);
-    object-fit: contain;
-    margin: 0 auto;
+    /* ZoomableImage owns image sizing (max-height passed as a prop). */
   }
   .reticle {
     position: absolute;
@@ -746,9 +739,6 @@
     .stage {
       padding: 16px;
       position: static;
-    }
-    .stage-frame :global(img) {
-      max-height: 70vh;
     }
     .more-grid {
       grid-template-columns: repeat(2, 1fr);
