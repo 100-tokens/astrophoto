@@ -5,6 +5,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
+  import ZoomableImage from '$lib/components/photos/ZoomableImage.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentThread from '$lib/components/photos/CommentThread.svelte';
   import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
@@ -363,12 +364,7 @@
   <!-- Image stage: full-bleed black, ratio held by the photo -->
   <div class="stage">
     <div class="stage-frame">
-      <Img
-        photoId={p.id}
-        alt={title}
-        w={2400}
-        sizes="(max-width: 1200px) 100vw, calc(100vw - 380px)"
-      />
+      <ZoomableImage photoId={p.id} alt={title} w={2560} />
       <!-- Corner reticles, accent-colored, per the spec -->
       <span class="reticle reticle-tl" aria-hidden="true"></span>
       <span class="reticle reticle-tr" aria-hidden="true"></span>
