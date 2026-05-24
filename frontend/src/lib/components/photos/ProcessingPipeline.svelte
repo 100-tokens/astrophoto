@@ -41,7 +41,8 @@
             </span>
             <span class="meta">
               {#if !step.enabled}<span class="badge">disabled</span>{/if}
-              {#if step.durationS != null}<span class="dur">{fmtDuration(step.durationS)}</span>{/if}
+              {#if step.durationS != null}<span class="dur">{fmtDuration(step.durationS)}</span
+                >{/if}
             </span>
           </summary>
 
@@ -67,11 +68,17 @@
                 <div class="tablewrap">
                   <table class="datatable">
                     {#if t.columns.length}
-                      <thead><tr>{#each t.columns as c (c)}<th>{c}</th>{/each}</tr></thead>
+                      <thead
+                        ><tr
+                          >{#each t.columns as c (c)}<th>{c}</th>{/each}</tr
+                        ></thead
+                      >
                     {/if}
                     <tbody>
                       {#each t.rows as row, ri (ri)}
-                        <tr>{#each row as cell, ci (ci)}<td>{cell}</td>{/each}</tr>
+                        <tr
+                          >{#each row as cell, ci (ci)}<td>{cell}</td>{/each}</tr
+                        >
                       {/each}
                     </tbody>
                   </table>

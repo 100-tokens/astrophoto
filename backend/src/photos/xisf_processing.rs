@@ -197,7 +197,10 @@ pub fn parse_processing_history_xml(xml: &str) -> Result<Vec<ProcessStep>, Proce
     {
         let class_name = inst.attribute("class").unwrap_or("Unknown").to_string();
         let (label, category, summary) = classify(&class_name);
-        let enabled = inst.attribute("enabled").map(|v| v == "true").unwrap_or(true);
+        let enabled = inst
+            .attribute("enabled")
+            .map(|v| v == "true")
+            .unwrap_or(true);
         let version = inst.attribute("version").map(str::to_string);
 
         let mut started_at = None;
@@ -412,7 +415,11 @@ fn classify(class_name: &str) -> (String, String, Option<String>) {
         ),
         _ => return (decamel(class_name), "Other".to_string(), None),
     };
-    (label.to_string(), category.to_string(), summary.map(str::to_string))
+    (
+        label.to_string(),
+        category.to_string(),
+        summary.map(str::to_string),
+    )
 }
 
 /// "SomeNewProcess" -> "Some New Process" for unknown classes.
@@ -493,7 +500,10 @@ mod tests {
         assert_eq!(k.kind, "curve");
         assert_eq!(k.columns, vec!["x".to_string(), "y".to_string()]);
         assert!(k.rows.len() >= 2);
-        assert_eq!(k.rows[0], vec!["0.00000".to_string(), "0.00000".to_string()]);
+        assert_eq!(
+            k.rows[0],
+            vec!["0.00000".to_string(), "0.00000".to_string()]
+        );
     }
 
     #[test]
