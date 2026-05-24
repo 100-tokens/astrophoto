@@ -49,6 +49,13 @@ fn sanitize(report: &mut ProcessingReport) {
     for step in &mut report.pipeline {
         step.params.retain(|p| !looks_like_path(&p.value));
     }
+    // Privacy: precise site coordinates are parsed and stored, but never
+    // exposed on the public endpoint (the XISF header embeds exact GPS).
+    if let Some(obs) = report.observation.as_mut() {
+        obs.site_latitude = None;
+        obs.site_longitude = None;
+        obs.site_elevation_m = None;
+    }
 }
 
 fn looks_like_path(v: &str) -> bool {
@@ -140,5 +147,36 @@ mod tests {
             .map(|p| p.key.as_str())
             .collect();
         assert_eq!(keys, vec!["information"]);
+    }
+
+    #[test]
+    fn sanitize_strips_site_coordinates() {
+        use crate::photos::xisf_processing::ObservationSummary;
+        let mut report = ProcessingReport {
+            creator_app: None,
+            creator_module: None,
+            creator_os: None,
+            created_at: None,
+            display_stretch: None,
+            white_balance: None,
+            observation: Some(ObservationSummary {
+                filter: Some("L".into()),
+                telescope: Some("C8 EDGE HD".into()),
+                site_latitude: Some(38.165),
+                site_longitude: Some(-2.327),
+                site_elevation_m: Some(0.0),
+                ..Default::default()
+            }),
+            total_duration_s: None,
+            pipeline: vec![],
+        };
+        sanitize(&mut report);
+        let obs = report.observation.unwrap();
+        assert!(obs.site_latitude.is_none(), "lat stripped");
+        assert!(obs.site_longitude.is_none(), "lon stripped");
+        assert!(obs.site_elevation_m.is_none(), "elevation stripped");
+        // non-site fields are preserved
+        assert_eq!(obs.filter.as_deref(), Some("L"));
+        assert_eq!(obs.telescope.as_deref(), Some("C8 EDGE HD"));
     }
 }

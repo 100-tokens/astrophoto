@@ -156,6 +156,32 @@
     if (p.ra_deg != null && p.dec_deg != null) {
       rows.push(row('RA / Dec', formatCoords(p.ra_deg, p.dec_deg)));
     }
+
+    // Enrich from the XISF observation summary (parsed locally from the
+    // header). Additive — only fields the columns above don't already cover.
+    // Site coordinates are intentionally NOT surfaced (privacy: the header
+    // embeds precise GPS; it's parsed/stored but not shown publicly).
+    const obs = data.processing?.observation;
+    if (obs) {
+      if (obs.telescope) rows.push(row('Telescope', obs.telescope));
+      const noFilters = (p.filter_items?.length ?? 0) === 0 && !p.filters;
+      if (obs.filter && noFilters) rows.push(row('Filter', obs.filter));
+      if (obs.pixelScaleArcsec != null) {
+        const bin = obs.binning && obs.binning > 1 ? ` · bin ${obs.binning}×${obs.binning}` : '';
+        rows.push(row('Pixel scale', `${obs.pixelScaleArcsec.toFixed(2)}″/px${bin}`));
+      }
+      if (obs.observationStart && obs.observationEnd) {
+        const d = (s: string) =>
+          new Date(s).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+        const start = d(obs.observationStart);
+        const end = d(obs.observationEnd);
+        rows.push(row('Acquisition window', start === end ? start : `${start} → ${end}`));
+      }
+    }
     return rows;
   });
 
