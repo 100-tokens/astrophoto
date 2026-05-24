@@ -114,6 +114,7 @@ mod tests {
             created_at: None,
             display_stretch: None,
             white_balance: None,
+            observation: None,
             total_duration_s: None,
             pipeline: vec![ProcessStep {
                 position: 0,

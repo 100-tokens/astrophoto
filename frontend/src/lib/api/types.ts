@@ -11,3 +11,4 @@ export type { PhotoDetail } from './PhotoDetail';
 export type { ProcessingReport } from './ProcessingReport';
 export type { ProcessStep } from './ProcessStep';
 export type { ProcessTable } from './ProcessTable';
+export type { ObservationSummary } from './ObservationSummary';

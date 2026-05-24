@@ -37,8 +37,33 @@ pub struct ProcessingReport {
     pub created_at: Option<String>,
     pub display_stretch: Option<DisplayStretch>,
     pub white_balance: Option<WhiteBalance>,
+    // `default` so processing_json rows written before this field existed
+    // still deserialize (they predate the observation block).
+    #[serde(default)]
+    pub observation: Option<ObservationSummary>,
     pub total_duration_s: Option<f64>,
     pub pipeline: Vec<ProcessStep>,
+}
+
+/// Acquisition / observation facts pulled from the XISF header's FITS
+/// keywords and `Instrument:*` / `Observation:*` PCL properties. This is
+/// the reliable, local source for the photo page's technical card (the
+/// plate-solve service only echoes a subset).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ObservationSummary {
+    pub filter: Option<String>,
+    pub telescope: Option<String>,
+    pub focal_length_mm: Option<f64>,
+    pub pixel_size_um: Option<f64>,
+    pub binning: Option<u32>,
+    pub pixel_scale_arcsec: Option<f64>,
+    pub observation_start: Option<String>,
+    pub observation_end: Option<String>,
+    pub site_latitude: Option<f64>,
+    pub site_longitude: Option<f64>,
+    pub site_elevation_m: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
@@ -168,6 +193,8 @@ pub fn parse_header_xml(xml: &str) -> Result<Option<ProcessingReport>, Processin
         return Ok(None);
     };
 
+    let observation = extract_observation(&doc);
+
     let total_duration_s = {
         let sum: f64 = pipeline.iter().filter_map(|s| s.duration_s).sum();
         (sum > 0.0).then_some(sum)
@@ -180,9 +207,88 @@ pub fn parse_header_xml(xml: &str) -> Result<Option<ProcessingReport>, Processin
         created_at,
         display_stretch,
         white_balance,
+        observation,
         total_duration_s,
         pipeline,
     }))
+}
+
+/// Pull acquisition facts from FITS keywords + `Instrument:*` /
+/// `Observation:*` PCL properties. PCL is preferred; FITS is the
+/// fallback. Returns `None` when nothing useful is present.
+fn extract_observation(doc: &Document) -> Option<ObservationSummary> {
+    use std::collections::HashMap;
+    let mut fits: HashMap<&str, String> = HashMap::new();
+    let mut pcl: HashMap<&str, String> = HashMap::new();
+    for n in doc.descendants().filter(Node::is_element) {
+        match n.tag_name().name() {
+            "FITSKeyword" => {
+                if let (Some(name), Some(val)) = (n.attribute("name"), n.attribute("value")) {
+                    fits.entry(name).or_insert_with(|| unquote(val));
+                }
+            }
+            "Property" => {
+                if let Some(id) = n.attribute("id")
+                    && (id.starts_with("Instrument:") || id.starts_with("Observation:"))
+                {
+                    let v = n
+                        .attribute("value")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| n.text().unwrap_or("").trim().to_string());
+                    pcl.entry(id).or_insert(v);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let s = |pcl_id: &str, fits_name: &str| -> Option<String> {
+        pcl.get(pcl_id)
+            .cloned()
+            .or_else(|| fits.get(fits_name).cloned())
+            .filter(|v| !v.is_empty())
+    };
+    let f = |pcl_id: &str, fits_name: &str| -> Option<f64> {
+        s(pcl_id, fits_name).and_then(|v| v.parse().ok())
+    };
+
+    // FITS FOCALLEN is in mm; PCL Instrument:Telescope:FocalLength is in metres.
+    let focal_length_mm = fits
+        .get("FOCALLEN")
+        .and_then(|v| v.parse::<f64>().ok())
+        .or_else(|| {
+            pcl.get("Instrument:Telescope:FocalLength")
+                .and_then(|v| v.parse::<f64>().ok())
+                .map(|m| m * 1000.0)
+        });
+    let pixel_size_um = f("Instrument:Sensor:XPixelSize", "XPIXSZ");
+    let pixel_scale_arcsec = match (pixel_size_um, focal_length_mm) {
+        (Some(px), Some(fl)) if fl > 0.0 => Some(206.265 * px / fl),
+        _ => None,
+    };
+
+    let obs = ObservationSummary {
+        filter: s("Instrument:Filter:Name", "FILTER"),
+        telescope: s("Instrument:Telescope:Name", "TELESCOP"),
+        focal_length_mm,
+        pixel_size_um,
+        binning: f("Instrument:Camera:XBinning", "XBINNING").map(|b| b as u32),
+        pixel_scale_arcsec,
+        observation_start: s("Observation:Time:Start", "DATE-OBS"),
+        observation_end: s("Observation:Time:End", "DATE-END"),
+        site_latitude: f("Observation:Location:Latitude", "OBSGEO-B")
+            .or_else(|| fits.get("LAT-OBS").and_then(|v| v.parse().ok())),
+        site_longitude: f("Observation:Location:Longitude", "OBSGEO-L")
+            .or_else(|| fits.get("LONG-OBS").and_then(|v| v.parse().ok())),
+        site_elevation_m: f("Observation:Location:Elevation", "OBSGEO-H")
+            .or_else(|| fits.get("ALT-OBS").and_then(|v| v.parse().ok())),
+    };
+    (obs != ObservationSummary::default()).then_some(obs)
+}
+
+/// Strip surrounding single quotes and whitespace from a FITS string value.
+fn unquote(v: &str) -> String {
+    v.trim().trim_matches('\'').trim().to_string()
 }
 
 /// Parse the inner `<ProcessingHistory>` document into ordered steps.
@@ -455,10 +561,19 @@ mod tests {
 <xisf version="1.0" xmlns="http://www.pixinsight.com/xisf">
 <Image geometry="100:100:1" sampleFormat="Float32" colorSpace="Gray">
 <FITSKeyword name="FILTER" value="'L'" comment="filter"/>
+<FITSKeyword name="TELESCOP" value="'C8 EDGEHD'" comment="scope"/>
+<FITSKeyword name="XPIXSZ" value="3.76" comment="um"/>
+<FITSKeyword name="XBINNING" value="1" comment="bin"/>
+<FITSKeyword name="FOCALLEN" value="1478.326" comment="mm"/>
 <DisplayFunction m="0.44:0.41:0.41:0.5" s="0:0.01:0:0" h="1:1:1:1" l="0:0:0:0" r="1:1:1:1"/>
 <Property id="XISF:CreatorApplication" type="String" value="PixInsight 1.9.2"/>
 <Property id="XISF:CreatorOS" type="String" value="macOS"/>
 <Property id="XISF:CreationTime" type="String" value="2025-07-20T14:26:17Z"/>
+<Property id="Instrument:Telescope:Name" type="String" value="C8 EDGE HD"/>
+<Property id="Observation:Time:Start" type="TimePoint" value="2025-06-28T23:36:33.193Z"/>
+<Property id="Observation:Time:End" type="TimePoint" value="2025-07-05T02:06:41.940Z"/>
+<Property id="Observation:Location:Latitude" type="Float64" value="38.165278"/>
+<Property id="Observation:Location:Longitude" type="Float64" value="-2.326944"/>
 <Property id="PixInsight:ProcessingHistory" type="String">{escaped}</Property>
 </Image>
 </xisf>"#
@@ -529,6 +644,20 @@ mod tests {
         assert_eq!(stf.midtones.len(), 4);
         assert!((stf.midtones[0] - 0.44).abs() < 1e-6);
         assert!((stf.shadows[1] - 0.01).abs() < 1e-6);
+
+        let obs = report.observation.expect("observation present");
+        assert_eq!(obs.filter.as_deref(), Some("L")); // FITS fallback
+        assert_eq!(obs.telescope.as_deref(), Some("C8 EDGE HD")); // PCL preferred over FITS 'C8 EDGEHD'
+        assert_eq!(obs.binning, Some(1));
+        assert!((obs.pixel_size_um.unwrap() - 3.76).abs() < 1e-6);
+        assert!((obs.focal_length_mm.unwrap() - 1478.326).abs() < 1e-3);
+        // 206.265 * 3.76 / 1478.326 ≈ 0.5246 arcsec/px
+        assert!((obs.pixel_scale_arcsec.unwrap() - 0.5246).abs() < 1e-3);
+        assert_eq!(
+            obs.observation_start.as_deref(),
+            Some("2025-06-28T23:36:33.193Z")
+        );
+        assert!((obs.site_latitude.unwrap() - 38.165278).abs() < 1e-6);
     }
 
     #[test]
