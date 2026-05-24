@@ -85,10 +85,15 @@ and md5sums — these are sanitized out for the public view; the useful sibling
 
 ## Architecture
 
-Parse on the existing XISF byte-handling path (the bytes are already in memory
-for plate-solving — zero extra S3 round-trip), store the structured report in a
-new JSONB column, and serve it sanitized from a new public endpoint that the
-photo page's server `load` fetches.
+Parse in `platesolve_upload::auto_calibrate_xisf`, right after it fetches the
+XISF bytes from S3 (`storage.get`, line ~316) — the bytes are already in memory,
+zero extra round-trip. That function is fully `async` (the XISF *decode* happens
+on the remote solver; there is **no** local `spawn_blocking` today), so the
+~100 KB XML parse gets its **own** `tokio::task::spawn_blocking`. It runs
+**independent of the solve outcome** — even a failed solve still yields a
+processing report. Store the structured report in a new JSONB column, and serve
+it sanitized from a new public endpoint that the photo page's server `load`
+fetches.
 
 ```
 upload XISF ─► platesolve_upload (bytes in hand)
@@ -166,6 +171,12 @@ struct ProcessingReport {
     total_duration_s: Option<f64>,    // Σ step spans
     pipeline: Vec<ProcessStep>,
 }
+// <DisplayFunction m="..:..:..:.." s=".." h=".." l=".." r=".."> — each attr is
+// a ':'-split 4-vector over channels [R, G, B, RGB/L]. NOT a <table>.
+struct DisplayStretch {
+    midtones: Vec<f64>, shadows: Vec<f64>, highlights: Vec<f64>,
+    low_range: Vec<f64>, high_range: Vec<f64>,
+}
 struct ProcessStep {
     position: u32, class_name: String, label: String, category: String,
     summary: Option<String>, version: Option<String>, enabled: bool,
@@ -176,16 +187,21 @@ struct KeyValue { key: String, value: String, truncated: bool }
 struct ProcessTable { id: String, kind: String /* curve|histogram|channels|generic */,
                       columns: Vec<String>, rows: Vec<Vec<String>> }
 struct WhiteBalance { red: f64, green: f64, blue: f64 }
-struct DisplayStretch { /* per-channel shadows/midtones/highlights */ rows: Vec<Vec<String>> }
 ```
+
+`PhotoDetail` gains one denormalized `has_processing_report: bool` (set when
+`processing_json` is non-NULL) so the frontend skips the `/processing` fetch for
+the common non-XISF case — one fewer round-trip per page view.
 
 ## Error handling
 
 - Parse is **best-effort and non-fatal**: invoked in the XISF path inside a
   `match`; on `Err` we `tracing::warn!` and leave `processing_json` NULL. Upload,
   solve, and the photo page proceed unaffected.
-- CPU-bound XML parsing of an ~100 KB string runs inside the existing
-  `spawn_blocking` region (it sits alongside other blocking work in that path).
+- CPU-bound XML parsing of the ~100 KB string runs in its own
+  `tokio::task::spawn_blocking` (the XISF path is otherwise fully async — the
+  decode happens on the remote solver, so there's no existing blocking region to
+  reuse).
 - Endpoint returns `null` (200) when `processing_json` is NULL, so the frontend
   simply renders nothing.
 
