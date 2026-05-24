@@ -585,6 +585,10 @@ mod tests {
                 s.tables.len()
             );
         }
+        if let Ok(out) = std::env::var("XISF_JSON_OUT") {
+            std::fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+            eprintln!("wrote report JSON to {out}");
+        }
         assert!(report.pipeline.len() >= 10, "expected the full pipeline");
         assert!(report.display_stretch.is_some(), "STF present");
     }
