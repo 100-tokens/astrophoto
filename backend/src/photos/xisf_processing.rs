@@ -556,4 +556,36 @@ mod tests {
             Err(ProcessingParseError::BadSignature)
         ));
     }
+
+    /// Manual end-to-end check against a real PixInsight master. Ignored
+    /// by default (CI has no such file); run locally with:
+    /// `XISF_SAMPLE=/path/to.xisf cargo test --lib parses_real_xisf_sample -- --ignored --nocapture`
+    #[test]
+    #[ignore = "reads a local .xisf file named by the XISF_SAMPLE env var"]
+    fn parses_real_xisf_sample() {
+        let path = std::env::var("XISF_SAMPLE").expect("set XISF_SAMPLE to a .xisf path");
+        let bytes = std::fs::read(&path).expect("read sample file");
+        let report = parse_xisf(&bytes).expect("parse ok").expect("has report");
+        eprintln!(
+            "creator={:?} os={:?} steps={} total={:?}s wb={:?}",
+            report.creator_app,
+            report.creator_os,
+            report.pipeline.len(),
+            report.total_duration_s,
+            report.white_balance,
+        );
+        for s in &report.pipeline {
+            eprintln!(
+                "  [{:>2}] {:<32} {:<22} {:>8.2?}s  params={:<2} tables={}",
+                s.position,
+                s.label,
+                s.category,
+                s.duration_s,
+                s.params.len(),
+                s.tables.len()
+            );
+        }
+        assert!(report.pipeline.len() >= 10, "expected the full pipeline");
+        assert!(report.display_stretch.is_some(), "STF present");
+    }
 }
