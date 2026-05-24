@@ -21,6 +21,11 @@ pub trait Storage: Send + Sync + 'static {
     /// Retrieve an object's bytes. None if missing.
     async fn get(&self, key: &str) -> Result<Option<Bytes>, AppError>;
 
+    /// Fetch an inclusive byte range `[start, end]`. None if the object
+    /// doesn't exist. Used to read just an XISF header cheaply without
+    /// pulling the whole (often 50–500 MB) master.
+    async fn get_range(&self, key: &str, start: u64, end: u64) -> Result<Option<Bytes>, AppError>;
+
     /// Delete an object. Idempotent (no error if missing).
     async fn delete(&self, key: &str) -> Result<(), AppError>;
 

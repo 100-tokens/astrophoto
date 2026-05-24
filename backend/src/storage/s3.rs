@@ -123,6 +123,36 @@ impl Storage for S3Storage {
         }
     }
 
+    async fn get_range(&self, key: &str, start: u64, end: u64) -> Result<Option<Bytes>, AppError> {
+        match self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .range(format!("bytes={start}-{end}"))
+            .send()
+            .await
+        {
+            Ok(out) => {
+                let bytes = out
+                    .body
+                    .collect()
+                    .await
+                    .map_err(|e| AppError::Internal(format!("s3 read range body: {e}")))?
+                    .into_bytes();
+                Ok(Some(bytes))
+            }
+            Err(e) => {
+                let svc_err = e.into_service_error();
+                if svc_err.is_no_such_key() {
+                    Ok(None)
+                } else {
+                    Err(AppError::Internal(format!("s3 get_range: {svc_err}")))
+                }
+            }
+        }
+    }
+
     async fn delete(&self, key: &str) -> Result<(), AppError> {
         self.client
             .delete_object()
