@@ -29,6 +29,10 @@ path = "src/bin/seed_targets.rs"
 name = "backfill-photo-targets"
 path = "src/bin/backfill_photo_targets.rs"
 
+[[bin]]
+name = "backfill-processing"
+path = "src/bin/backfill_processing.rs"
+
 [dependencies]
 # HTTP / runtime
 axum = { version = "0.7", features = ["macros", "multipart"] }

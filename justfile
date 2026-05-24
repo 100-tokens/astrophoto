@@ -64,3 +64,8 @@ seed-targets:
 # Default is dry-run. Pass --apply to write. Idempotent.
 backfill-photo-targets *args:
     cd backend && cargo run --release --bin backfill-photo-targets -- {{args}}
+
+# Parse XISF headers and fill photos.processing_json for existing photos.
+# Default is dry-run. Pass --apply to write. Idempotent.
+backfill-processing *args:
+    cd backend && cargo run --release --bin backfill-processing -- {{args}}
