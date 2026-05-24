@@ -11,7 +11,8 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
   import '$lib/components/equipment/filter-chip.css';
-  import type { PhotoDetail } from '$lib/api/types';
+  import ProcessingPipeline from './ProcessingPipeline.svelte';
+  import type { PhotoDetail, ProcessingReport } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
   async function share() {
@@ -35,6 +36,7 @@
     photo: PhotoDetail;
     handle: string;
     morePhotos: GalleryPhoto[];
+    processing?: ProcessingReport | null;
   }
 
   let { data }: { data: PageData } = $props();
@@ -443,6 +445,10 @@
             {/each}
           </tbody>
         </table>
+      {/if}
+
+      {#if data.processing}
+        <ProcessingPipeline report={data.processing} />
       {/if}
 
       <CommentThread

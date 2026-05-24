@@ -16,6 +16,15 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 
   const photo = await photoR.json();
 
+  // XISF masters carry a PixInsight processing report; gate the fetch on
+  // mime so non-XISF photos skip the request entirely. The endpoint
+  // returns null when there's no parseable history.
+  let processing: import('$lib/api/types').ProcessingReport | null = null;
+  if (photo.mime === 'application/x-xisf') {
+    const pr = await fetch(`${API}/api/photos/${id}/processing`);
+    if (pr.ok) processing = await pr.json();
+  }
+
   // For "More from this photographer" + prev/next: best-effort feed fetch.
   let morePhotos: import('$lib/api/GalleryPhoto').GalleryPhoto[] = [];
   let prevShortid: string | null = null;
@@ -32,5 +41,5 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     // ignore — fall back to empty values
   }
 
-  return { photo, handle, morePhotos, prevShortid, nextShortid };
+  return { photo, handle, morePhotos, prevShortid, nextShortid, processing };
 };
