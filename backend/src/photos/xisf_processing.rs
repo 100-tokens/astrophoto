@@ -49,6 +49,10 @@ pub struct ProcessingReport {
 /// keywords and `Instrument:*` / `Observation:*` PCL properties. This is
 /// the reliable, local source for the photo page's technical card (the
 /// plate-solve service only echoes a subset).
+///
+/// See also [`crate::photos::xisf_display::XisfDisplayMeta`] — the
+/// owner-only verify-form view over the plate-solve embed JSON;
+/// deliberately separate, not a duplicate.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
