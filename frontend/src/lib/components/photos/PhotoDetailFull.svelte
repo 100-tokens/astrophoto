@@ -520,6 +520,7 @@
   .detail {
     display: grid;
     grid-template-columns: 1fr 380px;
+    align-items: start;
     min-height: calc(100dvh - 64px);
   }
   .stage {
@@ -528,7 +529,8 @@
     align-items: center;
     justify-content: center;
     padding: 48px;
-    position: relative;
+    position: sticky;
+    top: 64px;
   }
   .stage-frame {
     position: relative;
@@ -743,6 +745,7 @@
     }
     .stage {
       padding: 16px;
+      position: static;
     }
     .stage-frame :global(img) {
       max-height: 70vh;

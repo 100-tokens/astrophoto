@@ -162,7 +162,6 @@
     display: block;
     width: 100%;
     height: auto;
-    max-height: calc(100dvh - 64px - 96px);
     object-fit: contain;
     margin: 0 auto;
     transform-origin: center center;
