@@ -15,34 +15,36 @@
 <!-- No active prop: no nav link matches /account/frames -->
 <AppHeader />
 
-<div class="frames-page">
-  {#if isEmpty}
-    <div class="empty">
-      <h1>An empty plate, waiting for first light.</h1>
-      <Button variant="primary" href="/upload" size="lg">Upload a frame</Button>
-    </div>
-  {:else}
-    <header class="title-row">
-      <h1>My frames</h1>
-      <StatsRow stats={data.stats} />
-    </header>
-
-    {#if data.drafts.length > 0 && data.filter !== 'drafts'}
-      <DraftsCallout drafts={data.drafts} />
-    {/if}
-
-    <FilterChips active={data.filter} counts={data.counts} sort={data.sort} view={data.view} />
-
-    {#if data.filter === 'drafts' && data.drafts.length === 0}
-      <p class="empty-msg">
-        No drafts. Every frame you upload is published.
-        <a href="/upload">Upload a frame</a>
-      </p>
+<main>
+  <div class="frames-page">
+    {#if isEmpty}
+      <div class="empty">
+        <h1>An empty plate, waiting for first light.</h1>
+        <Button variant="primary" href="/upload" size="lg">Upload a frame</Button>
+      </div>
     {:else}
-      <PhotosTable rows={data.rows} />
+      <header class="title-row">
+        <h1>My frames</h1>
+        <StatsRow stats={data.stats} />
+      </header>
+
+      {#if data.drafts.length > 0 && data.filter !== 'drafts'}
+        <DraftsCallout drafts={data.drafts} />
+      {/if}
+
+      <FilterChips active={data.filter} counts={data.counts} sort={data.sort} view={data.view} />
+
+      {#if data.filter === 'drafts' && data.drafts.length === 0}
+        <p class="empty-msg">
+          No drafts. Every frame you upload is published.
+          <a href="/upload">Upload a frame</a>
+        </p>
+      {:else}
+        <PhotosTable rows={data.rows} />
+      {/if}
     {/if}
-  {/if}
-</div>
+  </div>
+</main>
 
 <style>
   .frames-page {

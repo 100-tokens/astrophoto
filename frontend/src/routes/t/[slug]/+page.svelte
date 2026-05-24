@@ -77,6 +77,7 @@
 </script>
 
 <AppHeader active="Targets" />
+
 <svelte:head>
   <title>{targetTitle}</title>
   <meta name="description" content={targetDescription} />
@@ -93,32 +94,35 @@
   {@html `<script type="application/ld+json">${targetJsonLd}</script>`}
 </svelte:head>
 
-<DiscoveryHeader variant="target" meta={data.initial.target} />
-<AladinSkyMap
-  ra={data.initial.target.right_ascension}
-  dec={data.initial.target.declination}
-  majorAxisArcmin={data.initial.target.major_axis_arcmin}
-  objectName={data.initial.target.canonical_name}
-/>
-<FilterPills
-  variant="target"
-  sort={data.sort}
-  since={data.since}
-  {...data.category !== undefined ? { category: data.category } : {}}
-  onSortChange={(s) => applyFilter({ sort: s })}
-  onSinceChange={(s) => applyFilter({ since: s })}
-  onCategoryChange={(c) => applyFilter({ category: c })}
-/>
-{#key `${data.sort}|${data.since}|${data.category ?? ''}`}
-  <CrossAuthorGrid
-    initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
-    loadMore={loadMoreFn}
+<main>
+  <DiscoveryHeader variant="target" meta={data.initial.target} />
+  <AladinSkyMap
+    ra={data.initial.target.right_ascension}
+    dec={data.initial.target.declination}
+    majorAxisArcmin={data.initial.target.major_axis_arcmin}
+    objectName={data.initial.target.canonical_name}
   />
-{/key}
-<ExternalArchiveLinks
-  canonicalName={data.initial.target.canonical_name}
-  aliases={data.initial.target.aliases}
-  slug={data.initial.target.slug}
-/>
+  <FilterPills
+    variant="target"
+    sort={data.sort}
+    since={data.since}
+    {...data.category !== undefined ? { category: data.category } : {}}
+    onSortChange={(s) => applyFilter({ sort: s })}
+    onSinceChange={(s) => applyFilter({ since: s })}
+    onCategoryChange={(c) => applyFilter({ category: c })}
+  />
+  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+    <CrossAuthorGrid
+      initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
+      loadMore={loadMoreFn}
+    />
+  {/key}
+  <ExternalArchiveLinks
+    canonicalName={data.initial.target.canonical_name}
+    aliases={data.initial.target.aliases}
+    slug={data.initial.target.slug}
+  />
+</main>
+
 <LightboxHost />
 <AppFooter />

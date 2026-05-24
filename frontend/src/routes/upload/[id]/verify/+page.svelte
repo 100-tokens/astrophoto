@@ -472,174 +472,176 @@
 <svelte:head><title>Verify data — Astrophoto</title></svelte:head>
 <AppHeader active="Gallery" />
 
-<div class="verify-page">
-  {#if isFailed}
-    <section class="hero-band">
-      <VerifyHero
-        eyebrow="UPLOAD FAILED"
-        title="Something went wrong."
-        intro="The pipeline couldn't finish processing this frame. Discard the draft to start over, or retry the upload from step one."
-      />
-    </section>
-    <section class="failed-band">
-      <div class="panel-failed">
-        <div class="t-eyebrow danger">
-          ● UPLOAD FAILED · {data.photo.pipeline_error ?? 'unknown error'}
+<main>
+  <div class="verify-page">
+    {#if isFailed}
+      <section class="hero-band">
+        <VerifyHero
+          eyebrow="UPLOAD FAILED"
+          title="Something went wrong."
+          intro="The pipeline couldn't finish processing this frame. Discard the draft to start over, or retry the upload from step one."
+        />
+      </section>
+      <section class="failed-band">
+        <div class="panel-failed">
+          <div class="t-eyebrow danger">
+            ● UPLOAD FAILED · {data.photo.pipeline_error ?? 'unknown error'}
+          </div>
+          <div class="failed-actions">
+            <form method="POST" action="?/save_draft">
+              <Button variant="ghost" type="submit">Discard</Button>
+            </form>
+            <Button variant="primary" href="/upload">Retry upload</Button>
+          </div>
         </div>
-        <div class="failed-actions">
-          <form method="POST" action="?/save_draft">
-            <Button variant="ghost" type="submit">Discard</Button>
-          </form>
-          <Button variant="primary" href="/upload">Retry upload</Button>
-        </div>
-      </div>
-    </section>
-  {:else}
-    <section class="hero-band">
-      <VerifyHero
-        eyebrow={isPublished ? 'EDIT METADATA' : 'NEW FRAME'}
-        title="Verify the data."
-        intro="Your camera and the plate-solver already wrote down most of this. Glance through, correct anything off, fill what's still empty — none of it is required."
-      />
-      {#if !isPublished}
-        <div class="hero-stepper">
-          <VerifyStepper currentStep={2} variant="three" />
-        </div>
-      {/if}
-    </section>
+      </section>
+    {:else}
+      <section class="hero-band">
+        <VerifyHero
+          eyebrow={isPublished ? 'EDIT METADATA' : 'NEW FRAME'}
+          title="Verify the data."
+          intro="Your camera and the plate-solver already wrote down most of this. Glance through, correct anything off, fill what's still empty — none of it is required."
+        />
+        {#if !isPublished}
+          <div class="hero-stepper">
+            <VerifyStepper currentStep={2} variant="three" />
+          </div>
+        {/if}
+      </section>
 
-    <section class="body-band">
-      <VerifyAside
-        photo={data.photo}
-        {xisfMeta}
-        {isProcessing}
-        {isAwaitingCalibration}
-        {isPublished}
-      />
+      <section class="body-band">
+        <VerifyAside
+          photo={data.photo}
+          {xisfMeta}
+          {isProcessing}
+          {isAwaitingCalibration}
+          {isPublished}
+        />
 
-      <form
-        method="POST"
-        action={isPublished ? '?/save_changes_published' : '?/save_continue'}
-        class="metadata-form"
-      >
-        <div class="status-pill-row" aria-live="polite">
-          <span class="chip chip-accent status-pill">
-            <span class="status-dot" aria-hidden="true"></span>
-            {recoveredCount === 0
-              ? '0 fields recovered — fill anything you remember'
-              : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
-          </span>
-          <span class="t-meta status-meta">last edited just now</span>
-        </div>
-
-        <fieldset class="form-fieldset" disabled={isProcessing}>
-          <div class="block">
-            <TargetField bind:value={target} />
+        <form
+          method="POST"
+          action={isPublished ? '?/save_changes_published' : '?/save_continue'}
+          class="metadata-form"
+        >
+          <div class="status-pill-row" aria-live="polite">
+            <span class="chip chip-accent status-pill">
+              <span class="status-dot" aria-hidden="true"></span>
+              {recoveredCount === 0
+                ? '0 fields recovered — fill anything you remember'
+                : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
+            </span>
+            <span class="t-meta status-meta">last edited just now</span>
           </div>
 
-          <div class="block">
-            <CategoryRadio bind:value={category} />
-          </div>
+          <fieldset class="form-fieldset" disabled={isProcessing}>
+            <div class="block">
+              <TargetField bind:value={target} />
+            </div>
 
-          <div class="block">
-            <AcquisitionGrid
-              bind:lens
-              bind:iso
-              bind:exposure_s
-              bind:focal_mm
-              bind:aperture_f
-              bind:gain
-              bind:sensor_temp_c
-              bind:sessions
-              bind:ra_deg
-              bind:dec_deg
-              {fromExif}
-            />
-          </div>
+            <div class="block">
+              <CategoryRadio bind:value={category} />
+            </div>
 
-          <div class="block">
-            <PlateSolveBlock
-              status={psStatus}
-              file={psFile}
-              submitting={psSubmitting}
-              localError={psLocalError}
-              maxBytes={PLATESOLVE_MAX_BYTES}
-              onPick={onPickXisf}
-              {onCalibrate}
-            />
-          </div>
+            <div class="block">
+              <AcquisitionGrid
+                bind:lens
+                bind:iso
+                bind:exposure_s
+                bind:focal_mm
+                bind:aperture_f
+                bind:gain
+                bind:sensor_temp_c
+                bind:sessions
+                bind:ra_deg
+                bind:dec_deg
+                {fromExif}
+              />
+            </div>
 
-          <div class="block">
-            <EquipmentSection
-              setups={data.setups}
-              currentSetupId={photo_setup_id}
-              {appliedSpec}
-              bind:camera
-              bind:scope
-              bind:focal_modifier
-              bind:mount
-              bind:guiding
-              {filtersString}
-              {filterChips}
-              orphans={data.orphans}
-              startFilterOpen={false}
-              {fromExif}
-              onApply={onApplySetup}
-              onDetach={onDetachSetup}
-              onChipsChange={(next) => (filterChips = next)}
-            />
-          </div>
+            <div class="block">
+              <PlateSolveBlock
+                status={psStatus}
+                file={psFile}
+                submitting={psSubmitting}
+                localError={psLocalError}
+                maxBytes={PLATESOLVE_MAX_BYTES}
+                onPick={onPickXisf}
+                {onCalibrate}
+              />
+            </div>
 
-          <div class="block">
-            <TagChipInput bind:value={tags} />
-          </div>
+            <div class="block">
+              <EquipmentSection
+                setups={data.setups}
+                currentSetupId={photo_setup_id}
+                {appliedSpec}
+                bind:camera
+                bind:scope
+                bind:focal_modifier
+                bind:mount
+                bind:guiding
+                {filtersString}
+                {filterChips}
+                orphans={data.orphans}
+                startFilterOpen={false}
+                {fromExif}
+                onApply={onApplySetup}
+                onDetach={onDetachSetup}
+                onChipsChange={(next) => (filterChips = next)}
+              />
+            </div>
 
-          <!-- Legacy comma-string filters cache: the server still accepts
+            <div class="block">
+              <TagChipInput bind:value={tags} />
+            </div>
+
+            <!-- Legacy comma-string filters cache: the server still accepts
                this for back-compat. The structured `filter_item_ids`
                (emitted inside EquipmentSection) takes precedence on the
                server when both are present. -->
-          <input type="hidden" name="filters" value={filtersString} />
-        </fieldset>
+            <input type="hidden" name="filters" value={filtersString} />
+          </fieldset>
 
-        {#if isProcessing}
-          <p class="t-meta processing-meta">
-            ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'} — polling every
-            2 s
-          </p>
-        {/if}
-        {#if form?.error}
-          <p class="t-meta form-error">{form.error}</p>
-        {/if}
+          {#if isProcessing}
+            <p class="t-meta processing-meta">
+              ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'} — polling every
+              2 s
+            </p>
+          {/if}
+          {#if form?.error}
+            <p class="t-meta form-error">{form.error}</p>
+          {/if}
 
-        <FooterActions {saveState} {secondsSinceSaved}>
-          {#snippet actions()}
-            {#if isPublished}
-              <Button variant="ghost" href="/upload/{data.photo.id}/caption" size="lg">
-                Edit caption →
-              </Button>
-              <Button variant="primary" type="submit" size="lg" disabled={isProcessing}>
-                Save changes
-              </Button>
-            {:else}
-              <Button
-                variant="ghost"
-                size="lg"
-                type="submit"
-                formaction="?/save_draft"
-                disabled={isProcessing}
-              >
-                Save as draft
-              </Button>
-              <Button variant="primary" size="lg" type="submit" disabled={isProcessing}>
-                Continue →
-              </Button>
-            {/if}
-          {/snippet}
-        </FooterActions>
-      </form>
-    </section>
-  {/if}
-</div>
+          <FooterActions {saveState} {secondsSinceSaved}>
+            {#snippet actions()}
+              {#if isPublished}
+                <Button variant="ghost" href="/upload/{data.photo.id}/caption" size="lg">
+                  Edit caption →
+                </Button>
+                <Button variant="primary" type="submit" size="lg" disabled={isProcessing}>
+                  Save changes
+                </Button>
+              {:else}
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  type="submit"
+                  formaction="?/save_draft"
+                  disabled={isProcessing}
+                >
+                  Save as draft
+                </Button>
+                <Button variant="primary" size="lg" type="submit" disabled={isProcessing}>
+                  Continue →
+                </Button>
+              {/if}
+            {/snippet}
+          </FooterActions>
+        </form>
+      </section>
+    {/if}
+  </div>
+</main>
 
 <style>
   .verify-page {

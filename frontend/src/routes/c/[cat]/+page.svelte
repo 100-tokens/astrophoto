@@ -51,6 +51,7 @@
 </script>
 
 <AppHeader />
+
 <svelte:head>
   <title>{catTitle}</title>
   <meta name="description" content={catDescription} />
@@ -65,23 +66,26 @@
   <meta name="twitter:description" content={catDescription} />
 </svelte:head>
 
-<DiscoveryHeader
-  variant="category"
-  category={data.initial.category}
-  photoCount={data.initial.photo_count}
-/>
-<FilterPills
-  variant="category"
-  sort={data.sort}
-  since={data.since}
-  onSortChange={(s) => applyFilter({ sort: s })}
-  onSinceChange={(s) => applyFilter({ since: s })}
-/>
-{#key `${data.sort}|${data.since}`}
-  <CrossAuthorGrid
-    initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
-    loadMore={loadMoreFn}
+<main>
+  <DiscoveryHeader
+    variant="category"
+    category={data.initial.category}
+    photoCount={data.initial.photo_count}
   />
-{/key}
+  <FilterPills
+    variant="category"
+    sort={data.sort}
+    since={data.since}
+    onSortChange={(s) => applyFilter({ sort: s })}
+    onSinceChange={(s) => applyFilter({ since: s })}
+  />
+  {#key `${data.sort}|${data.since}`}
+    <CrossAuthorGrid
+      initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
+      loadMore={loadMoreFn}
+    />
+  {/key}
+</main>
+
 <LightboxHost />
 <AppFooter />

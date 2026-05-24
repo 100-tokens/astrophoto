@@ -36,33 +36,35 @@
 
 <AppHeader />
 
-<div class="error-page bg-grid">
-  <div class="error-center">
-    <MarkReticle size={88} color="var(--accent)" />
+<main>
+  <div class="error-page bg-grid">
+    <div class="error-center">
+      <MarkReticle size={88} color="var(--accent)" />
 
-    <div class="t-eyebrow error-eyebrow" style="color: var(--accent);">
-      {eyebrow}
-    </div>
+      <div class="t-eyebrow error-eyebrow" style="color: var(--accent);">
+        {eyebrow}
+      </div>
 
-    <h1 class="error-h1">
-      {headline.before}<em>{headline.em}</em>{headline.after}
-    </h1>
+      <h1 class="error-h1">
+        {headline.before}<em>{headline.em}</em>{headline.after}
+      </h1>
 
-    <p class="error-body">{body}</p>
+      <p class="error-body">{body}</p>
 
-    <!-- Technical block -->
-    <div class="error-tech">
-      <div>REQUESTED · {pathname}</div>
-      <div>COORDINATES · UNRESOLVED</div>
-    </div>
+      <!-- Technical block -->
+      <div class="error-tech">
+        <div>REQUESTED · {pathname}</div>
+        <div>COORDINATES · UNRESOLVED</div>
+      </div>
 
-    <!-- Actions -->
-    <div class="error-actions">
-      <Button variant="primary" size="lg" href="/">Back to gallery</Button>
-      <Button variant="secondary" size="lg" href="/search">Search the archive</Button>
+      <!-- Actions -->
+      <div class="error-actions">
+        <Button variant="primary" size="lg" href="/">Back to gallery</Button>
+        <Button variant="secondary" size="lg" href="/search">Search the archive</Button>
+      </div>
     </div>
   </div>
-</div>
+</main>
 
 <AppFooter />
 

@@ -360,139 +360,141 @@
 
 <AppHeader />
 
-<article class="detail">
-  <!-- Image stage: full-bleed black, ratio held by the photo -->
-  <div class="stage">
-    <div class="stage-frame">
-      <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)" />
-      <!-- Corner reticles, accent-colored, per the spec -->
-      <span class="reticle reticle-tl" aria-hidden="true"></span>
-      <span class="reticle reticle-tr" aria-hidden="true"></span>
-      <span class="reticle reticle-bl" aria-hidden="true"></span>
-      <span class="reticle reticle-br" aria-hidden="true"></span>
+<main>
+  <article class="detail">
+    <!-- Image stage: full-bleed black, ratio held by the photo -->
+    <div class="stage">
+      <div class="stage-frame">
+        <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)" />
+        <!-- Corner reticles, accent-colored, per the spec -->
+        <span class="reticle reticle-tl" aria-hidden="true"></span>
+        <span class="reticle reticle-tr" aria-hidden="true"></span>
+        <span class="reticle reticle-bl" aria-hidden="true"></span>
+        <span class="reticle reticle-br" aria-hidden="true"></span>
+      </div>
     </div>
-  </div>
 
-  <!-- Info aside, 380px right column -->
-  <aside class="info">
-    <div class="info-inner">
-      <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
+    <!-- Info aside, 380px right column -->
+    <aside class="info">
+      <div class="info-inner">
+        <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
 
-      <h1 class="title">
-        {#if titleHead}
-          <em>{titleHead.head}</em>
-          <br />{titleHead.rest}
-        {:else}
-          {title}
+        <h1 class="title">
+          {#if titleHead}
+            <em>{titleHead.head}</em>
+            <br />{titleHead.rest}
+          {:else}
+            {title}
+          {/if}
+        </h1>
+
+        <div class="author-row">
+          <div class="avatar" aria-hidden="true">{(data.handle[0] ?? 'U').toUpperCase()}</div>
+          <div class="author-meta">
+            <a class="author-name" href={`/u/${data.handle}`}>@{data.handle}</a>
+          </div>
+          <a class="btn btn-secondary btn-sm" href={`/u/${data.handle}`}>View profile</a>
+        </div>
+
+        {#if p.caption}
+          <p class="caption">{p.caption}</p>
         {/if}
-      </h1>
 
-      <div class="author-row">
-        <div class="avatar" aria-hidden="true">{(data.handle[0] ?? 'U').toUpperCase()}</div>
-        <div class="author-meta">
-          <a class="author-name" href={`/u/${data.handle}`}>@{data.handle}</a>
-        </div>
-        <a class="btn btn-secondary btn-sm" href={`/u/${data.handle}`}>View profile</a>
-      </div>
-
-      {#if p.caption}
-        <p class="caption">{p.caption}</p>
-      {/if}
-
-      {#if p.tags.length > 0}
-        <ul class="tags">
-          {#each p.tags as tag}
-            <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
-          {/each}
-        </ul>
-      {/if}
-
-      {#if chips.length > 0 || orphans.length > 0}
-        <div class="filter-strip-head">
-          <span class="t-label">FILTERS</span>
-          <span class="t-meta"
-            >{chips.length} TYPED{orphans.length > 0 ? ` · ${orphans.length} LEGACY` : ''}</span
-          >
-        </div>
-        <div class="filter-strip">
-          {#each chips as f (f.id)}<FilterChip filter={f} />{/each}
-          {#each orphans as tok}
-            <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
-          {/each}
-        </div>
-        <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
-      {/if}
-
-      <div class="actions">
-        <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
-        <a class="btn btn-ghost btn-sm" href="#comments"
-          >{liveCommentCount} comment{liveCommentCount === 1 ? '' : 's'}</a
-        >
-        <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
-          >↗ Share</button
-        >
-        {#if isOwner}
-          <span class="action-divider" aria-hidden="true">·</span>
-          <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
-          <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
-            >↻ Replace</button
-          >
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm action-delete"
-            onclick={() => {
-              deleteError = null;
-              deleteOpen = true;
-            }}>× Delete</button
-          >
-        {/if}
-      </div>
-
-      {#if acquisitionRows.length > 0}
-        <div class="acquisition-header">
-          <span class="t-label">ACQUISITION RECORD</span>
-        </div>
-        <table class="exif">
-          <tbody>
-            {#each acquisitionRows as row}
-              <tr>
-                <th>{row.label}</th>
-                <td>
-                  {row.value}
-                  {#if row.sub}
-                    <br /><span class={row.subAccent ? 'sub accent' : 'sub'}>{row.sub}</span>
-                  {/if}
-                </td>
-              </tr>
+        {#if p.tags.length > 0}
+          <ul class="tags">
+            {#each p.tags as tag}
+              <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
             {/each}
-          </tbody>
-        </table>
-      {/if}
+          </ul>
+        {/if}
 
-      {#if data.processing}
-        <ProcessingPipeline report={data.processing} />
-      {/if}
+        {#if chips.length > 0 || orphans.length > 0}
+          <div class="filter-strip-head">
+            <span class="t-label">FILTERS</span>
+            <span class="t-meta"
+              >{chips.length} TYPED{orphans.length > 0 ? ` · ${orphans.length} LEGACY` : ''}</span
+            >
+          </div>
+          <div class="filter-strip">
+            {#each chips as f (f.id)}<FilterChip filter={f} />{/each}
+            {#each orphans as tok}
+              <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
+            {/each}
+          </div>
+          <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
+        {/if}
 
-      <CommentThread
-        photoId={p.id}
-        photoOwnerId={p.owner_id}
-        initialCount={Number(p.comment_count)}
-        oncountchange={(n) => (liveCommentCount = n)}
-      />
-
-      {#if data.morePhotos.length > 0}
-        <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
-        <div class="more-grid">
-          {#each data.morePhotos.slice(0, 4) as mp}
-            <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
-              <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
-            </a>
-          {/each}
+        <div class="actions">
+          <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
+          <a class="btn btn-ghost btn-sm" href="#comments"
+            >{liveCommentCount} comment{liveCommentCount === 1 ? '' : 's'}</a
+          >
+          <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
+            >↗ Share</button
+          >
+          {#if isOwner}
+            <span class="action-divider" aria-hidden="true">·</span>
+            <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
+            <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
+              >↻ Replace</button
+            >
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm action-delete"
+              onclick={() => {
+                deleteError = null;
+                deleteOpen = true;
+              }}>× Delete</button
+            >
+          {/if}
         </div>
-      {/if}
-    </div>
-  </aside>
-</article>
+
+        {#if acquisitionRows.length > 0}
+          <div class="acquisition-header">
+            <span class="t-label">ACQUISITION RECORD</span>
+          </div>
+          <table class="exif">
+            <tbody>
+              {#each acquisitionRows as row}
+                <tr>
+                  <th>{row.label}</th>
+                  <td>
+                    {row.value}
+                    {#if row.sub}
+                      <br /><span class={row.subAccent ? 'sub accent' : 'sub'}>{row.sub}</span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+
+        {#if data.processing}
+          <ProcessingPipeline report={data.processing} />
+        {/if}
+
+        <CommentThread
+          photoId={p.id}
+          photoOwnerId={p.owner_id}
+          initialCount={Number(p.comment_count)}
+          oncountchange={(n) => (liveCommentCount = n)}
+        />
+
+        {#if data.morePhotos.length > 0}
+          <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
+          <div class="more-grid">
+            {#each data.morePhotos.slice(0, 4) as mp}
+              <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
+                <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
+              </a>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </aside>
+  </article>
+</main>
 
 {#if isOwner}
   <ReplaceModal

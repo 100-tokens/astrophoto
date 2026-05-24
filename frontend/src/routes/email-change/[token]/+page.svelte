@@ -12,37 +12,39 @@
 
 <AppHeader />
 
-<div class="confirm-screen">
-  <div class="confirm-col">
-    {#if data.status === 'expired'}
-      <div class="panel panel-danger">
-        <h1 class="panel-title">Link expired</h1>
-        <p class="panel-body">
-          Email-change confirmation links expire after 24 hours. Please request a new email change
-          from your account settings.
-        </p>
-        <Button variant="primary" href="/settings/email">Back to settings</Button>
-      </div>
-    {:else if data.status === 'taken'}
-      <div class="panel panel-danger">
-        <h1 class="panel-title">Address already taken</h1>
-        <p class="panel-body">
-          That email address is already associated with another account. Please choose a different
-          address in your account settings.
-        </p>
-        <Button variant="primary" href="/settings/email">Back to settings</Button>
-      </div>
-    {:else}
-      <div class="panel panel-danger">
-        <h1 class="panel-title">Something went wrong</h1>
-        <p class="panel-body">
-          We could not confirm your email change. The link may be invalid or already used.
-        </p>
-        <Button variant="primary" href="/settings/email">Back to settings</Button>
-      </div>
-    {/if}
+<main>
+  <div class="confirm-screen">
+    <div class="confirm-col">
+      {#if data.status === 'expired'}
+        <div class="panel panel-danger">
+          <h1 class="panel-title">Link expired</h1>
+          <p class="panel-body">
+            Email-change confirmation links expire after 24 hours. Please request a new email change
+            from your account settings.
+          </p>
+          <Button variant="primary" href="/settings/email">Back to settings</Button>
+        </div>
+      {:else if data.status === 'taken'}
+        <div class="panel panel-danger">
+          <h1 class="panel-title">Address already taken</h1>
+          <p class="panel-body">
+            That email address is already associated with another account. Please choose a different
+            address in your account settings.
+          </p>
+          <Button variant="primary" href="/settings/email">Back to settings</Button>
+        </div>
+      {:else}
+        <div class="panel panel-danger">
+          <h1 class="panel-title">Something went wrong</h1>
+          <p class="panel-body">
+            We could not confirm your email change. The link may be invalid or already used.
+          </p>
+          <Button variant="primary" href="/settings/email">Back to settings</Button>
+        </div>
+      {/if}
+    </div>
   </div>
-</div>
+</main>
 
 <style>
   .confirm-screen {

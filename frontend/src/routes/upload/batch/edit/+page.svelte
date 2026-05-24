@@ -40,30 +40,32 @@
 <svelte:head><title>Verify frames — Astrophoto</title></svelte:head>
 <AppHeader active="Gallery" />
 
-<div class="page">
-  <div class="t-eyebrow">NEW FRAMES</div>
-  <h1 class="title">Verify the <em>data</em>.</h1>
-  <UploadStepper currentStep={2} />
+<main>
+  <div class="page">
+    <div class="t-eyebrow">NEW FRAMES</div>
+    <h1 class="title">Verify the <em>data</em>.</h1>
+    <UploadStepper currentStep={2} />
 
-  <BatchRibbon photos={data.photos} selectedId={data.selected} onSelect={selectPhoto} />
+    <BatchRibbon photos={data.photos} selectedId={data.selected} onSelect={selectPhoto} />
 
-  {#key data.selected}
-    {#if selectedPhoto}
-      <VerifyPane photo={selectedPhoto} initialTags={selectedPhoto.tags} autosave={true} />
+    {#key data.selected}
+      {#if selectedPhoto}
+        <VerifyPane photo={selectedPhoto} initialTags={selectedPhoto.tags} autosave={true} />
+      {/if}
+    {/key}
+
+    {#if form?.error}
+      <p class="err">{form.error}</p>
     {/if}
-  {/key}
 
-  {#if form?.error}
-    <p class="err">{form.error}</p>
-  {/if}
-
-  <form method="POST" action={`?/publish_all&ids=${data.ids.join(',')}`} class="footer">
-    <Button variant="ghost" href={`/upload/batch?ids=${data.ids.join(',')}`}
-      >← Back to apply-to-all</Button
-    >
-    <Button variant="primary" type="submit">Publish all</Button>
-  </form>
-</div>
+    <form method="POST" action={`?/publish_all&ids=${data.ids.join(',')}`} class="footer">
+      <Button variant="ghost" href={`/upload/batch?ids=${data.ids.join(',')}`}
+        >← Back to apply-to-all</Button
+      >
+      <Button variant="primary" type="submit">Publish all</Button>
+    </form>
+  </div>
+</main>
 
 <style>
   .page {

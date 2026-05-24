@@ -35,17 +35,18 @@
 
 <AppHeader />
 
-<div class="reset-screen">
-  <div class="reset-col">
-    <div class="t-eyebrow" style="margin-bottom: 16px;">PASSWORD RESET</div>
+<main>
+  <div class="reset-screen">
+    <div class="reset-col">
+      <div class="t-eyebrow" style="margin-bottom: 16px;">PASSWORD RESET</div>
 
-    <h1 class="reset-headline">
-      A link is on its way <em>to {email || 'your inbox'}.</em>
-    </h1>
+      <h1 class="reset-headline">
+        A link is on its way <em>to {email || 'your inbox'}.</em>
+      </h1>
 
-    <p class="reset-body">Open the email and click the link to set a new password.</p>
+      <p class="reset-body">Open the email and click the link to set a new password.</p>
 
-    <pre class="email-preview">
+      <pre class="email-preview">
 EMAIL PREVIEW · PLAIN TEXT
 
 From:    Astrophoto &lt;noreply@astrophoto.pics&gt;
@@ -58,20 +59,21 @@ Open this link to choose a new password:
 
 The link is single-use and expires in one hour.</pre>
 
-    <div class="actions">
-      {#if secondsLeft > 0}
-        <Button variant="ghost" disabled>
-          Resend in 0:{String(secondsLeft).padStart(2, '0')}
-        </Button>
-      {:else}
-        <Button variant="ghost" onclick={resend} disabled={resending}>
-          {resending ? 'Sending…' : resentOk ? 'Sent again ✓' : 'Resend link'}
-        </Button>
-      {/if}
-      <Button variant="secondary" href="/reset">Use a different email</Button>
+      <div class="actions">
+        {#if secondsLeft > 0}
+          <Button variant="ghost" disabled>
+            Resend in 0:{String(secondsLeft).padStart(2, '0')}
+          </Button>
+        {:else}
+          <Button variant="ghost" onclick={resend} disabled={resending}>
+            {resending ? 'Sending…' : resentOk ? 'Sent again ✓' : 'Resend link'}
+          </Button>
+        {/if}
+        <Button variant="secondary" href="/reset">Use a different email</Button>
+      </div>
     </div>
   </div>
-</div>
+</main>
 
 <style>
   .reset-screen {

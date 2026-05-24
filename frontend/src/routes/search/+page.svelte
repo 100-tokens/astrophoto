@@ -36,58 +36,60 @@
 
 <AppHeader />
 
-{#if data.q.trim()}
-  <DiscoveryHeader variant="search" q={data.q} resultCount={totalCount} />
-{:else}
-  <section class="empty-state">
-    <p class="empty-label">Enter a search term to find targets, photographers, and photos.</p>
-  </section>
-{/if}
-
-{#if data.initial}
-  {#if data.initial.targets.length > 0}
-    <section class="results-section">
-      <h2 class="section-heading">Targets</h2>
-      <ul class="result-list">
-        {#each data.initial.targets as target (target.slug)}
-          <li>
-            <a href="/t/{target.slug}" class="result-link">
-              <span class="result-primary">{target.canonical_name}</span>
-              <span class="result-meta">{pluralize(target.photo_count, 'photo')}</span>
-            </a>
-          </li>
-        {/each}
-      </ul>
+<main>
+  {#if data.q.trim()}
+    <DiscoveryHeader variant="search" q={data.q} resultCount={totalCount} />
+  {:else}
+    <section class="empty-state">
+      <p class="empty-label">Enter a search term to find targets, photographers, and photos.</p>
     </section>
   {/if}
 
-  {#if data.initial.users.length > 0}
-    <section class="results-section">
-      <h2 class="section-heading">Photographers</h2>
-      <ul class="result-list">
-        {#each data.initial.users as user (user.id)}
-          <li>
-            <a href="/u/{user.handle}" class="result-link">
-              <span class="result-primary">{user.display_name}</span>
-              <span class="result-meta">@{user.handle}</span>
-            </a>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
+  {#if data.initial}
+    {#if data.initial.targets.length > 0}
+      <section class="results-section">
+        <h2 class="section-heading">Targets</h2>
+        <ul class="result-list">
+          {#each data.initial.targets as target (target.slug)}
+            <li>
+              <a href="/t/{target.slug}" class="result-link">
+                <span class="result-primary">{target.canonical_name}</span>
+                <span class="result-meta">{pluralize(target.photo_count, 'photo')}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
-  {#if data.initial.photos.length > 0}
-    <section class="results-section">
-      <h2 class="section-heading">Photos</h2>
-      <CrossAuthorGrid initial={{ photos: data.initial.photos, next_cursor: null }} />
-    </section>
-  {/if}
+    {#if data.initial.users.length > 0}
+      <section class="results-section">
+        <h2 class="section-heading">Photographers</h2>
+        <ul class="result-list">
+          {#each data.initial.users as user (user.id)}
+            <li>
+              <a href="/u/{user.handle}" class="result-link">
+                <span class="result-primary">{user.display_name}</span>
+                <span class="result-meta">@{user.handle}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
-  {#if totalCount === 0}
-    <p class="no-results">No results found for "{data.q}".</p>
+    {#if data.initial.photos.length > 0}
+      <section class="results-section">
+        <h2 class="section-heading">Photos</h2>
+        <CrossAuthorGrid initial={{ photos: data.initial.photos, next_cursor: null }} />
+      </section>
+    {/if}
+
+    {#if totalCount === 0}
+      <p class="no-results">No results found for "{data.q}".</p>
+    {/if}
   {/if}
-{/if}
+</main>
 
 <LightboxHost />
 <AppFooter />

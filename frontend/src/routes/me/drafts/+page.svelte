@@ -23,39 +23,41 @@
 <svelte:head><title>Drafts — Astrophoto</title></svelte:head>
 <AppHeader active="Gallery" />
 
-<div class="page">
-  <div class="header">
-    <div>
-      <div class="t-eyebrow">DRAFTS</div>
-      <h1 class="title">Drafts <span class="count">· {data.drafts.items.length}</span></h1>
+<main>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="t-eyebrow">DRAFTS</div>
+        <h1 class="title">Drafts <span class="count">· {data.drafts.items.length}</span></h1>
+      </div>
+      {#if data.drafts.items.length > 0}
+        <Button variant="primary" type="button" onclick={resumeRecent}>Resume recent</Button>
+      {/if}
     </div>
-    {#if data.drafts.items.length > 0}
-      <Button variant="primary" type="button" onclick={resumeRecent}>Resume recent</Button>
+
+    {#if data.drafts.items.length === 0}
+      <EmptyState
+        title="No drafts yet"
+        message="Frames you start but don't publish will wait here, ready to resume."
+        ctaLabel="Upload a frame"
+        ctaHref="/upload"
+      />
+    {:else}
+      <div class="grid">
+        {#each data.drafts.items as draft (draft.id)}
+          <DraftTile {draft} />
+        {/each}
+      </div>
+      {#if data.drafts.next_cursor}
+        <div class="pager">
+          <Button variant="ghost" href={`/me/drafts?cursor=${data.drafts.next_cursor}`}
+            >Older →</Button
+          >
+        </div>
+      {/if}
     {/if}
   </div>
-
-  {#if data.drafts.items.length === 0}
-    <EmptyState
-      title="No drafts yet"
-      message="Frames you start but don't publish will wait here, ready to resume."
-      ctaLabel="Upload a frame"
-      ctaHref="/upload"
-    />
-  {:else}
-    <div class="grid">
-      {#each data.drafts.items as draft (draft.id)}
-        <DraftTile {draft} />
-      {/each}
-    </div>
-    {#if data.drafts.next_cursor}
-      <div class="pager">
-        <Button variant="ghost" href={`/me/drafts?cursor=${data.drafts.next_cursor}`}
-          >Older →</Button
-        >
-      </div>
-    {/if}
-  {/if}
-</div>
+</main>
 
 <style>
   .page {

@@ -270,94 +270,98 @@
   }}
 />
 
-<div class="upload-page">
-  <!-- Page header -->
-  <section class="page-header">
-    <div class="page-header-row">
-      <div class="page-header-title-block">
-        <div class="t-eyebrow">NEW UPLOAD · STEP 01 OF 03</div>
-        <h1 class="page-title">Drop your <em>frames</em></h1>
-      </div>
-      <aside class="tier-rail" aria-label="Tier limits">
-        <div class="tier-eyebrow t-eyebrow">
-          ● {data.tier === 'subscriber' ? 'SUBSCRIBER · 200 MB / FILE' : 'FREE TIER · 50 MB / FILE'}
+<main>
+  <div class="upload-page">
+    <!-- Page header -->
+    <section class="page-header">
+      <div class="page-header-row">
+        <div class="page-header-title-block">
+          <div class="t-eyebrow">NEW UPLOAD · STEP 01 OF 03</div>
+          <h1 class="page-title">Drop your <em>frames</em></h1>
         </div>
-        {#if data.tier !== 'subscriber'}
-          <p class="tier-note">
-            Subscribers upload up to 200 MB.
-            <button type="button" class="tier-upgrade" onclick={() => (showUpgrade = true)}
-              >Upgrade →</button
+        <aside class="tier-rail" aria-label="Tier limits">
+          <div class="tier-eyebrow t-eyebrow">
+            ● {data.tier === 'subscriber'
+              ? 'SUBSCRIBER · 200 MB / FILE'
+              : 'FREE TIER · 50 MB / FILE'}
+          </div>
+          {#if data.tier !== 'subscriber'}
+            <p class="tier-note">
+              Subscribers upload up to 200 MB.
+              <button type="button" class="tier-upgrade" onclick={() => (showUpgrade = true)}
+                >Upgrade →</button
+              >
+            </p>
+          {/if}
+        </aside>
+      </div>
+
+      <UploadStepper currentStep={1} />
+    </section>
+
+    <!-- Dropzone + file list -->
+    <section class="form-section">
+      {#if data.recentDrafts.length}
+        <UploadResumeBanner drafts={data.recentDrafts} />
+      {/if}
+      <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
+
+      {#if queueCapWarning}
+        <p class="cap-warning t-meta">⚠ {queueCapWarning}</p>
+      {/if}
+
+      {#if slots.length}
+        <div class="file-list">
+          <header class="queue-header">
+            <p class="t-eyebrow">
+              ● FILES · {slots.length} · {queueCounts.ready} ready · {queueCounts.inflight} uploading
+              {#if queueCounts.blocked > 0}· {queueCounts.blocked} blocked{/if}
+            </p>
+            <button type="button" class="chip" onclick={clearQueue}>Clear queue</button>
+          </header>
+          <div class="rows">
+            {#each slots as slot (slot.clientId)}
+              <UploadFileRow
+                name={slot.name}
+                size={slot.size}
+                hash={slot.hash}
+                {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
+                progress={slot.progress}
+                onCancel={() => cancelSlot(slot.clientId)}
+                onRetry={() => retrySlot(slot.clientId)}
+              />
+            {/each}
+          </div>
+        </div>
+
+        <footer class="queue-footer">
+          {#if data.storage}
+            <span class="storage-line t-meta">
+              STORAGE · {fmtBytes(Number(data.storage.used_bytes))} / {fmtBytes(
+                Number(data.storage.quota_bytes)
+              )} USED · {storagePct} % &nbsp;·&nbsp; CHECKSUM DEDUP IS PER-OWNER
+            </span>
+          {/if}
+          <div class="footer-actions">
+            <a href="/drafts" class="btn-ghost">Save & finish later</a>
+            <button
+              class="btn-primary"
+              onclick={continueToBatch}
+              disabled={readyIds.length === 0}
+              title={readyIds.length === 0
+                ? 'Wait for at least one upload to finish'
+                : `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'}`}
             >
-          </p>
-        {/if}
-      </aside>
-    </div>
-
-    <UploadStepper currentStep={1} />
-  </section>
-
-  <!-- Dropzone + file list -->
-  <section class="form-section">
-    {#if data.recentDrafts.length}
-      <UploadResumeBanner drafts={data.recentDrafts} />
-    {/if}
-    <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
-
-    {#if queueCapWarning}
-      <p class="cap-warning t-meta">⚠ {queueCapWarning}</p>
-    {/if}
-
-    {#if slots.length}
-      <div class="file-list">
-        <header class="queue-header">
-          <p class="t-eyebrow">
-            ● FILES · {slots.length} · {queueCounts.ready} ready · {queueCounts.inflight} uploading
-            {#if queueCounts.blocked > 0}· {queueCounts.blocked} blocked{/if}
-          </p>
-          <button type="button" class="chip" onclick={clearQueue}>Clear queue</button>
-        </header>
-        <div class="rows">
-          {#each slots as slot (slot.clientId)}
-            <UploadFileRow
-              name={slot.name}
-              size={slot.size}
-              hash={slot.hash}
-              {...slot.thumbDataUrl !== undefined ? { thumbDataUrl: slot.thumbDataUrl } : {}}
-              progress={slot.progress}
-              onCancel={() => cancelSlot(slot.clientId)}
-              onRetry={() => retrySlot(slot.clientId)}
-            />
-          {/each}
-        </div>
-      </div>
-
-      <footer class="queue-footer">
-        {#if data.storage}
-          <span class="storage-line t-meta">
-            STORAGE · {fmtBytes(Number(data.storage.used_bytes))} / {fmtBytes(
-              Number(data.storage.quota_bytes)
-            )} USED · {storagePct} % &nbsp;·&nbsp; CHECKSUM DEDUP IS PER-OWNER
-          </span>
-        {/if}
-        <div class="footer-actions">
-          <a href="/drafts" class="btn-ghost">Save & finish later</a>
-          <button
-            class="btn-primary"
-            onclick={continueToBatch}
-            disabled={readyIds.length === 0}
-            title={readyIds.length === 0
-              ? 'Wait for at least one upload to finish'
-              : `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'}`}
-          >
-            {readyIds.length > 0
-              ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
-              : 'Verify ready frames →'}
-          </button>
-        </div>
-      </footer>
-    {/if}
-  </section>
-</div>
+              {readyIds.length > 0
+                ? `Verify ${readyIds.length} ready frame${readyIds.length === 1 ? '' : 's'} →`
+                : 'Verify ready frames →'}
+            </button>
+          </div>
+        </footer>
+      {/if}
+    </section>
+  </div>
+</main>
 
 <style>
   .upload-page {
