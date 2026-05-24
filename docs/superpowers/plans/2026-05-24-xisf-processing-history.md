@@ -24,10 +24,9 @@
 - `backend/src/storage/mod.rs` — add `get_range` to the `Storage` trait.
 - `backend/src/storage/s3.rs` / `memory.rs` — implement `get_range`.
 - `backend/src/photos/platesolve_upload.rs:~316` — parse + persist after byte fetch.
-- `backend/src/photos/get.rs` — `PhotoDetail` SELECT gains `processing_json IS NOT NULL AS has_processing_report`.
-- `backend/src/api_types.rs:135` — `PhotoDetail.has_processing_report: bool`.
 - `backend/src/http/mod.rs:169` — register the public route.
-- `backend/src/bin/gen-types.rs` — export the new ts-rs types.
+- `backend/src/bin/gen-types.rs` — export `ProcessingReport` (pulls all 6 types transitively).
+- `frontend/src/lib/api/types.ts` — barrel re-exports for the new types.
 - `backend/src/photos/cleanup.rs` or a `just` recipe — invoke backfill (see Task 14).
 
 **Frontend — create:**
@@ -85,7 +84,8 @@ const SIGNATURE: &[u8] = b"XISF0100";
 const MAX_PARAM_VALUE_LEN: usize = 512;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct ProcessingReport {
     pub creator_app: Option<String>,
     pub creator_module: Option<String>,
@@ -98,7 +98,8 @@ pub struct ProcessingReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct ProcessStep {
     pub position: u32,
     pub class_name: String,
@@ -114,7 +115,8 @@ pub struct ProcessStep {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct KeyValue {
     pub key: String,
     pub value: String,
@@ -122,7 +124,8 @@ pub struct KeyValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct ProcessTable {
     pub id: String,
     pub kind: String, // "curve" | "histogram" | "channels" | "generic"
@@ -131,7 +134,8 @@ pub struct ProcessTable {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct WhiteBalance {
     pub red: f64,
     pub green: f64,
@@ -139,7 +143,8 @@ pub struct WhiteBalance {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
-#[ts(export, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]  // JSON must be camelCase to match the TS type
+#[ts(export, rename_all = "camelCase")]  // export_to defaults to "<TypeName>.ts"
 pub struct DisplayStretch {
     pub midtones: Vec<f64>,
     pub shadows: Vec<f64>,
@@ -878,52 +883,51 @@ git commit -m "feat(xisf): public sanitized /processing endpoint"
 
 ---
 
-### Task 8: `PhotoDetail.has_processing_report` + ts-rs export
+### Task 8: Export the processing types to TypeScript
+
+> **Design note:** we do *not* add a `has_processing_report` column/field.
+> `PhotoDetail` already carries `mime`, and XISF photos have
+> `mime == "application/x-xisf"` (see `upload_finalize.rs:69`). The frontend
+> gates the `/processing` fetch on that — no schema/query/api_types change.
+> `export_all_to` writes a type **and all its transitive dependencies**, so
+> exporting `ProcessingReport` alone emits all six `.ts` files.
 
 **Files:**
-- Modify: `backend/src/api_types.rs:135`, `backend/src/photos/get.rs`, `backend/src/bin/gen-types.rs`
+- Modify: `backend/src/bin/gen-types.rs`, `frontend/src/lib/api/types.ts`
 
-- [ ] **Step 1: Add the field.** In `backend/src/api_types.rs`, in `struct PhotoDetail` (after `comment_count` at line 164):
-
-```rust
-pub has_processing_report: bool,
-```
-
-- [ ] **Step 2: Populate it in the query.** In `backend/src/photos/get.rs`, add to the `PhotoDetail` SELECT list:
-
-```sql
-, (processing_json IS NOT NULL) AS "has_processing_report!"
-```
-
-and map it into the struct field. (Match the exact `query_as!`/manual-mapping style already used in `get.rs`; the `!` override asserts non-null to sqlx.)
-
-- [ ] **Step 3: Register the new types for ts-rs export.** In `backend/src/bin/gen-types.rs`, add `use` + export calls mirroring the existing ones for the six new types:
+- [ ] **Step 1: Register the export.** In `backend/src/bin/gen-types.rs`, add to the `use astrophoto::photos::...` imports:
 
 ```rust
-use astrophoto::photos::xisf_processing::{
-    ProcessingReport, ProcessStep, KeyValue, ProcessTable, WhiteBalance, DisplayStretch,
-};
-// ... in the export body, alongside the others:
-ProcessingReport::export().unwrap();
-ProcessStep::export().unwrap();
-KeyValue::export().unwrap();
-ProcessTable::export().unwrap();
-WhiteBalance::export().unwrap();
-DisplayStretch::export().unwrap();
+use astrophoto::photos::xisf_processing::ProcessingReport;
 ```
 
-(Match the exact export idiom used in the file — it may call a helper rather than `::export()`.)
+and after the `XisfDisplayMeta::export_all_to(out_dir)?;` line (≈ line 96) add:
 
-- [ ] **Step 4: Regenerate types + sqlx + build.**
+```rust
+ProcessingReport::export_all_to(out_dir)?;
+```
 
-Run: `just types && cd backend && cargo sqlx prepare && cargo build`
-Expected: `frontend/src/lib/api/*.ts` gains the new types; build clean.
+- [ ] **Step 2: Add barrel re-exports.** In the hand-maintained `frontend/src/lib/api/types.ts`, add (near the other photo types):
 
-- [ ] **Step 5: Commit.**
+```ts
+export type { ProcessingReport } from './ProcessingReport';
+export type { ProcessStep } from './ProcessStep';
+export type { ProcessTable } from './ProcessTable';
+export type { KeyValue } from './KeyValue';
+export type { WhiteBalance } from './WhiteBalance';
+export type { DisplayStretch } from './DisplayStretch';
+```
+
+- [ ] **Step 3: Regenerate + build.**
+
+Run: `just types && cd backend && cargo build`
+Expected: `frontend/src/lib/api/{ProcessingReport,ProcessStep,ProcessTable,KeyValue,WhiteBalance,DisplayStretch}.ts` created; build clean. (No `cargo sqlx prepare` — no SQL changed in this task.)
+
+- [ ] **Step 4: Commit.**
 
 ```bash
-git add backend/src/api_types.rs backend/src/photos/get.rs backend/src/bin/gen-types.rs backend/.sqlx frontend/src/lib/api/
-git commit -m "feat(api): expose has_processing_report + export processing types"
+git add backend/src/bin/gen-types.rs frontend/src/lib/api/
+git commit -m "feat(api): export processing-report types to TypeScript"
 ```
 
 ---
@@ -935,13 +939,13 @@ git commit -m "feat(api): expose has_processing_report + export processing types
 **Files:**
 - Modify: `frontend/src/routes/u/[handle]/p/[shortid]/+page.server.ts`
 
-- [ ] **Step 1: Fetch `/processing` when present.** After the existing `PhotoDetail` fetch resolves to `photo`, add:
+- [ ] **Step 1: Fetch `/processing` for XISF photos.** After the existing `PhotoDetail` fetch resolves to `photo`, add (gate on `mime`, which `PhotoDetail` already carries — no extra fetch for non-XISF photos):
 
 ```ts
 let processing: ProcessingReport | null = null;
-if (photo.hasProcessingReport) {
+if (photo.mime === 'application/x-xisf') {
     const r = await fetch(`${API_BASE}/api/photos/${photo.id}/processing`);
-    if (r.ok) processing = await r.json();
+    if (r.ok) processing = await r.json(); // endpoint returns null when no report
 }
 return { ...existing, processing };
 ```
@@ -1152,11 +1156,31 @@ git commit -m "feat(web): render processing pipeline on photo detail page"
 
 ```rust
 //! One-shot: parse + store processing_json for XISF photos that
-//! predate the feature. Reads only the header via Storage::get_range.
+//! predate the feature. Reads only the header via Storage::get_range —
+//! a two-step exact read (16-byte length prefix, then the header), so
+//! memory is bounded to the real header size, not a fixed guess.
 
 use crate::http::AppState;
+use crate::storage::Storage;
 
-const HEADER_PROBE_BYTES: u64 = 512 * 1024; // headers are < 256 KB in practice
+/// Hard ceiling on header size; a larger length-prefix means a corrupt
+/// or hostile file — skip with a warning rather than allocate.
+const MAX_HEADER_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Fetch exactly the XISF envelope + header (bytes `0..16+header_len`).
+async fn fetch_header(storage: &dyn Storage, key: &str) -> anyhow::Result<Option<bytes::Bytes>> {
+    let Some(prefix) = storage.get_range(key, 0, 15).await? else {
+        return Ok(None); // side-channel upload: XISF not stored
+    };
+    if prefix.len() < 16 || &prefix[0..8] != b"XISF0100" {
+        return Ok(None);
+    }
+    let hlen = u32::from_le_bytes([prefix[8], prefix[9], prefix[10], prefix[11]]) as u64;
+    if hlen == 0 || hlen > MAX_HEADER_BYTES {
+        anyhow::bail!("implausible XISF header length {hlen}");
+    }
+    Ok(storage.get_range(key, 0, 16 + hlen - 1).await?)
+}
 
 pub async fn run(state: &AppState) -> anyhow::Result<usize> {
     let rows: Vec<(uuid::Uuid, String)> = sqlx::query_as(
@@ -1168,8 +1192,10 @@ pub async fn run(state: &AppState) -> anyhow::Result<usize> {
 
     let mut done = 0;
     for (id, key) in rows {
-        let Some(bytes) = state.storage.get_range(&key, 0, HEADER_PROBE_BYTES).await? else {
-            continue; // side-channel upload: XISF not stored
+        let bytes = match fetch_header(state.storage.as_ref(), &key).await {
+            Ok(Some(b)) => b,
+            Ok(None) => continue,
+            Err(e) => { tracing::warn!(%id, error=%e, "backfill header read failed"); continue; }
         };
         match crate::photos::xisf_processing::parse_xisf(&bytes) {
             Ok(Some(report)) => {
@@ -1186,7 +1212,7 @@ pub async fn run(state: &AppState) -> anyhow::Result<usize> {
 }
 ```
 
-(`parse_xisf` tolerates a header-only slice: it only reads bytes `0..16+header_len`, which fits within the probe. If a header exceeds the probe, it returns `BadHeader` and is skipped — acceptable for a backfill.)
+(`state.storage` is an `Arc<dyn Storage>`; pass `state.storage.as_ref()`. Confirm the field name/type against `AppState`.)
 
 - [ ] **Step 2: Wire an invocation** mirroring the existing one-shot pattern (e.g. a flag handled in `main.rs`, or a `just backfill-processing` recipe). Declare `pub mod xisf_processing_backfill;` in `mod.rs`.
 

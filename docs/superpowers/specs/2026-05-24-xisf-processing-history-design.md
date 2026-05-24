@@ -189,9 +189,10 @@ struct ProcessTable { id: String, kind: String /* curve|histogram|channels|gener
 struct WhiteBalance { red: f64, green: f64, blue: f64 }
 ```
 
-`PhotoDetail` gains one denormalized `has_processing_report: bool` (set when
-`processing_json` is non-NULL) so the frontend skips the `/processing` fetch for
-the common non-XISF case — one fewer round-trip per page view.
+The frontend gates the `/processing` fetch on `photo.mime ===
+"application/x-xisf"` — `PhotoDetail` already carries `mime`, so non-XISF photos
+skip the request with no new column/field. XISF photos that happen to have no
+parseable history just get one request that returns `null`.
 
 ## Error handling
 
