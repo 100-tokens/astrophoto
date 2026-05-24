@@ -341,6 +341,12 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
             }
         };
 
+        // Parse the PixInsight processing history straight from the XISF
+        // header and persist it. Independent of the solve outcome — even a
+        // failed solve still yields a processing report. `Bytes` clone is
+        // an Arc bump; the original moves into `run_solve` below.
+        persist_processing_report(&state.pool, photo_id, xisf_bytes.clone()).await;
+
         // Claim the sentinel so a concurrent side-channel POST from
         // the same owner gets 409.
         match platesolve::try_claim(&state.pool, photo_id, owner_id).await {
@@ -585,5 +591,45 @@ impl Drop for SentinelGuard {
             return;
         }
         platesolve::mark_aborted_if_solving(self.pool.clone(), self.photo_id);
+    }
+}
+
+/// Parse the XISF header and persist the [`ProcessingReport`] to
+/// `photos.processing_json`. Best-effort: every failure mode is logged
+/// and swallowed so it never blocks calibration. The ~100 KB XML parse
+/// runs in `spawn_blocking` because this code path is otherwise fully
+/// async (the XISF *decode* happens on the remote solver).
+///
+/// [`ProcessingReport`]: crate::photos::xisf_processing::ProcessingReport
+async fn persist_processing_report(pool: &PgPool, photo_id: Uuid, bytes: Bytes) {
+    let parsed =
+        tokio::task::spawn_blocking(move || crate::photos::xisf_processing::parse_xisf(&bytes))
+            .await;
+    let report = match parsed {
+        Ok(Ok(Some(r))) => r,
+        Ok(Ok(None)) => return, // valid XISF, no processing history
+        Ok(Err(e)) => {
+            warn!(photo_id = %photo_id, error = %e, "xisf processing parse failed");
+            return;
+        }
+        Err(e) => {
+            warn!(photo_id = %photo_id, error = %e, "xisf processing parse panicked");
+            return;
+        }
+    };
+    let json = match serde_json::to_value(&report) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(photo_id = %photo_id, error = %e, "serialize processing report");
+            return;
+        }
+    };
+    if let Err(e) = sqlx::query("UPDATE photos SET processing_json = $1 WHERE id = $2")
+        .bind(json)
+        .bind(photo_id)
+        .execute(pool)
+        .await
+    {
+        warn!(photo_id = %photo_id, error = %e, "persist processing_json failed");
     }
 }

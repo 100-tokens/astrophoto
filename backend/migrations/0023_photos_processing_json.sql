@@ -1,0 +1,13 @@
+-- 0023 structured PixInsight processing report on `photos`.
+--
+-- Parsed locally from the XISF header's `PixInsight:ProcessingHistory`
+-- property (plus creator app, display-stretch, and SPCC white balance)
+-- by `photos::xisf_processing`. Stored as the full ProcessingReport so
+-- the API can sanitize at the boundary without re-parsing.
+--
+-- Nullable: only XISF masters carry this, and only those with a
+-- PixInsight processing history. JPEG/PNG/TIFF uploads and XISF files
+-- without history leave it NULL. The public photo page gates on
+-- `mime = 'application/x-xisf'` before fetching, and the endpoint
+-- returns null when this column is NULL.
+ALTER TABLE photos ADD COLUMN processing_json JSONB;

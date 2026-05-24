@@ -168,6 +168,10 @@ pub fn router(
             get(crate::photos::xisf_display_handler::handler),
         )
         .route(
+            "/api/photos/:id/processing",
+            get(crate::photos::xisf_processing_handler::handler),
+        )
+        .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )
