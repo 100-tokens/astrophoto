@@ -58,6 +58,7 @@ argon2 = "0.5"
 oauth2 = { version = "4", default-features = false, features = ["rustls-tls"] }
 rand = "0.8"
 base64 = "0.22"
+roxmltree = "0.20" # read-only XISF header XML parsing
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart"] }
 sha2 = "0.10"
 
