@@ -8,3 +8,6 @@ export type { User } from './User';
 export type { AuthError } from './AuthError';
 export type { MeStats } from './MeStats';
 export type { PhotoDetail } from './PhotoDetail';
+export type { ProcessingReport } from './ProcessingReport';
+export type { ProcessStep } from './ProcessStep';
+export type { ProcessTable } from './ProcessTable';
