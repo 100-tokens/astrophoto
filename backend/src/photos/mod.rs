@@ -36,3 +36,4 @@ pub mod xisf_display_handler;
 pub mod xisf_meta;
 pub mod xisf_processing;
 pub mod xisf_processing_handler;
+pub mod xisf_render;

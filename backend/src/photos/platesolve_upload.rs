@@ -382,6 +382,7 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
         }
 
         let filename = format!("{photo_id}.xisf");
+        let render_bytes = xisf_bytes.clone();
         let result = run_solve(
             state.pool.clone(),
             Arc::clone(&state.storage),
@@ -393,6 +394,12 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
             None,
         )
         .await;
+
+        // Render the display JPEG locally and overwrite display/<id>.jpg.
+        // The plate-solve service's bundled render stacks planar RGB
+        // channels as grayscale; ours combines them correctly. Runs
+        // regardless of solve outcome so the image is always right.
+        persist_local_render(state.storage.as_ref(), &state.pool, photo_id, render_bytes).await;
 
         match result {
             Ok(result) => {
@@ -631,5 +638,41 @@ async fn persist_processing_report(pool: &PgPool, photo_id: Uuid, bytes: Bytes) 
         .await
     {
         warn!(photo_id = %photo_id, error = %e, "persist processing_json failed");
+    }
+}
+
+/// Render the XISF display JPEG locally (combining planar RGB channels
+/// correctly) and overwrite `display/<id>.jpg`. Fixes the plate-solve
+/// service's stacked-grayscale render. Best-effort: on any failure the
+/// existing (service) render is left in place.
+async fn persist_local_render(storage: &dyn Storage, pool: &PgPool, photo_id: Uuid, bytes: Bytes) {
+    let rendered = tokio::task::spawn_blocking(move || {
+        crate::photos::xisf_render::render_display_jpeg(&bytes, 4096)
+    })
+    .await;
+    let jpeg = match rendered {
+        Ok(Ok(Some(j))) => j,
+        Ok(Ok(None)) => return, // unsupported format — keep existing render
+        Ok(Err(e)) => {
+            warn!(photo_id = %photo_id, error = %e, "local xisf render failed");
+            return;
+        }
+        Err(e) => {
+            warn!(photo_id = %photo_id, error = %e, "local xisf render panicked");
+            return;
+        }
+    };
+    let key = format!("display/{photo_id}.jpg");
+    if let Err(e) = storage.put(&key, "image/jpeg", Bytes::from(jpeg)).await {
+        warn!(photo_id = %photo_id, error = %e, "store local render failed");
+        return;
+    }
+    if let Err(e) = sqlx::query("update photos set display_key = $1 where id = $2")
+        .bind(&key)
+        .bind(photo_id)
+        .execute(pool)
+        .await
+    {
+        warn!(photo_id = %photo_id, error = %e, "update display_key after local render failed");
     }
 }
