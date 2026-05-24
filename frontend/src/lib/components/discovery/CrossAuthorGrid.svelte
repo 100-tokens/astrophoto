@@ -3,13 +3,18 @@
   import justifiedLayout from 'justified-layout';
   import type { DiscoveryPhoto } from '$lib/api/DiscoveryPhoto';
   import CrossAuthorTile from './CrossAuthorTile.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
   let {
     initial = null,
-    loadMore: loadMoreFn
+    loadMore: loadMoreFn,
+    emptyTitle = 'No frames here yet',
+    emptyMessage = 'Nothing matches this view yet — be the first to publish a frame.'
   }: {
     initial?: { photos: DiscoveryPhoto[]; next_cursor: string | null } | null;
     loadMore?: () => Promise<{ photos: DiscoveryPhoto[]; next_cursor: string | null }>;
+    emptyTitle?: string;
+    emptyMessage?: string;
   } = $props();
 
   // Use extraPhotos + extraCursor so we never seed $state from a prop directly.
@@ -90,7 +95,12 @@
     </button>
   </div>
 {:else if photos.length === 0 && !loading}
-  <p class="empty">No photos yet — be the first to upload.</p>
+  <EmptyState
+    title={emptyTitle}
+    message={emptyMessage}
+    ctaLabel="Upload a frame"
+    ctaHref="/upload"
+  />
 {/if}
 
 <style>
@@ -118,12 +128,5 @@
   .btn-more:disabled {
     opacity: 0.5;
     cursor: default;
-  }
-
-  .empty {
-    padding: 48px 32px;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: 12px;
   }
 </style>
