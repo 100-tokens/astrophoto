@@ -210,9 +210,13 @@ mod tests {
     #[tokio::test]
     async fn fetch_header_non_xisf_is_none() {
         let s = MemoryStorage::new();
-        s.put("k", "application/octet-stream", Bytes::from_static(b"not an xisf file...."))
-            .await
-            .unwrap();
+        s.put(
+            "k",
+            "application/octet-stream",
+            Bytes::from_static(b"not an xisf file...."),
+        )
+        .await
+        .unwrap();
         assert!(fetch_header(&s, "k").await.unwrap().is_none());
     }
 
