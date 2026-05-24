@@ -5,6 +5,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import type { PageProps } from './$types';
   import type { PhotographerListItem } from '$lib/api/PhotographerListItem';
 
@@ -156,9 +157,12 @@
 </section>
 
 {#if items.length === 0}
-  <p class="empty t-meta">
-    No photographers yet. Be the first to <a href="/upload">publish a frame</a>.
-  </p>
+  <EmptyState
+    title="No photographers yet"
+    message="Be the first to share your work and start the archive."
+    ctaLabel="Publish a frame"
+    ctaHref="/upload"
+  />
 {/if}
 
 {#if cursor}
@@ -300,15 +304,6 @@
     font-family: var(--font-mono);
     font-size: 12px;
   }
-  .empty {
-    padding: 48px 64px;
-    color: var(--fg-muted);
-    text-align: center;
-  }
-  .empty a {
-    color: var(--accent);
-  }
-
   @media (max-width: 1024px) {
     .grid {
       grid-template-columns: repeat(3, 1fr);

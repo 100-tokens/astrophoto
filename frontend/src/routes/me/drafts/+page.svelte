@@ -2,6 +2,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import DraftTile from '$lib/components/DraftTile.svelte';
   import Button from '$lib/components/Button.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import { goto } from '$app/navigation';
   import type { PageProps } from './$types';
 
@@ -34,7 +35,12 @@
   </div>
 
   {#if data.drafts.items.length === 0}
-    <p class="empty">No drafts. <a href="/upload">Upload a frame →</a></p>
+    <EmptyState
+      title="No drafts yet"
+      message="Frames you start but don't publish will wait here, ready to resume."
+      ctaLabel="Upload a frame"
+      ctaHref="/upload"
+    />
   {:else}
     <div class="grid">
       {#each data.drafts.items as draft (draft.id)}
@@ -76,9 +82,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 16px;
-  }
-  .empty {
-    color: var(--fg-secondary);
   }
   .pager {
     display: flex;
