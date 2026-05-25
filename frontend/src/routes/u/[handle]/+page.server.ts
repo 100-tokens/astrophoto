@@ -23,6 +23,11 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
     // Fall through to the not-found path below if the id matches no user.
   }
 
+  // The gallery feed only needs `handle` (a route param), not the profile, so
+  // start it now to run concurrently with the profile lookup rather than after
+  // it. If the profile turns out to be a redirect/404, this fetch is discarded.
+  const feedP = fetchPhotosFeed(fetch, handle, { limit: 24 }).catch(() => null);
+
   let profile;
   try {
     profile = await fetchPublicProfile(fetch, handle);
@@ -44,11 +49,9 @@ export const load: PageServerLoad = async ({ params, fetch, locals }) => {
     photos: import('$lib/api/GalleryPhoto').GalleryPhoto[];
     next_cursor: string | null;
   } | null = null;
-  try {
-    const page = await fetchPhotosFeed(fetch, handle, { limit: 24 });
+  const page = await feedP;
+  if (page) {
     firstPage = { photos: page.photos, next_cursor: page.next_cursor ?? null };
-  } catch (_e) {
-    // Backend hiccup — proceed without SSR'd photos; PhotoGrid will fetch on mount.
   }
 
   const isSelf = locals.user?.id === profile.id;

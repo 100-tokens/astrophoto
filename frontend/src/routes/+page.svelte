@@ -179,6 +179,7 @@
       <Photo
         target={data.heroPhoto.target ?? ''}
         src={data.heroSrc}
+        priority
         style="position: absolute; inset: 0; height: 100%;"
       />
 
