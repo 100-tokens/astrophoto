@@ -15,40 +15,42 @@
 <svelte:head><title>Apply to all — Astrophoto</title></svelte:head>
 <AppHeader active="Gallery" />
 
-<div class="page">
-  <div class="t-eyebrow">NEW FRAMES</div>
-  <h1 class="title">Apply to <em>all</em>.</h1>
-  <UploadStepper currentStep={2} />
+<main>
+  <div class="page">
+    <div class="t-eyebrow">NEW FRAMES</div>
+    <h1 class="title">Apply to <em>all</em>.</h1>
+    <UploadStepper currentStep={2} />
 
-  <p class="lede">
-    Set fields shared by all {data.photos.length} frames. You can override per-photo on the next step.
-  </p>
+    <p class="lede">
+      Set fields shared by all {data.photos.length} frames. You can override per-photo on the next step.
+    </p>
 
-  <form method="POST" class="form">
-    <input type="hidden" name="ids" value={data.ids.join(',')} />
+    <form method="POST" class="form">
+      <input type="hidden" name="ids" value={data.ids.join(',')} />
 
-    <div class="field">
-      <TargetPicker bind:value={target} />
-    </div>
+      <div class="field">
+        <TargetPicker bind:value={target} />
+      </div>
 
-    <div class="field">
-      <TagInput bind:value={tags} />
-    </div>
+      <div class="field">
+        <TagInput bind:value={tags} />
+      </div>
 
-    <div class="thumb-strip">
-      {#each data.photos as photo}
-        <div class="thumb"><Img photoId={photo.id} w={144} alt={photo.original_name} /></div>
-      {/each}
-    </div>
+      <div class="thumb-strip">
+        {#each data.photos as photo}
+          <div class="thumb"><Img photoId={photo.id} w={144} alt={photo.original_name} /></div>
+        {/each}
+      </div>
 
-    {#if form?.error}<p class="err">{form.error}</p>{/if}
+      {#if form?.error}<p class="err">{form.error}</p>{/if}
 
-    <div class="actions">
-      <Button variant="ghost" href={`/upload/batch/edit?ids=${data.ids.join(',')}`}>Skip</Button>
-      <Button variant="primary" type="submit">Continue →</Button>
-    </div>
-  </form>
-</div>
+      <div class="actions">
+        <Button variant="ghost" href={`/upload/batch/edit?ids=${data.ids.join(',')}`}>Skip</Button>
+        <Button variant="primary" type="submit">Continue →</Button>
+      </div>
+    </form>
+  </div>
+</main>
 
 <style>
   .page {

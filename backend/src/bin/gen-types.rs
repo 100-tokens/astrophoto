@@ -20,6 +20,7 @@ use astrophoto::api_types::{
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
 use astrophoto::photos::xisf_display::XisfDisplayMeta;
+use astrophoto::photos::xisf_processing::ProcessingReport;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
@@ -94,6 +95,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     PlatesolveResult::export_all_to(out_dir)?;
     SolveOptions::export_all_to(out_dir)?;
     XisfDisplayMeta::export_all_to(out_dir)?;
+    // export_all_to pulls all transitive deps, so this one call emits
+    // ProcessStep, KeyValue, ProcessTable, WhiteBalance, DisplayStretch too.
+    ProcessingReport::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

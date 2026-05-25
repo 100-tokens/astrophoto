@@ -293,6 +293,19 @@ async fn appreciation_toggle() {
     .await;
     assert_eq!(v["count"].as_i64().unwrap(), 1);
 
+    // Regression: the denormalized photos.appreciations_count must track the
+    // junction. Before the fix it stayed frozen at 0; the idempotent re-
+    // appreciate must not double-count, so it is exactly 1 after two POSTs.
+    let denorm: i32 = sqlx::query_scalar("select appreciations_count from photos where id = $1")
+        .bind(uuid::Uuid::parse_str(&photo_id).unwrap())
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        denorm, 1,
+        "appreciations_count must match the junction count"
+    );
+
     let v = json_get(
         &app,
         &format!("/api/photos/{photo_id}/appreciation-state"),
@@ -324,6 +337,16 @@ async fn appreciation_toggle() {
     )
     .await;
     assert_eq!(v["count"].as_i64().unwrap(), 0);
+
+    let denorm: i32 = sqlx::query_scalar("select appreciations_count from photos where id = $1")
+        .bind(uuid::Uuid::parse_str(&photo_id).unwrap())
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        denorm, 0,
+        "appreciations_count must return to 0 after unappreciate"
+    );
 }
 
 #[tokio::test]

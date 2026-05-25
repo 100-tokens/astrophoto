@@ -5,13 +5,15 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
+  import ZoomableImage from '$lib/components/photos/ZoomableImage.svelte';
   import AppreciateButton from '$lib/components/AppreciateButton.svelte';
   import CommentThread from '$lib/components/photos/CommentThread.svelte';
   import ReplaceModal from '$lib/components/photos/ReplaceModal.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
   import '$lib/components/equipment/filter-chip.css';
-  import type { PhotoDetail } from '$lib/api/types';
+  import ProcessingPipeline from './ProcessingPipeline.svelte';
+  import type { PhotoDetail, ProcessingReport } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
 
   async function share() {
@@ -35,6 +37,7 @@
     photo: PhotoDetail;
     handle: string;
     morePhotos: GalleryPhoto[];
+    processing?: ProcessingReport | null;
   }
 
   let { data }: { data: PageData } = $props();
@@ -153,6 +156,32 @@
     if (p.sensor_temp_c != null) rows.push(row('Sensor', `${p.sensor_temp_c} °C`));
     if (p.ra_deg != null && p.dec_deg != null) {
       rows.push(row('RA / Dec', formatCoords(p.ra_deg, p.dec_deg)));
+    }
+
+    // Enrich from the XISF observation summary (parsed locally from the
+    // header). Additive — only fields the columns above don't already cover.
+    // Site coordinates are intentionally NOT surfaced (privacy: the header
+    // embeds precise GPS; it's parsed/stored but not shown publicly).
+    const obs = data.processing?.observation;
+    if (obs) {
+      if (obs.telescope) rows.push(row('Telescope', obs.telescope));
+      const noFilters = (p.filter_items?.length ?? 0) === 0 && !p.filters;
+      if (obs.filter && noFilters) rows.push(row('Filter', obs.filter));
+      if (obs.pixelScaleArcsec != null) {
+        const bin = obs.binning && obs.binning > 1 ? ` · bin ${obs.binning}×${obs.binning}` : '';
+        rows.push(row('Pixel scale', `${obs.pixelScaleArcsec.toFixed(2)}″/px${bin}`));
+      }
+      if (obs.observationStart && obs.observationEnd) {
+        const d = (s: string) =>
+          new Date(s).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+        const start = d(obs.observationStart);
+        const end = d(obs.observationEnd);
+        rows.push(row('Acquisition window', start === end ? start : `${start} → ${end}`));
+      }
     }
     return rows;
   });
@@ -331,140 +360,141 @@
 
 <AppHeader />
 
-<article class="detail">
-  <!-- Image stage: full-bleed black, ratio held by the photo -->
-  <div class="stage">
-    <div class="stage-frame">
-      <Img
-        photoId={p.id}
-        alt={title}
-        w={2400}
-        sizes="(max-width: 1200px) 100vw, calc(100vw - 380px)"
-      />
-      <!-- Corner reticles, accent-colored, per the spec -->
-      <span class="reticle reticle-tl" aria-hidden="true"></span>
-      <span class="reticle reticle-tr" aria-hidden="true"></span>
-      <span class="reticle reticle-bl" aria-hidden="true"></span>
-      <span class="reticle reticle-br" aria-hidden="true"></span>
+<main>
+  <article class="detail">
+    <!-- Image stage: full-bleed black, ratio held by the photo -->
+    <div class="stage">
+      <div class="stage-frame">
+        <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)" />
+        <!-- Corner reticles, accent-colored, per the spec -->
+        <span class="reticle reticle-tl" aria-hidden="true"></span>
+        <span class="reticle reticle-tr" aria-hidden="true"></span>
+        <span class="reticle reticle-bl" aria-hidden="true"></span>
+        <span class="reticle reticle-br" aria-hidden="true"></span>
+      </div>
     </div>
-  </div>
 
-  <!-- Info aside, 380px right column -->
-  <aside class="info">
-    <div class="info-inner">
-      <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
+    <!-- Info aside, 380px right column -->
+    <aside class="info">
+      <div class="info-inner">
+        <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
 
-      <h1 class="title">
-        {#if titleHead}
-          <em>{titleHead.head}</em>
-          <br />{titleHead.rest}
-        {:else}
-          {title}
+        <h1 class="title">
+          {#if titleHead}
+            <em>{titleHead.head}</em>
+            <br />{titleHead.rest}
+          {:else}
+            {title}
+          {/if}
+        </h1>
+
+        <div class="author-row">
+          <div class="avatar" aria-hidden="true">{(data.handle[0] ?? 'U').toUpperCase()}</div>
+          <div class="author-meta">
+            <a class="author-name" href={`/u/${data.handle}`}>@{data.handle}</a>
+          </div>
+          <a class="btn btn-secondary btn-sm" href={`/u/${data.handle}`}>View profile</a>
+        </div>
+
+        {#if p.caption}
+          <p class="caption">{p.caption}</p>
         {/if}
-      </h1>
 
-      <div class="author-row">
-        <div class="avatar" aria-hidden="true">{(data.handle[0] ?? 'U').toUpperCase()}</div>
-        <div class="author-meta">
-          <a class="author-name" href={`/u/${data.handle}`}>@{data.handle}</a>
-        </div>
-        <a class="btn btn-secondary btn-sm" href={`/u/${data.handle}`}>View profile</a>
-      </div>
-
-      {#if p.caption}
-        <p class="caption">{p.caption}</p>
-      {/if}
-
-      {#if p.tags.length > 0}
-        <ul class="tags">
-          {#each p.tags as tag}
-            <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
-          {/each}
-        </ul>
-      {/if}
-
-      {#if chips.length > 0 || orphans.length > 0}
-        <div class="filter-strip-head">
-          <span class="t-label">FILTERS</span>
-          <span class="t-meta"
-            >{chips.length} TYPED{orphans.length > 0 ? ` · ${orphans.length} LEGACY` : ''}</span
-          >
-        </div>
-        <div class="filter-strip">
-          {#each chips as f (f.id)}<FilterChip filter={f} />{/each}
-          {#each orphans as tok}
-            <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
-          {/each}
-        </div>
-        <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
-      {/if}
-
-      <div class="actions">
-        <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
-        <a class="btn btn-ghost btn-sm" href="#comments"
-          >{liveCommentCount} comment{liveCommentCount === 1 ? '' : 's'}</a
-        >
-        <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
-          >↗ Share</button
-        >
-        {#if isOwner}
-          <span class="action-divider" aria-hidden="true">·</span>
-          <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
-          <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
-            >↻ Replace</button
-          >
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm action-delete"
-            onclick={() => {
-              deleteError = null;
-              deleteOpen = true;
-            }}>× Delete</button
-          >
-        {/if}
-      </div>
-
-      {#if acquisitionRows.length > 0}
-        <div class="acquisition-header">
-          <span class="t-label">ACQUISITION RECORD</span>
-        </div>
-        <table class="exif">
-          <tbody>
-            {#each acquisitionRows as row}
-              <tr>
-                <th>{row.label}</th>
-                <td>
-                  {row.value}
-                  {#if row.sub}
-                    <br /><span class={row.subAccent ? 'sub accent' : 'sub'}>{row.sub}</span>
-                  {/if}
-                </td>
-              </tr>
+        {#if p.tags.length > 0}
+          <ul class="tags">
+            {#each p.tags as tag}
+              <li><a class="chip" href={`/tag/${tag}`}>#{tag}</a></li>
             {/each}
-          </tbody>
-        </table>
-      {/if}
+          </ul>
+        {/if}
 
-      <CommentThread
-        photoId={p.id}
-        photoOwnerId={p.owner_id}
-        initialCount={Number(p.comment_count)}
-        oncountchange={(n) => (liveCommentCount = n)}
-      />
+        {#if chips.length > 0 || orphans.length > 0}
+          <div class="filter-strip-head">
+            <span class="t-label">FILTERS</span>
+            <span class="t-meta"
+              >{chips.length} TYPED{orphans.length > 0 ? ` · ${orphans.length} LEGACY` : ''}</span
+            >
+          </div>
+          <div class="filter-strip">
+            {#each chips as f (f.id)}<FilterChip filter={f} />{/each}
+            {#each orphans as tok}
+              <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
+            {/each}
+          </div>
+          <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
+        {/if}
 
-      {#if data.morePhotos.length > 0}
-        <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
-        <div class="more-grid">
-          {#each data.morePhotos.slice(0, 4) as mp}
-            <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
-              <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
-            </a>
-          {/each}
+        <div class="actions">
+          <AppreciateButton photoId={p.id} initialCount={Number(p.appreciation_count)} />
+          <a class="btn btn-ghost btn-sm" href="#comments"
+            >{liveCommentCount} comment{liveCommentCount === 1 ? '' : 's'}</a
+          >
+          <button type="button" class="btn btn-ghost btn-sm action-share" onclick={share}
+            >↗ Share</button
+          >
+          {#if isOwner}
+            <span class="action-divider" aria-hidden="true">·</span>
+            <a class="btn btn-ghost btn-sm" href={`/upload/${p.id}/verify`}>✏ Edit</a>
+            <button type="button" class="btn btn-ghost btn-sm" onclick={() => (replaceOpen = true)}
+              >↻ Replace</button
+            >
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm action-delete"
+              onclick={() => {
+                deleteError = null;
+                deleteOpen = true;
+              }}>× Delete</button
+            >
+          {/if}
         </div>
-      {/if}
-    </div>
-  </aside>
-</article>
+
+        {#if acquisitionRows.length > 0}
+          <div class="acquisition-header">
+            <span class="t-label">ACQUISITION RECORD</span>
+          </div>
+          <table class="exif">
+            <tbody>
+              {#each acquisitionRows as row}
+                <tr>
+                  <th>{row.label}</th>
+                  <td>
+                    {row.value}
+                    {#if row.sub}
+                      <br /><span class={row.subAccent ? 'sub accent' : 'sub'}>{row.sub}</span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+
+        {#if data.processing}
+          <ProcessingPipeline report={data.processing} />
+        {/if}
+
+        <CommentThread
+          photoId={p.id}
+          photoOwnerId={p.owner_id}
+          initialCount={Number(p.comment_count)}
+          oncountchange={(n) => (liveCommentCount = n)}
+        />
+
+        {#if data.morePhotos.length > 0}
+          <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
+          <div class="more-grid">
+            {#each data.morePhotos.slice(0, 4) as mp}
+              <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
+                <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
+              </a>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </aside>
+  </article>
+</main>
 
 {#if isOwner}
   <ReplaceModal
@@ -492,6 +522,7 @@
   .detail {
     display: grid;
     grid-template-columns: 1fr 380px;
+    align-items: start;
     min-height: calc(100dvh - 64px);
   }
   .stage {
@@ -500,20 +531,14 @@
     align-items: center;
     justify-content: center;
     padding: 48px;
-    position: relative;
+    position: sticky;
+    top: 64px;
   }
   .stage-frame {
     position: relative;
     width: 100%;
     max-width: 100%;
-  }
-  .stage-frame :global(img) {
-    width: 100%;
-    height: auto;
-    display: block;
-    max-height: calc(100dvh - 64px - 96px);
-    object-fit: contain;
-    margin: 0 auto;
+    /* ZoomableImage owns image sizing (max-height passed as a prop). */
   }
   .reticle {
     position: absolute;
@@ -715,9 +740,7 @@
     }
     .stage {
       padding: 16px;
-    }
-    .stage-frame :global(img) {
-      max-height: 70vh;
+      position: static;
     }
     .more-grid {
       grid-template-columns: repeat(2, 1fr);

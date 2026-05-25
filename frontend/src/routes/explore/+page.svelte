@@ -80,23 +80,27 @@
 </svelte:head>
 
 <AppHeader />
-<DiscoveryHeader variant="explore" photoCount={data.initial.photos.length} />
-<FilterPills
-  variant="explore"
-  sort={data.sort}
-  since={data.since}
-  {...pillCategory !== undefined ? { category: pillCategory } : {}}
-  following={data.following}
-  onSortChange={(s) => applyFilter({ sort: s })}
-  onSinceChange={(s) => applyFilter({ since: s })}
-  onCategoryChange={(c) => applyFilter({ category: c })}
-  onFollowingChange={(f) => applyFilter({ following: f })}
-/>
-{#key `${data.sort}|${data.since}|${data.category ?? ''}|${data.following}`}
-  <CrossAuthorGrid
-    initial={{ photos: data.initial.photos, next_cursor: data.initial.next_cursor }}
-    loadMore={loadMoreFn}
+
+<main>
+  <DiscoveryHeader variant="explore" photoCount={data.initial.photos.length} />
+  <FilterPills
+    variant="explore"
+    sort={data.sort}
+    since={data.since}
+    {...pillCategory !== undefined ? { category: pillCategory } : {}}
+    following={data.following}
+    onSortChange={(s) => applyFilter({ sort: s })}
+    onSinceChange={(s) => applyFilter({ since: s })}
+    onCategoryChange={(c) => applyFilter({ category: c })}
+    onFollowingChange={(f) => applyFilter({ following: f })}
   />
-{/key}
+  {#key `${data.sort}|${data.since}|${data.category ?? ''}|${data.following}`}
+    <CrossAuthorGrid
+      initial={{ photos: data.initial.photos, next_cursor: data.initial.next_cursor }}
+      loadMore={loadMoreFn}
+    />
+  {/key}
+</main>
+
 <LightboxHost />
 <AppFooter />

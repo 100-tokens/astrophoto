@@ -28,7 +28,13 @@
   href="/u/{handle}/p/{photo.short_id}"
   aria-label={photo.target ?? 'Untitled'}
 >
-  <Img photoId={photo.id} w={Math.round(width * 2)} alt={photo.target ?? 'Untitled'} class="img" />
+  <Img
+    photoId={photo.id}
+    w={Math.round(width)}
+    sizes={`${Math.round(width)}px`}
+    alt={photo.target ?? 'Untitled'}
+    class="img"
+  />
   <span class="cap">
     <PhotoTitle photo={{ target: photo.target }} size="md" />
     <span class="apps">{photo.appreciations_count} ❤</span>

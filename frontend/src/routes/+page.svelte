@@ -123,169 +123,173 @@
 
 <AppHeader active="Gallery" />
 
-<!-- Hero strip -->
-<section class="hero">
-  <!-- Left column: editorial copy -->
-  <div class="hero-copy">
-    <div style="margin-bottom: 16px;">
-      {#if data.user && data.following_count > 0}
-        <span class="t-eyebrow accent">
-          ● FROM THE {data.following_count}
-          {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
-        </span>
-      {:else}
-        <span class="t-eyebrow">● {todayLine}</span>
-      {/if}
+<main>
+  <!-- Hero strip -->
+  <section class="hero">
+    <!-- Left column: editorial copy -->
+    <div class="hero-copy">
+      <div style="margin-bottom: 16px;">
+        {#if data.user && data.following_count > 0}
+          <span class="t-eyebrow accent">
+            ● FROM THE {data.following_count}
+            {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
+          </span>
+        {:else}
+          <span class="t-eyebrow">● {todayLine}</span>
+        {/if}
+      </div>
+
+      <h1 class="hero-h1">
+        A quiet archive<br />
+        of <em>the night sky</em>,<br />
+        kept by those who watch it.
+      </h1>
+
+      <p class="hero-body">
+        Astrophoto is a home for amateur astrophotographers — a place where an 18-hour integration
+        of NGC 7000 looks as monumental as it actually is, and where every frame carries its full
+        record: target, equipment, sky.
+      </p>
+
+      <div class="hero-actions">
+        {#if data.user}
+          <Button variant="primary" size="lg" href="/upload">Upload a frame →</Button>
+          <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+        {:else}
+          <Button variant="primary" size="lg" href="/signup">Open an account</Button>
+          <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
+        {/if}
+      </div>
+
+      <div class="hero-stats">
+        <div>
+          <span class="stat-num">{fmtCount(data.stats?.practitioners)}</span><br />practitioners
+        </div>
+        <div>
+          <span class="stat-num">{fmtCount(data.stats?.frames)}</span><br />frames
+        </div>
+        <div>
+          <span class="stat-num">{fmtHours(data.stats?.integration_seconds)}</span><br />integration
+        </div>
+      </div>
     </div>
 
-    <h1 class="hero-h1">
-      A quiet archive<br />
-      of <em>the night sky</em>,<br />
-      kept by those who watch it.
-    </h1>
+    <!-- Right column: featured photo -->
+    <div class="hero-photo-wrap">
+      <Photo
+        target={data.heroPhoto.target ?? ''}
+        src={data.heroSrc}
+        priority
+        style="position: absolute; inset: 0; height: 100%;"
+      />
 
-    <p class="hero-body">
-      Astrophoto is a home for amateur astrophotographers — a place where an 18-hour integration of
-      NGC 7000 looks as monumental as it actually is, and where every frame carries its full record:
-      target, equipment, sky.
-    </p>
-
-    <div class="hero-actions">
-      {#if data.user}
-        <Button variant="primary" size="lg" href="/upload">Upload a frame →</Button>
-        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
-      {:else}
-        <Button variant="primary" size="lg" href="/signup">Open an account</Button>
-        <Button variant="secondary" size="lg" href="/explore">Browse the gallery →</Button>
-      {/if}
-    </div>
-
-    <div class="hero-stats">
-      <div>
-        <span class="stat-num">{fmtCount(data.stats?.practitioners)}</span><br />practitioners
-      </div>
-      <div>
-        <span class="stat-num">{fmtCount(data.stats?.frames)}</span><br />frames
-      </div>
-      <div>
-        <span class="stat-num">{fmtHours(data.stats?.integration_seconds)}</span><br />integration
-      </div>
-    </div>
-  </div>
-
-  <!-- Right column: featured photo -->
-  <div class="hero-photo-wrap">
-    <Photo
-      target={data.heroPhoto.target ?? ''}
-      src={data.heroSrc}
-      style="position: absolute; inset: 0; height: 100%;"
-    />
-
-    <!-- Corner marks (inline — 24×24 at 0 inset) -->
-    <div
-      style="position: absolute; top: 0; right: 0; width: 24px; height: 24px;
+      <!-- Corner marks (inline — 24×24 at 0 inset) -->
+      <div
+        style="position: absolute; top: 0; right: 0; width: 24px; height: 24px;
 				   border-top: 1px solid var(--accent); border-right: 1px solid var(--accent);"
-    ></div>
-    <div
-      style="position: absolute; bottom: 0; left: 0; width: 24px; height: 24px;
+      ></div>
+      <div
+        style="position: absolute; bottom: 0; left: 0; width: 24px; height: 24px;
 				   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent);"
-    ></div>
+      ></div>
 
-    <!-- Featured tag — drops the "of the week" lie when we don't have
+      <!-- Featured tag — drops the "of the week" lie when we don't have
          a real weekly-curation mechanism. For logged-in users with
          follows it's the latest from someone they follow; for everyone
          else it's just the newest published frame. -->
-    <div class="fotw-tag">
-      <div style="color: var(--accent)">
-        {data.user && data.following_count > 0 ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
+      <div class="fotw-tag">
+        <div style="color: var(--accent)">
+          {data.user && data.following_count > 0 ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
+        </div>
+        {#if data.isReal}
+          <div style="color: var(--fg-primary)">
+            <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
+          </div>
+        {:else}
+          <div style="color: var(--fg-primary)">
+            {data.heroPhoto.target} · {data.heroPhoto.integration}
+          </div>
+          <div style="color: var(--fg-muted)">Marie Dubois · Bortle 4</div>
+        {/if}
       </div>
-      {#if data.isReal}
-        <div style="color: var(--fg-primary)">
-          <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
-        </div>
-      {:else}
-        <div style="color: var(--fg-primary)">
-          {data.heroPhoto.target} · {data.heroPhoto.integration}
-        </div>
-        <div style="color: var(--fg-muted)">Marie Dubois · Bortle 4</div>
-      {/if}
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- Filter bar — pills route to the per-category index pages so the
+  <!-- Filter bar — pills route to the per-category index pages so the
      home doubles as a category-shortcut bar. Sort / view toggles
      deferred to the /explore page where cursor-based pagination lives
      and toggles actually drive query state. -->
-<section class="filter-bar">
-  <div class="filter-chips">
-    {#each CATEGORIES as { label, href }, i}
-      <a
-        {href}
-        class={i === 0 ? 'chip chip-accent' : 'chip'}
-        style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; text-decoration: none;"
-      >
-        {label}
-      </a>
-    {/each}
-  </div>
-  <a
-    href="/explore"
-    class="filter-right t-label"
-    style="text-decoration: none; color: var(--fg-secondary);"
-  >
-    SORT · VIEW · FILTERS →
-  </a>
-</section>
+  <section class="filter-bar">
+    <div class="filter-chips">
+      {#each CATEGORIES as { label, href }, i}
+        <a
+          {href}
+          class={i === 0 ? 'chip chip-accent' : 'chip'}
+          style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; text-decoration: none;"
+        >
+          {label}
+        </a>
+      {/each}
+    </div>
+    <a
+      href="/explore"
+      class="filter-right t-label"
+      style="text-decoration: none; color: var(--fg-secondary);"
+    >
+      SORT · VIEW · FILTERS →
+    </a>
+  </section>
 
-<!-- Masonry grid -->
-<section class="masonry-section">
-  <div class="masonry">
-    {#each data.photos as photo, i}
-      <div class="masonry-item">
-        {#if data.isReal}
-          <a
-            href="/photo/{photo.slug}"
-            class="masonry-link"
-            aria-label={photo.target ?? 'Untitled'}
-          >
-            <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
-              <Photo
-                target={photo.target ?? ''}
-                src={photo.thumbSrc}
-                style="position: absolute; inset: 0; height: 100%;"
-              />
-            </div>
-          </a>
-        {:else}
-          <!-- Demo seed grid (DB empty): cards are visual placeholders only;
+  <!-- Masonry grid -->
+  <section class="masonry-section">
+    <div class="masonry">
+      {#each data.photos as photo, i}
+        <div class="masonry-item">
+          {#if data.isReal}
+            <a
+              href="/photo/{photo.slug}"
+              class="masonry-link"
+              aria-label={photo.target ?? 'Untitled'}
+            >
+              <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
+                <Photo
+                  target={photo.target ?? ''}
+                  src={photo.thumbSrc}
+                  style="position: absolute; inset: 0; height: 100%;"
+                />
+              </div>
+            </a>
+          {:else}
+            <!-- Demo seed grid (DB empty): cards are visual placeholders only;
                no link, since the slugs don't resolve in the backend. -->
-          <div class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
-            <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
-              <Photo
-                target={photo.target ?? ''}
-                src={photo.thumbSrc}
-                style="position: absolute; inset: 0; height: 100%;"
-              />
+            <div class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
+              <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
+                <Photo
+                  target={photo.target ?? ''}
+                  src={photo.thumbSrc}
+                  style="position: absolute; inset: 0; height: 100%;"
+                />
+              </div>
             </div>
+          {/if}
+          <div class="photo-meta-row">
+            <span class="photo-target"
+              ><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+            >
+            <span class="photo-integration">{photo.integration}</span>
           </div>
-        {/if}
-        <div class="photo-meta-row">
-          <span class="photo-target"><PhotoTitle photo={{ target: photo.target }} size="md" /></span
-          >
-          <span class="photo-integration">{photo.integration}</span>
+          <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>
         </div>
-        <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>
-      </div>
-    {/each}
-  </div>
-</section>
+      {/each}
+    </div>
+  </section>
 
-<!-- See-more — the home is a curated landing, paginated browsing lives
+  <!-- See-more — the home is a curated landing, paginated browsing lives
      on /explore (cursor-based). -->
-<div class="pagination">
-  <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
-</div>
+  <div class="pagination">
+    <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
+  </div>
+</main>
 
 <AppFooter />
 

@@ -16,9 +16,11 @@
     src?: string | undefined;
     style?: string | undefined;
     class?: string | undefined;
+    /** Above-the-fold hero: load eagerly with high fetch priority instead of lazy. */
+    priority?: boolean;
   }
 
-  let { target, src, style, class: className }: Props = $props();
+  let { target, src, style, class: className, priority = false }: Props = $props();
 
   // Track whether the real image has loaded (for LQIP fade-in)
   let loaded = $state(false);
@@ -103,7 +105,8 @@
     <img
       {src}
       alt={target}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchpriority={priority ? 'high' : undefined}
       decoding="async"
       onload={() => (loaded = true)}
       style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: {loaded

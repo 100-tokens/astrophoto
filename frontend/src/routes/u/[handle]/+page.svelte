@@ -101,29 +101,31 @@
 
 <AppHeader />
 
-<HeroPage
-  profile={data.profile}
-  viewMode={data.viewMode}
-  firstPage={data.firstPage}
-  onEditProfile={(s) => {
-    editorSection = s ?? null;
-    editorOpen = true;
-  }}
-  onPickCover={() => (coverPickerOpen = true)}
-/>
+<main>
+  <HeroPage
+    profile={data.profile}
+    viewMode={data.viewMode}
+    firstPage={data.firstPage}
+    onEditProfile={(s) => {
+      editorSection = s ?? null;
+      editorOpen = true;
+    }}
+    onPickCover={() => (coverPickerOpen = true)}
+  />
 
-{#if data.viewMode === 'owner'}
-  <ProfileEditor
-    bind:open={editorOpen}
-    bind:section={editorSection}
-    onSaved={() => void invalidateAll()}
-  />
-  <CoverPickerModal
-    bind:open={coverPickerOpen}
-    handle={data.profile.handle}
-    onPicked={() => void invalidateAll()}
-  />
-{/if}
+  {#if data.viewMode === 'owner'}
+    <ProfileEditor
+      bind:open={editorOpen}
+      bind:section={editorSection}
+      onSaved={() => void invalidateAll()}
+    />
+    <CoverPickerModal
+      bind:open={coverPickerOpen}
+      handle={data.profile.handle}
+      onPicked={() => void invalidateAll()}
+    />
+  {/if}
+</main>
 
 <LightboxHost />
 <AppFooter />

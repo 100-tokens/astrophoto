@@ -5,6 +5,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import type { PageProps } from './$types';
   import type { PhotographerListItem } from '$lib/api/PhotographerListItem';
 
@@ -107,68 +108,75 @@
 
 <AppHeader active="Photographers" />
 
-<section class="page-header">
-  <div class="t-eyebrow">PHOTOGRAPHERS · {items.length}</div>
-  <h1 class="page-title">The people behind the <em>photos</em></h1>
+<main>
+  <section class="page-header">
+    <div class="t-eyebrow">PHOTOGRAPHERS · {items.length}</div>
+    <h1 class="page-title">The people behind the <em>photos</em></h1>
 
-  <nav class="sort-pills" aria-label="Sort photographers">
-    <button class="pill" class:on={data.sort === 'active'} onclick={() => pickSort('active')}
-      >Most active</button
-    >
-    <button class="pill" class:on={data.sort === 'followers'} onclick={() => pickSort('followers')}
-      >Most followed</button
-    >
-    <button class="pill" class:on={data.sort === 'recent'} onclick={() => pickSort('recent')}
-      >Newest</button
-    >
-  </nav>
-</section>
+    <nav class="sort-pills" aria-label="Sort photographers">
+      <button class="pill" class:on={data.sort === 'active'} onclick={() => pickSort('active')}
+        >Most active</button
+      >
+      <button
+        class="pill"
+        class:on={data.sort === 'followers'}
+        onclick={() => pickSort('followers')}>Most followed</button
+      >
+      <button class="pill" class:on={data.sort === 'recent'} onclick={() => pickSort('recent')}
+        >Newest</button
+      >
+    </nav>
+  </section>
 
-<section class="grid">
-  {#each items as p (p.handle)}
-    <a class="card" href={`/u/${encodeURIComponent(p.handle)}`} aria-label={p.display_name}>
-      <div class="cover">
-        {#if p.cover_photo_id}
-          <Img photoId={p.cover_photo_id} alt="" w={400} />
-        {:else}
-          <span class="cover-fallback" aria-hidden="true">
-            {p.display_name[0]?.toUpperCase() ?? '·'}
-          </span>
-        {/if}
-      </div>
-      <div class="meta">
-        <div class="name">{p.display_name}</div>
-        <div class="handle t-mono">@{p.handle}</div>
-        <div class="stats t-meta">
-          <span>{p.frame_count}</span><span>frame{Number(p.frame_count) === 1 ? '' : 's'}</span>
-          <span class="sep">·</span>
-          <span>{formatHours(Number(p.integration_seconds))}</span><span>integration</span>
-          {#if Number(p.follower_count) > 0}
-            <span class="sep">·</span>
-            <span>{p.follower_count}</span><span
-              >follower{Number(p.follower_count) === 1 ? '' : 's'}</span
-            >
+  <section class="grid">
+    {#each items as p (p.handle)}
+      <a class="card" href={`/u/${encodeURIComponent(p.handle)}`} aria-label={p.display_name}>
+        <div class="cover">
+          {#if p.cover_photo_id}
+            <Img photoId={p.cover_photo_id} alt="" w={400} />
+          {:else}
+            <span class="cover-fallback" aria-hidden="true">
+              {p.display_name[0]?.toUpperCase() ?? '·'}
+            </span>
           {/if}
         </div>
-      </div>
-    </a>
-  {/each}
-</section>
+        <div class="meta">
+          <div class="name">{p.display_name}</div>
+          <div class="handle t-mono">@{p.handle}</div>
+          <div class="stats t-meta">
+            <span>{p.frame_count}</span><span>frame{Number(p.frame_count) === 1 ? '' : 's'}</span>
+            <span class="sep">·</span>
+            <span>{formatHours(Number(p.integration_seconds))}</span><span>integration</span>
+            {#if Number(p.follower_count) > 0}
+              <span class="sep">·</span>
+              <span>{p.follower_count}</span><span
+                >follower{Number(p.follower_count) === 1 ? '' : 's'}</span
+              >
+            {/if}
+          </div>
+        </div>
+      </a>
+    {/each}
+  </section>
 
-{#if items.length === 0}
-  <p class="empty t-meta">
-    No photographers yet. Be the first to <a href="/upload">publish a frame</a>.
-  </p>
-{/if}
+  {#if items.length === 0}
+    <EmptyState
+      title="No photographers yet"
+      message="Be the first to share your work and start the archive."
+      ctaLabel="Publish a frame"
+      ctaHref="/upload"
+    />
+  {/if}
 
-{#if cursor}
-  <div class="more">
-    <button class="btn-ghost" onclick={loadMore} disabled={loading}>
-      {loading ? 'Loading…' : 'Load more →'}
-    </button>
-    {#if loadError}<span class="err">{loadError}</span>{/if}
-  </div>
-{/if}
+  {#if cursor}
+    <div class="more">
+      <button class="btn-ghost" onclick={loadMore} disabled={loading}>
+        {loading ? 'Loading…' : 'Load more →'}
+      </button>
+      {#if loadError}<span class="err">{loadError}</span>{/if}
+    </div>
+  {/if}
+</main>
 
 <AppFooter />
 
@@ -300,15 +308,6 @@
     font-family: var(--font-mono);
     font-size: 12px;
   }
-  .empty {
-    padding: 48px 64px;
-    color: var(--fg-muted);
-    text-align: center;
-  }
-  .empty a {
-    color: var(--accent);
-  }
-
   @media (max-width: 1024px) {
     .grid {
       grid-template-columns: repeat(3, 1fr);

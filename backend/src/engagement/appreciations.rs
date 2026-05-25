@@ -34,7 +34,13 @@ pub async fn appreciate(
     if !is_visible_to(&state.pool, photo_id, Some(user.id)).await? {
         return Err(AppError::not_found("photo"));
     }
-    sqlx::query!(
+    // Maintain the denormalized photos.appreciations_count in the same tx as
+    // the junction insert. `on conflict do nothing` means a repeat appreciate
+    // touches 0 rows, so gate the increment on rows_affected to keep the toggle
+    // idempotent. The counter update is a runtime query so this stays buildable
+    // offline (no sqlx-prepare round-trip for a new macro).
+    let mut tx = state.pool.begin().await?;
+    let inserted = sqlx::query!(
         r#"
         insert into appreciations (user_id, photo_id)
         values ($1, $2)
@@ -43,8 +49,18 @@ pub async fn appreciate(
         user.id,
         photo_id
     )
-    .execute(&state.pool)
-    .await?;
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if inserted > 0 {
+        sqlx::query(
+            "update photos set appreciations_count = appreciations_count + 1 where id = $1",
+        )
+        .bind(photo_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -56,13 +72,26 @@ pub async fn unappreciate(
     if !is_visible_to(&state.pool, photo_id, Some(user.id)).await? {
         return Err(AppError::not_found("photo"));
     }
-    sqlx::query!(
+    let mut tx = state.pool.begin().await?;
+    let deleted = sqlx::query!(
         "delete from appreciations where user_id = $1 and photo_id = $2",
         user.id,
         photo_id
     )
-    .execute(&state.pool)
-    .await?;
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if deleted > 0 {
+        // greatest(.., 0) guards against ever driving the counter negative if
+        // it has drifted; the 0024 re-sync migration corrects historical drift.
+        sqlx::query(
+            "update photos set appreciations_count = greatest(appreciations_count - 1, 0) where id = $1",
+        )
+        .bind(photo_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

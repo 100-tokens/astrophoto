@@ -57,6 +57,7 @@
 </script>
 
 <AppHeader />
+
 <svelte:head>
   <title>{tagTitle}</title>
   <meta name="description" content={tagDescription} />
@@ -71,21 +72,24 @@
   <meta name="twitter:description" content={tagDescription} />
 </svelte:head>
 
-<DiscoveryHeader variant="tag" meta={data.initial.tag} />
-<FilterPills
-  variant="tag"
-  sort={data.sort}
-  since={data.since}
-  {...data.category !== undefined ? { category: data.category } : {}}
-  onSortChange={(s) => applyFilter({ sort: s })}
-  onSinceChange={(s) => applyFilter({ since: s })}
-  onCategoryChange={(c) => applyFilter({ category: c })}
-/>
-{#key `${data.sort}|${data.since}|${data.category ?? ''}`}
-  <CrossAuthorGrid
-    initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
-    loadMore={loadMoreFn}
+<main>
+  <DiscoveryHeader variant="tag" meta={data.initial.tag} />
+  <FilterPills
+    variant="tag"
+    sort={data.sort}
+    since={data.since}
+    {...data.category !== undefined ? { category: data.category } : {}}
+    onSortChange={(s) => applyFilter({ sort: s })}
+    onSinceChange={(s) => applyFilter({ since: s })}
+    onCategoryChange={(c) => applyFilter({ category: c })}
   />
-{/key}
+  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+    <CrossAuthorGrid
+      initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
+      loadMore={loadMoreFn}
+    />
+  {/key}
+</main>
+
 <LightboxHost />
 <AppFooter />

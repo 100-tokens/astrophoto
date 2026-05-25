@@ -21,7 +21,8 @@
   <span class="rank">#{String(item.featured_position).padStart(2, '0')}</span>
   <Img
     photoId={item.id}
-    w={600}
+    w={200}
+    sizes="(max-width: 640px) 50vw, 200px"
     aspectRatio="3/4"
     alt={item.target ?? 'Featured photo'}
     class="img"
