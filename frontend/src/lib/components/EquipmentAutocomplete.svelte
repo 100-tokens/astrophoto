@@ -68,7 +68,10 @@
   };
   let items = $state<Item[]>([]);
   let highlighted = $state(-1);
-  let lastSelected = $state('');
+  // Seed with the initial value so a pre-filled field (EXIF / applied
+  // setup) does not trigger the $effect's autocomplete fetch on mount —
+  // otherwise every prefilled field opens its suggestion list on load.
+  let lastSelected = $state(value ?? '');
   // Tracks the last text that was committed to avoid no-op blur round-trips.
   let lastCommitted = $state(value ?? '');
 
