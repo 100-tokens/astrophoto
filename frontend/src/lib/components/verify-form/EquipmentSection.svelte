@@ -34,6 +34,7 @@
     orphans: string[];
     startFilterOpen?: boolean;
     fromExif?: Set<string>;
+    fromSetup?: Set<string>;
     disabled?: boolean;
     onApply: (req: { setup_id: string; mode: 'fill_empty' | 'overwrite' }) => void;
     onDetach: () => void;
@@ -54,14 +55,17 @@
     orphans = [],
     startFilterOpen = false,
     fromExif = new Set<string>(),
+    fromSetup = new Set<string>(),
     disabled = false,
     onApply,
     onDetach,
     onChipsChange
   }: Props = $props();
 
-  function has(k: string) {
-    return fromExif.has(k);
+  function sourceFor(k: string): 'exif' | 'setup' | null {
+    if (fromSetup.has(k)) return 'setup';
+    if (fromExif.has(k)) return 'exif';
+    return null;
   }
 </script>
 
@@ -98,17 +102,17 @@
 
   <div class="equip-grid">
     <div class="equip-field">
-      <FieldShell label="CAMERA" detected={has('camera')}>
+      <FieldShell label="CAMERA" source={sourceFor('camera')}>
         <EquipmentAutocomplete name="camera" kind="camera" bind:value={camera} label={null} />
       </FieldShell>
     </div>
     <div class="equip-field">
-      <FieldShell label="TELESCOPE" detected={has('scope')}>
+      <FieldShell label="TELESCOPE" source={sourceFor('scope')}>
         <EquipmentAutocomplete name="scope" kind="telescope" bind:value={scope} label={null} />
       </FieldShell>
     </div>
     <div class="equip-field">
-      <FieldShell label="FOCAL MODIFIER" detected={has('focal_modifier')}>
+      <FieldShell label="FOCAL MODIFIER" source={sourceFor('focal_modifier')}>
         <EquipmentAutocomplete
           name="focal_modifier"
           kind="focal_modifier"
@@ -118,12 +122,12 @@
       </FieldShell>
     </div>
     <div class="equip-field">
-      <FieldShell label="MOUNT" detected={has('mount')}>
+      <FieldShell label="MOUNT" source={sourceFor('mount')}>
         <EquipmentAutocomplete name="mount" kind="mount" bind:value={mount} label={null} />
       </FieldShell>
     </div>
     <div class="equip-field equip-field--full">
-      <FieldShell label="GUIDING" full detected={has('guiding')}>
+      <FieldShell label="GUIDING" full source={sourceFor('guiding')}>
         <EquipmentAutocomplete name="guiding" kind="guiding" bind:value={guiding} label={null} />
       </FieldShell>
     </div>

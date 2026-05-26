@@ -12,6 +12,7 @@
   import VerifyAside from '$lib/components/verify-form/VerifyAside.svelte';
   import VerifyHero from '$lib/components/verify-form/VerifyHero.svelte';
   import VerifyStepper from '$lib/components/verify-form/VerifyStepper.svelte';
+  import { computeProvenance } from '$lib/utils/provenance';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { PlatesolveStatus } from '$lib/api/PlatesolveStatus';
   import type { SetupSummary } from '$lib/api/SetupSummary';
@@ -291,28 +292,14 @@
     return n;
   });
 
-  // For the ● FROM EXIF chip on each field — anything the server seeded
-  // with a non-empty/non-null value counts as "recovered".
-  let fromExif = $derived.by(() => {
-    const p = data.photo as ShowcasePhoto;
-    const s = new Set<string>();
-    if (p.lens) s.add('lens');
-    if (p.iso != null) s.add('iso');
-    if (p.exposure_s != null) s.add('exposure_s');
-    if (p.focal_mm != null) s.add('focal_mm');
-    if (p.aperture_f != null) s.add('aperture_f');
-    if (p.gain != null) s.add('gain');
-    if (p.sensor_temp_c != null) s.add('sensor_temp_c');
-    if (p.sessions != null) s.add('sessions');
-    if (p.ra_deg != null) s.add('ra_deg');
-    if (p.dec_deg != null) s.add('dec_deg');
-    if (p.camera) s.add('camera');
-    if (p.scope) s.add('scope');
-    if (p.focal_modifier) s.add('focal_modifier');
-    if (p.mount) s.add('mount');
-    if (p.guiding) s.add('guiding');
-    return s;
-  });
+  // Per-field provenance for the ● FROM EXIF / FROM SETUP chips. An
+  // equipment value matching the applied setup is FROM SETUP; mount /
+  // focal_modifier / guiding are never FROM EXIF (not in a file header);
+  // acquisition scalars are EXIF/solve-sourced when present. See
+  // computeProvenance for the full rules.
+  let provenance = $derived(computeProvenance(data.photo as ShowcasePhoto, data.setupValues));
+  let fromExif = $derived(provenance.fromExif);
+  let fromSetup = $derived(provenance.fromSetup);
 
   let appliedSpec = $derived.by(() => {
     if (!photo_setup_id) return null;
@@ -528,7 +515,7 @@
               <span class="status-dot" aria-hidden="true"></span>
               {recoveredCount === 0
                 ? '0 fields recovered — fill anything you remember'
-                : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered from EXIF`}
+                : `${recoveredCount} field${recoveredCount === 1 ? '' : 's'} recovered`}
             </span>
             <span class="t-meta status-meta">last edited just now</span>
           </div>
@@ -585,6 +572,7 @@
                 orphans={data.orphans}
                 startFilterOpen={false}
                 {fromExif}
+                {fromSetup}
                 onApply={onApplySetup}
                 onDetach={onDetachSetup}
                 onChipsChange={(next) => (filterChips = next)}

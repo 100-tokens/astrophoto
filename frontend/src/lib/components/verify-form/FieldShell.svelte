@@ -14,6 +14,13 @@
     label?: string | null | undefined;
     hint?: string | null | undefined;
     detected?: boolean;
+    /**
+     * Provenance of the field's value. Takes precedence over `detected`
+     * when set: 'exif' renders "● FROM EXIF", 'setup' renders
+     * "● FROM SETUP", null renders no chip. `detected` is kept for the
+     * acquisition fields, which are only ever EXIF/solve-sourced.
+     */
+    source?: 'exif' | 'setup' | null;
     full?: boolean;
     span?: number;
     children: Snippet;
@@ -25,22 +32,27 @@
     label,
     hint,
     detected = false,
+    source,
     full = false,
     span = 1,
     children,
     rightAdornment
   }: Props = $props();
 
+  let effSource = $derived(source ?? (detected ? 'exif' : null));
   let gridColumn = $derived(full ? '1 / -1' : span > 1 ? `span ${span}` : undefined);
 </script>
 
 <label class="field-shell" style:grid-column={gridColumn}>
-  {#if label || rightAdornment || detected}
+  {#if label || rightAdornment || effSource}
     <div class="field-shell__head">
       {#if label}<span class="t-label">{label}</span>{:else}<span></span>{/if}
       {#if rightAdornment}
         {@render rightAdornment()}
-      {:else if detected}
+      {:else if effSource === 'setup'}
+        <span class="from-setup" aria-hidden="true">● FROM SETUP</span>
+        <span class="vh">(pre-filled from your setup)</span>
+      {:else if effSource === 'exif'}
         <span class="from-exif" aria-hidden="true">● FROM EXIF</span>
         <span class="vh">(pre-filled from EXIF)</span>
       {/if}
@@ -64,13 +76,20 @@
     margin-bottom: 8px;
     gap: 12px;
   }
-  .from-exif {
+  .from-exif,
+  .from-setup {
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--accent);
     white-space: nowrap;
+  }
+  .from-exif {
+    color: var(--accent);
+  }
+  /* Setup-sourced reads as a distinct, quieter provenance than EXIF. */
+  .from-setup {
+    color: var(--fg-muted);
   }
   .hint {
     margin-top: 6px;

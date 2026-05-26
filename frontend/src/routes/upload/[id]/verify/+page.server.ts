@@ -89,7 +89,43 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
     // best-effort
   }
 
-  return { photo, setups, queueIds, queueIndex, orphans, platesolveStatus };
+  // When a setup is applied, fetch its detail so the page can label each
+  // equipment field's provenance (FROM SETUP vs FROM EXIF). Best-effort:
+  // on failure `setupValues` stays null and the page omits FROM SETUP.
+  let setupValues: {
+    camera: string | null;
+    scope: string | null;
+    mount: string | null;
+    focal_modifier: string | null;
+    guiding: string | null;
+  } | null = null;
+  if (photo.setup_id) {
+    try {
+      const dr = await fetch(`${API}/api/equipment/setups/${photo.setup_id}`, {
+        headers: { Cookie: cookie }
+      });
+      if (dr.ok) {
+        const detail = await dr.json();
+        const items = (detail.items ?? []) as Array<{
+          role: string;
+          item: { display_name: string };
+        }>;
+        const byRole = (role: string): string | null =>
+          items.find((i) => i.role === role)?.item.display_name ?? null;
+        setupValues = {
+          camera: byRole('main_camera'),
+          scope: byRole('optical_tube'),
+          mount: byRole('mount'),
+          focal_modifier: byRole('focal_modifier'),
+          guiding: (detail.guiding as string | null) ?? null
+        };
+      }
+    } catch {
+      // best-effort — provenance just falls back to FROM EXIF / none
+    }
+  }
+
+  return { photo, setups, queueIds, queueIndex, orphans, platesolveStatus, setupValues };
 };
 
 async function callPut(
