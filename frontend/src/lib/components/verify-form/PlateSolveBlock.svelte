@@ -56,7 +56,7 @@
 <section class="ps-block" class:ps-block--failed={isFailed} aria-live="polite">
   <header class="ps-head">
     <div class="t-label">OPTIONAL · PLATE SOLVE</div>
-    <span class="t-meta ps-source">ASTROMETRY.NET LOCAL</span>
+    <span class="t-meta ps-source">LOCAL SOLVE</span>
   </header>
   <p class="ps-body">
     {#if isFailed && status?.error}
