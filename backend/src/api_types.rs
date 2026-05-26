@@ -175,6 +175,8 @@ pub struct PhotoDetail {
     pub filters: Option<String>,
     /// Typed filter chips joined from photo_filters (migration 0018).
     pub filter_items: Vec<PhotoFilterChip>,
+    /// Per-filter integration breakdown (migration 0025).
+    pub filter_integrations: Vec<FilterIntegration>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
@@ -1029,4 +1031,20 @@ pub struct PhotoFilterChip {
     pub filter_type: Option<FilterType>,
     pub bandwidth_nm: Option<f64>,
     pub position: i32,
+}
+
+/// One per-filter integration row: how many sub-frames at what exposure,
+/// for a given filter. Display-only acquisition detail stored as a JSONB
+/// list on `photos.filter_integrations` (independent of the filter chips,
+/// so luminance — which is not a chip — is representable). Per-filter and
+/// grand totals are derived client-side (`sub_count * sub_exposure_s`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "FilterIntegration.ts")]
+pub struct FilterIntegration {
+    /// Filter band: "L" | "R" | "G" | "B" | "Ha" | "OIII" | "SII" | free text.
+    pub filter: String,
+    /// Number of integrated sub-frames. >= 0.
+    pub sub_count: i32,
+    /// Per-sub exposure in seconds. >= 0.
+    pub sub_exposure_s: f64,
 }

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select filter_integrations as \"fi!\" from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fi!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7827406a98831b293f728ea02bbe42a26ae6d21a4394d86fc0f1d8b45217e98c"
+}

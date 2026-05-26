@@ -59,6 +59,8 @@ pub struct PhotoDetail {
     pub filters: Option<String>,
     // Typed filter chips joined from photo_filters (migration 0018).
     pub filter_items: Vec<crate::api_types::PhotoFilterChip>,
+    // Per-filter integration breakdown (migration 0025); filled by the handler.
+    pub filter_integrations: Vec<crate::api_types::FilterIntegration>,
 }
 
 impl From<PhotoRow> for PhotoDetail {
@@ -104,6 +106,7 @@ impl From<PhotoRow> for PhotoDetail {
             tags: vec![],
             filters: p.filters,
             filter_items: vec![],
+            filter_integrations: vec![],
         }
     }
 }
@@ -181,6 +184,13 @@ pub async fn handler(
     dto.comment_count = comment_count;
     dto.tags = tags;
     dto.filter_items = filter_items;
+    let fi_json: serde_json::Value = sqlx::query_scalar!(
+        r#"select filter_integrations as "fi!" from photos where id = $1"#,
+        id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    dto.filter_integrations = serde_json::from_value(fi_json).unwrap_or_default();
     // Hide pipeline_error from non-owners — it can carry internal diagnostic strings.
     if viewer != Some(row_owner) {
         dto.pipeline_error = None;
