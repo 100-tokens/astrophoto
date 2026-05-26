@@ -121,7 +121,7 @@ pub struct FilterIntegration {
 
 ```rust
     detail.filter_integrations = sqlx::query_scalar!(
-        r#"select filter_integrations as "fi: sqlx::types::Json<Vec<crate::api_types::FilterIntegration>>"
+        r#"select filter_integrations as "fi!: sqlx::types::Json<Vec<crate::api_types::FilterIntegration>>"
              from photos where id = $1"#,
         id
     )
@@ -129,7 +129,7 @@ pub struct FilterIntegration {
     .await?
     .0;
 ```
-(Make `detail` `let mut`.)
+(Make `detail` `let mut`. The `!` in `"fi!: …"` is **required** — the column is `NOT NULL`, but sqlx can't infer non-null through a complex type override and would otherwise produce `Option<Json<…>>`, breaking the `.0` deref.)
 
 - [ ] **Step 4:** `cd backend && cargo sqlx prepare` (new `query_scalar!`), then `SQLX_OFFLINE=true cargo check`. Expected: clean.
 
@@ -353,7 +353,7 @@ filter_integrations: parseFilterIntegrations(),
 
 - [ ] **Step 4:** Ensure the autosave path (`useAutosave` patch builder) includes `filterIntegrations` so edits persist between commits. Follow how `tags` is threaded.
 
-- [ ] **Step 5:** `pnpm check`; verify via chrome-devtools-mcp on dev/staging: add two rows, reload, they persist; total line updates. **Step 6: Commit.**
+- [ ] **Step 5:** `pnpm check`; verify via chrome-devtools-mcp on dev/staging: add two rows → **confirm a `PUT /api/photos/:id` fires in the network tab carrying `filter_integrations`** (do NOT assume the autosave is wired — it silently did not fire for equipment-field edits this session; this network check is the proof), then reload and confirm the rows persist and the total line updates. If no PUT fires, the autosave wiring needs the field added explicitly. **Step 6: Commit.**
 
 ---
 
@@ -431,6 +431,8 @@ function decodeF64VecSum(b64: string | null): number | null {
 - [ ] **Step 1:** Add a file input / dropzone (accept `.xisf`). On files, `for (const f of files) { const facts = await parseXisfHeader(f); … }`. Upsert a row matched by `facts.filter` (case-insensitive); set `sub_count = facts.frames`, and `sub_exposure_s = facts.frames && facts.totalExposureS ? facts.totalExposureS / facts.frames : existing`. Skip files returning `null`; show a small "couldn't read N file(s)" note. The `<input type=file>` is **never** uploaded — only `parseXisfHeader` reads it.
 
 - [ ] **Step 2:** Copy line, e.g. *"Drop per-filter masters — header read locally, file not uploaded."*
+
+  **Critical:** the dropzone `<input type="file">` must have **no `name` attribute** (and live outside any data the form serializes) — otherwise the verify form action would submit the file on save, re-introducing the very upload we're avoiding. It is read only by `parseXisfHeader`.
 
 - [ ] **Step 3:** `pnpm check`; verify via chrome-devtools-mcp: drop a real per-filter master (if available) → row auto-fills, and the **network panel shows no upload** of the master. **Step 4: Commit.**
 

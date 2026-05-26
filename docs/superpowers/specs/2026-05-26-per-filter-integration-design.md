@@ -138,8 +138,10 @@ placed under `ACQUISITION & FRAMING`:
 - **PER-FILTER INTEGRATION** header + a row list. Each row: filter select
   (L/R/G/B/Ha/OIII/SII/other-freetext) · `sub_count` · `sub_exposure_s`
   (suffix `s`) · computed per-filter total (read-only) · remove.
-- **+ Add filter** button. Pre-seed rows from the existing filter chips +
-  an L row, as a convenience (user edits/removes).
+- **+ Add filter** button. The list starts empty — rows are added manually
+  or via the master dropzone. (No auto-seeding from chips on load: it would
+  dirty the form and risk autosaving empty rows, the failure mode seen with
+  the focal-modifier artifact.)
 - A dropzone: *"Drop per-filter masters (L/R/G/B) — we read the header
   locally; the file is not uploaded."* Each dropped file → `parseXisfHeader`
   → upsert the matching row (by filter). Accept multiple at once.
