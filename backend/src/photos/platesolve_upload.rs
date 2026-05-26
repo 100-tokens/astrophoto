@@ -646,8 +646,12 @@ async fn persist_processing_report(pool: &PgPool, photo_id: Uuid, bytes: Bytes) 
 /// service's stacked-grayscale render. Best-effort: on any failure the
 /// existing (service) render is left in place.
 async fn persist_local_render(storage: &dyn Storage, pool: &PgPool, photo_id: Uuid, bytes: Bytes) {
+    // 2560 px long edge: matches the photo page's largest CDN request
+    // (w=2560) so the display master is served full-resolution there, while
+    // keeping the render cheap enough for the small prod instance. The
+    // original XISF is retained for any higher-res need.
     let rendered = tokio::task::spawn_blocking(move || {
-        crate::photos::xisf_render::render_display_jpeg(&bytes, 4096)
+        crate::photos::xisf_render::render_display_jpeg(&bytes, 2560)
     })
     .await;
     let jpeg = match rendered {

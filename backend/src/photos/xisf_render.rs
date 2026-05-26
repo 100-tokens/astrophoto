@@ -16,7 +16,7 @@
 
 use std::io::Cursor;
 
-use image::{ImageFormat, RgbImage, imageops::FilterType};
+use image::{ImageFormat, RgbImage};
 use roxmltree::Document;
 
 use crate::photos::xisf_processing::ProcessingParseError;
@@ -34,9 +34,23 @@ struct ImageMeta {
     compressed: bool,
 }
 
+/// Pixel sample format, resolved once so the hot decode loop dispatches
+/// on an enum instead of re-matching the format string per pixel.
+#[derive(Clone, Copy)]
+enum SampleFormat {
+    U8,
+    U16,
+    U32,
+    F32,
+    F64,
+}
+
 /// Render the XISF's main image to a JPEG (long edge ≤ `max_edge`).
-/// `Ok(None)` when the format isn't one we decode (caller keeps its
-/// existing display image).
+/// Box-averages during decode straight into the target-size buffer, so a
+/// large source never materializes a full-resolution image (keeps peak
+/// memory low and avoids a separate resize pass — both matter on the
+/// small prod instance). `Ok(None)` when the format isn't one we decode
+/// (caller keeps its existing display image).
 pub fn render_display_jpeg(
     bytes: &[u8],
     max_edge: u32,
@@ -59,58 +73,85 @@ pub fn render_display_jpeg(
     if meta.compressed || !(meta.channels == 1 || meta.channels == 3) {
         return Ok(None);
     }
-    let sample_bytes = match meta.sample_format.as_str() {
-        "UInt8" => 1,
-        "UInt16" => 2,
-        "Float32" | "UInt32" => 4,
-        "Float64" => 8,
+    let (fmt, sample_bytes) = match meta.sample_format.as_str() {
+        "UInt8" => (SampleFormat::U8, 1usize),
+        "UInt16" => (SampleFormat::U16, 2),
+        "UInt32" => (SampleFormat::U32, 4),
+        "Float32" => (SampleFormat::F32, 4),
+        "Float64" => (SampleFormat::F64, 8),
         _ => return Ok(None),
     };
-    let plane = meta.width as usize * meta.height as usize;
+    let width = meta.width as usize;
+    let height = meta.height as usize;
+    let plane = width * height;
     let needed = plane * meta.channels * sample_bytes;
     let data = bytes
         .get(meta.offset..meta.offset + meta.length)
         .filter(|d| d.len() >= needed)
         .ok_or(ProcessingParseError::BadHeader)?;
 
+    // Read one sample as f32. The format is resolved once (above) so this
+    // hot path dispatches on an enum, not a per-pixel string comparison.
     let read = |i: usize| -> f32 {
         let b = &data[i * sample_bytes..(i + 1) * sample_bytes];
-        match meta.sample_format.as_str() {
-            "UInt8" => b[0] as f32 / 255.0,
-            "UInt16" => u16::from_le_bytes([b[0], b[1]]) as f32 / 65535.0,
-            "UInt32" => u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f32 / 4294967295.0,
-            "Float32" => f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
-            "Float64" => f64::from_le_bytes(b.try_into().unwrap_or([0; 8])) as f32,
-            _ => 0.0,
+        match fmt {
+            SampleFormat::U8 => b[0] as f32 / 255.0,
+            SampleFormat::U16 => u16::from_le_bytes([b[0], b[1]]) as f32 / 65535.0,
+            SampleFormat::U32 => u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f32 / 4294967295.0,
+            SampleFormat::F32 => f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+            SampleFormat::F64 => f64::from_le_bytes(b.try_into().unwrap_or([0; 8])) as f32,
         }
     };
     let to_u8 = |v: f32| -> u8 { (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8 };
 
-    let mut img = RgbImage::new(meta.width, meta.height);
-    for (i, px) in img.pixels_mut().enumerate() {
-        if meta.channels == 3 {
-            // planar: R plane, then G plane, then B plane
-            px.0 = [
-                to_u8(read(i)),
-                to_u8(read(plane + i)),
-                to_u8(read(2 * plane + i)),
-            ];
+    // Target size: long edge capped at `max_edge`, aspect preserved.
+    let me_ = max_edge as usize;
+    let (tw, th) = if width.max(height) > me_ {
+        if width >= height {
+            (me_, (height * me_ / width).max(1))
         } else {
-            let g = to_u8(read(i));
-            px.0 = [g, g, g];
+            ((width * me_ / height).max(1), me_)
+        }
+    } else {
+        (width, height)
+    };
+
+    // Box-average each source block straight into the target-size image —
+    // no full-resolution buffer is ever allocated and there is no separate
+    // resize pass. Near-1:1 targets degenerate to a copy; large downscales
+    // anti-alias (important for star fields). Each source pixel is read
+    // once across the tiling blocks.
+    let mut img = RgbImage::new(tw as u32, th as u32);
+    for ty in 0..th {
+        let sy0 = ty * height / th;
+        let sy1 = (((ty + 1) * height / th).max(sy0 + 1)).min(height);
+        for tx in 0..tw {
+            let sx0 = tx * width / tw;
+            let sx1 = (((tx + 1) * width / tw).max(sx0 + 1)).min(width);
+            let (mut rs, mut gs, mut bs) = (0f32, 0f32, 0f32);
+            let mut count = 0u32;
+            for sy in sy0..sy1 {
+                let base = sy * width;
+                for sx in sx0..sx1 {
+                    let i = base + sx;
+                    rs += read(i);
+                    if meta.channels == 3 {
+                        gs += read(plane + i);
+                        bs += read(2 * plane + i);
+                    }
+                    count += 1;
+                }
+            }
+            let c = count.max(1) as f32;
+            let px = if meta.channels == 3 {
+                [to_u8(rs / c), to_u8(gs / c), to_u8(bs / c)]
+            } else {
+                let g = to_u8(rs / c);
+                [g, g, g]
+            };
+            img.put_pixel(tx as u32, ty as u32, image::Rgb(px));
         }
     }
-
-    let img = if meta.width.max(meta.height) > max_edge {
-        let (nw, nh) = if meta.width >= meta.height {
-            (max_edge, (meta.height * max_edge) / meta.width)
-        } else {
-            ((meta.width * max_edge) / meta.height, max_edge)
-        };
-        image::imageops::resize(&img, nw.max(1), nh.max(1), FilterType::Lanczos3)
-    } else {
-        img
-    };
 
     let mut out = Vec::new();
     image::DynamicImage::ImageRgb8(img)
