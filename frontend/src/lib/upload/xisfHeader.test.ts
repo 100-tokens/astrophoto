@@ -31,8 +31,18 @@ describe('parseXisfHeader', () => {
     expect(await parseXisfHeader(makeXisf(xml))).toEqual({
       filter: 'L',
       frames: 120,
-      totalExposureS: 14400
+      totalExposureS: 14400,
+      subExposureS: null
     });
+  });
+
+  it('reads per-sub exposure from EXPTIME (real WBPP masterLight shape)', async () => {
+    const xml = `<xisf><Image geometry="3008:3008:1">
+      <FITSKeyword name="FILTER" value="'L'" comment="Filter used when taking image"/>
+      <FITSKeyword name="EXPTIME" value="15.00" comment="Exposure time in seconds"/>
+    </Image></xisf>`;
+    const out = await parseXisfHeader(makeXisf(xml));
+    expect(out).toEqual({ filter: 'L', frames: null, totalExposureS: null, subExposureS: 15 });
   });
 
   it('sums a multi-channel TotalExposureTime vector', async () => {
@@ -55,7 +65,7 @@ describe('parseXisfHeader', () => {
 
   it('returns nulls when fields are absent', async () => {
     const out = await parseXisfHeader(makeXisf(`<xisf><Image geometry="10:10:1"/></xisf>`));
-    expect(out).toEqual({ filter: null, frames: null, totalExposureS: null });
+    expect(out).toEqual({ filter: null, frames: null, totalExposureS: null, subExposureS: null });
   });
 
   it('returns null for a non-XISF file (bad signature)', async () => {

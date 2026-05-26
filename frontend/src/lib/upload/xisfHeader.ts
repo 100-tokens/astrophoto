@@ -12,6 +12,8 @@ export interface XisfHeaderFacts {
   filter: string | null;
   frames: number | null;
   totalExposureS: number | null;
+  /** Per-sub exposure (s) from the FITS EXPTIME/EXPOSURE keyword, when present. */
+  subExposureS: number | null;
 }
 
 const SIGNATURE = 'XISF0100';
@@ -58,11 +60,18 @@ export async function parseXisfHeader(file: File): Promise<XisfHeaderFacts | nul
     const n = parseInt(s.trim(), 10);
     return Number.isFinite(n) ? n : null;
   };
+  const numOf = (s: string | null): number | null => {
+    if (s == null) return null;
+    const n = parseFloat(unquote(s) ?? '');
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
   return {
     filter: unquote(fits('FILTER') ?? propValue('Instrument:Filter:Name')),
     frames: intOf(fits('NCOMBINE') ?? propValue('Process:Integration:ImageCount')),
-    totalExposureS: decodeF64VecSum(propValue('PCL:TotalExposureTime'))
+    totalExposureS: decodeF64VecSum(propValue('PCL:TotalExposureTime')),
+    // WBPP master lights carry the per-sub exposure directly as EXPTIME.
+    subExposureS: numOf(fits('EXPTIME') ?? fits('EXPOSURE'))
   };
 }
 
