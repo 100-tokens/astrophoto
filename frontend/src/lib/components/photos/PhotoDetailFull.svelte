@@ -12,6 +12,7 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import FilterChip from '$lib/components/equipment/FilterChip.svelte';
   import '$lib/components/equipment/filter-chip.css';
+  import { rowTotalS, grandTotalS, totalSubs, formatHm } from '$lib/utils/integration';
   import ProcessingPipeline from './ProcessingPipeline.svelte';
   import type { PhotoDetail, ProcessingReport } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
@@ -421,7 +422,26 @@
               <span class="fchip-orphan"><span class="lbl">legacy</span>{tok}</span>
             {/each}
           </div>
-          <!-- TODO Phase 3: per-filter integration (photo_filter_acquisitions) -->
+        {/if}
+
+        {#if p.filter_integrations?.length}
+          <div class="filter-strip-head">
+            <span class="t-label">INTEGRATION</span>
+            <span class="t-meta"
+              >{formatHm(grandTotalS(p.filter_integrations))} · {totalSubs(
+                p.filter_integrations
+              )} subs</span
+            >
+          </div>
+          <ul class="fi-strip">
+            {#each p.filter_integrations as r, i (i)}
+              <li class="fi-item">
+                <span class="fi-band">{r.filter || '—'}</span>
+                <span class="t-meta fi-detail">{r.sub_count} × {r.sub_exposure_s} s</span>
+                <span class="fi-rt t-meta">{formatHm(rowTotalS(r))}</span>
+              </li>
+            {/each}
+          </ul>
         {/if}
 
         <div class="actions">
@@ -675,6 +695,29 @@
     padding: 16px 0 8px;
     border-top: 1px solid var(--border-default);
     margin-top: 24px;
+  }
+  .fi-strip {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fi-item {
+    display: grid;
+    grid-template-columns: 3rem 1fr auto;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .fi-band {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--fg-primary);
+  }
+  .fi-rt {
+    color: var(--fg-secondary);
+    white-space: nowrap;
   }
   .filter-strip {
     display: flex;

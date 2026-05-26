@@ -168,6 +168,15 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     const ids = raw.split(',').filter(Boolean);
     return ids;
   };
+  const parseFilterIntegrations = (): unknown[] => {
+    try {
+      const raw = fd.get('filter_integrations');
+      const parsed: unknown = JSON.parse(typeof raw === 'string' ? raw : '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
   const filter_item_ids = parseFilterItemIds();
   return {
     target: strOrNull('target'),
@@ -189,6 +198,7 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
     filters: strOrNull('filters'),
     guiding: strOrNull('guiding'),
     tags: parseTags(),
+    filter_integrations: parseFilterIntegrations(),
     ...(filter_item_ids !== undefined ? { filter_item_ids } : {}),
     last_step
   };

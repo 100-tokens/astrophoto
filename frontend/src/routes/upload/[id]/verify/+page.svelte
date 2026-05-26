@@ -3,6 +3,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
   import AcquisitionGrid from '$lib/components/verify-form/AcquisitionGrid.svelte';
+  import FilterIntegration from '$lib/components/verify-form/FilterIntegration.svelte';
   import CategoryRadio from '$lib/components/verify-form/CategoryRadio.svelte';
   import EquipmentSection from '$lib/components/verify-form/EquipmentSection.svelte';
   import FooterActions from '$lib/components/verify-form/FooterActions.svelte';
@@ -13,6 +14,7 @@
   import VerifyHero from '$lib/components/verify-form/VerifyHero.svelte';
   import VerifyStepper from '$lib/components/verify-form/VerifyStepper.svelte';
   import { computeProvenance } from '$lib/utils/provenance';
+  import type { FilterIntegration as FilterIntegrationT } from '$lib/api/FilterIntegration';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { PlatesolveStatus } from '$lib/api/PlatesolveStatus';
   import type { SetupSummary } from '$lib/api/SetupSummary';
@@ -216,6 +218,7 @@
   let guiding = $state<string>(_sp.guiding ?? '');
   let filterChips = $state<PhotoFilterChip[]>(_fc);
   let tags = $state<string[]>(_sp.tags ?? []);
+  let filterIntegrations = $state<FilterIntegrationT[]>(_sp.filter_integrations ?? []);
   let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
 
   // Plate-solve completion calls invalidateAll(), which re-runs the load.
@@ -388,6 +391,7 @@
       guiding: strOrNull(guiding),
       tags,
       filter_item_ids: filterChips.map((f) => f.id),
+      filter_integrations: filterIntegrations,
       last_step: 'verify' as const
     };
   }
@@ -413,6 +417,7 @@
     void guiding;
     void filterChips;
     void tags;
+    void filterIntegrations;
     if (!firstSyncDone) {
       firstSyncDone = true;
       return;
@@ -542,6 +547,15 @@
                 bind:ra_deg
                 bind:dec_deg
                 {fromExif}
+              />
+              <FilterIntegration
+                value={filterIntegrations}
+                onChange={(next) => (filterIntegrations = next)}
+              />
+              <input
+                type="hidden"
+                name="filter_integrations"
+                value={JSON.stringify(filterIntegrations)}
               />
             </div>
 

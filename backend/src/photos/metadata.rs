@@ -85,6 +85,11 @@ pub struct MetadataUpdate {
     /// `None` (omitted) → no change to the junction.
     #[serde(default)]
     pub filter_item_ids: Option<Vec<uuid::Uuid>>,
+
+    /// Per-filter integration breakdown (migration 0025). double_option:
+    /// absent = unchanged; `[]`/null = clear; list = replace.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    pub filter_integrations: Option<Option<Vec<crate::api_types::FilterIntegration>>>,
 }
 
 pub async fn handler(
@@ -149,6 +154,29 @@ pub async fn handler(
     let tags_list = patch.tags.clone();
     let filter_item_ids = patch.filter_item_ids.clone();
 
+    // Per-filter integration: validate + clean. None (absent) → unchanged;
+    // Some(None) (clear) → []; Some(rows) → cleaned rows (drop blank rows,
+    // reject negatives, cap at 12). Stored as a JSONB list.
+    let filter_integrations_value: Option<serde_json::Value> = match &patch.filter_integrations {
+        None => None,
+        Some(opt) => {
+            let rows = opt.clone().unwrap_or_default();
+            if rows.len() > 12 {
+                return Err(AppError::Validation("max 12 filter integration rows".into()));
+            }
+            for r in &rows {
+                if r.sub_count < 0 || r.sub_exposure_s < 0.0 {
+                    return Err(AppError::Validation("negative integration value".into()));
+                }
+            }
+            let cleaned: Vec<_> = rows
+                .into_iter()
+                .filter(|r| !r.filter.trim().is_empty() || r.sub_count > 0)
+                .collect();
+            Some(serde_json::to_value(cleaned).unwrap_or_else(|_| serde_json::Value::Array(vec![])))
+        }
+    };
+
     // Open a transaction so the photos UPDATE and the target join-table writes
     // are committed or rolled back together.
     let mut tx = state.pool.begin().await?;
@@ -177,7 +205,8 @@ pub async fn handler(
           mount          = coalesce($27, mount),
           filters        = coalesce($28, filters),
           guiding        = coalesce($29, guiding),
-          focal_modifier = coalesce($38, focal_modifier)
+          focal_modifier = coalesce($38, focal_modifier),
+          filter_integrations = case when $39::bool then $40 else filter_integrations end
         where id = $1
         "#,
         id,
@@ -218,6 +247,8 @@ pub async fn handler(
         patch.sessions.is_some(),
         patch.sessions.flatten(),
         patch.focal_modifier.as_deref(),
+        patch.filter_integrations.is_some(),
+        filter_integrations_value,
     )
     .execute(&mut *tx)
     .await?;
