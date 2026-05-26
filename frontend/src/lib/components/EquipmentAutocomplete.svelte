@@ -421,7 +421,11 @@
     aria-autocomplete="list"
     aria-expanded={items.length > 0}
   />
-  {#if items.length || (value.trim() && !hasExactMatch && !creating)}
+  <!-- `value !== lastSelected` keeps the list (suggestions *and* the
+       "Create new" footer) closed on a prefilled load: a seeded value
+       equals lastSelected until the user actually edits it, so the field
+       no longer opens an orphan dropdown on mount. -->
+  {#if items.length || (value.trim() && value !== lastSelected && !hasExactMatch && !creating)}
     <ul class="ac-list card" role="listbox">
       {#each items as item, i (item.canonical_name)}
         {@const hasBrand = (item.brand ?? '').trim().length > 0}
