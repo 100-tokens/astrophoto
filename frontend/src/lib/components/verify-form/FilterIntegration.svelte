@@ -40,15 +40,23 @@
     let next = [...value];
     for (const f of files) {
       const facts = await parseXisfHeader(f);
-      if (!facts || (facts.filter == null && facts.frames == null && facts.totalExposureS == null)) {
+      if (
+        !facts ||
+        (facts.filter == null &&
+          facts.frames == null &&
+          facts.totalExposureS == null &&
+          facts.subExposureS == null)
+      ) {
         failed++;
         continue;
       }
       const label = (facts.filter ?? '').trim();
+      // Prefer the direct per-sub EXPTIME; else derive total ÷ frames.
       const derived =
-        facts.frames && facts.totalExposureS
+        facts.subExposureS ??
+        (facts.frames && facts.totalExposureS
           ? Math.round((facts.totalExposureS / facts.frames) * 100) / 100
-          : null;
+          : null);
       const idx = label
         ? next.findIndex((r) => r.filter.trim().toLowerCase() === label.toLowerCase())
         : -1;
