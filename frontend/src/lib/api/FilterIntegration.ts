@@ -9,7 +9,9 @@
  */
 export type FilterIntegration = {
   /**
-   * Filter band: "L" | "R" | "G" | "B" | "Ha" | "OIII" | "SII" | free text.
+   * Filter band ALIAS / display label: "L" | "R" | "G" | "B" | "Ha" |
+   * "OIII" | "SII" | free text. Read from the master's FITS FILTER
+   * keyword; this is a short code, not a catalog reference.
    */
   filter: string;
   /**
@@ -20,4 +22,12 @@ export type FilterIntegration = {
    * Per-sub exposure in seconds. >= 0.
    */
   sub_exposure_s: number;
+  /**
+   * Optional link to a real catalog filter (`equipment_items.id`,
+   * kind='filter'). The header `filter` is only an alias; the user
+   * reconciles it to a catalog item (auto-matched on drop, overridable).
+   * `None` when the band has no catalog entry — e.g. Luminance for a
+   * photographer who keeps no L filter in their catalog.
+   */
+  filter_item_id: string | null;
 };

@@ -550,6 +550,7 @@
               />
               <FilterIntegration
                 value={filterIntegrations}
+                catalogFilters={filterChips}
                 onChange={(next) => (filterIntegrations = next)}
               />
               <input
