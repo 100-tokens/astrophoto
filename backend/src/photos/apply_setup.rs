@@ -202,6 +202,24 @@ pub async fn apply(
         junction_empty && cache_empty
     };
 
+    // Never clobber plate-solve-measured framing with the setup's
+    // theoretical focal/aperture: the solve captures the real optical train
+    // (reducer, spacing) and is the ground truth. If this photo is already
+    // solved, drop the derived values so the CASE below is a no-op for those
+    // two columns. Runtime query (avoids regenerating the .sqlx cache for a
+    // read this handler doesn't otherwise need).
+    let already_solved = sqlx::query_scalar::<_, Option<f32>>(
+        "select platesolve_pixel_scale_arcsec from photos where id = $1",
+    )
+    .bind(photo_id)
+    .fetch_one(&mut *tx)
+    .await?
+    .is_some();
+    if already_solved {
+        derived_focal_mm = None;
+        derived_aperture_f = None;
+    }
+
     // The CASE expression handles both modes via the $2 boolean:
     //   - mode_overwrite=true: always write the new value.
     //   - mode_overwrite=false: only write if the current column is NULL or empty.

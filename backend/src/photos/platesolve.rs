@@ -416,6 +416,68 @@ pub async fn save_result(
         "has_distortion": result.has_distortion,
     });
     let solved_at = Utc::now();
+
+    // Measured FRAMING from the solve: the plate-solve pixel scale is the
+    // ground truth of the optical train (it captures the actual reducer /
+    // spacing the night was shot at), so it beats any catalog/theoretical
+    // focal. focal_mm = 206.265 × effective_pixel_µm ÷ scale_arcsec, where
+    // effective pixel = sensor pixel × binning. Pixel size comes from the
+    // XISF header (XPIXSZ, most reliable) first, the camera catalog second;
+    // aperture diameter from the telescope catalog gives the f-ratio.
+    // Computed/stored unconditionally on solve — the solve overwrites a
+    // theoretical value an applied setup may have written first.
+    let fits_f64 = |name: &str| -> Option<f64> {
+        result
+            .fits
+            .iter()
+            .find(|k| k.name.eq_ignore_ascii_case(name))
+            .and_then(|k| k.value.trim().trim_matches('\'').trim().parse::<f64>().ok())
+    };
+    let scale = result.wcs.pixel_scale_arcsec;
+    let mut pixel_um = fits_f64("XPIXSZ");
+    if pixel_um.is_none() {
+        // Catalog fallback: photos.camera (freetext) → camera_specs. The
+        // camera column matches a catalog display_name exactly when it was
+        // set from a setup; a hand-typed mismatch simply yields no fallback.
+        pixel_um = sqlx::query_scalar::<_, Option<f64>>(
+            r#"select cs.pixel_size_um::float8
+                 from photos p
+                 join equipment_items ei on ei.kind = 'camera' and ei.display_name = p.camera
+                 join camera_specs cs on cs.item_id = ei.id
+                where p.id = $1"#,
+        )
+        .bind(photo_id)
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+    }
+    let binning = fits_f64("XBINNING").filter(|b| *b > 0.0).unwrap_or(1.0);
+    let derived_focal_mm: Option<f64> = match (pixel_um, scale) {
+        (Some(px), s) if px > 0.0 && s > 0.0 => {
+            Some((206.265 * px * binning / s * 10.0).round() / 10.0)
+        }
+        _ => None,
+    };
+    let derived_aperture_f: Option<f32> = match derived_focal_mm {
+        Some(focal) => {
+            let aperture_mm = sqlx::query_scalar::<_, Option<i32>>(
+                r#"select ts.aperture_mm
+                     from photos p
+                     join equipment_items ei on ei.kind = 'telescope' and ei.display_name = p.scope
+                     join telescope_specs ts on ts.item_id = ei.id
+                    where p.id = $1"#,
+            )
+            .bind(photo_id)
+            .fetch_optional(pool)
+            .await?
+            .flatten();
+            aperture_mm
+                .filter(|a| *a > 0)
+                .map(|a| ((focal / f64::from(a) * 100.0).round() / 100.0) as f32)
+        }
+        None => None,
+    };
+
     // Runtime query (not `sqlx::query!`) on purpose — the new
     // `platesolve_*` columns ship with migration 0021. Until
     // `cargo sqlx prepare` is rerun against a DB that has the
@@ -435,6 +497,10 @@ pub async fn save_result(
                platesolve_detected_count     = $7,
                platesolve_solved_at          = $8,
                platesolve_embed_json         = $9,
+               -- Measured framing overrides any theoretical value; only
+               -- written when derived (pixel size + scale known).
+               focal_mm   = coalesce($11, focal_mm),
+               aperture_f = coalesce($12, aperture_f),
                platesolve_error              = null
          where id = $10
         "#,
@@ -449,6 +515,8 @@ pub async fn save_result(
     .bind(solved_at)
     .bind(embed_json)
     .bind(photo_id)
+    .bind(derived_focal_mm)
+    .bind(derived_aperture_f)
     .execute(pool)
     .await
     .map_err(AppError::from)?;
@@ -456,6 +524,8 @@ pub async fn save_result(
         photo_id = %photo_id,
         rms_arcsec = result.rms_arcsec,
         matched = result.matched_count,
+        focal_mm = ?derived_focal_mm,
+        aperture_f = ?derived_aperture_f,
         "plate-solve persisted"
     );
     Ok(())
