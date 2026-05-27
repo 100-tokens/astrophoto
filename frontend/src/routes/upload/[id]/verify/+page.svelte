@@ -258,6 +258,11 @@
     mount = out.mount ?? '';
     filterChips = (out.filter_items as PhotoFilterChip[] | undefined) ?? filterChips;
     guiding = out.guiding ?? '';
+    // FRAMING derived from the optical train (telescope focal × modifier
+    // factor, focal ÷ aperture). Reflect the backend's just-written values
+    // so FOCAL/APERTURE populate without a reload.
+    if (out.focal_mm != null) focal_mm = String(out.focal_mm);
+    if (out.aperture_f != null) aperture_f = String(out.aperture_f);
     photo_setup_id = out.setup_id ?? null;
   }
   async function onDetachSetup() {
@@ -547,6 +552,7 @@
                 bind:ra_deg
                 bind:dec_deg
                 {fromExif}
+                {fromSetup}
               />
               <FilterIntegration
                 value={filterIntegrations}

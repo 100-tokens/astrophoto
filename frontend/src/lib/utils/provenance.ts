@@ -21,12 +21,11 @@
 const EQUIPMENT = ['camera', 'scope', 'mount', 'focal_modifier', 'guiding'] as const;
 /** Equipment fields that can never originate from a file header. */
 const NEVER_EXIF = new Set<string>(['mount', 'focal_modifier', 'guiding']);
-/** Acquisition scalars, none of which apply-setup ever writes. */
+// Per-capture scalars: only ever written by parsing/plate-solve, never by
+// apply-setup — a present value is FROM EXIF.
 const ACQUISITION_NUMERIC = [
   'iso',
   'exposure_s',
-  'focal_mm',
-  'aperture_f',
   'gain',
   'sensor_temp_c',
   'sessions',
@@ -34,9 +33,16 @@ const ACQUISITION_NUMERIC = [
   'dec_deg'
 ] as const;
 
+// FRAMING scalars derived from the optical train. apply-setup computes
+// these from the telescope focal × focal-modifier factor (and focal ÷
+// aperture). When a setup is applied they read FROM SETUP; with no setup a
+// present value came from the file header → FROM EXIF.
+const FRAMING_NUMERIC = ['focal_mm', 'aperture_f'] as const;
+
 export type ProvenancePhoto = Partial<
   Record<(typeof EQUIPMENT)[number], string | null> &
-    Record<(typeof ACQUISITION_NUMERIC)[number], number | null> & { lens: string | null }
+    Record<(typeof ACQUISITION_NUMERIC)[number], number | null> &
+    Record<(typeof FRAMING_NUMERIC)[number], number | null> & { lens: string | null }
 >;
 
 export type SetupValues = Partial<Record<(typeof EQUIPMENT)[number], string | null>>;
@@ -68,6 +74,15 @@ export function computeProvenance(
   if (nonEmpty(photo.lens)) fromExif.add('lens');
   for (const field of ACQUISITION_NUMERIC) {
     if (photo[field] != null) fromExif.add(field);
+  }
+  // FRAMING: derived from the setup's optical train when one is applied;
+  // otherwise it came from the file header. (Mirrors the equipment-field
+  // philosophy above: with a setup present this is the common true case,
+  // a hand-typed override is the rare miss we accept.)
+  const hasSetup = setup != null;
+  for (const field of FRAMING_NUMERIC) {
+    if (photo[field] == null) continue;
+    (hasSetup ? fromSetup : fromExif).add(field);
   }
 
   return { fromExif, fromSetup };
