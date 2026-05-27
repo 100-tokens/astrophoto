@@ -437,7 +437,10 @@
             {#each p.filter_integrations as r, i (i)}
               <li class="fi-item">
                 <span class="fi-band">{r.filter || '—'}</span>
-                <span class="t-meta fi-detail">{r.sub_count} × {r.sub_exposure_s} s</span>
+                <span class="t-meta fi-detail"
+                  >{r.sub_count} × {r.sub_exposure_s} s{#if r.gain != null} · gain {r.gain}{/if}{#if r.sensor_temp_c != null}
+                    · {r.sensor_temp_c} °C{/if}</span
+                >
                 <span class="fi-rt t-meta">{formatHm(rowTotalS(r))}</span>
               </li>
             {/each}

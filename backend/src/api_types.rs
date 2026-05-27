@@ -1056,4 +1056,15 @@ pub struct FilterIntegration {
     /// photographer who keeps no L filter in their catalog.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter_item_id: Option<String>,
+    /// Per-session camera gain (unitless ZWO/CMOS setting, FITS `GAIN`).
+    /// Session-specific, so it lives here rather than the global
+    /// `photos.gain` column — R and Hα are often shot at different gains.
+    /// `None` when unknown. See `docs/superpowers/specs/2026-05-27-
+    /// acquisition-session-fields-design.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gain: Option<i32>,
+    /// Per-session sensor temperature in °C (FITS `CCD-TEMP`, actual,
+    /// preferred over `SET-TEMP`). Nullable; legitimately negative.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor_temp_c: Option<f64>,
 }

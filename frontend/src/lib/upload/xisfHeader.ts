@@ -14,6 +14,12 @@ export interface XisfHeaderFacts {
   totalExposureS: number | null;
   /** Per-sub exposure (s) from the FITS EXPTIME/EXPOSURE keyword, when present. */
   subExposureS: number | null;
+  /** Camera gain — FITS `GAIN` (unitless ZWO/CMOS setting). NOT `EGAIN`
+      (e⁻/ADU, a different quantity). Integer; null when absent. */
+  gain: number | null;
+  /** Sensor temperature in °C — FITS `CCD-TEMP` (actual) preferred over
+      `SET-TEMP` (target). Legitimately negative (cooled CMOS). */
+  sensorTempC: number | null;
 }
 
 const SIGNATURE = 'XISF0100';
@@ -86,6 +92,13 @@ export async function parseXisfHeader(file: File): Promise<XisfHeaderFacts | nul
     const n = parseFloat(unquote(s) ?? '');
     return Number.isFinite(n) && n > 0 ? n : null;
   };
+  // Like numOf but keeps zero and negatives — sensor temp is routinely
+  // below 0 °C on a cooled camera.
+  const floatOf = (s: string | null): number | null => {
+    if (s == null) return null;
+    const n = parseFloat(unquote(s) ?? '');
+    return Number.isFinite(n) ? n : null;
+  };
 
   const totalExposureS = decodeF64VecSum(propValue('PCL:TotalExposureTime'));
   // WBPP master lights carry the per-sub exposure directly as EXPTIME.
@@ -102,11 +115,19 @@ export async function parseXisfHeader(file: File): Promise<XisfHeaderFacts | nul
     historyIntegrationCount() ??
     (derivedFrames && derivedFrames > 0 ? derivedFrames : null);
 
+  // Session-specific acquisition (spec B). Gain is the unitless camera
+  // setting (GAIN), never EGAIN. Temp prefers the measured CCD-TEMP over
+  // the requested SET-TEMP.
+  const gain = intOf(fits('GAIN'));
+  const sensorTempC = floatOf(fits('CCD-TEMP') ?? fits('SET-TEMP'));
+
   return {
     filter: unquote(fits('FILTER') ?? propValue('Instrument:Filter:Name')),
     frames,
     totalExposureS,
-    subExposureS
+    subExposureS,
+    gain,
+    sensorTempC
   };
 }
 

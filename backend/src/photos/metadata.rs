@@ -170,6 +170,16 @@ pub async fn handler(
                 if r.sub_count < 0 || r.sub_exposure_s < 0.0 {
                     return Err(AppError::Validation("negative integration value".into()));
                 }
+                if r.gain.is_some_and(|g| g < 0) {
+                    return Err(AppError::Validation("negative gain".into()));
+                }
+                // Sensor temp is legitimately negative (cooled CMOS runs to
+                // −40 °C); only reject the physically absurd.
+                if r.sensor_temp_c
+                    .is_some_and(|t| !(-100.0..=100.0).contains(&t))
+                {
+                    return Err(AppError::Validation("sensor temp out of range".into()));
+                }
             }
             let cleaned: Vec<_> = rows
                 .into_iter()

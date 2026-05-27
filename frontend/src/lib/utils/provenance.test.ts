@@ -87,4 +87,42 @@ describe('computeProvenance', () => {
     expect(fromExif.has('lens')).toBe(false); // empty string
     expect(fromExif.has('exposure_s')).toBe(false);
   });
+
+  it('labels FRAMING + RA/Dec FROM SOLVE when solved, beating setup and exif', () => {
+    // The M20 case post-solve: focal/aperture measured at 1472.6 mm / f7.25,
+    // RA/Dec from the WCS — all ground truth, outranking the setup's theory.
+    const photo = {
+      camera: 'ZWO ASI533MM Pro',
+      scope: 'Celestron EdgeHD 8',
+      mount: 'ZWO AM5',
+      focal_mm: 1472.6,
+      aperture_f: 7.25,
+      ra_deg: 270.67,
+      dec_deg: -22.97,
+      gain: 100
+    };
+    const setup = { camera: 'ZWO ASI533MM Pro', scope: 'Celestron EdgeHD 8', mount: 'ZWO AM5' };
+    const { fromExif, fromSetup, fromSolve } = computeProvenance(photo, setup, { solved: true });
+
+    expect(fromSolve).toEqual(new Set(['focal_mm', 'aperture_f', 'ra_deg', 'dec_deg']));
+    // Solve wins: framing/coords are NOT tagged setup or exif.
+    expect(fromSetup.has('focal_mm')).toBe(false);
+    expect(fromSetup.has('aperture_f')).toBe(false);
+    expect(fromExif.has('ra_deg')).toBe(false);
+    expect(fromExif.has('dec_deg')).toBe(false);
+    // Equipment still resolves to the applied setup; per-capture scalars EXIF.
+    expect(fromSetup.has('camera')).toBe(true);
+    expect(fromExif.has('gain')).toBe(true);
+  });
+
+  it('without a solve, FRAMING stays FROM SETUP and RA/Dec FROM EXIF', () => {
+    const photo = { focal_mm: 2032, aperture_f: 10, ra_deg: 270.67, dec_deg: -22.97 };
+    const setup = { scope: 'Celestron EdgeHD 8' };
+    const { fromExif, fromSetup, fromSolve } = computeProvenance(photo, setup, { solved: false });
+    expect(fromSolve.size).toBe(0);
+    expect(fromSetup.has('focal_mm')).toBe(true);
+    expect(fromSetup.has('aperture_f')).toBe(true);
+    expect(fromExif.has('ra_deg')).toBe(true);
+    expect(fromExif.has('dec_deg')).toBe(true);
+  });
 });

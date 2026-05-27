@@ -16,11 +16,12 @@
     detected?: boolean;
     /**
      * Provenance of the field's value. Takes precedence over `detected`
-     * when set: 'exif' renders "● FROM EXIF", 'setup' renders
-     * "● FROM SETUP", null renders no chip. `detected` is kept for the
-     * acquisition fields, which are only ever EXIF/solve-sourced.
+     * when set: 'solve' renders "● FROM SOLVE" (measured by plate-solve),
+     * 'setup' renders "● FROM SETUP", 'exif' renders "● FROM EXIF", null
+     * renders no chip. `detected` is kept for the acquisition fields,
+     * which are only ever EXIF/solve-sourced.
      */
-    source?: 'exif' | 'setup' | null;
+    source?: 'exif' | 'setup' | 'solve' | null;
     full?: boolean;
     span?: number;
     children: Snippet;
@@ -49,6 +50,9 @@
       {#if label}<span class="t-label">{label}</span>{:else}<span></span>{/if}
       {#if rightAdornment}
         {@render rightAdornment()}
+      {:else if effSource === 'solve'}
+        <span class="from-solve" aria-hidden="true">● FROM SOLVE</span>
+        <span class="vh">(measured by plate-solve)</span>
       {:else if effSource === 'setup'}
         <span class="from-setup" aria-hidden="true">● FROM SETUP</span>
         <span class="vh">(pre-filled from your setup)</span>
@@ -77,7 +81,8 @@
     gap: 12px;
   }
   .from-exif,
-  .from-setup {
+  .from-setup,
+  .from-solve {
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.06em;
@@ -90,6 +95,10 @@
   /* Setup-sourced reads as a distinct, quieter provenance than EXIF. */
   .from-setup {
     color: var(--fg-muted);
+  }
+  /* Solve-sourced is measured ground truth — the strongest provenance. */
+  .from-solve {
+    color: var(--success);
   }
   .hint {
     margin-top: 6px;

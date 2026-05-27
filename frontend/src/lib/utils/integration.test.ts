@@ -5,23 +5,37 @@ import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
 describe('integration helpers', () => {
   it('row total = subs × exposure', () => {
     expect(
-      rowTotalS({ filter: 'L', sub_count: 120, sub_exposure_s: 120, filter_item_id: null })
+      rowTotalS({
+        filter: 'L',
+        sub_count: 120,
+        sub_exposure_s: 120,
+        filter_item_id: null,
+        gain: null,
+        sensor_temp_c: null
+      })
     ).toBe(14400);
   });
 
   it('grand total + sub count sum across rows', () => {
     const rows = [
-      { filter: 'L', sub_count: 120, sub_exposure_s: 120, filter_item_id: null },
-      { filter: 'R', sub_count: 40, sub_exposure_s: 120, filter_item_id: null }
+      { filter: 'L', sub_count: 120, sub_exposure_s: 120, filter_item_id: null, gain: null, sensor_temp_c: null },
+      { filter: 'R', sub_count: 40, sub_exposure_s: 120, filter_item_id: null, gain: null, sensor_temp_c: null }
     ];
     expect(grandTotalS(rows)).toBe(14400 + 4800);
     expect(totalSubs(rows)).toBe(160);
   });
 
   it('treats blank/NaN inputs as zero', () => {
-    expect(rowTotalS({ filter: '', sub_count: 0, sub_exposure_s: 0, filter_item_id: null })).toBe(
-      0
-    );
+    expect(
+      rowTotalS({
+        filter: '',
+        sub_count: 0,
+        sub_exposure_s: 0,
+        filter_item_id: null,
+        gain: null,
+        sensor_temp_c: null
+      })
+    ).toBe(0);
   });
 
   it('formats seconds as Hh MMm', () => {

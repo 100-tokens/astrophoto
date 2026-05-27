@@ -4,6 +4,10 @@
  * Processing-history fields we can pull out of a plate-solve
  * response. Every field is optional — XISFs from different
  * processing tools carry different subsets.
+ *
+ * See also [`crate::photos::xisf_processing::ObservationSummary`] — the
+ * public photo-page view parsed from the XISF header; deliberately
+ * separate, not a duplicate.
  */
 export type XisfDisplayMeta = {
   /**

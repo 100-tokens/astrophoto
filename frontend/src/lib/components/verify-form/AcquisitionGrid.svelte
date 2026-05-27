@@ -37,6 +37,13 @@
     /** Field keys whose value came from the applied setup (FRAMING:
         focal_mm / aperture_f derived from the optical train). */
     fromSetup?: Set<string>;
+    /** Field keys measured by a plate-solve (FRAMING + RA/Dec). Strongest
+        provenance — wins over setup/exif for the chip. */
+    fromSolve?: Set<string>;
+    /** True when ≥1 per-filter integration row exists. Gain / exposure /
+        sensor-temp then live per-filter (spec B); the global trio is hidden
+        but its value is preserved via hidden form carriers (no data loss). */
+    perFilter?: boolean;
     disabled?: boolean;
   }
 
@@ -53,15 +60,18 @@
     dec_deg = $bindable(''),
     fromExif = new Set<string>(),
     fromSetup = new Set<string>(),
+    fromSolve = new Set<string>(),
+    perFilter = false,
     disabled = false
   }: Props = $props();
 
   function has(k: string) {
     return fromExif.has(k);
   }
-  // FRAMING fields (focal_mm/aperture_f) can be setup-derived; the rest are
-  // EXIF/solve-only. setup wins over exif for the chip.
-  function sourceFor(k: string): 'exif' | 'setup' | null {
+  // Provenance precedence: a plate-solve measurement is ground truth, so it
+  // wins over a setup-derived theoretical value, which in turn wins over EXIF.
+  function sourceFor(k: string): 'exif' | 'setup' | 'solve' | null {
+    if (fromSolve.has(k)) return 'solve';
     if (fromSetup.has(k)) return 'setup';
     if (fromExif.has(k)) return 'exif';
     return null;
@@ -158,7 +168,9 @@
 
 <div class="acq-head">
   <div class="t-label">ACQUISITION &amp; FRAMING</div>
-  <span class="t-meta acq-head-meta">10 fields · numeric</span>
+  <span class="t-meta acq-head-meta"
+    >{perFilter ? 'gain · exposure · temp → per-filter below' : '10 fields · numeric'}</span
+  >
 </div>
 <div class="acq-grid">
   <TextField name="lens" label="LENS" bind:value={lens} detected={has('lens')} {disabled} />
@@ -188,25 +200,41 @@
     placeholder="auto / N/A"
     {disabled}
   />
-  <TextField
-    name="exposure_s"
-    label="EXPOSURE"
-    bind:value={exposure_s}
-    suffix="s"
-    numeric
-    detected={has('exposure_s')}
-    {disabled}
-  />
-  <TextField name="gain" label="GAIN" bind:value={gain} numeric detected={has('gain')} {disabled} />
-  <TextField
-    name="sensor_temp_c"
-    label="SENSOR TEMP"
-    bind:value={sensor_temp_c}
-    suffix="°C"
-    numeric
-    detected={has('sensor_temp_c')}
-    {disabled}
-  />
+  {#if perFilter}
+    <!-- Per-filter rows are authoritative for gain/exposure/temp; hide the
+         global trio but keep their values in the form via hidden carriers so
+         toggling back (removing all rows) restores them — no silent wipe. -->
+    <input type="hidden" name="exposure_s" value={exposure_s} />
+    <input type="hidden" name="gain" value={gain} />
+    <input type="hidden" name="sensor_temp_c" value={sensor_temp_c} />
+  {:else}
+    <TextField
+      name="exposure_s"
+      label="EXPOSURE"
+      bind:value={exposure_s}
+      suffix="s"
+      numeric
+      detected={has('exposure_s')}
+      {disabled}
+    />
+    <TextField
+      name="gain"
+      label="GAIN"
+      bind:value={gain}
+      numeric
+      detected={has('gain')}
+      {disabled}
+    />
+    <TextField
+      name="sensor_temp_c"
+      label="SENSOR TEMP"
+      bind:value={sensor_temp_c}
+      suffix="°C"
+      numeric
+      detected={has('sensor_temp_c')}
+      {disabled}
+    />
+  {/if}
   <TextField
     name="sessions"
     label="SESSIONS"
@@ -221,7 +249,7 @@
   <FieldShell
     label="RA"
     hint="J2000 · HMS or decimal degrees · auto from solve"
-    detected={has('ra_deg')}
+    source={sourceFor('ra_deg')}
     span={2}
   >
     <input
@@ -245,7 +273,7 @@
   <FieldShell
     label="DEC"
     hint="J2000 · DMS or decimal degrees · auto from solve"
-    detected={has('dec_deg')}
+    source={sourceFor('dec_deg')}
     span={2}
   >
     <input

@@ -53,10 +53,16 @@ function nonEmpty(v: string | null | undefined): string {
 
 export function computeProvenance(
   photo: ProvenancePhoto,
-  setup: SetupValues | null
-): { fromExif: Set<string>; fromSetup: Set<string> } {
+  setup: SetupValues | null,
+  opts?: { solved?: boolean }
+): { fromExif: Set<string>; fromSetup: Set<string>; fromSolve: Set<string> } {
   const fromExif = new Set<string>();
   const fromSetup = new Set<string>();
+  const fromSolve = new Set<string>();
+  // A plate-solve measures the true focal/aperture (from pixel scale) and
+  // RA/Dec — that's ground truth, so it outranks both a setup's theoretical
+  // optical train and the file header. See spec A (focal precedence) + B.
+  const solved = opts?.solved ?? false;
 
   for (const field of EQUIPMENT) {
     const value = nonEmpty(photo[field]);
@@ -73,17 +79,24 @@ export function computeProvenance(
 
   if (nonEmpty(photo.lens)) fromExif.add('lens');
   for (const field of ACQUISITION_NUMERIC) {
-    if (photo[field] != null) fromExif.add(field);
+    if (photo[field] == null) continue;
+    // RA/Dec are plate-solve outputs: FROM SOLVE when solved, else FROM EXIF.
+    if (solved && (field === 'ra_deg' || field === 'dec_deg')) {
+      fromSolve.add(field);
+    } else {
+      fromExif.add(field);
+    }
   }
-  // FRAMING: derived from the setup's optical train when one is applied;
-  // otherwise it came from the file header. (Mirrors the equipment-field
-  // philosophy above: with a setup present this is the common true case,
-  // a hand-typed override is the rare miss we accept.)
+  // FRAMING: a solve measures it (wins); else derived from the setup's optical
+  // train when one is applied; else it came from the file header. (Mirrors the
+  // equipment-field philosophy: the common true case, accepting a hand-typed
+  // override as the rare miss.)
   const hasSetup = setup != null;
   for (const field of FRAMING_NUMERIC) {
     if (photo[field] == null) continue;
-    (hasSetup ? fromSetup : fromExif).add(field);
+    if (solved) fromSolve.add(field);
+    else (hasSetup ? fromSetup : fromExif).add(field);
   }
 
-  return { fromExif, fromSetup };
+  return { fromExif, fromSetup, fromSolve };
 }

@@ -20,8 +20,9 @@
     mono?: boolean;
     detected?: boolean;
     /** Explicit provenance; takes precedence over `detected` in FieldShell.
-        'setup' → ● FROM SETUP, 'exif' → ● FROM EXIF, null → no chip. */
-    source?: 'exif' | 'setup' | null;
+        'solve' → ● FROM SOLVE, 'setup' → ● FROM SETUP, 'exif' → ● FROM EXIF,
+        null → no chip. */
+    source?: 'exif' | 'setup' | 'solve' | null;
     hint?: string | null;
     suffix?: string | null;
     full?: boolean;
