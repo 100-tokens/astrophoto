@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
+  import Textarea from '$lib/components/Textarea.svelte';
   import AcquisitionGrid from '$lib/components/verify-form/AcquisitionGrid.svelte';
   import FilterIntegration from '$lib/components/verify-form/FilterIntegration.svelte';
   import CategoryRadio from '$lib/components/verify-form/CategoryRadio.svelte';
@@ -194,6 +195,11 @@
   const _fc = initialFilterChips();
 
   let target = $state<string>(_sp.target ?? '');
+  // Prose description shown on the published photo. The dedicated /caption
+  // step was removed (commit 56acf4e); verify is now the single publish step,
+  // so the caption lives here. Seeded via `_sp` like every other field, which
+  // dodges the "$state initialized from prop" lint (see the note above).
+  let caption = $state<string>(_sp.caption ?? '');
   // Default 'other' (matches CategorySegmented's prior behavior). The visible
   // segmented row highlights nothing in this state — the user must click DSO
   // / Planetary / etc. to commit, or the discrete "Other" link below.
@@ -377,6 +383,7 @@
     };
     return {
       target: strOrNull(target),
+      caption: strOrNull(caption),
       category: strOrNull(category),
       lens: strOrNull(lens),
       iso: numOrNull(iso),
@@ -404,6 +411,7 @@
   $effect(() => {
     // Reference every editable field so the effect re-runs on any edit.
     void target;
+    void caption;
     void category;
     void lens;
     void iso;
@@ -517,7 +525,7 @@
 
         <form
           method="POST"
-          action={isPublished ? '?/save_changes_published' : '?/save_continue'}
+          action={isPublished ? '?/save_changes_published' : '?/publish'}
           class="metadata-form"
         >
           <div class="status-pill-row" aria-live="polite">
@@ -537,6 +545,16 @@
 
             <div class="block">
               <CategoryRadio bind:value={category} />
+            </div>
+
+            <div class="block">
+              <div class="t-label">CAPTION</div>
+              <Textarea
+                name="caption"
+                rows={4}
+                bind:value={caption}
+                placeholder="Describe the conditions, processing, equipment used…"
+              />
             </div>
 
             <div class="block">
@@ -624,9 +642,6 @@
           <FooterActions {saveState} {secondsSinceSaved}>
             {#snippet actions()}
               {#if isPublished}
-                <Button variant="ghost" href="/upload/{data.photo.id}/caption" size="lg">
-                  Edit caption →
-                </Button>
                 <Button variant="primary" type="submit" size="lg" disabled={isProcessing}>
                   Save changes
                 </Button>
@@ -641,7 +656,7 @@
                   Save as draft
                 </Button>
                 <Button variant="primary" size="lg" type="submit" disabled={isProcessing}>
-                  Continue →
+                  Publish
                 </Button>
               {/if}
             {/snippet}

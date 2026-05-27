@@ -141,7 +141,9 @@ async function callPut(
   });
 }
 
-function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
+// `last_step` only ever 'verify' now — the 'caption' step was removed
+// (56acf4e) and verify is the single publish step.
+function collectPatch(fd: FormData, last_step: 'verify') {
   const numOrNull = (k: string): number | null => {
     const v = fd.get(k);
     if (typeof v !== 'string' || v.trim() === '') return null;
@@ -180,6 +182,7 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
   const filter_item_ids = parseFilterItemIds();
   return {
     target: strOrNull('target'),
+    caption: strOrNull('caption'),
     camera: strOrNull('camera'),
     lens: strOrNull('lens'),
     iso: numOrNull('iso'),
@@ -205,18 +208,6 @@ function collectPatch(fd: FormData, last_step: 'verify' | 'caption') {
 }
 
 export const actions: Actions = {
-  save_continue: async ({ request, params, fetch, cookies }) => {
-    const fd = await request.formData();
-    const patch = collectPatch(fd, 'verify');
-    const cookie = cookies
-      .getAll()
-      .map((c) => `${c.name}=${c.value}`)
-      .join('; ');
-    const r = await callPut(fetch, cookie, params.id!, patch);
-    if (!r.ok) return fail(r.status, { error: await r.text() });
-    redirect(303, `/upload/${params.id}/caption`);
-  },
-
   save_draft: async ({ request, params, fetch, cookies }) => {
     const fd = await request.formData();
     const patch = collectPatch(fd, 'verify');
@@ -240,16 +231,23 @@ export const actions: Actions = {
     redirect(303, `/photo/${params.id}`);
   },
 
-  publish: async ({ params, fetch, cookies }) => {
+  publish: async ({ request, params, fetch, cookies }) => {
+    // Verify is the single publish step (the /caption page was removed in
+    // 56acf4e). Persist the form — including the caption — then flip the
+    // photo to published, so publishing never strands unsaved edits.
+    const fd = await request.formData();
+    const patch = collectPatch(fd, 'verify');
     const cookie = cookies
       .getAll()
       .map((c) => `${c.name}=${c.value}`)
       .join('; ');
-    const r = await fetch(`${API}/api/photos/${params.id}/publish`, {
+    const saved = await callPut(fetch, cookie, params.id!, patch);
+    if (!saved.ok) return fail(saved.status, { error: await saved.text() });
+    const published = await fetch(`${API}/api/photos/${params.id}/publish`, {
       method: 'POST',
       headers: { Cookie: cookie }
     });
-    if (!r.ok) return fail(r.status, { error: await r.text() });
+    if (!published.ok) return fail(published.status, { error: await published.text() });
     redirect(303, `/photo/${params.id}`);
   }
 };
