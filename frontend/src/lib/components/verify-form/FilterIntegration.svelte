@@ -31,9 +31,31 @@
   function update(i: number, patch: Partial<FilterIntegration>) {
     onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
+  // Nullable numeric setters: blank (or unparseable) → null clears the
+  // value; gain is an integer, temp a float (legitimately negative).
+  function setGain(i: number, raw: string) {
+    const t = raw.trim();
+    const n = parseInt(t, 10);
+    update(i, { gain: t === '' || !Number.isFinite(n) ? null : n });
+  }
+  function setTemp(i: number, raw: string) {
+    const t = raw.trim();
+    const n = parseFloat(t);
+    update(i, { sensor_temp_c: t === '' || !Number.isFinite(n) ? null : n });
+  }
   function add() {
     if (value.length >= MAX_ROWS) return;
-    onChange([...value, { filter: '', sub_count: 0, sub_exposure_s: 0, filter_item_id: null }]);
+    onChange([
+      ...value,
+      {
+        filter: '',
+        sub_count: 0,
+        sub_exposure_s: 0,
+        filter_item_id: null,
+        gain: null,
+        sensor_temp_c: null
+      }
+    ]);
   }
   function remove(i: number) {
     onChange(value.filter((_, j) => j !== i));
@@ -79,7 +101,10 @@
           filter: cur.filter || label,
           sub_count: facts.frames ?? cur.sub_count,
           sub_exposure_s: derived ?? cur.sub_exposure_s,
-          filter_item_id: cur.filter_item_id ?? autoLink ?? null
+          filter_item_id: cur.filter_item_id ?? autoLink ?? null,
+          // Never clobber a value the user already set by hand.
+          gain: cur.gain ?? facts.gain ?? null,
+          sensor_temp_c: cur.sensor_temp_c ?? facts.sensorTempC ?? null
         };
       } else if (next.length < MAX_ROWS) {
         next = [
@@ -88,7 +113,9 @@
             filter: label,
             sub_count: facts.frames ?? 0,
             sub_exposure_s: derived ?? 0,
-            filter_item_id: autoLink ?? null
+            filter_item_id: autoLink ?? null,
+            gain: facts.gain ?? null,
+            sensor_temp_c: facts.sensorTempC ?? null
           }
         ];
       }
@@ -156,6 +183,26 @@
         oninput={(e) => update(i, { sub_exposure_s: parseFloat(e.currentTarget.value) || 0 })}
         aria-label="sub exposure seconds"
       />
+      <input
+        class="input input-mono"
+        type="text"
+        inputmode="numeric"
+        placeholder="gain"
+        value={row.gain ?? ''}
+        {disabled}
+        oninput={(e) => setGain(i, e.currentTarget.value)}
+        aria-label="gain"
+      />
+      <input
+        class="input input-mono"
+        type="text"
+        inputmode="text"
+        placeholder="°C"
+        value={row.sensor_temp_c ?? ''}
+        {disabled}
+        oninput={(e) => setTemp(i, e.currentTarget.value)}
+        aria-label="sensor temp celsius"
+      />
       <span class="fi-total t-meta">{formatHm(rowTotalS(row))}</span>
       <button
         type="button"
@@ -199,8 +246,8 @@
   }
   .fi-row {
     display: grid;
-    grid-template-columns: 0.7fr 1.4fr 0.7fr 0.7fr auto auto;
-    gap: 12px;
+    grid-template-columns: 0.7fr 1.3fr 0.6fr 0.6fr 0.6fr 0.6fr auto auto;
+    gap: 10px;
     align-items: center;
     margin-bottom: 8px;
   }

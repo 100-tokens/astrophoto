@@ -311,9 +311,15 @@
   // focal_modifier / guiding are never FROM EXIF (not in a file header);
   // acquisition scalars are EXIF/solve-sourced when present. See
   // computeProvenance for the full rules.
-  let provenance = $derived(computeProvenance(data.photo as ShowcasePhoto, data.setupValues));
+  // A successful plate-solve makes focal/aperture/RA/Dec measured ground
+  // truth → FROM SOLVE (spec B). The load already fetched the solve status.
+  let solved = $derived(data.platesolveStatus?.state === 'solved');
+  let provenance = $derived(
+    computeProvenance(data.photo as ShowcasePhoto, data.setupValues, { solved })
+  );
   let fromExif = $derived(provenance.fromExif);
   let fromSetup = $derived(provenance.fromSetup);
+  let fromSolve = $derived(provenance.fromSolve);
 
   let appliedSpec = $derived.by(() => {
     if (!photo_setup_id) return null;
@@ -571,6 +577,8 @@
                 bind:dec_deg
                 {fromExif}
                 {fromSetup}
+                {fromSolve}
+                perFilter={filterIntegrations.length > 0}
               />
               <FilterIntegration
                 value={filterIntegrations}

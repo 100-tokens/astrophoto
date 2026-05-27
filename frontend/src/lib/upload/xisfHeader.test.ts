@@ -32,7 +32,9 @@ describe('parseXisfHeader', () => {
       filter: 'L',
       frames: 120,
       totalExposureS: 14400,
-      subExposureS: null
+      subExposureS: null,
+      gain: null,
+      sensorTempC: null
     });
   });
 
@@ -42,7 +44,14 @@ describe('parseXisfHeader', () => {
       <FITSKeyword name="EXPTIME" value="15.00" comment="Exposure time in seconds"/>
     </Image></xisf>`;
     const out = await parseXisfHeader(makeXisf(xml));
-    expect(out).toEqual({ filter: 'L', frames: null, totalExposureS: null, subExposureS: 15 });
+    expect(out).toEqual({
+      filter: 'L',
+      frames: null,
+      totalExposureS: null,
+      subExposureS: 15,
+      gain: null,
+      sensorTempC: null
+    });
   });
 
   it('sums a multi-channel TotalExposureTime vector', async () => {
@@ -69,7 +78,9 @@ describe('parseXisfHeader', () => {
       filter: 'R',
       frames: 60,
       totalExposureS: null,
-      subExposureS: 60
+      subExposureS: 60,
+      gain: null,
+      sensorTempC: null
     });
   });
 
@@ -100,7 +111,35 @@ describe('parseXisfHeader', () => {
 
   it('returns nulls when fields are absent', async () => {
     const out = await parseXisfHeader(makeXisf(`<xisf><Image geometry="10:10:1"/></xisf>`));
-    expect(out).toEqual({ filter: null, frames: null, totalExposureS: null, subExposureS: null });
+    expect(out).toEqual({
+      filter: null,
+      frames: null,
+      totalExposureS: null,
+      subExposureS: null,
+      gain: null,
+      sensorTempC: null
+    });
+  });
+
+  it('reads gain (GAIN) and sensor temp (CCD-TEMP, preferred over SET-TEMP)', async () => {
+    const xml = `<xisf><Image geometry="3008:3008:1">
+      <FITSKeyword name="FILTER" value="'Ha'" comment="filter"/>
+      <FITSKeyword name="GAIN" value="120" comment="Sensor gain"/>
+      <FITSKeyword name="CCD-TEMP" value="-10.10" comment="CCD temperature"/>
+      <FITSKeyword name="SET-TEMP" value="-10.00" comment="Requested temperature"/>
+    </Image></xisf>`;
+    const out = await parseXisfHeader(makeXisf(xml));
+    expect(out?.gain).toBe(120);
+    expect(out?.sensorTempC).toBeCloseTo(-10.1, 5); // CCD-TEMP wins over SET-TEMP
+  });
+
+  it('falls back to SET-TEMP when CCD-TEMP is absent; gain null when no keyword', async () => {
+    const xml = `<xisf><Image geometry="100:100:1">
+      <FITSKeyword name="SET-TEMP" value="-5.00" comment="Requested temperature"/>
+    </Image></xisf>`;
+    const out = await parseXisfHeader(makeXisf(xml));
+    expect(out?.sensorTempC).toBe(-5);
+    expect(out?.gain).toBeNull();
   });
 
   it('returns null for a non-XISF file (bad signature)', async () => {
