@@ -162,7 +162,9 @@ pub async fn handler(
         Some(opt) => {
             let rows = opt.clone().unwrap_or_default();
             if rows.len() > 12 {
-                return Err(AppError::Validation("max 12 filter integration rows".into()));
+                return Err(AppError::Validation(
+                    "max 12 filter integration rows".into(),
+                ));
             }
             for r in &rows {
                 if r.sub_count < 0 || r.sub_exposure_s < 0.0 {
@@ -172,6 +174,17 @@ pub async fn handler(
             let cleaned: Vec<_> = rows
                 .into_iter()
                 .filter(|r| !r.filter.trim().is_empty() || r.sub_count > 0)
+                .map(|mut r| {
+                    // Lenient: keep filter_item_id only when it is a
+                    // well-formed UUID; a stale/garbage id silently drops to
+                    // None rather than failing the whole save. Existence in
+                    // equipment_items is NOT enforced here — a deleted filter
+                    // shouldn't block editing the photo.
+                    r.filter_item_id = r
+                        .filter_item_id
+                        .filter(|id| uuid::Uuid::parse_str(id).is_ok());
+                    r
+                })
                 .collect();
             Some(serde_json::to_value(cleaned).unwrap_or_else(|_| serde_json::Value::Array(vec![])))
         }

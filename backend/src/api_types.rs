@@ -1041,10 +1041,19 @@ pub struct PhotoFilterChip {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "FilterIntegration.ts")]
 pub struct FilterIntegration {
-    /// Filter band: "L" | "R" | "G" | "B" | "Ha" | "OIII" | "SII" | free text.
+    /// Filter band ALIAS / display label: "L" | "R" | "G" | "B" | "Ha" |
+    /// "OIII" | "SII" | free text. Read from the master's FITS FILTER
+    /// keyword; this is a short code, not a catalog reference.
     pub filter: String,
     /// Number of integrated sub-frames. >= 0.
     pub sub_count: i32,
     /// Per-sub exposure in seconds. >= 0.
     pub sub_exposure_s: f64,
+    /// Optional link to a real catalog filter (`equipment_items.id`,
+    /// kind='filter'). The header `filter` is only an alias; the user
+    /// reconciles it to a catalog item (auto-matched on drop, overridable).
+    /// `None` when the band has no catalog entry — e.g. Luminance for a
+    /// photographer who keeps no L filter in their catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_item_id: Option<String>,
 }
