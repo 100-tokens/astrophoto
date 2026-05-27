@@ -57,6 +57,41 @@ describe('parseXisfHeader', () => {
     expect(out?.frames).toBe(40);
   });
 
+  it('reads frame count from an ImageIntegration HISTORY comment (WBPP masterLight)', async () => {
+    // R/G/B masters from WBPP carry no NCOMBINE keyword; the count lives in a
+    // HISTORY keyword's comment attribute, value left empty.
+    const xml = `<xisf><Image geometry="3008:3008:1">
+      <FITSKeyword name="FILTER" value="'R'" comment="Filter used when taking image"/>
+      <FITSKeyword name="EXPTIME" value="60.00" comment="Exposure time in seconds"/>
+      <FITSKeyword name="HISTORY" value="" comment="ImageIntegration.numberOfImages: 60"/>
+    </Image></xisf>`;
+    expect(await parseXisfHeader(makeXisf(xml))).toEqual({
+      filter: 'R',
+      frames: 60,
+      totalExposureS: null,
+      subExposureS: 60
+    });
+  });
+
+  it('reads frame count from a FastIntegration HISTORY comment', async () => {
+    const xml = `<xisf><Image geometry="3007:3007:1">
+      <FITSKeyword name="FILTER" value="'L'" comment="Filter used when taking image"/>
+      <FITSKeyword name="EXPTIME" value="30.00" comment="Exposure time in seconds"/>
+      <FITSKeyword name="HISTORY" value="" comment="FastIntegration.numberOfImages: 241"/>
+    </Image></xisf>`;
+    const out = await parseXisfHeader(makeXisf(xml));
+    expect(out?.frames).toBe(241);
+  });
+
+  it('derives frame count from total ÷ sub exposure when no count keyword exists', async () => {
+    const xml = `<xisf><Image geometry="100:100:1">
+      <FITSKeyword name="EXPTIME" value="30.00" comment="Exposure time in seconds"/>
+      <Property id="PCL:TotalExposureTime" value="${f64leB64([240])}"/>
+    </Image></xisf>`;
+    const out = await parseXisfHeader(makeXisf(xml));
+    expect(out?.frames).toBe(8); // 240 / 30
+  });
+
   it('reads filter from PCL when no FITS FILTER keyword', async () => {
     const xml = `<xisf><Property id="Instrument:Filter:Name" value="Ha"/></xisf>`;
     const out = await parseXisfHeader(makeXisf(xml));
@@ -69,7 +104,10 @@ describe('parseXisfHeader', () => {
   });
 
   it('returns null for a non-XISF file (bad signature)', async () => {
-    const f = new File([new Uint8Array([0x42, 0x4d, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])], 'x.bmp');
+    const f = new File(
+      [new Uint8Array([0x42, 0x4d, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])],
+      'x.bmp'
+    );
     expect(await parseXisfHeader(f)).toBeNull();
   });
 

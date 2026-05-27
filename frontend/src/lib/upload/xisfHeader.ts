@@ -53,8 +53,29 @@ export async function parseXisfHeader(file: File): Promise<XisfHeaderFacts | nul
     return inner.replace(/<!\[CDATA\[|\]\]>/g, '').trim() || null;
   };
 
+  // Sub count recorded inside a HISTORY keyword's *comment*, not its value.
+  // PixInsight writes the integration count there, e.g.
+  //   <FITSKeyword name="HISTORY" value="" comment="ImageIntegration.numberOfImages: 60"/>
+  //   <FITSKeyword name="HISTORY" value="" comment="FastIntegration.numberOfImages: 241"/>
+  // WBPP / FastIntegration masters carry no NCOMBINE keyword nor a
+  // Process:Integration:ImageCount property, so without this scan the sub
+  // count never auto-fills and the row reads "0 subs". Matches both the
+  // ImageIntegration and FastIntegration module prefixes.
+  const historyIntegrationCount = (): number | null => {
+    for (const m of xml.matchAll(/<FITSKeyword\b[^>]*?\/?>/gi)) {
+      if (attr(m[0], 'name')?.toUpperCase() !== 'HISTORY') continue;
+      const comment = attr(m[0], 'comment');
+      const hit = comment?.match(/(?:Image|Fast)Integration\.numberOfImages:\s*(\d+)/i);
+      if (hit?.[1]) {
+        const n = parseInt(hit[1], 10);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    return null;
+  };
+
   const unquote = (s: string | null): string | null =>
-    s == null ? null : (s.trim().replace(/^'|'$/g, '').trim() || null);
+    s == null ? null : s.trim().replace(/^'|'$/g, '').trim() || null;
   const intOf = (s: string | null): number | null => {
     if (s == null) return null;
     const n = parseInt(s.trim(), 10);
@@ -66,12 +87,26 @@ export async function parseXisfHeader(file: File): Promise<XisfHeaderFacts | nul
     return Number.isFinite(n) && n > 0 ? n : null;
   };
 
+  const totalExposureS = decodeF64VecSum(propValue('PCL:TotalExposureTime'));
+  // WBPP master lights carry the per-sub exposure directly as EXPTIME.
+  const subExposureS = numOf(fits('EXPTIME') ?? fits('EXPOSURE'));
+  // Frame count, in priority order: explicit keyword/property → HISTORY
+  // comment (PixInsight WBPP/FastIntegration) → derived from total ÷ sub
+  // when both are known (e.g. a master that only recorded TotalExposureTime).
+  const derivedFrames =
+    totalExposureS != null && subExposureS != null && subExposureS > 0
+      ? Math.round(totalExposureS / subExposureS)
+      : null;
+  const frames =
+    intOf(fits('NCOMBINE') ?? propValue('Process:Integration:ImageCount')) ??
+    historyIntegrationCount() ??
+    (derivedFrames && derivedFrames > 0 ? derivedFrames : null);
+
   return {
     filter: unquote(fits('FILTER') ?? propValue('Instrument:Filter:Name')),
-    frames: intOf(fits('NCOMBINE') ?? propValue('Process:Integration:ImageCount')),
-    totalExposureS: decodeF64VecSum(propValue('PCL:TotalExposureTime')),
-    // WBPP master lights carry the per-sub exposure directly as EXPTIME.
-    subExposureS: numOf(fits('EXPTIME') ?? fits('EXPOSURE'))
+    frames,
+    totalExposureS,
+    subExposureS
   };
 }
 
