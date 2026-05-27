@@ -72,13 +72,26 @@ const proxy: RequestHandler = async ({ request, params, fetch, cookies, getClien
     headers.set('x-forwarded-for', existing ? `${existing}, ${clientIp}` : clientIp);
   }
 
-  const init: RequestInit = {
+  // `duplex` is required by undici to send a streaming request body but is
+  // not yet in the DOM lib's RequestInit — widen the type locally instead
+  // of suppressing with a directive (which would itself error if the lib
+  // ever adds it).
+  const init: RequestInit & { duplex?: 'half' } = {
     method: request.method,
     headers,
     redirect: 'manual'
   };
   if (request.method !== 'GET' && request.method !== 'HEAD') {
-    init.body = await request.arrayBuffer();
+    // Stream the body straight through rather than buffering it with
+    // arrayBuffer(): the plate-solve re-solve and photo-replace flows POST
+    // multi-MB files, and buffering would spike proxy memory to ~2× the
+    // body, resident, on an unbounded concurrency layer. Streaming keeps it
+    // flat. NOTE: this is only half the fix — adapter-node's BODY_SIZE_LIMIT
+    // (default 512 KB) is enforced on the incoming stream regardless of
+    // streaming, so it must be raised on the frontend service in tandem.
+    // See CLAUDE.md "Gotchas".
+    init.body = request.body;
+    init.duplex = 'half';
   }
 
   const upstream = await fetch(targetUrl, init);
