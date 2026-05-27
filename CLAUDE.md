@@ -234,6 +234,24 @@ Frontend-only (run from `frontend/`):
   route even on non-localhost hosts. Use this in staging when CloudFront
   is not yet provisioned, or in prod for emergency CDN bypass. Leave
   unset in normal operation.
+- **The SvelteKit `/api/*` reverse proxy is body-size-capped by the Node
+  adapter, NOT by the backend.** `frontend/src/routes/api/[...rest]/+server.ts`
+  forwards every browser→API call so the session cookie stays same-origin.
+  `@sveltejs/adapter-node` enforces `BODY_SIZE_LIMIT` (default **512 KB**)
+  on the incoming stream — so any large-body POST routed through the proxy
+  (plate-solve re-solve, photo replace) is killed *at the frontend* before
+  reaching axum, surfacing as a useless SvelteKit `500 {"message":"Internal
+  Error"}` (note: capital-I, no `error` field — that's how you tell it from
+  a backend `AppError`, which is `{"error":...,"message":"internal error"}`).
+  Most uploads dodge this by going **direct to S3** via a presigned PUT, so
+  the proxy cap stayed invisible until the side-channel endpoints shipped.
+  Whenever a backend `/api/*` route's `DefaultBodyLimit` is raised, raise
+  `BODY_SIZE_LIMIT` on **both** frontend Koyeb services
+  (`astrophoto-prod-web`, `astrophoto-staging-web`) to a value just above
+  the backend cap (currently `MAX_XISF_BYTES` = 128 MiB → set
+  `BODY_SIZE_LIMIT=140000000`). The proxy streams the body
+  (`init.body = request.body; init.duplex = 'half'`) so it never buffers the
+  whole file; do not revert that to `arrayBuffer()`.
 
 ---
 
