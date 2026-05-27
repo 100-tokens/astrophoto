@@ -34,6 +34,9 @@
     dec_deg?: string;
     /** Set of field keys whose initial value came from EXIF / plate-solve. */
     fromExif?: Set<string>;
+    /** Field keys whose value came from the applied setup (FRAMING:
+        focal_mm / aperture_f derived from the optical train). */
+    fromSetup?: Set<string>;
     disabled?: boolean;
   }
 
@@ -49,11 +52,19 @@
     ra_deg = $bindable(''),
     dec_deg = $bindable(''),
     fromExif = new Set<string>(),
+    fromSetup = new Set<string>(),
     disabled = false
   }: Props = $props();
 
   function has(k: string) {
     return fromExif.has(k);
+  }
+  // FRAMING fields (focal_mm/aperture_f) can be setup-derived; the rest are
+  // EXIF/solve-only. setup wins over exif for the chip.
+  function sourceFor(k: string): 'exif' | 'setup' | null {
+    if (fromSetup.has(k)) return 'setup';
+    if (fromExif.has(k)) return 'exif';
+    return null;
   }
 
   // --- RA / DEC display layer -------------------------------------------
@@ -157,7 +168,7 @@
     bind:value={focal_mm}
     suffix="mm"
     numeric
-    detected={has('focal_mm')}
+    source={sourceFor('focal_mm')}
     {disabled}
   />
   <TextField
@@ -165,7 +176,7 @@
     label="APERTURE"
     bind:value={aperture_f}
     numeric
-    detected={has('aperture_f')}
+    source={sourceFor('aperture_f')}
     {disabled}
   />
   <TextField

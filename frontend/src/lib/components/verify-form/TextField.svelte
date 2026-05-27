@@ -19,6 +19,9 @@
     placeholder?: string;
     mono?: boolean;
     detected?: boolean;
+    /** Explicit provenance; takes precedence over `detected` in FieldShell.
+        'setup' → ● FROM SETUP, 'exif' → ● FROM EXIF, null → no chip. */
+    source?: 'exif' | 'setup' | null;
     hint?: string | null;
     suffix?: string | null;
     full?: boolean;
@@ -36,6 +39,7 @@
     placeholder,
     mono = true,
     detected = false,
+    source = null,
     hint = null,
     suffix = null,
     full = false,
@@ -53,7 +57,7 @@
   }
 </script>
 
-<FieldShell {label} {hint} {detected} {full} {span}>
+<FieldShell {label} {hint} {detected} {source} {full} {span}>
   <div class="tf-wrap">
     <input
       class={'input ' + (mono ? 'input-mono' : '')}

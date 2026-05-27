@@ -22,15 +22,25 @@ describe('computeProvenance', () => {
     };
     const { fromExif, fromSetup } = computeProvenance(photo, setup);
 
-    expect(fromSetup).toEqual(new Set(['camera', 'scope', 'mount']));
+    // FRAMING (focal_mm) is derived from the optical train, so with a setup
+    // applied it reads FROM SETUP alongside the equipment fields.
+    expect(fromSetup).toEqual(new Set(['camera', 'scope', 'mount', 'focal_mm']));
     // The mount must NOT be tagged FROM EXIF — that was the lie we're fixing.
     expect(fromExif.has('mount')).toBe(false);
     expect(fromExif.has('camera')).toBe(false);
     expect(fromExif.has('scope')).toBe(false);
-    // Acquisition scalars are never from a setup; present → FROM EXIF.
-    expect(fromExif.has('focal_mm')).toBe(true);
+    expect(fromExif.has('focal_mm')).toBe(false);
+    // Per-capture scalars are never from a setup; present → FROM EXIF.
     expect(fromExif.has('gain')).toBe(true);
     expect(fromSetup.has('gain')).toBe(false);
+  });
+
+  it('labels FRAMING (focal_mm/aperture_f) FROM EXIF when no setup is applied', () => {
+    const photo = { focal_mm: 530, aperture_f: 5 };
+    const { fromExif, fromSetup } = computeProvenance(photo, null);
+    expect(fromExif.has('focal_mm')).toBe(true);
+    expect(fromExif.has('aperture_f')).toBe(true);
+    expect(fromSetup.size).toBe(0);
   });
 
   it('never tags mount/focal_modifier/guiding FROM EXIF when no setup is applied', () => {

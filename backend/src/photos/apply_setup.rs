@@ -28,6 +28,11 @@ pub struct AppliedOut {
     pub mount: Option<String>,
     pub filters: Option<String>,
     pub guiding: Option<String>,
+    /// FRAMING derived from the optical train (telescope focal × modifier
+    /// factor, and the focal ÷ aperture ratio). None when the scope carries
+    /// no specs. Lets the frontend reflect the auto-filled fields at once.
+    pub focal_mm: Option<f64>,
+    pub aperture_f: Option<f32>,
     /// Typed filter chips after apply — read from the junction so the
     /// frontend can refresh `FilterChipInput` without a follow-up
     /// `GET /api/photos/:id`. Empty when no filters apply.
@@ -92,6 +97,10 @@ pub async fn apply(
     let mut focal_mod: Option<String> = None;
     let mut camera: Option<String> = None;
     let mut mount: Option<String> = None;
+    // Optical-train item ids, kept to read their specs and derive the
+    // frame's focal length + aperture ratio (FRAMING) below.
+    let mut optical_tube_id: Option<Uuid> = None;
+    let mut focal_modifier_id: Option<Uuid> = None;
     // filter_pairs: (display_name, item_id) — sorted alphabetically by display_name below.
     let mut filter_pairs: Vec<(String, Uuid)> = vec![];
     // Catalog item ids touched by this apply, used after the write to refresh
@@ -101,13 +110,57 @@ pub async fn apply(
     for r in items {
         touched_item_ids.push(r.item_id);
         match r.role.as_str() {
-            "optical_tube" => scope = Some(r.display_name),
-            "focal_modifier" => focal_mod = Some(r.display_name),
+            "optical_tube" => {
+                scope = Some(r.display_name);
+                optical_tube_id = Some(r.item_id);
+            }
+            "focal_modifier" => {
+                focal_mod = Some(r.display_name);
+                focal_modifier_id = Some(r.item_id);
+            }
             "main_camera" => camera = Some(r.display_name),
             "mount" => mount = Some(r.display_name),
             "filter" => filter_pairs.push((r.display_name, r.item_id)),
             other => {
                 tracing::warn!(role = %other, "unknown setup_items role in apply-setup; ignored")
+            }
+        }
+    }
+
+    // Derive FRAMING from the optical train specs: a telescope's
+    // focal_length_mm × the focal-modifier factor (a reducer/extender), and
+    // the aperture ratio focal ÷ aperture_mm. These belong to the gear, so a
+    // setup that knows its scope can fill them — leaving only the per-capture
+    // numbers (ISO/exposure/gain/temp) and plate-solve (RA/Dec) to the file.
+    // Both stay None when the scope has no specs row → the CASE below is a
+    // no-op and the columns keep whatever the file/user supplied.
+    let mut derived_focal_mm: Option<f64> = None;
+    let mut derived_aperture_f: Option<f32> = None;
+    if let Some(tube_id) = optical_tube_id
+        && let Some(ts) = sqlx::query!(
+            "select focal_length_mm, aperture_mm from telescope_specs where item_id = $1",
+            tube_id
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+    {
+        let factor = match focal_modifier_id {
+            Some(fid) => sqlx::query_scalar!(
+                r#"select factor::float8 as "factor!" from focal_modifier_specs where item_id = $1"#,
+                fid
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or(1.0),
+            None => 1.0,
+        };
+        if let Some(fl) = ts.focal_length_mm {
+            let focal = f64::from(fl) * factor;
+            derived_focal_mm = Some((focal * 10.0).round() / 10.0);
+            if let Some(ap) = ts.aperture_mm
+                && ap > 0
+            {
+                derived_aperture_f = Some(((focal / f64::from(ap) * 10.0).round() / 10.0) as f32);
             }
         }
     }
@@ -167,9 +220,17 @@ pub async fn apply(
                                           or filters = '' then $7 else filters end,
                guiding        = case when $2::bool or guiding is null
                                           or guiding = '' then $8 else guiding end,
+               -- FRAMING derived from the optical train. Only written when a
+               -- value was derived ($10/$11 not null); otherwise the existing
+               -- column is preserved regardless of mode.
+               focal_mm       = case when ($2::bool or focal_mm is null)
+                                          and $10::float8 is not null then $10 else focal_mm end,
+               aperture_f     = case when ($2::bool or aperture_f is null)
+                                          and $11::float4 is not null then $11 else aperture_f end,
                setup_id       = $9
          where id = $1
-       returning setup_id, scope, focal_modifier, camera, mount, filters, guiding
+       returning setup_id, scope, focal_modifier, camera, mount, filters, guiding,
+                 focal_mm, aperture_f
         "#,
         photo_id,
         mode_overwrite,
@@ -179,7 +240,9 @@ pub async fn apply(
         mount,
         filters,
         guiding,
-        setup_uuid
+        setup_uuid,
+        derived_focal_mm,
+        derived_aperture_f
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -254,6 +317,8 @@ pub async fn apply(
         mount: updated.mount,
         filters: updated.filters,
         guiding: updated.guiding,
+        focal_mm: updated.focal_mm,
+        aperture_f: updated.aperture_f,
         filter_items,
     }))
 }

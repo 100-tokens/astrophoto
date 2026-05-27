@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select factor::float8 as \"factor!\" from focal_modifier_specs where item_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "factor!",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1d509a35f541709c024425f53f4ff6e0bb2a19109bb55200bcc109517d1f0156"
+}
