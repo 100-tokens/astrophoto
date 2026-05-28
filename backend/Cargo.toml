@@ -37,6 +37,7 @@ path = "src/bin/backfill_processing.rs"
 # HTTP / runtime
 axum = { version = "0.7", features = ["macros", "multipart"] }
 tokio = { version = "1", features = ["full"] }
+tempfile = "3"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["trace", "cors", "request-id"] }
 hyper = "1"
@@ -91,6 +92,7 @@ woothee = "0.13"
 url = "2"
 dotenvy = "0.15.7"
 csv = "1"
+flate2 = "1"
 clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]

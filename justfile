@@ -60,6 +60,11 @@ seed:
 seed-targets:
     cd backend && cargo run --release --bin seed-targets
 
+# Seed the targets table with PGC galaxies from HyperLEDA (idempotent).
+# Requires backend/data/pgc/pgc.csv (or .csv.gz) — see backend/data/pgc/README.md.
+seed-pgc:
+    cd backend && cargo run --release --bin seed_pgc
+
 # Resolve photos.target text against the catalog, insert manual photo_targets rows.
 # Default is dry-run. Pass --apply to write. Idempotent.
 backfill-photo-targets *args:
