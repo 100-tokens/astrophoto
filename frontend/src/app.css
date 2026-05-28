@@ -106,6 +106,17 @@
   /* ---------- MOTION ---------- */
   --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
   --ease-in-out: cubic-bezier(0.6, 0, 0.2, 1);
+
+  /* ---------- CELESTIAL OVERLAY ---------- */
+  /* Color-coded by OpenNGC object_type — see celestial-overlay spec §7.6
+     and `$lib/utils/celestial-colors.ts` for the type → var mapping. */
+  --celestial-galaxy: #f08070;
+  --celestial-nebula: #7cd9a3;
+  --celestial-open-cluster: #9ec5ff;
+  --celestial-globular: #c990e8;
+  --celestial-planetary-nebula: #f0c040;
+  --celestial-star: #d4d4d4;
+  --celestial-other: #888888;
 }
 
 /* Light theme — secondary mode for daylight mobile */

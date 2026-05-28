@@ -25,8 +25,31 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       ? fetch(`${API}/api/photos/${id}/processing`).then((pr) => (pr.ok ? pr.json() : null))
       : Promise.resolve(null);
   const feedP = fetchPhotosFeed(fetch, handle, { limit: 24 }).catch(() => null);
+  // Celestial objects identified by plate-solve. Only fetched when the
+  // photo has a solve (no point asking otherwise). Silent failure → empty
+  // array; the overlay simply does not render.
+  const celestialP: Promise<import('$lib/api/CelestialObject').CelestialObject[]> =
+    photo.ra_deg != null
+      ? fetch(`${API}/api/photos/${id}/celestial-objects`)
+          .then((r) => (r.ok ? r.json() : { objects: [] }))
+          .then((j: { objects?: import('$lib/api/CelestialObject').CelestialObject[] }) => j.objects ?? [])
+          .catch(() => [])
+      : Promise.resolve([]);
+  // The pixel scale + rotation needed by the WCS projection live on the
+  // platesolve-status endpoint, not on PhotoDetail. Fetch in parallel.
+  const platesolveP: Promise<import('$lib/api/PlatesolveStatus').PlatesolveStatus | null> =
+    photo.ra_deg != null
+      ? fetch(`${API}/api/photos/${id}/platesolve-status`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      : Promise.resolve(null);
 
-  const [processing, feed] = await Promise.all([processingP, feedP]);
+  const [processing, feed, celestialObjects, platesolveStatus] = await Promise.all([
+    processingP,
+    feedP,
+    celestialP,
+    platesolveP
+  ]);
 
   // For "More from this photographer" + prev/next.
   let morePhotos: import('$lib/api/GalleryPhoto').GalleryPhoto[] = [];
@@ -41,5 +64,14 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       nextShortid = feed.photos[idx + 1]?.short_id ?? null;
   }
 
-  return { photo, handle, morePhotos, prevShortid, nextShortid, processing };
+  return {
+    photo,
+    handle,
+    morePhotos,
+    prevShortid,
+    nextShortid,
+    processing,
+    celestialObjects,
+    platesolveStatus
+  };
 };
