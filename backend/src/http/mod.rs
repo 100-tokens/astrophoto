@@ -172,6 +172,14 @@ pub fn router(
             get(crate::photos::xisf_processing_handler::handler),
         )
         .route(
+            "/api/photos/:id/celestial-objects",
+            get(crate::celestial::handler::list),
+        )
+        .route(
+            "/api/photos/:id/celestial-objects/recompute",
+            post(crate::celestial::handler::recompute),
+        )
+        .route(
             "/api/photos/:id/thumb/:size",
             get(crate::photos::serve::thumb),
         )

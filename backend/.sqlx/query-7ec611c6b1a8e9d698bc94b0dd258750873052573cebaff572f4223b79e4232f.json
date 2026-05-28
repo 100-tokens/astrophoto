@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select owner_id, published_at from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "7ec611c6b1a8e9d698bc94b0dd258750873052573cebaff572f4223b79e4232f"
+}

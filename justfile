@@ -74,3 +74,8 @@ backfill-photo-targets *args:
 # Default is dry-run. Pass --apply to write. Idempotent.
 backfill-processing *args:
     cd backend && cargo run --release --bin backfill-processing -- {{args}}
+
+# Identify celestial objects for already-solved photos. Dry-run by default.
+# Pass --apply to write, --reidentify to redo photos already identified.
+backfill-celestial-objects *args:
+    cd backend && cargo run --release --bin backfill_celestial_objects -- {{args}}

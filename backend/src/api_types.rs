@@ -1068,3 +1068,25 @@ pub struct FilterIntegration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sensor_temp_c: Option<f64>,
 }
+
+/// A single celestial object identified in the photo's FOV by the
+/// plate-solve identification job. Returned by
+/// `GET /api/photos/:id/celestial-objects`. The frontend projects
+/// `(rightAscension, declination)` → pixel coords client-side using the
+/// photo's solve telemetry.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "CelestialObject.ts", rename_all = "camelCase")]
+pub struct CelestialObject {
+    pub slug: String,
+    pub canonical_name: String,
+    pub kind: String,
+    pub object_type: Option<String>,
+    pub magnitude_v: Option<f32>,
+    pub right_ascension: f64,
+    pub declination: f64,
+    pub major_axis_arcmin: Option<f32>,
+    pub minor_axis_arcmin: Option<f32>,
+    pub position_angle_deg: Option<f32>,
+    pub confidence: f32,
+}

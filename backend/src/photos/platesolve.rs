@@ -417,6 +417,12 @@ pub async fn save_result(
     });
     let solved_at = Utc::now();
 
+    // Open a transaction so the solve writes + celestial identification land
+    // atomically. Identification runs after the photos UPDATE and queries the
+    // freshly-written row; if it fails, the solve is rolled back too (the
+    // user gets to retry from a clean state instead of an inconsistent one).
+    let mut tx = pool.begin().await?;
+
     // Measured FRAMING from the solve: the plate-solve pixel scale is the
     // ground truth of the optical train (it captures the actual reducer /
     // spacing the night was shot at), so it beats any catalog/theoretical
@@ -447,7 +453,7 @@ pub async fn save_result(
                 where p.id = $1"#,
         )
         .bind(photo_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?
         .flatten();
     }
@@ -468,7 +474,7 @@ pub async fn save_result(
                     where p.id = $1"#,
             )
             .bind(photo_id)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *tx)
             .await?
             .flatten();
             aperture_mm
@@ -517,15 +523,24 @@ pub async fn save_result(
     .bind(photo_id)
     .bind(derived_focal_mm)
     .bind(derived_aperture_f)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(AppError::from)?;
+
+    // Identify catalogued objects in the now-known FOV and write
+    // photo_targets rows with source='plate_solve'. Failure here aborts
+    // the whole tx — see the comment above pool.begin().
+    let identify_outcome = crate::celestial::identify(photo_id, &mut tx).await?;
+    tx.commit().await?;
+
     info!(
         photo_id = %photo_id,
         rms_arcsec = result.rms_arcsec,
         matched = result.matched_count,
         focal_mm = ?derived_focal_mm,
         aperture_f = ?derived_aperture_f,
+        celestial_found = identify_outcome.found,
+        celestial_kept = identify_outcome.kept,
         "plate-solve persisted"
     );
     Ok(())

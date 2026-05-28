@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_targets (photo_id, target_id, source, confidence, is_primary)\n                 values ($1, $2, 'plate_solve', $3, false)\n                 on conflict (photo_id, target_id) do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d41c5be0b03d7bdebf2a73e9e6667a2f5567eb2dc189c83c2e7449ca9b60ada7"
+}

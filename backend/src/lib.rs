@@ -1,5 +1,6 @@
 pub mod api_types;
 pub mod auth;
+pub mod celestial;
 pub mod config;
 pub mod db;
 pub mod discovery;
