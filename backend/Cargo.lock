@@ -132,6 +132,7 @@ dependencies = [
  "csv",
  "dotenvy",
  "figment",
+ "flate2",
  "http-body-util",
  "hyper 1.9.0",
  "image",

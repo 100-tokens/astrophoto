@@ -171,7 +171,134 @@ fn extract_existing_slug_ref(objname: &str) -> Option<String> {
     None
 }
 
+async fn upsert_pgc_row(
+    pool: &sqlx::PgPool,
+    row: &PgcRow,
+) -> Result<UpsertOutcome> {
+    let slug = format!("pgc-{}", row.pgc);
+
+    // Dedup: if the objname references an existing NGC/IC slug, skip.
+    if let Some(existing) = row.objname.as_deref().and_then(extract_existing_slug_ref) {
+        let hit: Option<i64> =
+            sqlx::query_scalar("select 1::int8 from targets where slug = $1")
+                .bind(&existing)
+                .fetch_optional(pool)
+                .await?;
+        if hit.is_some() {
+            return Ok(UpsertOutcome::DedupedWithNgc);
+        }
+    }
+
+    let canonical = row
+        .objname
+        .clone()
+        .unwrap_or_else(|| format!("PGC {}", row.pgc));
+
+    // UPSERT: never overwrite canonical_name on UPDATE; always refresh
+    // astro fields. Mirrors the OpenNGC seed contract.
+    let inserted: bool = sqlx::query_scalar(
+        r#"
+        insert into targets (
+            slug, canonical_name, kind,
+            right_ascension, declination, magnitude_v,
+            object_type, major_axis_arcmin, minor_axis_arcmin,
+            position_angle_deg, updated_at
+        ) values ($1, $2, 'pgc', $3, $4, $5, 'G', $6, $7, $8, now())
+        on conflict (slug) do update set
+            right_ascension     = excluded.right_ascension,
+            declination         = excluded.declination,
+            magnitude_v         = excluded.magnitude_v,
+            object_type         = excluded.object_type,
+            major_axis_arcmin   = excluded.major_axis_arcmin,
+            minor_axis_arcmin   = excluded.minor_axis_arcmin,
+            position_angle_deg  = excluded.position_angle_deg,
+            updated_at          = now()
+        returning (xmax = 0)
+        "#,
+    )
+    .bind(&slug)
+    .bind(&canonical)
+    .bind(row.ra_deg)
+    .bind(row.de_deg)
+    .bind(row.mag_b)
+    .bind(row.major_axis_arcmin)
+    .bind(row.minor_axis_arcmin)
+    .bind(row.position_angle_deg)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(if inserted {
+        UpsertOutcome::Inserted
+    } else {
+        UpsertOutcome::Updated
+    })
+}
+
+#[derive(Default, Debug)]
+struct Counts {
+    inserted: usize,
+    updated: usize,
+    deduped_with_ngc: usize,
+    skipped_parse: usize,
+}
+
+#[derive(Debug)]
+enum UpsertOutcome {
+    Inserted,
+    Updated,
+    DedupedWithNgc,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    todo!()
+    tracing_subscriber::fmt::init();
+
+    let database_url = std::env::var("DATABASE_URL")
+        .or_else(|_| std::env::var("APP_DATABASE_URL"))
+        .map_err(|_| anyhow::anyhow!("DATABASE_URL or APP_DATABASE_URL must be set"))?;
+    let pool = sqlx::PgPool::connect(&database_url).await?;
+
+    let csv_path =
+        std::env::var("PGC_DATA_PATH").unwrap_or_else(|_| "data/pgc/pgc.csv".into());
+
+    let file = std::fs::File::open(&csv_path)
+        .map_err(|e| anyhow::anyhow!("open {}: {}", csv_path, e))?;
+    let reader: Box<dyn std::io::Read> = if csv_path.ends_with(".gz") {
+        Box::new(flate2::read::GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(reader);
+    let headers = rdr.headers()?.clone();
+
+    let mut counts = Counts::default();
+    for (i, record) in rdr.records().enumerate() {
+        let record = record?;
+        let row = match parse_csv_row(&record, &headers)? {
+            Some(r) => r,
+            None => {
+                counts.skipped_parse += 1;
+                continue;
+            }
+        };
+        match upsert_pgc_row(&pool, &row).await? {
+            UpsertOutcome::Inserted => counts.inserted += 1,
+            UpsertOutcome::Updated => counts.updated += 1,
+            UpsertOutcome::DedupedWithNgc => counts.deduped_with_ngc += 1,
+        }
+        if (i + 1) % 5000 == 0 {
+            tracing::info!(processed = i + 1, ?counts, "seed-pgc progress");
+        }
+    }
+
+    tracing::info!(
+        inserted = counts.inserted,
+        updated = counts.updated,
+        deduped_with_ngc = counts.deduped_with_ngc,
+        skipped_parse = counts.skipped_parse,
+        "seed-pgc complete"
+    );
+    Ok(())
 }

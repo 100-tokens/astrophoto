@@ -91,6 +91,7 @@ woothee = "0.13"
 url = "2"
 dotenvy = "0.15.7"
 csv = "1"
+flate2 = "1"
 clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]
