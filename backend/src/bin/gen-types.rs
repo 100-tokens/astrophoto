@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use astrophoto::api_types::{
     ApplySetupInput, AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest,
-    BatchPublishResponse, CategoryPage, DiscoveryPage, DiscoveryPhoto, DraftListItem,
+    BatchPublishResponse, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem,
     DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets,
     EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage,
     EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
@@ -56,6 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     EquipmentPaired::export_all_to(out_dir)?;
     EquipmentPage::export_all_to(out_dir)?;
     CategoryPage::export_all_to(out_dir)?;
+    CelestialObject::export_all_to(out_dir)?;
     SearchTargetHit::export_all_to(out_dir)?;
     SearchUserHit::export_all_to(out_dir)?;
     SearchResults::export_all_to(out_dir)?;
