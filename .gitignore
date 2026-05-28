@@ -40,5 +40,5 @@
 /upload-*.jpg
 .smoke/
 .superpowers/
-data/pgc/pgc.csv
-data/pgc/pgc.csv.gz
+/backend/data/pgc/pgc.csv
+/backend/data/pgc/pgc.csv.gz
