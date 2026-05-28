@@ -39,3 +39,4 @@
 # Smoke-test fixtures generated outside the project's tests/ tree
 /upload-*.jpg
 .smoke/
+.superpowers/
