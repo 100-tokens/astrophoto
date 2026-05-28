@@ -115,6 +115,17 @@ pgc,objname,ra2000,de2000,bt,logd25,logr25,pa
     }
 
     #[test]
+    fn dedup_extracts_ngc_ref() {
+        assert_eq!(extract_existing_slug_ref("NGC0224"), Some("ngc-224".into()));
+        assert_eq!(extract_existing_slug_ref("NGC 224"), Some("ngc-224".into()));
+        assert_eq!(extract_existing_slug_ref("NGC0224A"), None); // subcomponent
+        assert_eq!(extract_existing_slug_ref("IC0010"), Some("ic-10".into()));
+        assert_eq!(extract_existing_slug_ref("IC 1396"), Some("ic-1396".into()));
+        assert_eq!(extract_existing_slug_ref("Andromeda Galaxy"), None);
+        assert_eq!(extract_existing_slug_ref(""), None);
+    }
+
+    #[test]
     fn rejects_row_missing_logd25() {
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
@@ -128,6 +139,36 @@ pgc,objname,ra2000,de2000,bt,logd25,logr25,pa
         // but defensive parsing).
         assert!(parse_csv_row(&row, &headers).unwrap().is_none());
     }
+}
+
+/// If `objname` looks like an existing NGC/IC catalog reference (e.g. "NGC0224"
+/// or "IC 1396"), return the corresponding `targets.slug` ("ngc-224", "ic-1396")
+/// so the seed binary can skip the PGC row in favour of the canonical entry.
+/// Returns `None` for free-form names, blanks, and subcomponent refs ("NGC0224A").
+fn extract_existing_slug_ref(objname: &str) -> Option<String> {
+    let trimmed = objname.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Accept "NGC0224", "NGC 224", "IC0010", "IC 10". Reject subcomponents
+    // like "NGC0224A" / "NGC0224-1" — our slug scheme has no equivalent.
+    for prefix in ["NGC", "IC"] {
+        let Some(rest) = trimmed.strip_prefix(prefix) else { continue };
+        let rest = rest.trim_start();
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if digits.is_empty() {
+            continue;
+        }
+        let after_digits = &rest[digits.len()..];
+        // Must be followed by end-of-string or whitespace; reject suffixes.
+        if !after_digits.is_empty() && !after_digits.starts_with(char::is_whitespace) {
+            return None;
+        }
+        if let Ok(n) = digits.parse::<u32>() {
+            return Some(format!("{}-{}", prefix.to_ascii_lowercase(), n));
+        }
+    }
+    None
 }
 
 #[tokio::main]
