@@ -35,11 +35,20 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
           .then((j: { objects?: import('$lib/api/CelestialObject').CelestialObject[] }) => j.objects ?? [])
           .catch(() => [])
       : Promise.resolve([]);
+  // The pixel scale + rotation needed by the WCS projection live on the
+  // platesolve-status endpoint, not on PhotoDetail. Fetch in parallel.
+  const platesolveP: Promise<import('$lib/api/PlatesolveStatus').PlatesolveStatus | null> =
+    photo.ra_deg != null
+      ? fetch(`${API}/api/photos/${id}/platesolve-status`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      : Promise.resolve(null);
 
-  const [processing, feed, celestialObjects] = await Promise.all([
+  const [processing, feed, celestialObjects, platesolveStatus] = await Promise.all([
     processingP,
     feedP,
-    celestialP
+    celestialP,
+    platesolveP
   ]);
 
   // For "More from this photographer" + prev/next.
@@ -55,5 +64,14 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
       nextShortid = feed.photos[idx + 1]?.short_id ?? null;
   }
 
-  return { photo, handle, morePhotos, prevShortid, nextShortid, processing, celestialObjects };
+  return {
+    photo,
+    handle,
+    morePhotos,
+    prevShortid,
+    nextShortid,
+    processing,
+    celestialObjects,
+    platesolveStatus
+  };
 };

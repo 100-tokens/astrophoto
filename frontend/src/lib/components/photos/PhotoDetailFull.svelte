@@ -14,8 +14,11 @@
   import '$lib/components/equipment/filter-chip.css';
   import { rowTotalS, grandTotalS, totalSubs, formatHm } from '$lib/utils/integration';
   import ProcessingPipeline from './ProcessingPipeline.svelte';
+  import CelestialOverlay from '$lib/components/celestial/CelestialOverlay.svelte';
+  import CelestialPanel from '$lib/components/celestial/CelestialPanel.svelte';
   import type { PhotoDetail, ProcessingReport } from '$lib/api/types';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
+  import type { CelestialObject } from '$lib/api/CelestialObject';
 
   async function share() {
     if (typeof navigator === 'undefined') return;
@@ -39,10 +42,41 @@
     handle: string;
     morePhotos: GalleryPhoto[];
     processing?: ProcessingReport | null;
+    celestialObjects?: CelestialObject[];
+    platesolveStatus?: import('$lib/api/PlatesolveStatus').PlatesolveStatus | null;
   }
 
   let { data }: { data: PageData } = $props();
   let p = $derived(data.photo);
+
+  // Celestial overlay state — survives within this page but resets on
+  // navigation. Layer set defaults to all OpenNGC object_type families
+  // we render, with PGC behind its own toggle so the default view is
+  // not drowned by faint galaxies.
+  let selectedSlug = $state<string | null>(null);
+  let layers = $state<Set<string>>(
+    new Set(['G', 'Neb', 'OCl', 'GCl', 'PN', 'HII', 'SNR', 'Cl+N'])
+  );
+  let showPgc = $state(false);
+  let labelsAlwaysOn = $state(false);
+  let celestial = $derived<CelestialObject[]>(data.celestialObjects ?? []);
+  let solveForOverlay = $derived(
+    data.platesolveStatus?.state === 'solved' &&
+      data.platesolveStatus.raDeg != null &&
+      data.platesolveStatus.decDeg != null &&
+      data.platesolveStatus.pixelScaleArcsec != null &&
+      p.width != null &&
+      p.height != null
+      ? {
+          raDeg: data.platesolveStatus.raDeg,
+          decDeg: data.platesolveStatus.decDeg,
+          pixelScaleArcsec: data.platesolveStatus.pixelScaleArcsec,
+          rotationDeg: data.platesolveStatus.rotationDeg ?? 0,
+          width: p.width,
+          height: p.height
+        }
+      : null
+  );
 
   // Owner mode — Camille viewing her own M42 photo gets the Edit /
   // Replace / Delete affordances. Anyone else just sees the read-only
@@ -372,6 +406,17 @@
         <span class="reticle reticle-tr" aria-hidden="true"></span>
         <span class="reticle reticle-bl" aria-hidden="true"></span>
         <span class="reticle reticle-br" aria-hidden="true"></span>
+        {#if celestial.length > 0 && solveForOverlay}
+          <CelestialOverlay
+            objects={celestial}
+            solve={solveForOverlay}
+            {layers}
+            {showPgc}
+            {labelsAlwaysOn}
+            bind:selectedSlug
+            onSelect={(slug) => (selectedSlug = slug)}
+          />
+        {/if}
       </div>
     </div>
 
@@ -505,6 +550,18 @@
         />
 
         {#if data.morePhotos.length > 0}
+          {#if celestial.length > 0 && solveForOverlay}
+            <CelestialPanel
+              objects={celestial}
+              bind:selectedSlug
+              bind:layers
+              bind:showPgc
+              bind:labelsAlwaysOn
+              {isOwner}
+              photoId={p.id}
+            />
+          {/if}
+
           <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
           <div class="more-grid">
             {#each data.morePhotos.slice(0, 4) as mp}
