@@ -5,3 +5,4 @@
 //! `docs/superpowers/plans/2026-05-28-celestial-identify-overlay-plan.md`.
 
 pub mod confidence;
+pub mod queries;
