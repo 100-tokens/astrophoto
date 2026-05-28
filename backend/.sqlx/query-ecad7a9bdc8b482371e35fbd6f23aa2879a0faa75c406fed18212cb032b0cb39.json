@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ra_deg, dec_deg, platesolve_pixel_scale_arcsec as scale,\n                  width, height\n             from photos\n            where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ra_deg",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "dec_deg",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "scale",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 3,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "height",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ecad7a9bdc8b482371e35fbd6f23aa2879a0faa75c406fed18212cb032b0cb39"
+}

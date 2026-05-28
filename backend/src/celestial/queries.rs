@@ -112,6 +112,42 @@ pub async fn cone_search(
         .collect())
 }
 
+/// Same as `cone_search`, but executes against a transaction so the read
+/// joins the same atomic unit as the subsequent `photo_targets` write in
+/// `identify::identify`.
+pub async fn cone_search_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ra_deg: f64,
+    dec_deg: f64,
+    radius_deg: f64,
+) -> Result<Vec<CandidateRow>, AppError> {
+    let dec_min = dec_deg - radius_deg;
+    let dec_max = dec_deg + radius_deg;
+    let rows: Vec<CandidateRow> = match ra_window(ra_deg, dec_deg, radius_deg) {
+        RaWindow::Single(lo, hi) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_SINGLE)
+            .bind(dec_min)
+            .bind(dec_max)
+            .bind(lo)
+            .bind(hi)
+            .fetch_all(&mut **tx)
+            .await?,
+        RaWindow::Wrap(lo1, hi1, lo2, hi2) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_WRAP)
+            .bind(dec_min)
+            .bind(dec_max)
+            .bind(lo1)
+            .bind(hi1)
+            .bind(lo2)
+            .bind(hi2)
+            .fetch_all(&mut **tx)
+            .await?,
+    };
+
+    Ok(rows
+        .into_iter()
+        .filter(|r| arc_distance_deg(ra_deg, dec_deg, r.right_ascension, r.declination) <= radius_deg)
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

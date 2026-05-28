@@ -5,4 +5,7 @@
 //! `docs/superpowers/plans/2026-05-28-celestial-identify-overlay-plan.md`.
 
 pub mod confidence;
+pub mod identify;
 pub mod queries;
+
+pub use identify::{identify, IdentifyOutcome};
