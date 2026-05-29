@@ -86,9 +86,11 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     /* fail soft */
   }
 
-  // Top targets
+  // Top targets — only those with published photos. After the OpenNGC seed
+  // the catalog is ~12k objects, most photo-less; without this filter the
+  // sitemap would hand crawlers thousands of empty stub pages.
   try {
-    const r = await fetch('/api/targets?limit=200');
+    const r = await fetch('/api/targets?limit=200&has_photos=true');
     if (r.ok) {
       const data = (await r.json()) as { targets?: TargetItem[]; items?: TargetItem[] };
       for (const t of data.targets ?? data.items ?? []) {
