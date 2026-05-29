@@ -58,7 +58,9 @@
     new Set(['G', 'Neb', 'OCl', 'GCl', 'PN', 'HII', 'SNR', 'Cl+N'])
   );
   let showPgc = $state(false);
-  let labelsAlwaysOn = $state(false);
+  // Labels on by default so the object name is visible without a click;
+  // the "labels" pill in the panel can toggle them off if the frame is busy.
+  let labelsAlwaysOn = $state(true);
   let celestial = $derived<CelestialObject[]>(data.celestialObjects ?? []);
   let solveForOverlay = $derived(
     data.platesolveStatus?.state === 'solved' &&
@@ -400,23 +402,26 @@
     <!-- Image stage: full-bleed black, ratio held by the photo -->
     <div class="stage">
       <div class="stage-frame">
-        <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)" />
+        <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)">
+          {#snippet overlay()}
+            {#if celestial.length > 0 && solveForOverlay}
+              <CelestialOverlay
+                objects={celestial}
+                solve={solveForOverlay}
+                {layers}
+                {showPgc}
+                {labelsAlwaysOn}
+                bind:selectedSlug
+                onSelect={(slug) => (selectedSlug = slug)}
+              />
+            {/if}
+          {/snippet}
+        </ZoomableImage>
         <!-- Corner reticles, accent-colored, per the spec -->
         <span class="reticle reticle-tl" aria-hidden="true"></span>
         <span class="reticle reticle-tr" aria-hidden="true"></span>
         <span class="reticle reticle-bl" aria-hidden="true"></span>
         <span class="reticle reticle-br" aria-hidden="true"></span>
-        {#if celestial.length > 0 && solveForOverlay}
-          <CelestialOverlay
-            objects={celestial}
-            solve={solveForOverlay}
-            {layers}
-            {showPgc}
-            {labelsAlwaysOn}
-            bind:selectedSlug
-            onSelect={(slug) => (selectedSlug = slug)}
-          />
-        {/if}
       </div>
     </div>
 

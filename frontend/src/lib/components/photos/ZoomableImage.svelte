@@ -4,16 +4,30 @@
   // double-click toggles zoom; controls + reset. Astrophotos reward
   // close inspection — this is the core of that experience.
   import { cdn } from '$lib/cdn';
+  import type { Snippet } from 'svelte';
 
   // `maxHeight` caps the image so it fits the viewport; pass a context-
   // specific value (photo page vs fullscreen lightbox). Self-contained:
   // the component sizes its own image, no parent CSS required.
+  //
+  // `overlay` is an optional snippet rendered ON TOP of the image, inside
+  // the same pan/zoom transform layer — so an annotation overlay (e.g. the
+  // celestial-object markers) tracks the image exactly as the user zooms
+  // and pans. It is sized to the image's displayed box, so an absolutely-
+  // positioned child filling `inset:0` covers exactly the pixels of the photo.
   let {
     photoId,
     alt,
     w = 2560,
-    maxHeight = '80vh'
-  }: { photoId: string; alt: string; w?: number; maxHeight?: string } = $props();
+    maxHeight = '80vh',
+    overlay
+  }: {
+    photoId: string;
+    alt: string;
+    w?: number;
+    maxHeight?: string;
+    overlay?: Snippet;
+  } = $props();
 
   let viewer: HTMLDivElement | undefined = $state();
   let img: HTMLImageElement | undefined = $state();
@@ -130,13 +144,15 @@
   ondblclick={onDblClick}
   role="presentation"
 >
-  <img
-    bind:this={img}
-    src={cdn(photoId, { w })}
-    {alt}
-    draggable="false"
+  <div
+    class="tlayer"
     style="transform: translate({tx}px, {ty}px) scale({scale});"
-  />
+  >
+    <img bind:this={img} src={cdn(photoId, { w })} {alt} draggable="false" />
+    {#if overlay}
+      <div class="overlay-slot">{@render overlay()}</div>
+    {/if}
+  </div>
 
   <div class="controls" class:hidden={!zoomed && false}>
     <button type="button" aria-label="Zoom in" onclick={() => zoomBy(1.5)}>+</button>
@@ -170,6 +186,20 @@
      --zi-max-h prop) and the viewer's width; the frame follows it, and
      overflow:hidden clips it when zoomed. Works on the photo page and in
      the fullscreen lightbox with no parent CSS. */
+  /* The transform layer shrink-wraps the image and carries the pan/zoom
+     transform, so any overlay snippet inside it tracks the photo exactly. */
+  .tlayer {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    max-height: var(--zi-max-h, 80vh);
+    line-height: 0;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .viewer:not(.dragging) .tlayer {
+    transition: transform 120ms var(--ease-out, ease-out);
+  }
   img {
     display: block;
     max-width: 100%;
@@ -177,13 +207,22 @@
     width: auto;
     height: auto;
     object-fit: contain;
-    transform-origin: center center;
-    will-change: transform;
     user-select: none;
     -webkit-user-drag: none;
   }
-  .viewer:not(.dragging) img {
-    transition: transform 120ms var(--ease-out, ease-out);
+  /* Covers exactly the image's displayed box; children (the SVG overlay)
+     fill inset:0 and inherit the transform from .tlayer. */
+  .overlay-slot {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .overlay-slot :global(svg),
+  .overlay-slot :global(.celestial-overlay) {
+    pointer-events: none;
+  }
+  .overlay-slot :global(.marker) {
+    pointer-events: auto;
   }
   .controls {
     position: absolute;
