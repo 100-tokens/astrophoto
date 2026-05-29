@@ -495,8 +495,18 @@ async fn persist_render(
     let byte_count = bytes.len();
     let key = format!("display/{photo_id}.jpg");
     storage.put(&key, &render.mime, Bytes::from(bytes)).await?;
-    sqlx::query("update photos set display_key = $1 where id = $2")
+    // Persist the render's pixel dimensions alongside display_key. These are
+    // the dimensions of the frame the plate-solver actually ran on, so they
+    // match `platesolve_pixel_scale_arcsec` (arcsec per pixel of THIS frame)
+    // and the WCS centre (crpix ≈ width/2, height/2). The celestial overlay's
+    // gnomonic projection (frontend wcs.ts) needs both width/height and the
+    // pixel scale to place markers — without these columns it cannot compute
+    // the field-of-view and `celestial::identify` short-circuits. Casts to
+    // i32 are safe: render dimensions are bounded well under i32::MAX.
+    sqlx::query("update photos set display_key = $1, width = $2, height = $3 where id = $4")
         .bind(&key)
+        .bind(render.width as i32)
+        .bind(render.height as i32)
         .bind(photo_id)
         .execute(pool)
         .await
