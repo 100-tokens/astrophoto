@@ -3,6 +3,7 @@
   import Section from '$lib/components/settings/Section.svelte';
   import Row from '$lib/components/settings/Row.svelte';
   import AutosaveField from '$lib/components/settings/AutosaveField.svelte';
+  import HandleField from '$lib/components/settings/HandleField.svelte';
   let { data } = $props();
   // untrack: read initial display_name once without subscribing to `data`.
   // `name` is an independently-editable local copy; the server refreshes it
@@ -13,5 +14,8 @@
 <Section title="Profile" description="How you appear under your photos.">
   <Row label="DISPLAY NAME">
     <AutosaveField bind:value={name} name="display_name" action="" ariaLabel="Display name" />
+  </Row>
+  <Row label="HANDLE" hint="Your @name and profile URL. Old links keep redirecting.">
+    <HandleField current={data.user.handle} />
   </Row>
 </Section>
