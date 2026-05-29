@@ -3,6 +3,7 @@
   import MarkReticle from './MarkReticle.svelte';
   import Wordmark from './Wordmark.svelte';
   import AvatarMenu from './AvatarMenu.svelte';
+  import MobileNav from './MobileNav.svelte';
   import SearchBar from './discovery/SearchBar.svelte';
   import { cls } from '$lib/utils/cls';
 
@@ -28,8 +29,10 @@
 </script>
 
 <header class={cls('app-header', className)}>
-  <!-- Logo -->
+  <!-- Logo (with the mobile hamburger to its left, shown only <768px where
+       .primary-nav is hidden). -->
   <div style="display: flex; align-items: center; gap: 12px;">
+    <MobileNav links={navLinks} {active} />
     <MarkReticle size={28} color="var(--accent)" />
     <Wordmark size={22} weight={600} italic={false} />
   </div>
