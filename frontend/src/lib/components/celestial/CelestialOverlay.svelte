@@ -9,6 +9,7 @@
     layers,
     showPgc,
     labelsAlwaysOn,
+    zoomScale = 1,
     selectedSlug = $bindable(),
     onSelect
   }: {
@@ -17,6 +18,10 @@
     layers: Set<string>;
     showPgc: boolean;
     labelsAlwaysOn: boolean;
+    /** Current image zoom factor. The SVG lives inside the zoom transform,
+     *  so text is counter-scaled by 1/zoomScale to keep a constant on-screen
+     *  size (markers still scale with the image — they show angular extent). */
+    zoomScale?: number;
     selectedSlug: string | null;
     onSelect: (slug: string) => void;
   } = $props();
@@ -48,19 +53,22 @@
       .slice(0, 200);
   });
 
-  // Label font size is expressed in viewBox (image-pixel) units, so it
-  // scales with the image just like a burned-in annotation. ~2.2% of the
-  // frame width reads at roughly 13–15px on screen at fit-to-width, and
-  // grows naturally as the user zooms in. (A literal font-size="14" was
-  // 14 image-pixels → ~3px on screen — invisible.)
-  let fontSize = $derived(Math.max(40, solve.width * 0.022));
+  // Label font size: a label is a UI annotation, not part of the sky, so it
+  // should read at a constant on-screen size regardless of zoom. The SVG
+  // sits inside the image's zoom transform (×zoomScale), so we divide the
+  // base size by zoomScale — the transform then multiplies it back, netting
+  // a constant ~13–15px on screen at any zoom level. The base (~2.2% of the
+  // frame width) is what reads well at fit-to-width.
+  let baseFontSize = $derived(Math.max(40, solve.width * 0.022));
+  let fontSize = $derived(baseFontSize / zoomScale);
 
-  // Place the label centred under the marker, but never far outside a
-  // frame-filling circle: clamp the vertical offset so a huge nebula's
-  // label sits just below its centre rather than off the bottom edge.
+  // Vertical offset of the label below the marker, in viewBox units. Kept
+  // independent of the (zoom-varying) font size so the label stays anchored
+  // to the same point on the object as the user zooms; clamped so a
+  // frame-filling circle's label sits just below centre, not off the edge.
   function labelY(y: number, r: number): number {
-    const offset = Math.min(r, solve.height * 0.06) + fontSize;
-    return Math.min(solve.height - fontSize * 0.5, y + offset);
+    const offset = Math.min(r, solve.height * 0.06) + solve.height * 0.022;
+    return Math.min(solve.height - baseFontSize * 0.5, y + offset);
   }
 </script>
 
