@@ -227,21 +227,38 @@
   let filterIntegrations = $state<FilterIntegrationT[]>(_sp.filter_integrations ?? []);
   let photo_setup_id = $state<string | null>(_sp.setup_id ?? null);
 
-  // Plate-solve completion calls invalidateAll(), which re-runs the load.
-  // Push the freshly-solved RA/Dec into the inputs IFF the page started
-  // with no value and the user hasn't typed anything since. After the
-  // first sync we stop tracking — a typed-and-then-cleared value should
-  // stay cleared.
-  let raDecSynced = $state(_sp.ra_deg != null || _sp.dec_deg != null);
+  // Plate-solve-OWNED fields: ra_deg, dec_deg, focal_mm, aperture_f. The
+  // solver measures these authoritatively (save_result writes them), so a
+  // *new* solve must replace whatever the form currently holds — including a
+  // theoretical focal_mm an applied setup wrote earlier (e.g. 2032 from an
+  // EdgeHD 8 setup, which the solve corrects to the measured 1466.3).
+  //
+  // Why this matters: the autosave PUT sends every field, and the backend
+  // metadata handler writes any key present in the body (the CASE boolean is
+  // `is_some()`, i.e. key-present, not value-non-null — see
+  // backend/src/photos/metadata.rs). So if local form state still held the
+  // stale setup focal_mm after a solve, the next autosave would clobber the
+  // freshly-measured value straight back to the theoretical one. We keep
+  // local state in lock-step with the solve instead of guarding the backend
+  // (a backend guard would break legitimate manual nulling — see the
+  // verify_metadata contract tests).
+  //
+  // Keyed on platesolveStatus.solvedAt: it changes only when a genuinely new
+  // solve lands (invalidateAll re-runs the load), so a manual edit between
+  // solves survives — re-solving is the one action that overrides it.
+  function initialSolvedAt(): string | null {
+    return data.platesolveStatus?.solvedAt ?? null;
+  }
+  let lastSyncedSolveAt = $state<string | null>(initialSolvedAt());
   $effect(() => {
-    if (raDecSynced) return;
-    const newRa = data.photo.ra_deg;
-    const newDec = data.photo.dec_deg;
-    if (newRa != null || newDec != null) {
-      if (newRa != null && ra_deg === '') ra_deg = String(newRa);
-      if (newDec != null && dec_deg === '') dec_deg = String(newDec);
-      raDecSynced = true;
-    }
+    const solvedAt = data.platesolveStatus?.solvedAt ?? null;
+    if (!solvedAt || solvedAt === lastSyncedSolveAt) return;
+    // A new measurement is authoritative — adopt every solve-owned field.
+    if (data.photo.ra_deg != null) ra_deg = String(data.photo.ra_deg);
+    if (data.photo.dec_deg != null) dec_deg = String(data.photo.dec_deg);
+    if (data.photo.focal_mm != null) focal_mm = String(data.photo.focal_mm);
+    if (data.photo.aperture_f != null) aperture_f = String(data.photo.aperture_f);
+    lastSyncedSolveAt = solvedAt;
   });
 
   let filtersString = $derived(filterChips.map((f) => f.display_name).join(', '));
