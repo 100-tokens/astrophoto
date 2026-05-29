@@ -47,6 +47,21 @@
       .sort((a, b) => b.r * b.o.confidence - a.r * a.o.confidence)
       .slice(0, 200);
   });
+
+  // Label font size is expressed in viewBox (image-pixel) units, so it
+  // scales with the image just like a burned-in annotation. ~2.2% of the
+  // frame width reads at roughly 13–15px on screen at fit-to-width, and
+  // grows naturally as the user zooms in. (A literal font-size="14" was
+  // 14 image-pixels → ~3px on screen — invisible.)
+  let fontSize = $derived(Math.max(40, solve.width * 0.022));
+
+  // Place the label centred under the marker, but never far outside a
+  // frame-filling circle: clamp the vertical offset so a huge nebula's
+  // label sits just below its centre rather than off the bottom edge.
+  function labelY(y: number, r: number): number {
+    const offset = Math.min(r, solve.height * 0.06) + fontSize;
+    return Math.min(solve.height - fontSize * 0.5, y + offset);
+  }
 </script>
 
 <svg
@@ -63,8 +78,9 @@
       {r}
       fill="none"
       stroke="var({colorVar})"
-      stroke-width={selectedSlug === o.slug ? 3 : 1.5}
-      opacity={0.3 + 0.6 * o.confidence}
+      stroke-width={selectedSlug === o.slug ? 3 : 2}
+      vector-effect="non-scaling-stroke"
+      opacity={0.4 + 0.6 * o.confidence}
       class="marker"
       onclick={() => onSelect(o.slug)}
       onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(o.slug)}
@@ -76,11 +92,14 @@
     </circle>
     {#if labelsAlwaysOn || selectedSlug === o.slug}
       <text
-        x={x + r + 4}
-        y={y + 4}
+        x={x}
+        y={labelY(y, r)}
         fill="var({colorVar})"
-        font-size="14"
+        font-size={fontSize}
         font-family="ui-monospace, monospace"
+        text-anchor="middle"
+        stroke="#000"
+        stroke-width={fontSize * 0.18}
         class="label"
       >
         {o.canonicalName}
@@ -103,8 +122,7 @@
   }
   .label {
     paint-order: stroke;
-    stroke: #000;
-    stroke-width: 3;
     pointer-events: none;
+    font-weight: 600;
   }
 </style>
