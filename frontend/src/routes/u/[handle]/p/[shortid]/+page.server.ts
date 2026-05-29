@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { fetchPhotosFeed } from '$lib/api/profileClient';
 
@@ -8,7 +8,17 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
   const { handle, shortid } = params;
 
   const r = await fetch(`${API}/api/photos/by-permalink/${handle}/${shortid}`);
-  if (!r.ok) throw error(404, 'Photo not found');
+  if (!r.ok) {
+    // The permalink didn't resolve. The owner may have renamed their handle
+    // — mirror the profile page: consult the redirect history and 301 to the
+    // canonical URL (preserving the short id) so old photo links keep working.
+    const rr = await fetch(`${API}/api/handles/redirect/${handle}`);
+    if (rr.ok) {
+      const { handle: target } = (await rr.json()) as { handle: string };
+      throw redirect(301, `/u/${target}/p/${shortid}`);
+    }
+    throw error(404, 'Photo not found');
+  }
   const { id } = (await r.json()) as { id: string };
 
   const photoR = await fetch(`${API}/api/photos/${id}`);
