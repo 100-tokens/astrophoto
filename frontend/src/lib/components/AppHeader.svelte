@@ -37,9 +37,8 @@
     <Wordmark size={22} weight={600} italic={false} />
   </div>
 
-  <!-- Center nav (hidden under 768px; the same destinations live in the
-       footer + the search bar covers discovery on mobile, so a hamburger
-       isn't pulling enough weight to justify the cost). -->
+  <!-- Center nav (hidden under 768px). On mobile the same destinations are
+       reached through the <MobileNav> hamburger to the left of the logo. -->
   <nav class="primary-nav" aria-label="Main navigation">
     {#each navLinks as link}
       <a
