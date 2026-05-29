@@ -15,6 +15,9 @@
   // celestial-object markers) tracks the image exactly as the user zooms
   // and pans. It is sized to the image's displayed box, so an absolutely-
   // positioned child filling `inset:0` covers exactly the pixels of the photo.
+  // The snippet receives the current zoom `scale` so it can counter-scale
+  // any element that should stay a constant on-screen size (e.g. text labels)
+  // while everything else scales with the image.
   let {
     photoId,
     alt,
@@ -26,7 +29,7 @@
     alt: string;
     w?: number;
     maxHeight?: string;
-    overlay?: Snippet;
+    overlay?: Snippet<[number]>;
   } = $props();
 
   let viewer: HTMLDivElement | undefined = $state();
@@ -150,7 +153,7 @@
   >
     <img bind:this={img} src={cdn(photoId, { w })} {alt} draggable="false" />
     {#if overlay}
-      <div class="overlay-slot">{@render overlay()}</div>
+      <div class="overlay-slot">{@render overlay(scale)}</div>
     {/if}
   </div>
 

@@ -403,7 +403,7 @@
     <div class="stage">
       <div class="stage-frame">
         <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)">
-          {#snippet overlay()}
+          {#snippet overlay(zoomScale)}
             {#if celestial.length > 0 && solveForOverlay}
               <CelestialOverlay
                 objects={celestial}
@@ -411,6 +411,7 @@
                 {layers}
                 {showPgc}
                 {labelsAlwaysOn}
+                {zoomScale}
                 bind:selectedSlug
                 onSelect={(slug) => (selectedSlug = slug)}
               />
