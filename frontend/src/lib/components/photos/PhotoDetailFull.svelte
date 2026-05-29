@@ -542,6 +542,18 @@
           <ProcessingPipeline report={data.processing} />
         {/if}
 
+        {#if celestial.length > 0 && solveForOverlay}
+          <CelestialPanel
+            objects={celestial}
+            bind:selectedSlug
+            bind:layers
+            bind:showPgc
+            bind:labelsAlwaysOn
+            {isOwner}
+            photoId={p.id}
+          />
+        {/if}
+
         <CommentThread
           photoId={p.id}
           photoOwnerId={p.owner_id}
@@ -550,18 +562,6 @@
         />
 
         {#if data.morePhotos.length > 0}
-          {#if celestial.length > 0 && solveForOverlay}
-            <CelestialPanel
-              objects={celestial}
-              bind:selectedSlug
-              bind:layers
-              bind:showPgc
-              bind:labelsAlwaysOn
-              {isOwner}
-              photoId={p.id}
-            />
-          {/if}
-
           <div class="more-header"><span class="t-label">MORE FROM @{data.handle}</span></div>
           <div class="more-grid">
             {#each data.morePhotos.slice(0, 4) as mp}

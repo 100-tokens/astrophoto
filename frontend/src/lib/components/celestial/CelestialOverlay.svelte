@@ -31,10 +31,14 @@
       .map((o) => {
         const p = projectRaDecToPixel(o.rightAscension, o.declination, solve);
         if (!p) return null;
-        const radiusPx = Math.max(
-          6,
-          ((o.majorAxisArcmin ?? 0.5) * 60) / solve.pixelScaleArcsec / 2
-        );
+        // Marker radius tracks the object's true angular size, but is bounded
+        // both ways: a 6px floor keeps tiny objects clickable, and a cap at
+        // 45% of the frame's short edge keeps a frame-filling object (e.g. a
+        // 28' nebula in a 23' field) as a contained circle rather than one
+        // that spills far past the image edges.
+        const maxR = 0.45 * Math.min(solve.width, solve.height);
+        const trueR = ((o.majorAxisArcmin ?? 0.5) * 60) / solve.pixelScaleArcsec / 2;
+        const radiusPx = Math.min(maxR, Math.max(6, trueR));
         return { o, x: p.x, y: p.y, r: radiusPx };
       })
       .filter(
