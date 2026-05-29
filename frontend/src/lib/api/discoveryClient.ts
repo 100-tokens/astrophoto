@@ -106,6 +106,9 @@ export interface TargetListOpts {
   sort?: string;
   cursor?: string;
   limit?: number;
+  /** Only return targets with at least one published photo. The public
+   *  /t index defaults this on; autocomplete/search omit it. */
+  has_photos?: boolean;
 }
 
 export async function fetchTargetList(

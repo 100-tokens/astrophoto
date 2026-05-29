@@ -20,6 +20,11 @@ pub struct ListQ {
     pub sort: Option<String>,
     pub cursor: Option<String>,
     pub limit: Option<i64>,
+    /// When true, only return targets that have at least one published,
+    /// ready photo. The public `/t` index defaults this on so the catalog
+    /// shows photographed objects, not the ~12k empty OpenNGC stubs.
+    /// Autocomplete / search backends omit it to get the full catalog.
+    pub has_photos: Option<bool>,
 }
 
 const DEFAULT_LIMIT: i64 = 24;
@@ -77,6 +82,7 @@ pub async fn list(
     let q_str = q.q.as_deref();
     let obj = q.object_type.as_deref();
     let cons = q.constellation.as_deref();
+    let has_photos = q.has_photos.unwrap_or(false);
 
     let rows: Vec<PageRow> = match sort {
         "name" => {
@@ -101,6 +107,12 @@ pub async fn list(
                   and ($2::text is null or t.object_type = $2)
                   and ($3::text is null or t.constellation = $3)
                   and ($4::text is null or (t.canonical_name, t.id) > ($4, $5))
+                  and ($7::bool is not true or exists (
+                        select 1 from photo_targets pt
+                        join photos p on p.id = pt.photo_id
+                        where pt.target_id = t.id
+                          and p.published_at is not null
+                          and p.status = 'ready'))
                 order by t.canonical_name asc, t.id asc
                 limit $6
                 "#,
@@ -109,7 +121,8 @@ pub async fn list(
                 cons,
                 cur_name,
                 cur_id,
-                limit + 1
+                limit + 1,
+                has_photos
             )
             .fetch_all(&state.pool)
             .await?
@@ -135,6 +148,12 @@ pub async fn list(
                           exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
                      and ($2::text is null or t.object_type = $2)
                      and ($3::text is null or t.constellation = $3)
+                     and ($7::bool is not true or exists (
+                           select 1 from photo_targets pt
+                           join photos p on p.id = pt.photo_id
+                           where pt.target_id = t.id
+                             and p.published_at is not null
+                             and p.status = 'ready'))
                 )
                 select id as "id!", slug as "slug!", canonical_name as "canonical_name!",
                        object_type, constellation, magnitude_v, photo_count as "photo_count!"
@@ -148,7 +167,8 @@ pub async fn list(
                 cons,
                 cur_count,
                 cur_id,
-                limit + 1
+                limit + 1,
+                has_photos
             )
             .fetch_all(&state.pool)
             .await?
