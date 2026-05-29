@@ -358,10 +358,32 @@ async fn status_cross_owner_returns_404() {
     let _alice = signup_and_cookie(&app, &pool, "alice3@example.com", "alice3").await;
     let bob = signup_and_cookie(&app, &pool, "bob3@example.com", "bob3").await;
     let alice = user_id(&pool, "alice3@example.com").await;
+    // insert_photo leaves the photo unpublished (draft) — a non-owner must
+    // not see a draft's solve telemetry.
     let photo_id = insert_photo(&pool, alice).await;
 
     let (status, _body) = get_status(&app, photo_id, &bob).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn status_public_for_published_photo() {
+    // A PUBLISHED photo exposes its solve telemetry to anyone — the public
+    // photo page's celestial overlay needs the WCS to project markers.
+    let (app, pool) = launch(false).await;
+    let _alice = signup_and_cookie(&app, &pool, "alice4@example.com", "alice4").await;
+    let alice = user_id(&pool, "alice4@example.com").await;
+    let photo_id = insert_photo(&pool, alice).await;
+    sqlx::query("update photos set published_at = now() where id = $1")
+        .bind(photo_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // No cookie at all → anonymous visitor still gets 200.
+    let (status, body) = get_status(&app, photo_id, "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["state"], "idle");
 }
 
 // ──────────────────────────────────────────── auto-calibrate (Phase 3)
