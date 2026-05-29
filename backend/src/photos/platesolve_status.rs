@@ -14,7 +14,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::OptionalUser;
 use crate::error::AppError;
 use crate::http::AppState;
 use crate::photos::platesolve::SOLVING_SENTINEL;
@@ -64,7 +64,7 @@ pub enum PlatesolveState {
 
 pub async fn handler(
     State(state): State<AppState>,
-    CurrentUser(user): CurrentUser,
+    OptionalUser(user): OptionalUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<PlatesolveStatus>, AppError> {
     // Runtime query (not `sqlx::query!`) — see the rationale in
@@ -72,7 +72,7 @@ pub async fn handler(
     // is applied to a dev DB + `cargo sqlx prepare` runs, this can
     // promote to the compile-time form.
     let row: Option<PlatesolveRow> = sqlx::query_as::<_, PlatesolveRow>(
-        r#"select owner_id, ra_deg, dec_deg,
+        r#"select owner_id, published_at, ra_deg, dec_deg,
                   platesolve_solved_at, platesolve_error,
                   platesolve_pixel_scale_arcsec, platesolve_rotation_deg,
                   platesolve_rms_arcsec, platesolve_matched_count,
@@ -86,9 +86,13 @@ pub async fn handler(
     let Some(row) = row else {
         return Err(AppError::not_found("photo"));
     };
-    if row.owner_id != user.id {
-        // Same leak-prevention pattern as `upload_finalize` / the
-        // POST /platesolve handler — hide existence under 404.
+    // Published photos expose their solve telemetry publicly — the public
+    // photo page's celestial overlay needs the WCS (ra/dec/scale/rotation)
+    // to project markers, and the same data is already implied by the
+    // public /celestial-objects endpoint. Drafts stay owner-only, hidden
+    // under 404 (same leak-prevention pattern as upload_finalize / POST
+    // /platesolve).
+    if row.published_at.is_none() && user.map(|u| u.id) != Some(row.owner_id) {
         return Err(AppError::not_found("photo"));
     }
 
@@ -125,6 +129,7 @@ fn classify(row: &PlatesolveRow) -> (PlatesolveState, Option<String>) {
 #[derive(sqlx::FromRow)]
 struct PlatesolveRow {
     owner_id: Uuid,
+    published_at: Option<DateTime<Utc>>,
     ra_deg: Option<f64>,
     dec_deg: Option<f64>,
     platesolve_solved_at: Option<DateTime<Utc>>,
