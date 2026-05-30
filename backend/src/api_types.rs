@@ -360,6 +360,10 @@ pub struct TargetMeta {
     pub constellation: Option<String>,
     pub major_axis_arcmin: Option<f32>,
     pub minor_axis_arcmin: Option<f32>,
+    /// Day-of-year (1..365) on which the object reaches opposition — it sits
+    /// opposite the Sun and transits at local midnight, its best-observation
+    /// date. Approximate (±a few days). See crate::discovery::opposition.
+    pub opposition_doy: Option<i16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -688,6 +692,8 @@ pub struct TargetListItem {
     pub object_type: Option<String>,
     pub constellation: Option<String>,
     pub magnitude_v: Option<f32>,
+    /// Opposition / midnight-culmination day-of-year (1..365). See TargetMeta.
+    pub opposition_doy: Option<i16>,
     pub photo_count: i64,
     pub preview_thumbs: Vec<TargetPreviewThumb>,
 }

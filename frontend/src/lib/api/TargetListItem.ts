@@ -7,6 +7,10 @@ export type TargetListItem = {
   object_type: string | null;
   constellation: string | null;
   magnitude_v: number | null;
+  /**
+   * Opposition / midnight-culmination day-of-year (1..365). See TargetMeta.
+   */
+  opposition_doy: number | null;
   photo_count: bigint;
   preview_thumbs: Array<TargetPreviewThumb>;
 };

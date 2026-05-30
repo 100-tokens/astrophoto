@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select id as \"id!\", right_ascension as \"ra!\"\n          from targets\n         where opposition_doy is null and right_ascension is not null\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "ra!",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "dfa2041c6e03f81e6ded9635136e59a821626784cefaf9d4401774b2b4aa9aa6"
+}

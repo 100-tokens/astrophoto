@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select t.id as \"id!\", t.slug as \"slug!\", t.canonical_name as \"canonical_name!\",\n               t.aliases as \"aliases!\", t.kind as \"kind!\",\n               t.right_ascension, t.declination, t.magnitude_v,\n               t.object_type, t.constellation,\n               t.major_axis_arcmin, t.minor_axis_arcmin,\n               (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"photo_count!\",\n               (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"contributor_count!\"\n        from targets t\n        where t.slug = $1\n        ",
+  "query": "\n        select t.id as \"id!\", t.slug as \"slug!\", t.canonical_name as \"canonical_name!\",\n               t.aliases as \"aliases!\", t.kind as \"kind!\",\n               t.right_ascension, t.declination, t.magnitude_v,\n               t.object_type, t.constellation,\n               t.major_axis_arcmin, t.minor_axis_arcmin, t.opposition_doy,\n               (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"photo_count!\",\n               (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as \"contributor_count!\"\n        from targets t\n        where t.slug = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -65,11 +65,16 @@
       },
       {
         "ordinal": 12,
+        "name": "opposition_doy",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 13,
         "name": "photo_count!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "contributor_count!",
         "type_info": "Int8"
       }
@@ -92,9 +97,10 @@
       true,
       true,
       true,
+      true,
       null,
       null
     ]
   },
-  "hash": "3cf537e0d2cb1c116b4acadd7f3b190f748fed75efa5b6a824a06b93f5fd97b4"
+  "hash": "a5ef4c69154d61da4bd41c382931700ee8134ffaa1dd68887fab40fee9eec373"
 }

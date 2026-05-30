@@ -2,6 +2,7 @@
 //! See docs/superpowers/specs/2026-05-28-celestial-identify-overlay-design.md.
 
 use anyhow::Result;
+use astrophoto::discovery::opposition;
 
 #[derive(Debug, PartialEq)]
 pub struct PgcRow {
@@ -196,8 +197,8 @@ async fn upsert_pgc_row(pool: &sqlx::PgPool, row: &PgcRow) -> Result<UpsertOutco
             slug, canonical_name, kind,
             right_ascension, declination, magnitude_v,
             object_type, major_axis_arcmin, minor_axis_arcmin,
-            position_angle_deg, updated_at
-        ) values ($1, $2, 'pgc', $3, $4, $5, 'G', $6, $7, $8, now())
+            position_angle_deg, opposition_doy, updated_at
+        ) values ($1, $2, 'pgc', $3, $4, $5, 'G', $6, $7, $8, $9, now())
         on conflict (slug) do update set
             right_ascension     = excluded.right_ascension,
             declination         = excluded.declination,
@@ -206,6 +207,7 @@ async fn upsert_pgc_row(pool: &sqlx::PgPool, row: &PgcRow) -> Result<UpsertOutco
             major_axis_arcmin   = excluded.major_axis_arcmin,
             minor_axis_arcmin   = excluded.minor_axis_arcmin,
             position_angle_deg  = excluded.position_angle_deg,
+            opposition_doy      = excluded.opposition_doy,
             updated_at          = now()
         returning (xmax = 0)
         "#,
@@ -218,6 +220,8 @@ async fn upsert_pgc_row(pool: &sqlx::PgPool, row: &PgcRow) -> Result<UpsertOutco
     .bind(row.major_axis_arcmin)
     .bind(row.minor_axis_arcmin)
     .bind(row.position_angle_deg)
+    // Recompute the opposition_doy cache alongside RA (cache contract).
+    .bind(opposition::midnight_culmination_doy(row.ra_deg))
     .fetch_one(pool)
     .await?;
 
