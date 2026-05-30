@@ -60,6 +60,16 @@ A new single-select "Size" control (buckets by the object's **major axis**):
   (cannot be confirmed to match). The hints are label text only — no sensor /
   FOV math, no tie to the user's saved equipment.
 
+### 2b. Planning scope (full catalog vs photographed-only)
+
+`/t` defaults to `has_photos=true` (only photographed objects) — good for a
+discovery gallery, wrong for a planning tool. So when a **planning** view is
+active (`sort=optimal` **or** a size bucket), the loader drops `has_photos`
+and queries the **full catalog**. A visible "Include un-photographed" toggle
+(`?all=1`) lets any sort opt into the full catalog; it shows checked-and-
+disabled while planning (the full catalog is implied). `loadMore` mirrors the
+loader's `has_photos` choice so paginated pages match page 1.
+
 ### 3. Type filter → multi-select
 
 - The single `<select>` becomes a row of toggle chips (Galaxy, Nebula, Open

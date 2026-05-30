@@ -41,6 +41,7 @@
     object_type?: string | undefined;
     constellation?: string | undefined;
     size?: string | undefined;
+    all?: boolean;
   }) {
     const u = new URL(window.location.href);
     if (next.q !== undefined) {
@@ -59,6 +60,10 @@
     if ('size' in next) {
       if (next.size) u.searchParams.set('size', next.size);
       else u.searchParams.delete('size');
+    }
+    if (next.all !== undefined) {
+      if (next.all) u.searchParams.set('all', '1');
+      else u.searchParams.delete('all');
     }
     u.searchParams.delete('cursor');
     void goto(u.pathname + u.search, { replaceState: true, keepFocus: true, noScroll: true });
@@ -87,6 +92,7 @@
       ...(data.constellation !== undefined ? { constellation: data.constellation } : {}),
       ...(bucket?.min !== undefined ? { size_min: bucket.min } : {}),
       ...(bucket?.max !== undefined ? { size_max: bucket.max } : {}),
+      ...(!data.fullCatalog ? { has_photos: true } : {}),
       cursor,
       limit: 24
     });
@@ -154,6 +160,23 @@
         <option value="optimal" selected={data.sort === 'optimal'}>Optimal now</option>
       </select>
     </label>
+    <div class="filter-group">
+      <span class="filter-label">Catalog</span>
+      <label
+        class="toggle"
+        title={data.planning
+          ? 'Full catalog shown while planning (Optimal now / size filter)'
+          : 'Include objects no one has photographed yet'}
+      >
+        <input
+          type="checkbox"
+          checked={data.fullCatalog}
+          disabled={data.planning}
+          onchange={(e) => applyFilter({ all: (e.target as HTMLInputElement).checked })}
+        />
+        Include un-photographed
+      </label>
+    </div>
   </div>
 
   {#if items.length === 0}
@@ -261,6 +284,21 @@
     border-color: var(--accent, #4a90e2);
     color: var(--accent, #4a90e2);
     background: color-mix(in srgb, var(--accent, #4a90e2) 12%, var(--bg-elevated));
+  }
+  .toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .toggle input {
+    accent-color: var(--accent, #4a90e2);
+    cursor: pointer;
+  }
+  .toggle input:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
   .filters select {
     background: var(--bg-elevated);

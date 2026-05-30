@@ -14,9 +14,13 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
   const bucket = sizeBucketByKey(size);
   // Default to photographed targets only — the catalog holds ~12k OpenNGC
   // objects but most have no photos yet; leading with empty stubs is poor
-  // UX and pollutes crawl. `?all=1` opts into the full catalog (the search
-  // box reaches every object via its own query path regardless).
-  const showAll = url.searchParams.get('all') === '1';
+  // UX and pollutes crawl. BUT "Optimal now" and the size buckets are
+  // planning tools ("what should I shoot tonight"), which only make sense
+  // against the full catalog — auto-include it for those. The `all` toggle
+  // forces the full catalog for any sort.
+  const explicitAll = url.searchParams.get('all') === '1';
+  const planning = sort === 'optimal' || bucket !== undefined;
+  const fullCatalog = explicitAll || planning;
 
   try {
     const initial = await fetchTargetList(fetch, {
@@ -26,10 +30,10 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
       ...(constellation !== undefined ? { constellation } : {}),
       ...(bucket?.min !== undefined ? { size_min: bucket.min } : {}),
       ...(bucket?.max !== undefined ? { size_max: bucket.max } : {}),
-      ...(showAll ? {} : { has_photos: true }),
+      ...(fullCatalog ? {} : { has_photos: true }),
       limit: 24
     });
-    return { initial, sort, q, object_type, constellation, size, showAll };
+    return { initial, sort, q, object_type, constellation, size, fullCatalog, planning };
   } catch (_e) {
     throw error(500, 'Failed to load targets');
   }
