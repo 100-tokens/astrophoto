@@ -3,6 +3,7 @@ pub mod email_verify;
 pub mod handle;
 pub mod handle_check;
 pub mod login;
+pub mod login_throttle;
 pub mod logout;
 pub mod me;
 pub mod middleware;

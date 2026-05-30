@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select exists(\n            select 1 from login_throttle\n             where user_id = $1 and locked_until is not null and locked_until > now()\n        )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5416a51e686da911a24dcf6893a4629121f62cb9522b12529fae6e9a32f389b3"
+}

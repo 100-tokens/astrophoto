@@ -246,13 +246,12 @@ async fn password_reset_hourly_cap_is_per_account_not_global() {
     signup(&app, &pool, "attacker@example.com", "longenoughpw1").await;
     signup(&app, &pool, "victim@example.com", "longenoughpw2").await;
 
-    let attacker_id: uuid::Uuid = sqlx::query_scalar::<_, uuid::Uuid>(
-        "select id from users where email = $1",
-    )
-    .bind("attacker@example.com")
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let attacker_id: uuid::Uuid =
+        sqlx::query_scalar::<_, uuid::Uuid>("select id from users where email = $1")
+            .bind("attacker@example.com")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     // PER_HOUR_CAP (5) tokens for the attacker, all from the shared proxy IP.
     for i in 0u8..5 {
         sqlx::query(
@@ -1268,5 +1267,154 @@ async fn export_json_returns_attachment_with_signed_urls() {
             .unwrap()
             .starts_with("memory://k1-thumb"),
         "thumbnail_url must be a memory:// signed URL"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Login brute-force throttle (per-account, fixed-duration lock).
+// ---------------------------------------------------------------------------
+
+async fn user_id(pool: &sqlx::PgPool, email: &str) -> uuid::Uuid {
+    sqlx::query_scalar::<_, uuid::Uuid>("select id from users where email = $1")
+        .bind(email)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+fn login(email: &str, password: &str) -> Request<Body> {
+    req_with_ip(
+        "POST",
+        "/api/auth/login",
+        json!({"email": email, "password": password}),
+    )
+}
+
+#[tokio::test]
+async fn login_lockout_is_fixed_duration_and_clears_on_success() {
+    use astrophoto::auth::login_throttle::MAX_FAILURES;
+
+    let (app, pool, _outbox, _pg) = boot().await;
+    let email = "throttle@example.com";
+    let pwd = "m31-andromeda-rig-7741";
+    signup(&app, &pool, email, pwd).await;
+    let uid = user_id(&pool, email).await;
+
+    // Trip the lock with MAX_FAILURES wrong-password attempts.
+    for _ in 0..MAX_FAILURES {
+        let r = app
+            .clone()
+            .oneshot(login(email, "definitely-not-the-pw"))
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    // The account is now locked; capture the stamped expiry.
+    let t1: chrono::DateTime<chrono::Utc> = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
+        "select locked_until from login_throttle where user_id = $1",
+    )
+    .bind(uid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Sustained attack: further attempts WHILE locked must not extend the lock
+    // (the handler short-circuits before recording any failure). This is the
+    // regression guard against a sliding-window lockout that an attacker could
+    // hold open forever.
+    for _ in 0..5 {
+        let r = app
+            .clone()
+            .oneshot(login(email, "still-not-the-pw"))
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    }
+    let t2: chrono::DateTime<chrono::Utc> = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
+        "select locked_until from login_throttle where user_id = $1",
+    )
+    .bind(uid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        t1, t2,
+        "lock must not be extended by attempts made while locked"
+    );
+
+    // The correct password must NOT bypass an active lock.
+    let r = app.clone().oneshot(login(email, pwd)).await.unwrap();
+    assert_eq!(
+        r.status(),
+        StatusCode::UNAUTHORIZED,
+        "correct password must not bypass an active lock"
+    );
+
+    // Simulate the lock window elapsing. The correct password now logs in.
+    sqlx::query(
+        "update login_throttle set locked_until = now() - interval '1 minute' where user_id = $1",
+    )
+    .bind(uid)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let r = app.clone().oneshot(login(email, pwd)).await.unwrap();
+    assert!(
+        r.status().is_success(),
+        "after the lock expires the correct password logs in (got {})",
+        r.status()
+    );
+
+    // A successful login clears all throttle state for the user.
+    let rows: i64 =
+        sqlx::query_scalar::<_, i64>("select count(*) from login_throttle where user_id = $1")
+            .bind(uid)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(rows, 0, "successful login clears the throttle row");
+}
+
+#[tokio::test]
+async fn login_success_resets_failure_counter() {
+    use astrophoto::auth::login_throttle::MAX_FAILURES;
+
+    let (app, pool, _outbox, _pg) = boot().await;
+    let email = "nearmiss@example.com";
+    let pwd = "ngc7000-pelican-8832";
+    signup(&app, &pool, email, pwd).await;
+
+    // One short of the lock threshold, then a correct login.
+    for _ in 0..(MAX_FAILURES - 1) {
+        let r = app
+            .clone()
+            .oneshot(login(email, "wrong-wrong-wrong"))
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    }
+    let ok = app.clone().oneshot(login(email, pwd)).await.unwrap();
+    assert!(
+        ok.status().is_success(),
+        "correct password logs in below the lock threshold"
+    );
+
+    // The counter was reset, so another (MAX_FAILURES - 1) failures still do not
+    // lock — a single near-miss earlier must not leave the account primed to
+    // lock on the next mistake.
+    for _ in 0..(MAX_FAILURES - 1) {
+        let r = app
+            .clone()
+            .oneshot(login(email, "wrong-again-here"))
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    }
+    let ok = app.clone().oneshot(login(email, pwd)).await.unwrap();
+    assert!(
+        ok.status().is_success(),
+        "still not locked after success reset the counter (got {})",
+        ok.status()
     );
 }
