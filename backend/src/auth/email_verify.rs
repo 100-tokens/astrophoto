@@ -24,6 +24,10 @@ use crate::http::AppState;
 pub(crate) const TTL_HOURS: i32 = 24;
 pub(crate) const PER_EMAIL_COOLDOWN_SECS: f64 = 60.0;
 pub(crate) const PER_HOUR_CAP: i64 = 5;
+// Site-wide ceiling on verification mail per hour. See the matching constant in
+// password_reset.rs for the rationale (the per-account cap is keyed on user_id
+// alone now; this is a separate, non-OR-combined aggregate backstop).
+const GLOBAL_HOUR_CAP: i64 = 200;
 
 /// Generate a fresh token, insert its sha256 hash, return the raw token
 /// (URL-safe base64, no padding) for embedding into the email link.
@@ -135,19 +139,33 @@ pub async fn resend(
         .await?
         .unwrap_or(false);
 
+        // Per-account hourly cap, keyed on user_id ONLY (no longer OR'd with the
+        // proxy request_ip — that collapsed it into a single global bucket).
         let hour_cap_hit = sqlx::query_scalar!(
             "select count(*) >= $2 from email_verification_tokens
-              where (user_id = $1 or request_ip = $3)
+              where user_id = $1
                 and created_at > now() - interval '1 hour'",
             u.id,
-            PER_HOUR_CAP,
-            IpNetwork::from(addr.ip())
+            PER_HOUR_CAP
         )
         .fetch_one(&state.pool)
         .await?
         .unwrap_or(false);
 
-        if !cooldown_hit && !hour_cap_hit {
+        // Separate site-wide ceiling on outbound verification mail.
+        let global_cap_hit = sqlx::query_scalar!(
+            "select count(*) >= $1 from email_verification_tokens
+              where created_at > now() - interval '1 hour'",
+            GLOBAL_HOUR_CAP
+        )
+        .fetch_one(&state.pool)
+        .await?
+        .unwrap_or(false);
+        if global_cap_hit {
+            tracing::warn!("email-verify aggregate hourly cap hit; suppressing token issuance");
+        }
+
+        if !cooldown_hit && !hour_cap_hit && !global_cap_hit {
             let token = issue_token(&state.pool, u.id, Some(addr.ip())).await?;
             let link = format!(
                 "{}/verify/{}",

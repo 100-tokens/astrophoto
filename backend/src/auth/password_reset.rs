@@ -29,6 +29,14 @@ pub struct RequestBody {
 const TTL_HOURS: i32 = 1;
 const PER_EMAIL_COOLDOWN_SECS: f64 = 60.0;
 const PER_HOUR_CAP: i64 = 5;
+// Aggregate outbound-mail backstop. The per-account cap used to be OR-combined
+// with `request_ip`, but behind the proxy `request_ip` is the single proxy IP,
+// so that OR collapsed the per-hour cap into ONE site-wide bucket — any
+// attacker could trip it and deny recovery for everyone. The per-account cap is
+// now keyed on `user_id` alone (correct); this separate, generous aggregate cap
+// keeps a ceiling on total reset mail per hour so the fix doesn't drop the
+// mail-abuse backstop entirely. Tune to real site volume.
+const GLOBAL_HOUR_CAP: i64 = 200;
 
 pub async fn request(
     State(state): State<AppState>,
@@ -59,19 +67,35 @@ pub async fn request(
         .await?
         .unwrap_or(false);
 
+        // Per-account hourly cap, keyed on user_id ONLY (no longer OR'd with
+        // the proxy request_ip — that turned this into a global bucket).
         let hour_cap_hit = sqlx::query_scalar!(
             "select count(*) >= $2 from password_reset_tokens
-              where (user_id = $1 or request_ip = $3)
+              where user_id = $1
                 and created_at > now() - interval '1 hour'",
             u.id,
-            PER_HOUR_CAP,
-            IpNetwork::from(addr.ip())
+            PER_HOUR_CAP
         )
         .fetch_one(&state.pool)
         .await?
         .unwrap_or(false);
 
-        if !cooldown_hit && !hour_cap_hit {
+        // Separate site-wide ceiling on outbound reset mail (NOT OR-combined
+        // with the per-account cap, so one account can't be used to deny
+        // everyone else). Generous; trips only under genuine mass abuse.
+        let global_cap_hit = sqlx::query_scalar!(
+            "select count(*) >= $1 from password_reset_tokens
+              where created_at > now() - interval '1 hour'",
+            GLOBAL_HOUR_CAP
+        )
+        .fetch_one(&state.pool)
+        .await?
+        .unwrap_or(false);
+        if global_cap_hit {
+            tracing::warn!("password-reset aggregate hourly cap hit; suppressing token issuance");
+        }
+
+        if !cooldown_hit && !hour_cap_hit && !global_cap_hit {
             // Issue token.
             let mut raw = [0u8; 32];
             rand::thread_rng().fill_bytes(&mut raw);
