@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update targets t\n           set opposition_doy = d.doy\n          from unnest($1::uuid[], $2::int2[]) as d(id, doy)\n         where t.id = d.id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9db5938be63a2eb4048376139f7b197c67906557d954ccddcdd92291aa0043a8"
+}

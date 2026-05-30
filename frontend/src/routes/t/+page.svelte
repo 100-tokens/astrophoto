@@ -111,6 +111,9 @@
       <select onchange={(e) => applyFilter({ sort: (e.target as HTMLSelectElement).value })}>
         <option value="popular" selected={data.sort === 'popular'}>Popular</option>
         <option value="name" selected={data.sort === 'name'}>Alphabetical</option>
+        <option value="opposition" selected={data.sort === 'opposition'}
+          >Opposition (Jan → Dec)</option
+        >
       </select>
     </label>
   </div>

@@ -23,6 +23,15 @@ async fn main() -> Result<()> {
     let pool = db::connect(&cfg.database_url).await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
+    // Fill the opposition_doy cache for any target seeded before the column
+    // existed (prod is seeded; seeds are manual). Idempotent and cheap once
+    // populated — a no-op SELECT on subsequent boots.
+    match astrophoto::discovery::opposition::backfill_missing(&pool).await {
+        Ok(0) => {}
+        Ok(n) => tracing::info!(filled = n, "backfilled targets.opposition_doy"),
+        Err(e) => tracing::warn!(error = %e, "opposition_doy backfill failed; continuing"),
+    }
+
     let storage = Arc::new(
         S3Storage::new(
             cfg.s3_endpoint.as_deref(),

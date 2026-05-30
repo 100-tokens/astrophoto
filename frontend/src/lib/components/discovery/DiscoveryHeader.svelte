@@ -7,6 +7,7 @@
   import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
   import { CATEGORY_LABELS } from '$lib/util/categoryLabel';
   import { daysToNextNewMoon } from '$lib/util/moon';
+  import { formatOpposition } from '$lib/util/opposition';
 
   type ExploreProps = { variant: 'explore'; photoCount?: number | bigint };
   type TargetProps = { variant: 'target'; meta: TargetMeta };
@@ -65,6 +66,7 @@
     meta.major_axis_arcmin !== null && meta.minor_axis_arcmin !== null
       ? `${meta.major_axis_arcmin.toFixed(0)}′ × ${meta.minor_axis_arcmin.toFixed(0)}′`
       : ''}
+  {@const oppStr = formatOpposition(meta.opposition_doy)}
   <section class="header header-target">
     <div class="header-left">
       <p class="eyebrow">● TARGET{meta.kind ? ` · ${meta.kind.toUpperCase()}` : ''}</p>
@@ -84,6 +86,14 @@
         <p class="meta-line meta-line-secondary">
           {#if meta.magnitude_v !== null}<span>mag {meta.magnitude_v.toFixed(1)}</span>{/if}
           {#if sizeStr}<span>{meta.magnitude_v !== null ? ' · ' : ''}{sizeStr}</span>{/if}
+        </p>
+      {/if}
+      {#if oppStr}
+        <p
+          class="meta-line meta-line-opposition"
+          title="Opposition — the object sits opposite the Sun and transits the meridian at local midnight, its best-observation window. Approximate."
+        >
+          <span>◐ Opposition · {oppStr}</span>
         </p>
       {/if}
       {#if meta.aliases.length > 0}
@@ -328,6 +338,11 @@
   }
   .header-target .meta-line-secondary {
     font-size: 0.85rem;
+  }
+  .header-target .meta-line-opposition {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
   }
   .header-target .data-attrib {
     font-size: 0.75rem;

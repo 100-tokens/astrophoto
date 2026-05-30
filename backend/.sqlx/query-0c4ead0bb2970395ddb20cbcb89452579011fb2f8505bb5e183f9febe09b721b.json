@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        insert into targets (\n            slug, canonical_name, aliases, kind,\n            right_ascension, declination, magnitude_v, object_type,\n            constellation, major_axis_arcmin, minor_axis_arcmin, opposition_doy, updated_at\n        )\n        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())\n        on conflict (slug) do update set\n            canonical_name = case\n                when targets.canonical_name ~ '^Messier [0-9]+$'\n                     and excluded.canonical_name !~ '^(NGC|IC) [0-9]+$'\n                then excluded.canonical_name\n                else targets.canonical_name\n            end,\n            right_ascension   = excluded.right_ascension,\n            declination       = excluded.declination,\n            magnitude_v       = excluded.magnitude_v,\n            object_type       = excluded.object_type,\n            constellation     = excluded.constellation,\n            major_axis_arcmin = excluded.major_axis_arcmin,\n            minor_axis_arcmin = excluded.minor_axis_arcmin,\n            opposition_doy    = excluded.opposition_doy,\n            aliases = (\n                select array(select distinct unnest(targets.aliases || $3))\n            ),\n            updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "TextArray",
+        "Text",
+        "Float8",
+        "Float8",
+        "Float4",
+        "Text",
+        "Bpchar",
+        "Float4",
+        "Float4",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0c4ead0bb2970395ddb20cbcb89452579011fb2f8505bb5e183f9febe09b721b"
+}

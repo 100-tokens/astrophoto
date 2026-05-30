@@ -2,6 +2,7 @@
 //! See docs/superpowers/specs/2026-05-06-celestial-objects-design.md
 
 use anyhow::Result;
+use astrophoto::discovery::opposition;
 
 #[derive(Debug, PartialEq)]
 pub struct OpenNgcRow {
@@ -241,14 +242,18 @@ pub async fn upsert_target(
     // — those should be promoted to OpenNGC's common name when one exists, so
     // M1 displays "Crab Nebula", M81 "Bode's Galaxy", etc. The regex tests
     // isolate exactly that placeholder; manual overrides won't match.
+    // Recompute the opposition_doy cache in the same statement that writes RA
+    // (see crate::discovery::opposition's cache contract).
+    let opposition_doy: Option<i16> = row.ra_deg.map(opposition::midnight_culmination_doy);
+
     sqlx::query!(
         r#"
         insert into targets (
             slug, canonical_name, aliases, kind,
             right_ascension, declination, magnitude_v, object_type,
-            constellation, major_axis_arcmin, minor_axis_arcmin, updated_at
+            constellation, major_axis_arcmin, minor_axis_arcmin, opposition_doy, updated_at
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
         on conflict (slug) do update set
             canonical_name = case
                 when targets.canonical_name ~ '^Messier [0-9]+$'
@@ -263,6 +268,7 @@ pub async fn upsert_target(
             constellation     = excluded.constellation,
             major_axis_arcmin = excluded.major_axis_arcmin,
             minor_axis_arcmin = excluded.minor_axis_arcmin,
+            opposition_doy    = excluded.opposition_doy,
             aliases = (
                 select array(select distinct unnest(targets.aliases || $3))
             ),
@@ -279,6 +285,7 @@ pub async fn upsert_target(
         constellation_3,
         row.major_axis_arcmin,
         row.minor_axis_arcmin,
+        opposition_doy,
     )
     .execute(pool)
     .await?;

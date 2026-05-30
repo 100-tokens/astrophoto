@@ -47,7 +47,7 @@ pub async fn get(
                t.aliases as "aliases!", t.kind as "kind!",
                t.right_ascension, t.declination, t.magnitude_v,
                t.object_type, t.constellation,
-               t.major_axis_arcmin, t.minor_axis_arcmin,
+               t.major_axis_arcmin, t.minor_axis_arcmin, t.opposition_doy,
                (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id
                 where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as "photo_count!",
                (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id
@@ -170,6 +170,7 @@ pub async fn get(
             constellation: t.constellation,
             major_axis_arcmin: t.major_axis_arcmin,
             minor_axis_arcmin: t.minor_axis_arcmin,
+            opposition_doy: t.opposition_doy,
         },
         page: DiscoveryPage {
             photos: take

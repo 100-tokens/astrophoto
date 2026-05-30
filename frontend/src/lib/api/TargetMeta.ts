@@ -14,4 +14,10 @@ export type TargetMeta = {
   constellation: string | null;
   major_axis_arcmin: number | null;
   minor_axis_arcmin: number | null;
+  /**
+   * Day-of-year (1..365) on which the object reaches opposition — it sits
+   * opposite the Sun and transits at local midnight, its best-observation
+   * date. Approximate (±a few days). See crate::discovery::opposition.
+   */
+  opposition_doy: number | null;
 };

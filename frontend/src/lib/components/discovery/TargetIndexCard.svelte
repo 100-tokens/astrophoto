@@ -3,6 +3,7 @@
   import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
   import { cdn } from '$lib/cdn';
   import { pluralize } from '$lib/util/pluralize';
+  import { formatOpposition } from '$lib/util/opposition';
 
   interface Props {
     target: TargetListItem;
@@ -28,6 +29,14 @@
     {#if target.constellation}
       · {constellationLabel(target.constellation)}{/if}
   </p>
+  {#if target.opposition_doy != null}
+    <p
+      class="opposition"
+      title="Opposition — best observed around this time, when it transits at midnight"
+    >
+      ◐ Opp · {formatOpposition(target.opposition_doy)}
+    </p>
+  {/if}
   <p class="count">{pluralize(target.photo_count, 'photo')}</p>
 </a>
 
@@ -90,6 +99,12 @@
     margin: 0.25rem 0 0;
     font-size: 0.85rem;
     color: var(--fg-muted, #888);
+  }
+  .opposition {
+    margin: 0.25rem 0 0;
+    font-size: 0.78rem;
+    color: var(--accent, #4a90e2);
+    font-family: var(--font-mono);
   }
   .count {
     margin: 0.5rem 0 0;
