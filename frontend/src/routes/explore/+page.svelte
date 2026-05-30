@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { untrack } from 'svelte';
+  import { cdn } from '$lib/cdn';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -72,27 +74,63 @@
   );
   const pageDescription =
     'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';
+
+  // Canonical normalizes away filter params so every filtered view points at
+  // the one indexable /explore URL (avoids duplicate-content dilution).
+  let canonicalUrl = $derived(`${page.url.origin}/explore`);
+  let ogImage = $derived.by(() => {
+    const first = data.initial.photos[0];
+    if (!first) return null;
+    const u = cdn(first.id, { w: 1200 });
+    return u.startsWith('http') ? u : `${page.url.origin}${u}`;
+  });
+
+  function clearFilters() {
+    void goto('/explore', { replaceState: true, keepFocus: true, noScroll: true });
+  }
 </script>
 
 <svelte:head>
   <title>{pageTitle}</title>
   <meta name="description" content={pageDescription} />
+  <link rel="canonical" href={canonicalUrl} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Astrophoto" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={pageDescription} />
+  <meta property="og:url" content={canonicalUrl} />
+  {#if ogImage}
+    <meta property="og:image" content={ogImage} />
+  {/if}
+
+  <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={pageDescription} />
+  {#if ogImage}
+    <meta name="twitter:image" content={ogImage} />
+  {/if}
 </svelte:head>
 
 <AppHeader />
 
 <main>
-  <DiscoveryHeader variant="explore" photoCount={data.initial.photos.length} />
+  <DiscoveryHeader
+    variant="explore"
+    photoCount={data.totalFrames ?? data.initial.photos.length}
+  />
   <FilterPills
     variant="explore"
     sort={data.sort}
     since={data.since}
     {...pillCategory !== undefined ? { category: pillCategory } : {}}
     following={data.following}
+    authed={!!data.user}
     onSortChange={(s) => applyFilter({ sort: s })}
     onSinceChange={(s) => applyFilter({ since: s })}
     onCategoryChange={(c) => applyFilter({ category: c })}
     onFollowingChange={(f) => applyFilter({ following: f })}
+    onClear={clearFilters}
   />
   {#key `${data.sort}|${data.since}|${data.category ?? ''}|${data.following}`}
     <CrossAuthorGrid

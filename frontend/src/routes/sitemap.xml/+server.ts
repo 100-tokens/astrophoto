@@ -2,11 +2,26 @@ import type { RequestHandler } from './$types';
 
 // Dynamic sitemap. Compose from three sources:
 //   1. Static surfaces (home, /t, /explore, footer pages)
-//   2. Recent published photos (top 200 by published_at, public ones only)
+//   2. Published photos by published_at, public ones only — paginated so the
+//      sitemap is the deep-crawl path for `/u/<handle>/p/<short-id>` permalinks
+//      that the Load-more grid never links to as static <a> hrefs.
 //   3. Top targets (by frame count)
 //
 // Kept under 5 MB / 50 K URLs per Google's limit. If we cross that, split
 // into a sitemap index + multiple per-resource sitemaps.
+//
+// The backend clamps /api/explore and /api/targets `limit` to 60 (see
+// backend/src/discovery/{explore,target_index}.rs), so a single big `limit=`
+// is silently truncated — we must walk `next_cursor` to enumerate beyond 60.
+
+// Max cursor pages to walk per source. At 60 rows/page this bounds photo
+// enumeration to ~PHOTO_PAGE_CAP*60 URLs and the request to that many
+// sequential API round-trips (intentional; this endpoint is CDN-cached 1h).
+// TODO: when published photos exceed ~PHOTO_PAGE_CAP*60, the 60-row clamp
+// makes one sitemap too slow/large — switch to a sitemap index + a bulk
+// (uncapped) enumeration path on the backend rather than raising this cap.
+const PHOTO_PAGE_CAP = 84; // ~5,040 photo permalinks, well under the 50k limit
+const TARGET_PAGE_CAP = 20; // ~1,200 photographed targets
 
 const STATIC_PATHS = [
   { loc: '/', changefreq: 'hourly', priority: 1.0 },
@@ -35,12 +50,24 @@ function escape(s: string): string {
 
 interface ExplorePhoto {
   short_id: string;
-  owner_handle: string;
+  // /api/explore (DiscoveryPhoto) returns `author_handle`; accept the legacy
+  // `owner_handle` too in case any caller shape differs.
+  author_handle?: string;
+  owner_handle?: string;
   published_at?: string | null;
   created_at?: string;
 }
+interface ExplorePage {
+  photos?: ExplorePhoto[];
+  next_cursor?: string | null;
+}
 interface TargetItem {
   slug: string;
+}
+interface TargetPage {
+  targets?: TargetItem[];
+  items?: TargetItem[];
+  next_cursor?: string | null;
 }
 
 export const GET: RequestHandler = async ({ url, fetch }) => {
@@ -59,28 +86,38 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     });
   }
 
-  // Recent photos — re-use the public /api/explore endpoint. Fail soft so
-  // a transient backend hiccup doesn't break the whole sitemap.
+  // Published photos — re-use the public /api/explore endpoint, walking
+  // `next_cursor` so permalinks beyond the backend's 60-row page are crawlable.
+  // Fail soft: a mid-walk hiccup breaks the loop but keeps what we collected
+  // (and the static/category entries already pushed above).
   try {
-    const r = await fetch('/api/explore?limit=200');
-    if (r.ok) {
-      const data = (await r.json()) as { photos?: ExplorePhoto[] };
-      for (const p of data.photos ?? []) {
-        if (!p.short_id || !p.owner_handle) continue;
+    let cursor: string | null = null;
+    for (let page = 0; page < PHOTO_PAGE_CAP; page++) {
+      const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+      const r = await fetch(`/api/explore?limit=60${qs}`);
+      if (!r.ok) break;
+      const data = (await r.json()) as ExplorePage;
+      const photos = data.photos ?? [];
+      for (const p of photos) {
+        const handle = p.author_handle ?? p.owner_handle;
+        if (!p.short_id || !handle) continue;
         const lastmod = p.published_at ?? p.created_at;
         urls.push({
-          loc: `${origin}/u/${encodeURIComponent(p.owner_handle)}/p/${p.short_id}`,
+          loc: `${origin}/u/${encodeURIComponent(handle)}/p/${p.short_id}`,
           ...(lastmod ? { lastmod } : {}),
           changefreq: 'weekly',
           priority: 0.8
         });
         // Photographer profile page (deduped via Set below)
         urls.push({
-          loc: `${origin}/u/${encodeURIComponent(p.owner_handle)}`,
+          loc: `${origin}/u/${encodeURIComponent(handle)}`,
           changefreq: 'weekly',
           priority: 0.6
         });
       }
+      // Stop on exhausted cursor or an empty page (defensive: avoids spinning).
+      cursor = data.next_cursor ?? null;
+      if (!cursor || photos.length === 0) break;
     }
   } catch {
     /* fail soft */
@@ -88,12 +125,17 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 
   // Top targets — only those with published photos. After the OpenNGC seed
   // the catalog is ~12k objects, most photo-less; without this filter the
-  // sitemap would hand crawlers thousands of empty stub pages.
+  // sitemap would hand crawlers thousands of empty stub pages. Same 60-row
+  // clamp as explore, so walk `next_cursor` here too.
   try {
-    const r = await fetch('/api/targets?limit=200&has_photos=true');
-    if (r.ok) {
-      const data = (await r.json()) as { targets?: TargetItem[]; items?: TargetItem[] };
-      for (const t of data.targets ?? data.items ?? []) {
+    let cursor: string | null = null;
+    for (let page = 0; page < TARGET_PAGE_CAP; page++) {
+      const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+      const r = await fetch(`/api/targets?limit=60&has_photos=true${qs}`);
+      if (!r.ok) break;
+      const data = (await r.json()) as TargetPage;
+      const targets = data.targets ?? data.items ?? [];
+      for (const t of targets) {
         if (!t.slug) continue;
         urls.push({
           loc: `${origin}/t/${encodeURIComponent(t.slug)}`,
@@ -101,6 +143,8 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
           priority: 0.7
         });
       }
+      cursor = data.next_cursor ?? null;
+      if (!cursor || targets.length === 0) break;
     }
   } catch {
     /* fail soft */

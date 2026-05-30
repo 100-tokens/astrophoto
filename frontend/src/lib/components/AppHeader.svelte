@@ -65,3 +65,7 @@
     {/if}
   </div>
 </header>
+
+<!-- Skip-link target — sits AFTER the header nav so the layout's "Skip to
+     content" link actually bypasses the navigation on every page. -->
+<div id="main-content" tabindex="-1"></div>

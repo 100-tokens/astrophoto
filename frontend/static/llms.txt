@@ -14,18 +14,18 @@ and an 8-character permalink per frame at `/u/<handle>/p/<short-id>`.
 
 ## Surface map
 
-- `/` — public gallery, sorted newest-first
-- `/explore` — the same gallery, with the discovery toolbar surfaced
-- `/t` — index of every target across the catalogue, ordered by frame count
-- `/t/<slug>` — page for a single target (e.g. `/t/m31`, `/t/ngc-7000`)
-- `/tag/<slug>` — page for a free-form tag (e.g. `/tag/narrowband`)
-- `/equip/<kind>/<slug>` — page for a piece of equipment (e.g. `/equip/camera/sony-a7iv`)
-- `/c/<category>` — page for a category (DSO / Planetary / Lunar / Solar / Wide-field / Nightscape / Other)
-- `/u/<handle>` — photographer profile (display name, bio, equipment defaults, location, social links, frames)
-- `/u/<handle>/p/<short-id>` — single-photo permalink with the full acquisition record + comments
-- `/about`, `/terms`, `/privacy`, `/contact` — static pages
-- `/signin`, `/signup` — auth (private)
-- `/upload`, `/upload/<id>/verify`, `/settings`, `/drafts` — authoring + account (private)
+- [/](/): public gallery, sorted newest-first
+- [/explore](/explore): the same gallery, with the discovery toolbar surfaced
+- [/t](/t): index of every target across the catalogue, ordered by frame count
+- [/t/m31](/t/m31): page for a single target `/t/<slug>` (e.g. `/t/m31`, `/t/ngc-7000`)
+- [/tag/narrowband](/tag/narrowband): page for a free-form tag `/tag/<slug>` (e.g. `/tag/narrowband`)
+- [/equip/camera/sony-a7iv](/equip/camera/sony-a7iv): page for a piece of equipment `/equip/<kind>/<slug>` (e.g. `/equip/camera/sony-a7iv`)
+- [/c/dso](/c/dso): page for a category `/c/<category>` (DSO / Planetary / Lunar / Solar / Wide-field / Nightscape / Other)
+- [/u/<handle>](/u): photographer profile (display name, bio, equipment defaults, location, social links, frames)
+- [/u/<handle>/p/<short-id>](/u): single-photo permalink with the full acquisition record + comments
+- [/about](/about): static page (also `/terms`, `/privacy`, `/contact`)
+- [/signin](/signin): auth (private; also `/signup`)
+- [/upload](/upload): authoring + account (private; also `/upload/<id>/verify`, `/settings`, `/drafts`)
 
 ## Data model in plain English
 

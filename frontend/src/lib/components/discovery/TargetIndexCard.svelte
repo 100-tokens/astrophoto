@@ -38,12 +38,12 @@
     text-decoration: none;
     padding: 0.75rem;
     border: 1px solid var(--border-subtle, #ddd);
-    border-radius: var(--r-md, 6px);
+    border-radius: var(--r-md);
     background: var(--bg-elevated, #fff);
     transition: border-color 0.15s;
   }
   .card:hover {
-    border-color: var(--accent, #4a90e2);
+    border-color: var(--accent);
   }
   .thumbs {
     display: grid;
@@ -66,7 +66,7 @@
     /* Diagonal-stripe pattern so the empty preview reads as "no photo here yet"
        rather than an invisible card-color rectangle. Subtle, doesn't fight the
        layout when real thumbs land. */
-    background-color: var(--bg-faint, #141414);
+    background-color: var(--bg-canvas);
     background-image: repeating-linear-gradient(
       135deg,
       transparent 0,

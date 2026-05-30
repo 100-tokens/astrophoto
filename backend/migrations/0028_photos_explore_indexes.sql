@@ -1,0 +1,36 @@
+-- 0028 explore index coverage: the most-appreciated + category sort path.
+--
+-- /explore (backend/src/discovery/explore.rs) has two query shapes, both
+-- filtered by `published_at is not null and status = 'ready'`:
+--   * newest:           order by published_at desc, id desc
+--   * most-appreciated: order by appreciations_count desc, published_at desc,
+--                       id desc
+-- both with an optional `category = $n` equality (+ since / following filters).
+--
+-- Existing coverage (grepped, do NOT duplicate):
+--   * photos_published_newest_idx (0012) — (published_at desc, id desc)
+--     where published_at is not null. ALREADY serves the newest path: its
+--     predicate is implied by the explore WHERE, and the 0012 comment notes
+--     it is "also used by /explore". So the proposed idx_photos_explore_newest
+--     is intentionally OMITTED here — it would only add `status = 'ready'` to
+--     the predicate (negligible: excludes a handful of transient
+--     processing-during-replace rows) and would be a near-duplicate.
+--   * photos_category_published_idx (0012) — (category, published_at desc,
+--     id desc): newest-within-category, lacks appreciations_count.
+--   * photos_published_popular_idx (0011) — (appreciations_count desc,
+--     published_at desc, id desc): popular sort WITHOUT a leading category,
+--     still serves the category-less most-appreciated path.
+--
+-- Genuinely missing: the (category, appreciations_count desc, ...) composite
+-- for the most-appreciated sort WITH a category filter. No existing index
+-- leads with category then appreciations_count, so that path currently sorts.
+--
+-- Plain CREATE INDEX (NOT CONCURRENTLY) because sqlx wraps each migration in a
+-- transaction; CONCURRENTLY cannot run inside one.
+--
+-- NOTE: this index is UNVALIDATED by EXPLAIN — Docker/Postgres is unavailable
+-- in-environment, so the plan win on the most-appreciated+category explore
+-- path is reasoned from the query/ORDER BY shape, not measured.
+create index if not exists idx_photos_explore_pop_cat
+    on photos (category, appreciations_count desc, published_at desc, id desc)
+    where published_at is not null and status = 'ready';

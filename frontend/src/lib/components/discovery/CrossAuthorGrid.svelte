@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import justifiedLayout from 'justified-layout';
   import type { DiscoveryPhoto } from '$lib/api/DiscoveryPhoto';
   import CrossAuthorTile from './CrossAuthorTile.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -18,15 +16,20 @@
   } = $props();
 
   // Use extraPhotos + extraCursor so we never seed $state from a prop directly.
-  // This avoids state_referenced_locally warning without an eslint exemption.
   let extraPhotos = $state<DiscoveryPhoto[]>([]);
   let extraCursor = $state<string | null>(null);
   let loading = $state(false);
-  let containerWidth = $state(0);
-  let containerEl: HTMLDivElement | null = null;
 
   let photos = $derived([...(initial?.photos ?? []), ...extraPhotos]);
   let nextCursor = $derived(extraCursor !== null ? extraCursor : (initial?.next_cursor ?? null));
+
+  // Justified-rows layout is pure CSS (flex-grow ∝ aspect-ratio, flex-basis ∝
+  // aspect-ratio × row-height), so the full grid — real <a>/<img>/captions —
+  // renders server-side and at first paint without JS (crawlable + LCP image
+  // in the initial HTML), and server/client render identically (no re-layout,
+  // no CLS). The trailing flex spacers keep the last (incomplete) row from
+  // stretching its tiles to full width.
+  const spacers = [0, 1, 2, 3, 4, 5];
 
   async function loadMore() {
     if (loading || !loadMoreFn) return;
@@ -39,52 +42,14 @@
       loading = false;
     }
   }
-
-  onMount(() => {
-    if (containerEl) {
-      containerWidth = containerEl.getBoundingClientRect().width;
-      const ro = new ResizeObserver((entries) => {
-        for (const e of entries) containerWidth = e.contentRect.width;
-      });
-      ro.observe(containerEl);
-      return () => ro.disconnect();
-    }
-  });
-
-  let layout = $derived.by(() => {
-    if (containerWidth <= 0 || photos.length === 0) {
-      return {
-        containerHeight: 0,
-        boxes: [] as Array<{ width: number; height: number; top: number; left: number }>
-      };
-    }
-    const isMobile = containerWidth < 640;
-    const aspectRatios = photos.map((p) => {
-      const w = p.width ?? 3;
-      const h = p.height ?? 2;
-      return Math.max(0.2, Math.min(5, w / h));
-    });
-    const result = justifiedLayout(aspectRatios, {
-      containerWidth,
-      containerPadding: 0,
-      boxSpacing: 8,
-      targetRowHeight: isMobile ? 140 : 240
-    });
-    return result;
-  });
 </script>
 
-<div class="grid" bind:this={containerEl} style="height:{layout.containerHeight}px">
+<div class="grid">
   {#each photos as photo, i (photo.id)}
-    {#if layout.boxes[i]}
-      <CrossAuthorTile
-        {photo}
-        width={layout.boxes[i].width}
-        height={layout.boxes[i].height}
-        top={layout.boxes[i].top}
-        left={layout.boxes[i].left}
-      />
-    {/if}
+    <CrossAuthorTile {photo} priority={i < 3} />
+  {/each}
+  {#each spacers as s (s)}
+    <i class="spacer" aria-hidden="true"></i>
   {/each}
 </div>
 
@@ -95,18 +60,30 @@
     </button>
   </div>
 {:else if photos.length === 0 && !loading}
-  <EmptyState
-    title={emptyTitle}
-    message={emptyMessage}
-    ctaLabel="Upload a frame"
-    ctaHref="/upload"
-  />
+  <EmptyState title={emptyTitle} message={emptyMessage} ctaLabel="Upload a frame" ctaHref="/upload" />
 {/if}
 
 <style>
   .grid {
-    position: relative;
-    margin: 0 32px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 64px;
+    --row-h: 240px;
+  }
+
+  .spacer {
+    flex-grow: 1000;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  @media (max-width: 768px) {
+    .grid {
+      margin: 0 16px;
+      --row-h: 160px;
+    }
   }
 
   .more {

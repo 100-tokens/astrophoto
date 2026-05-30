@@ -120,8 +120,9 @@ Type roles already in `styles.css`:
 ### Radii
 
 The design is **flat-cornered intentionally**. Most surfaces are 0
-radius (chips and avatars excepted: chips ~999px pill, avatars
-square not circular). Do not introduce rounding.
+radius; chips use sharp corners too (2px / `var(--r-sm)`), and avatars
+are square not circular. Do not introduce rounding.
+_(reconciled 2026-05-30: sharp wins, per original handoff + shipped code)_
 
 ## Phase 1 — Foundations
 
