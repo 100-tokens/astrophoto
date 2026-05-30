@@ -9,12 +9,14 @@
 
   interface HeroPhoto {
     target: string | null;
+    original_name?: string | null;
     integration: string;
     photographer: string;
   }
 
   interface GalleryPhoto extends Omit<PhotoData, 'target'> {
     target: string | null;
+    original_name?: string | null;
     thumbSrc?: string;
   }
 
@@ -204,7 +206,13 @@
         </div>
         {#if data.isReal}
           <div style="color: var(--fg-primary)">
-            <PhotoTitle photo={{ target: data.heroPhoto.target }} size="md" />
+            <PhotoTitle
+              photo={{
+                target: data.heroPhoto.target,
+                original_name: data.heroPhoto.original_name ?? null
+              }}
+              size="md"
+            />
           </div>
         {:else}
           <div style="color: var(--fg-primary)">
@@ -275,7 +283,10 @@
           {/if}
           <div class="photo-meta-row">
             <span class="photo-target"
-              ><PhotoTitle photo={{ target: photo.target }} size="md" /></span
+              ><PhotoTitle
+                photo={{ target: photo.target, original_name: photo.original_name ?? null }}
+                size="md"
+              /></span
             >
             <span class="photo-integration">{photo.integration}</span>
           </div>

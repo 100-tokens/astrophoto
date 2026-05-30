@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { cdn } from '$lib/cdn';
   import PhotoTitle from './PhotoTitle.svelte';
 
   let {
@@ -52,7 +53,7 @@
       <tr class:is-draft={row.is_draft}>
         <td class="thumb-cell">
           {#if row.status === 'ready'}
-            <img src={`/api/photos/${row.id}/thumb/400`} class="thumb" alt="" />
+            <img src={cdn(row.id, { w: 400 })} class="thumb" alt="" />
           {:else}
             <div class="thumb placeholder">{row.status === 'failed' ? 'FAILED' : 'PROCESSING'}</div>
           {/if}

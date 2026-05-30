@@ -1,4 +1,5 @@
 import { PHOTOS, NGC7000 } from '$lib/data/photos';
+import { cdn } from '$lib/cdn';
 import type { PageServerLoad } from './$types';
 import type { SiteStats } from '$lib/api/SiteStats';
 
@@ -7,6 +8,7 @@ const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http:/
 type RealPhoto = {
   id: string;
   target: string | null;
+  original_name: string;
   width: number | null;
   height: number | null;
   owner_id?: string;
@@ -61,19 +63,21 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
     return {
       heroPhoto: {
         target: hero.target,
+        original_name: hero.original_name,
         integration: '',
         photographer: ''
       },
-      heroSrc: `${API}/api/photos/${hero.id}/thumb/1200`,
+      heroSrc: cdn(hero.id, { w: 1200 }),
       photos: rest.map((p) => ({
         slug: p.id,
         target: p.target,
+        original_name: p.original_name,
         ratio: p.width && p.height ? p.width / p.height : 1.5,
         integration: '',
         photographer: '',
         photographerSlug: '',
         camera: '',
-        thumbSrc: `${API}/api/photos/${p.id}/thumb/400`
+        thumbSrc: cdn(p.id, { w: 400 })
       })),
       isReal: true,
       following_count,

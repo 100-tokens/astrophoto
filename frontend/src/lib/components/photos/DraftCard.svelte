@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cdn } from '$lib/cdn';
   import PhotoTitle from './PhotoTitle.svelte';
   import Button from '../Button.svelte';
 
@@ -32,7 +33,7 @@
 <div class="draft-card">
   <div class="thumb">
     {#if photo.status === 'ready'}
-      <img src={`/api/photos/${photo.id}/thumb/400`} alt="" />
+      <img src={cdn(photo.id, { w: 400 })} alt="" />
     {:else}
       <div class="placeholder">{photo.status === 'failed' ? 'FAILED' : 'PROCESSING'}</div>
     {/if}
