@@ -9,6 +9,7 @@
     layers = $bindable(),
     showPgc = $bindable(),
     labelsAlwaysOn = $bindable(),
+    overlayEnabled = $bindable(),
     isOwner,
     photoId
   }: {
@@ -17,6 +18,7 @@
     layers: Set<string>;
     showPgc: boolean;
     labelsAlwaysOn: boolean;
+    overlayEnabled: boolean;
     isOwner: boolean;
     photoId: string;
   } = $props();
@@ -55,7 +57,19 @@
 </script>
 
 <section class="celestial-panel">
-  <h5>● CELESTIAL OBJECTS · {visible.length}</h5>
+  <div class="panel-head">
+    <h5>● CELESTIAL OBJECTS · {visible.length}</h5>
+    <button
+      type="button"
+      class="overlay-toggle"
+      class:off={!overlayEnabled}
+      aria-pressed={overlayEnabled}
+      onclick={() => (overlayEnabled = !overlayEnabled)}
+      title="Show or hide the overlay drawn on the image"
+    >
+      {overlayEnabled ? '◉ overlay' : '○ overlay'}
+    </button>
+  </div>
 
   {#if !selected}
     <div class="pills" role="group" aria-label="object type layers">
@@ -108,12 +122,35 @@
     background: var(--bg-accent-tint);
     margin: 8px 0;
   }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
   h5 {
-    margin: 0 0 6px;
+    margin: 0;
     font-size: 11px;
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+  .overlay-toggle {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent);
+    padding: 2px 8px;
+    border-radius: var(--r-pill);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: ui-monospace, monospace;
+    white-space: nowrap;
+  }
+  .overlay-toggle.off {
+    background: transparent;
+    color: var(--fg-muted);
+    border-color: var(--border-default);
   }
   .pills {
     display: flex;

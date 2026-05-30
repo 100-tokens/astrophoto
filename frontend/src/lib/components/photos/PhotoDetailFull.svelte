@@ -60,6 +60,9 @@
   // Labels on by default so the object name is visible without a click;
   // the "labels" pill in the panel can toggle them off if the frame is busy.
   let labelsAlwaysOn = $state(true);
+  // Master on/off for the whole overlay drawn over the image (markers +
+  // labels), so the clean frame can be viewed. Per-type pills stay independent.
+  let overlayEnabled = $state(true);
   let celestial = $derived<CelestialObject[]>(data.celestialObjects ?? []);
   let solveForOverlay = $derived(
     data.platesolveStatus?.state === 'solved' &&
@@ -403,7 +406,7 @@
       <div class="stage-frame">
         <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)">
           {#snippet overlay(zoomScale)}
-            {#if celestial.length > 0 && solveForOverlay}
+            {#if celestial.length > 0 && solveForOverlay && overlayEnabled}
               <CelestialOverlay
                 objects={celestial}
                 solve={solveForOverlay}
@@ -553,6 +556,7 @@
             bind:layers
             bind:showPgc
             bind:labelsAlwaysOn
+            bind:overlayEnabled
             {isOwner}
             photoId={p.id}
           />
