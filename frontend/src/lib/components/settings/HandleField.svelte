@@ -46,9 +46,15 @@
           return;
         }
         const j = (await r.json()) as { status: string };
-        avail = (
-          { available: 'available', taken: 'taken', reserved: 'reserved', invalid: 'invalid' } as const
-        )[j.status] ?? 'unknown';
+        avail =
+          (
+            {
+              available: 'available',
+              taken: 'taken',
+              reserved: 'reserved',
+              invalid: 'invalid'
+            } as const
+          )[j.status] ?? 'unknown';
       } catch {
         avail = 'unknown';
       }
@@ -93,7 +99,7 @@
     <span class="at">@</span>
     <input
       class="input"
-      value={value}
+      {value}
       oninput={onInput}
       aria-label="Handle"
       autocapitalize="none"

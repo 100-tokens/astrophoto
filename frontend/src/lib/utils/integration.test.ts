@@ -18,8 +18,22 @@ describe('integration helpers', () => {
 
   it('grand total + sub count sum across rows', () => {
     const rows = [
-      { filter: 'L', sub_count: 120, sub_exposure_s: 120, filter_item_id: null, gain: null, sensor_temp_c: null },
-      { filter: 'R', sub_count: 40, sub_exposure_s: 120, filter_item_id: null, gain: null, sensor_temp_c: null }
+      {
+        filter: 'L',
+        sub_count: 120,
+        sub_exposure_s: 120,
+        filter_item_id: null,
+        gain: null,
+        sensor_temp_c: null
+      },
+      {
+        filter: 'R',
+        sub_count: 40,
+        sub_exposure_s: 120,
+        filter_item_id: null,
+        gain: null,
+        sensor_temp_c: null
+      }
     ];
     expect(grandTotalS(rows)).toBe(14400 + 4800);
     expect(totalSubs(rows)).toBe(160);

@@ -64,31 +64,24 @@
           type="button"
           class="pill"
           class:active={layers.has(t)}
-          onclick={() => togglePill(t)}
-        >{t}</button>
+          onclick={() => togglePill(t)}>{t}</button
+        >
       {/each}
-      <button
-        type="button"
-        class="pill"
-        class:active={showPgc}
-        onclick={() => (showPgc = !showPgc)}
-      >PGC</button>
+      <button type="button" class="pill" class:active={showPgc} onclick={() => (showPgc = !showPgc)}
+        >PGC</button
+      >
       <button
         type="button"
         class="pill"
         class:active={labelsAlwaysOn}
-        onclick={() => (labelsAlwaysOn = !labelsAlwaysOn)}
-      >labels</button>
+        onclick={() => (labelsAlwaysOn = !labelsAlwaysOn)}>labels</button
+      >
     </div>
 
     <ul class="list">
       {#each visible as o (o.slug)}
         <li>
-          <button
-            type="button"
-            class="row"
-            onclick={() => (selectedSlug = o.slug)}
-          >
+          <button type="button" class="row" onclick={() => (selectedSlug = o.slug)}>
             <span class="dot" style="border-color: var({cssVarForType(o.objectType)})"></span>
             <span class="name">{o.canonicalName}</span>
             <span class="type">{o.objectType ?? ''}</span>
@@ -98,12 +91,9 @@
     </ul>
 
     {#if isOwner}
-      <button
-        type="button"
-        class="recompute"
-        onclick={recompute}
-        disabled={recomputing}
-      >{recomputing ? 'recomputing…' : '↻ recompute'}</button>
+      <button type="button" class="recompute" onclick={recompute} disabled={recomputing}
+        >{recomputing ? 'recomputing…' : '↻ recompute'}</button
+      >
     {/if}
   {:else}
     <CelestialObjectDetail object={selected} onBack={() => (selectedSlug = null)} />

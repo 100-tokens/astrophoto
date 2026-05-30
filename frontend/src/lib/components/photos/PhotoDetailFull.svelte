@@ -54,9 +54,7 @@
   // we render, with PGC behind its own toggle so the default view is
   // not drowned by faint galaxies.
   let selectedSlug = $state<string | null>(null);
-  let layers = $state<Set<string>>(
-    new Set(['G', 'Neb', 'OCl', 'GCl', 'PN', 'HII', 'SNR', 'Cl+N'])
-  );
+  let layers = $state<Set<string>>(new Set(['G', 'Neb', 'OCl', 'GCl', 'PN', 'HII', 'SNR', 'Cl+N']));
   let showPgc = $state(false);
   // Labels on by default so the object name is visible without a click;
   // the "labels" pill in the panel can toggle them off if the frame is busy.
@@ -479,9 +477,7 @@
           <div class="filter-strip-head">
             <span class="t-label">INTEGRATION</span>
             <span class="t-meta"
-              >{formatHm(grandTotalS(p.filter_integrations))} · {totalSubs(
-                p.filter_integrations
-              )} subs</span
+              >{formatHm(grandTotalS(p.filter_integrations))} · {totalSubs(p.filter_integrations)} subs</span
             >
           </div>
           <ul class="fi-strip">
@@ -489,7 +485,8 @@
               <li class="fi-item">
                 <span class="fi-band">{r.filter || '—'}</span>
                 <span class="t-meta fi-detail"
-                  >{r.sub_count} × {r.sub_exposure_s} s{#if r.gain != null} · gain {r.gain}{/if}{#if r.sensor_temp_c != null}
+                  >{r.sub_count} × {r.sub_exposure_s} s{#if r.gain != null}
+                    · gain {r.gain}{/if}{#if r.sensor_temp_c != null}
                     · {r.sensor_temp_c} °C{/if}</span
                 >
                 <span class="fi-rt t-meta">{formatHm(rowTotalS(r))}</span>
