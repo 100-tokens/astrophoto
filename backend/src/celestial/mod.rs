@@ -9,7 +9,7 @@ pub mod handler;
 pub mod identify;
 pub mod queries;
 
-pub use identify::{identify, IdentifyOutcome};
+pub use identify::{IdentifyOutcome, identify};
 
 /// DB row shape for `GET /celestial-objects`. Owned by this module so
 /// the public API type (`crate::api_types::CelestialObject`) stays a

@@ -28,7 +28,8 @@
   </header>
   <p class="meta">
     {object.objectType ?? '—'}
-    {#if object.magnitudeV != null} · mag {object.magnitudeV.toFixed(1)}{/if}
+    {#if object.magnitudeV != null}
+      · mag {object.magnitudeV.toFixed(1)}{/if}
     {#if object.majorAxisArcmin != null}
       · {object.majorAxisArcmin.toFixed(1)}′{#if object.minorAxisArcmin != null}
         × {object.minorAxisArcmin.toFixed(1)}′{/if}

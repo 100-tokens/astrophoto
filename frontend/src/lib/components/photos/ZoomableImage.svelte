@@ -147,10 +147,7 @@
   ondblclick={onDblClick}
   role="presentation"
 >
-  <div
-    class="tlayer"
-    style="transform: translate({tx}px, {ty}px) scale({scale});"
-  >
+  <div class="tlayer" style="transform: translate({tx}px, {ty}px) scale({scale});">
     <img bind:this={img} src={cdn(photoId, { w })} {alt} draggable="false" />
     {#if overlay}
       <div class="overlay-slot">{@render overlay(scale)}</div>

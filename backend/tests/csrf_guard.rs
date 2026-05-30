@@ -44,7 +44,10 @@ fn req(method: &str, headers: &[(header::HeaderName, &str)]) -> Request<Body> {
 async fn allows_cookie_post_from_allowed_origin() {
     let s = status(req(
         "POST",
-        &[(header::COOKIE, SESSION), (header::ORIGIN, "https://app.example")],
+        &[
+            (header::COOKIE, SESSION),
+            (header::ORIGIN, "https://app.example"),
+        ],
     ))
     .await;
     assert_eq!(s, StatusCode::OK);
@@ -54,7 +57,10 @@ async fn allows_cookie_post_from_allowed_origin() {
 async fn blocks_cookie_post_from_foreign_origin() {
     let s = status(req(
         "POST",
-        &[(header::COOKIE, SESSION), (header::ORIGIN, "https://evil.example")],
+        &[
+            (header::COOKIE, SESSION),
+            (header::ORIGIN, "https://evil.example"),
+        ],
     ))
     .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
@@ -71,14 +77,20 @@ async fn allows_cookie_post_with_no_origin_or_referer() {
 async fn referer_fallback_blocks_foreign_and_allows_self() {
     let foreign = status(req(
         "POST",
-        &[(header::COOKIE, SESSION), (header::REFERER, "https://evil.example/page")],
+        &[
+            (header::COOKIE, SESSION),
+            (header::REFERER, "https://evil.example/page"),
+        ],
     ))
     .await;
     assert_eq!(foreign, StatusCode::FORBIDDEN);
 
     let own = status(req(
         "POST",
-        &[(header::COOKIE, SESSION), (header::REFERER, "https://app.example/page")],
+        &[
+            (header::COOKIE, SESSION),
+            (header::REFERER, "https://app.example/page"),
+        ],
     ))
     .await;
     assert_eq!(own, StatusCode::OK);
@@ -97,7 +109,10 @@ async fn allows_get_regardless_of_origin() {
     // GET (e.g. the OAuth callback class) is never a CSRF-relevant mutation.
     let s = status(req(
         "GET",
-        &[(header::COOKIE, SESSION), (header::ORIGIN, "https://evil.example")],
+        &[
+            (header::COOKIE, SESSION),
+            (header::ORIGIN, "https://evil.example"),
+        ],
     ))
     .await;
     assert_eq!(s, StatusCode::OK);

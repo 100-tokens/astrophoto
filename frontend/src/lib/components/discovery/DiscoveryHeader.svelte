@@ -120,7 +120,8 @@
   <section class="header header-equipment">
     <div class="header-left">
       <p class="eyebrow">
-        ● {EQUIPMENT_KIND_LABELS[meta.kind] ?? meta.kind.toUpperCase()} · {fmt(meta.photo_count)} {Number(meta.photo_count) === 1 ? 'PHOTO' : 'PHOTOS'} IN CATALOG
+        ● {EQUIPMENT_KIND_LABELS[meta.kind] ?? meta.kind.toUpperCase()} · {fmt(meta.photo_count)}
+        {Number(meta.photo_count) === 1 ? 'PHOTO' : 'PHOTOS'} IN CATALOG
       </p>
       <h1 class="display display-equipment">{meta.display_name}</h1>
     </div>

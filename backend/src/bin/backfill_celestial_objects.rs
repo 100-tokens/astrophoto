@@ -29,7 +29,12 @@ async fn main() -> Result<()> {
     .fetch_all(&pool)
     .await?;
 
-    tracing::info!(total = candidates.len(), apply, reidentify, "backfill starting");
+    tracing::info!(
+        total = candidates.len(),
+        apply,
+        reidentify,
+        "backfill starting"
+    );
 
     let mut totals = (0_usize, 0_usize, 0_usize);
     for (i, id) in candidates.iter().enumerate() {

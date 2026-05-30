@@ -12,11 +12,26 @@
 <aside class="meta-card">
   <div class="t-label">CATALOG ITEM</div>
   <dl>
-    <div><dt>STATUS</dt><dd class="status status-{item.status}">● {item.status}</dd></div>
-    <div><dt>CANONICAL</dt><dd class="mono">{item.canonical_name}</dd></div>
-    <div><dt>CREATED</dt><dd class="mono">{fmtDate(item.created_at)}</dd></div>
-    <div><dt>APPROVED</dt><dd class="mono">{fmtDate(item.approved_at)}</dd></div>
-    <div><dt>SUBMITTED BY</dt><dd class="mono">{item.submitted_by ?? '—'}</dd></div>
+    <div>
+      <dt>STATUS</dt>
+      <dd class="status status-{item.status}">● {item.status}</dd>
+    </div>
+    <div>
+      <dt>CANONICAL</dt>
+      <dd class="mono">{item.canonical_name}</dd>
+    </div>
+    <div>
+      <dt>CREATED</dt>
+      <dd class="mono">{fmtDate(item.created_at)}</dd>
+    </div>
+    <div>
+      <dt>APPROVED</dt>
+      <dd class="mono">{fmtDate(item.approved_at)}</dd>
+    </div>
+    <div>
+      <dt>SUBMITTED BY</dt>
+      <dd class="mono">{item.submitted_by ?? '—'}</dd>
+    </div>
   </dl>
 </aside>
 
@@ -50,10 +65,23 @@
     color: var(--fg-secondary);
     text-align: right;
   }
-  dd.mono { font-family: var(--font-mono); }
-  .status { font-family: var(--font-mono); font-size: 11px; }
-  .status-approved { color: var(--success); }
-  .status-pending  { color: var(--warning); }
-  .status-rejected { color: var(--danger); }
-  .status-merged   { color: var(--fg-muted); }
+  dd.mono {
+    font-family: var(--font-mono);
+  }
+  .status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .status-approved {
+    color: var(--success);
+  }
+  .status-pending {
+    color: var(--warning);
+  }
+  .status-rejected {
+    color: var(--danger);
+  }
+  .status-merged {
+    color: var(--fg-muted);
+  }
 </style>

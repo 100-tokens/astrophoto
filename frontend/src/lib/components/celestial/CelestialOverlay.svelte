@@ -46,9 +46,7 @@
         const radiusPx = Math.min(maxR, Math.max(6, trueR));
         return { o, x: p.x, y: p.y, r: radiusPx };
       })
-      .filter(
-        (x): x is { o: CelestialObject; x: number; y: number; r: number } => x !== null
-      )
+      .filter((x): x is { o: CelestialObject; x: number; y: number; r: number } => x !== null)
       .sort((a, b) => b.r * b.o.confidence - a.r * a.o.confidence)
       .slice(0, 200);
   });
@@ -100,7 +98,7 @@
     </circle>
     {#if labelsAlwaysOn || selectedSlug === o.slug}
       <text
-        x={x}
+        {x}
         y={labelY(y, r)}
         fill="var({colorVar})"
         font-size={fontSize}

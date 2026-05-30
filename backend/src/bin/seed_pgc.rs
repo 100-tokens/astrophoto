@@ -24,11 +24,7 @@ pub fn parse_csv_row(
     let get = |col: &str| -> Option<&str> {
         let idx = headers.iter().position(|h| h == col)?;
         let v = record.get(idx)?.trim();
-        if v.is_empty() {
-            None
-        } else {
-            Some(v)
-        }
+        if v.is_empty() { None } else { Some(v) }
     };
 
     let pgc: u32 = get("pgc")
@@ -153,7 +149,9 @@ fn extract_existing_slug_ref(objname: &str) -> Option<String> {
     // Accept "NGC0224", "NGC 224", "IC0010", "IC 10". Reject subcomponents
     // like "NGC0224A" / "NGC0224-1" — our slug scheme has no equivalent.
     for prefix in ["NGC", "IC"] {
-        let Some(rest) = trimmed.strip_prefix(prefix) else { continue };
+        let Some(rest) = trimmed.strip_prefix(prefix) else {
+            continue;
+        };
         let rest = rest.trim_start();
         let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
         if digits.is_empty() {
@@ -171,19 +169,15 @@ fn extract_existing_slug_ref(objname: &str) -> Option<String> {
     None
 }
 
-async fn upsert_pgc_row(
-    pool: &sqlx::PgPool,
-    row: &PgcRow,
-) -> Result<UpsertOutcome> {
+async fn upsert_pgc_row(pool: &sqlx::PgPool, row: &PgcRow) -> Result<UpsertOutcome> {
     let slug = format!("pgc-{}", row.pgc);
 
     // Dedup: if the objname references an existing NGC/IC slug, skip.
     if let Some(existing) = row.objname.as_deref().and_then(extract_existing_slug_ref) {
-        let hit: Option<i64> =
-            sqlx::query_scalar("select 1::int8 from targets where slug = $1")
-                .bind(&existing)
-                .fetch_optional(pool)
-                .await?;
+        let hit: Option<i64> = sqlx::query_scalar("select 1::int8 from targets where slug = $1")
+            .bind(&existing)
+            .fetch_optional(pool)
+            .await?;
         if hit.is_some() {
             return Ok(UpsertOutcome::DedupedWithNgc);
         }
@@ -258,11 +252,10 @@ async fn main() -> Result<()> {
         .map_err(|_| anyhow::anyhow!("DATABASE_URL or APP_DATABASE_URL must be set"))?;
     let pool = sqlx::PgPool::connect(&database_url).await?;
 
-    let csv_path =
-        std::env::var("PGC_DATA_PATH").unwrap_or_else(|_| "data/pgc/pgc.csv".into());
+    let csv_path = std::env::var("PGC_DATA_PATH").unwrap_or_else(|_| "data/pgc/pgc.csv".into());
 
-    let file = std::fs::File::open(&csv_path)
-        .map_err(|e| anyhow::anyhow!("open {}: {}", csv_path, e))?;
+    let file =
+        std::fs::File::open(&csv_path).map_err(|e| anyhow::anyhow!("open {}: {}", csv_path, e))?;
     let reader: Box<dyn std::io::Read> = if csv_path.ends_with(".gz") {
         Box::new(flate2::read::GzDecoder::new(file))
     } else {

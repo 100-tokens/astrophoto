@@ -72,8 +72,8 @@ pub async fn identify(
         let major_arcmin = f64::from(c.major_axis_arcmin.unwrap_or(0.0));
         let on_screen_px = (major_arcmin * 60.0) / scale;
         // F1: keep named catalog rows unconditionally; drop sub-pixel PGC.
-        let keep = on_screen_px >= 0.5
-            || matches!(c.kind.as_str(), "messier" | "ngc" | "ic" | "caldwell");
+        let keep =
+            on_screen_px >= 0.5 || matches!(c.kind.as_str(), "messier" | "ngc" | "ic" | "caldwell");
         if !keep {
             continue;
         }

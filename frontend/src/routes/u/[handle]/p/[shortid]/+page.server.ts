@@ -42,7 +42,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     photo.ra_deg != null
       ? fetch(`${API}/api/photos/${id}/celestial-objects`)
           .then((r) => (r.ok ? r.json() : { objects: [] }))
-          .then((j: { objects?: import('$lib/api/CelestialObject').CelestialObject[] }) => j.objects ?? [])
+          .then(
+            (j: { objects?: import('$lib/api/CelestialObject').CelestialObject[] }) =>
+              j.objects ?? []
+          )
           .catch(() => [])
       : Promise.resolve([]);
   // The pixel scale + rotation needed by the WCS projection live on the
