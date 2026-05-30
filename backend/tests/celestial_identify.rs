@@ -1,5 +1,5 @@
 //! Integration test for `celestial::identify`. Confirms the cone search
-//! + write-time filter writes the expected `photo_targets` rows with
+//! and write-time filter write the expected `photo_targets` rows with
 //! `source='plate_solve'`. Per project convention (Docker often
 //! constrained locally), this test is exercised on staging CI.
 

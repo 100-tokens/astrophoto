@@ -1,3 +1,4 @@
+pub mod csrf;
 pub mod health;
 
 use std::sync::Arc;

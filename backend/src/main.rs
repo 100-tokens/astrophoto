@@ -49,13 +49,39 @@ async fn main() -> Result<()> {
 
     // Allow the SvelteKit app to reach the backend with credentials.
     // Reads APP_CORS_ORIGIN from the environment; falls back to the dev server.
-    let cors_origin: HeaderValue = cfg
+    let cors_origin_str = cfg
         .cors_origin
         .as_deref()
         .unwrap_or("http://localhost:5173")
+        .trim_end_matches('/')
+        .to_string();
+    let cors_origin: HeaderValue = cors_origin_str
         .parse()
         .expect("APP_CORS_ORIGIN is not a valid HTTP origin header value");
+
+    // CSRF Origin allowlist for cookie-authenticated mutations. The frontend
+    // CORS origin is always allowed; APP_EXTRA_BROWSER_ORIGINS (comma-separated)
+    // covers any additional browser-reachable frontend host (e.g. a raw Koyeb
+    // *-web-* host alongside the canonical www) so users there are not 403'd.
+    let mut allowed = std::collections::HashSet::from([cors_origin_str]);
+    if let Ok(extra) = std::env::var("APP_EXTRA_BROWSER_ORIGINS") {
+        for o in extra.split(',') {
+            let o = o.trim().trim_end_matches('/');
+            if !o.is_empty() {
+                allowed.insert(o.to_string());
+            }
+        }
+    }
+    let allowed_origins = http::csrf::AllowedOrigins(allowed);
+
+    // Layer order (tower applies them router-first = innermost-first): the
+    // origin guard sits innermost (closest to the router), CORS wraps it so an
+    // OPTIONS preflight is answered before the guard runs, TraceLayer outermost.
     let app = http::router(pool, cfg.clone(), storage, mailer, platesolve)
+        .layer(axum::middleware::from_fn_with_state(
+            allowed_origins,
+            http::csrf::origin_guard,
+        ))
         .layer(http::cors_layer(cors_origin))
         .layer(TraceLayer::new_for_http());
 
