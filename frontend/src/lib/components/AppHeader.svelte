@@ -21,7 +21,7 @@
     label: 'Gallery' | 'Targets' | 'Photographers' | 'About';
     href: string;
   }> = [
-    { label: 'Gallery', href: '/' },
+    { label: 'Gallery', href: '/explore' },
     { label: 'Targets', href: '/t' },
     { label: 'Photographers', href: '/photographers' },
     { label: 'About', href: '/about' }
@@ -33,8 +33,14 @@
        .primary-nav is hidden). -->
   <div style="display: flex; align-items: center; gap: 12px;">
     <MobileNav links={navLinks} {active} />
-    <MarkReticle size={28} color="var(--accent)" />
-    <Wordmark size={22} weight={600} italic={false} />
+    <a
+      href="/"
+      aria-label="Astrophoto home"
+      style="display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: inherit;"
+    >
+      <MarkReticle size={28} color="var(--accent)" />
+      <Wordmark size={22} weight={600} italic={false} />
+    </a>
   </div>
 
   <!-- Center nav (hidden under 768px). On mobile the same destinations are

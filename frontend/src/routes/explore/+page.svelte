@@ -112,13 +112,10 @@
   {/if}
 </svelte:head>
 
-<AppHeader />
+<AppHeader active="Gallery" />
 
 <main>
-  <DiscoveryHeader
-    variant="explore"
-    photoCount={data.totalFrames ?? data.initial.photos.length}
-  />
+  <DiscoveryHeader variant="explore" photoCount={data.totalFrames ?? data.initial.photos.length} />
   <FilterPills
     variant="explore"
     sort={data.sort}
