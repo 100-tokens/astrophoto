@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { page } from '$app/state';
   import { invalidateAll } from '$app/navigation';
+  import { ldJsonScriptTag } from '$lib/utils/seo';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Img from '$lib/components/Img.svelte';
@@ -390,7 +391,7 @@
   <!-- schema.org Photograph + ImageObject + Person — the structured data
        AI engines and Google Image actually consume. -->
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  {@html `<script type="application/ld+json">${jsonLd}</script>`}
+  {@html ldJsonScriptTag(jsonLd)}
 </svelte:head>
 
 <AppHeader />

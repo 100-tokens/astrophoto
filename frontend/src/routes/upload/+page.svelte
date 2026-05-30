@@ -138,10 +138,6 @@
     }
     return { ready, inflight, blocked };
   });
-  let allDone = $derived(
-    slots.length > 0 &&
-      slots.every((s) => ['ready', 'failed', 'cancelled'].includes(s.progress.state))
-  );
 
   let clearQueueOpen = $state(false);
   let cancelSlotOpen = $state(false);

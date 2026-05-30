@@ -42,7 +42,6 @@
   const MAX = 6;
 
   let dragging = $state(false);
-  let moved = false;
   let lastX = 0;
   let lastY = 0;
 
@@ -91,7 +90,6 @@
   function onPointerDown(e: PointerEvent) {
     if (!zoomed) return;
     dragging = true;
-    moved = false;
     lastX = e.clientX;
     lastY = e.clientY;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -100,7 +98,6 @@
     if (!dragging) return;
     const dx = e.clientX - lastX;
     const dy = e.clientY - lastY;
-    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
     tx += dx;
     ty += dy;
     lastX = e.clientX;

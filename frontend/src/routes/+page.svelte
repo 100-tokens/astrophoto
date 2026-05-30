@@ -4,6 +4,7 @@
   import Button from '$lib/components/Button.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
+  import { ldJsonScriptTag } from '$lib/utils/seo';
   import type { Photo as PhotoData } from '$lib/data/photos';
 
   interface HeroPhoto {
@@ -118,7 +119,7 @@
   />
 
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  {@html `<script type="application/ld+json">${siteJsonLd}</script>`}
+  {@html ldJsonScriptTag(siteJsonLd)}
 </svelte:head>
 
 <AppHeader active="Gallery" />

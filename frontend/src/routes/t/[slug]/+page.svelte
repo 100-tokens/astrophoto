@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { untrack } from 'svelte';
+  import { ldJsonScriptTag } from '$lib/utils/seo';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
@@ -91,7 +92,7 @@
   <meta name="twitter:title" content={targetTitle} />
   <meta name="twitter:description" content={targetDescription} />
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  {@html `<script type="application/ld+json">${targetJsonLd}</script>`}
+  {@html ldJsonScriptTag(targetJsonLd)}
 </svelte:head>
 
 <main>
