@@ -196,6 +196,9 @@
   }
 
   .chip-clear {
-    color: var(--fg-faint);
+    /* --fg-muted (~6.5:1 on the dark rail) keeps this de-emphasized vs the
+       other chips while meeting WCAG AA; --fg-faint is the disabled token
+       and fails contrast for an interactive control. */
+    color: var(--fg-muted);
   }
 </style>
