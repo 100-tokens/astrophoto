@@ -43,6 +43,15 @@ const HOP_BY_HOP = new Set([
   'content-length'
 ]);
 
+// CSRF guard (layer 1 of 2; the backend enforces a matching Origin check for
+// the direct-to-backend path). A cross-site page can drive a bodyless `fetch`
+// through this same-origin proxy carrying the victim's cookie — SvelteKit's
+// built-in CSRF guard only fires for form content-types, so it misses these.
+// Reject mutating requests whose Origin is a foreign host. A same-origin
+// browser fetch carries Origin == this proxy's origin (allowed); an SSR/server
+// fetch carries no Origin (allowed).
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 function buildCookieHeader(cookies: import('@sveltejs/kit').Cookies): string {
   return cookies
     .getAll()
@@ -54,6 +63,15 @@ const proxy: RequestHandler = async ({ request, params, fetch, cookies, getClien
   const path = params.rest ?? '';
   const search = new URL(request.url).search;
   const targetUrl = `${API}/api/${path}${search}`;
+
+  // Reject cross-site mutating requests before replaying the victim's cookie.
+  if (MUTATING.has(request.method)) {
+    const origin = request.headers.get('origin');
+    const selfOrigin = new URL(request.url).origin;
+    if (origin !== null && origin !== selfOrigin) {
+      return new Response('cross-origin request blocked', { status: 403 });
+    }
+  }
 
   // Copy headers, dropping hop-by-hop ones, then attach forwarded auth.
   const headers = new Headers();
