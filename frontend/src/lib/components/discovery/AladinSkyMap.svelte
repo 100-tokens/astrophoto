@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
    * Embed of Aladin Lite v3 (CDS Strasbourg) — a WebGL sky-survey viewer
-   * centered on this target's RA/Dec. The script is fetched lazily from the
-   * CDS CDN on first mount; SSR is a no-op (server returns the placeholder).
+   * centered on this target's RA/Dec. To keep the page fast we show a single
+   * static DSS2 preview image (CDS hips2fits) by default and only fetch the
+   * heavy Aladin script + tiles when the user clicks to open the interactive
+   * viewer; SSR renders just the preview.
    *
    * Skipped entirely when ra or dec is null — covers KEEP_MANUAL_META rows
    * (ic-434) and any custom seed without astro metadata (m40 etc.).
@@ -27,7 +29,9 @@
   const ALADIN_SRC = 'https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js';
 
   let containerEl: HTMLDivElement | undefined = $state();
-  let visible = $state(false);
+  // The interactive Aladin viewer is loaded only when the user opens it; until
+  // then we show a single static DSS2 preview image (see previewUrl).
+  let interactive = $state(false);
   let scriptLoaded = $state(false);
   let initialized = $state(false);
 
@@ -42,28 +46,23 @@
     return Math.max(0.1, Math.min(5, deg));
   }
 
-  // Lazy-load: only pull Aladin + DSS2 tiles once the map scrolls near the
-  // viewport. The page content is already fast (~0.5s); this keeps ~4-5s of
-  // external CDS requests off the initial load on every target detail page.
-  $effect(() => {
-    if (typeof window === 'undefined' || !containerEl) return;
-    if (ra === null || dec === null) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          visible = true;
-          io.disconnect();
-        }
-      },
-      { rootMargin: '200px' }
-    );
-    io.observe(containerEl);
-    return () => io.disconnect();
-  });
+  // Static DSS2 preview: one server-rendered JPEG from the CDS hips2fits
+  // service, shown until the user opens the interactive viewer. The heavy
+  // Aladin Lite library + tiles (~4-5s of CDS requests) then load only on
+  // click, so the default page stays fast. (The map sits above the fold, so a
+  // scroll-lazy load could not defer it — hence click-to-open.)
+  const previewUrl = $derived(
+    ra === null || dec === null
+      ? ''
+      : 'https://alasky.cds.unistra.fr/hips-image-services/hips2fits?hips=CDS/P/DSS2/color' +
+          `&width=1000&height=480&fov=${computeFov(majorAxisArcmin)}` +
+          `&projection=TAN&coordsys=icrs&ra=${ra}&dec=${dec}&format=jpg`
+  );
 
-  // Inject the Aladin script from the CDS CDN — only after the map is near view.
+  // Inject the Aladin script from the CDS CDN — only once the user opens the
+  // interactive map, so the default page load stays fast.
   $effect(() => {
-    if (typeof window === 'undefined' || !visible) return;
+    if (typeof window === 'undefined' || !interactive) return;
     if (ra === null || dec === null) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,8 +119,27 @@
       <span class="t-meta">DSS2 colour · centred on RA/Dec</span>
     </header>
     <div bind:this={containerEl} class="aladin-container">
-      {#if !scriptLoaded}
-        <div class="loading">{visible ? 'Loading sky map…' : 'Sky map'}</div>
+      {#if !interactive}
+        <button
+          type="button"
+          class="map-preview"
+          onclick={() => (interactive = true)}
+          aria-label={`Open the interactive sky map of ${objectName}`}
+        >
+          {#if previewUrl}
+            <img
+              class="map-preview-img"
+              src={previewUrl}
+              alt={`DSS2 sky-survey image centred on ${objectName}`}
+              loading="lazy"
+              width="1000"
+              height="480"
+            />
+          {/if}
+          <span class="map-preview-cta">▶ Open interactive map</span>
+        </button>
+      {:else if !scriptLoaded}
+        <div class="loading">Loading sky map…</div>
       {/if}
     </div>
     <p class="attribution">
@@ -172,6 +190,41 @@
     justify-content: center;
     color: var(--fg-muted, #888);
     font-size: 0.9rem;
+  }
+  .map-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: var(--bg-canvas);
+    cursor: pointer;
+    display: block;
+    overflow: hidden;
+  }
+  .map-preview-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .map-preview-cta {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: var(--r-md);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    pointer-events: none;
+  }
+  .map-preview:hover .map-preview-cta,
+  .map-preview:focus-visible .map-preview-cta {
+    background: var(--accent, #4a90e2);
   }
   .attribution {
     margin: 0.5rem 0 0;
