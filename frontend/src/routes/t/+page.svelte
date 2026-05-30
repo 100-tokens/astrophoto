@@ -5,15 +5,29 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import TargetIndexCard from '$lib/components/discovery/TargetIndexCard.svelte';
   import { fetchTargetList } from '$lib/api/discoveryClient';
+  import { SIZE_BUCKETS, sizeBucketByKey } from '$lib/util/sizeBuckets';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  const TYPE_OPTIONS = [
+    { value: 'G', label: 'Galaxy' },
+    { value: 'Neb', label: 'Nebula' },
+    { value: 'OCl', label: 'Open cluster' },
+    { value: 'GCl', label: 'Globular cluster' },
+    { value: 'PN', label: 'Planetary nebula' },
+    { value: 'HII', label: 'HII region' },
+    { value: 'SNR', label: 'Supernova remnant' }
+  ];
 
   // Seed once from SSR data; the $effect below re-syncs on navigation.
   let items = $state(untrack(() => data.initial.targets));
   let cursor = $state(untrack(() => data.initial.next_cursor));
   let q = $state(untrack(() => data.q ?? ''));
   let qDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Currently-active object types (the Type filter is multi-select chips).
+  const selectedTypes = $derived(new Set((data.object_type ?? '').split(',').filter(Boolean)));
 
   $effect(() => {
     items = data.initial.targets;
@@ -26,6 +40,7 @@
     sort?: string;
     object_type?: string | undefined;
     constellation?: string | undefined;
+    size?: string | undefined;
   }) {
     const u = new URL(window.location.href);
     if (next.q !== undefined) {
@@ -41,8 +56,19 @@
       if (next.constellation) u.searchParams.set('constellation', next.constellation);
       else u.searchParams.delete('constellation');
     }
+    if ('size' in next) {
+      if (next.size) u.searchParams.set('size', next.size);
+      else u.searchParams.delete('size');
+    }
     u.searchParams.delete('cursor');
     void goto(u.pathname + u.search, { replaceState: true, keepFocus: true, noScroll: true });
+  }
+
+  function toggleType(value: string) {
+    const cur = new Set(selectedTypes);
+    if (cur.has(value)) cur.delete(value);
+    else cur.add(value);
+    applyFilter({ object_type: [...cur].join(',') || undefined });
   }
 
   function onSearchInput(value: string) {
@@ -53,11 +79,14 @@
 
   async function loadMore() {
     if (!cursor) return;
+    const bucket = sizeBucketByKey(data.size);
     const next = await fetchTargetList(fetch, {
       ...(data.q !== undefined ? { q: data.q } : {}),
       sort: data.sort,
       ...(data.object_type !== undefined ? { object_type: data.object_type } : {}),
       ...(data.constellation !== undefined ? { constellation: data.constellation } : {}),
+      ...(bucket?.min !== undefined ? { size_min: bucket.min } : {}),
+      ...(bucket?.max !== undefined ? { size_max: bucket.max } : {}),
       cursor,
       limit: 24
     });
@@ -90,20 +119,31 @@
   </header>
 
   <div class="filters">
+    <div class="filter-group type-group">
+      <span class="filter-label">Type</span>
+      <div class="chips" role="group" aria-label="Filter by object type">
+        {#each TYPE_OPTIONS as opt (opt.value)}
+          <button
+            type="button"
+            class="chip-toggle"
+            class:active={selectedTypes.has(opt.value)}
+            aria-pressed={selectedTypes.has(opt.value)}
+            onclick={() => toggleType(opt.value)}
+          >
+            {opt.label}
+          </button>
+        {/each}
+      </div>
+    </div>
     <label>
-      Type
+      Size
       <select
-        onchange={(e) =>
-          applyFilter({ object_type: (e.target as HTMLSelectElement).value || undefined })}
+        onchange={(e) => applyFilter({ size: (e.target as HTMLSelectElement).value || undefined })}
       >
-        <option value="" selected={!data.object_type}>All</option>
-        <option value="G" selected={data.object_type === 'G'}>Galaxy</option>
-        <option value="Neb" selected={data.object_type === 'Neb'}>Nebula</option>
-        <option value="OCl" selected={data.object_type === 'OCl'}>Open cluster</option>
-        <option value="GCl" selected={data.object_type === 'GCl'}>Globular cluster</option>
-        <option value="PN" selected={data.object_type === 'PN'}>Planetary nebula</option>
-        <option value="HII" selected={data.object_type === 'HII'}>HII region</option>
-        <option value="SNR" selected={data.object_type === 'SNR'}>Supernova remnant</option>
+        <option value="" selected={!data.size}>All sizes</option>
+        {#each SIZE_BUCKETS as b (b.key)}
+          <option value={b.key} selected={data.size === b.key}>{b.label} · {b.hint}</option>
+        {/each}
       </select>
     </label>
     <label>
@@ -111,9 +151,7 @@
       <select onchange={(e) => applyFilter({ sort: (e.target as HTMLSelectElement).value })}>
         <option value="popular" selected={data.sort === 'popular'}>Popular</option>
         <option value="name" selected={data.sort === 'name'}>Alphabetical</option>
-        <option value="opposition" selected={data.sort === 'opposition'}
-          >Opposition (Jan → Dec)</option
-        >
+        <option value="optimal" selected={data.sort === 'optimal'}>Optimal now</option>
       </select>
     </label>
   </div>
@@ -123,7 +161,13 @@
       No objects match.
       <button
         type="button"
-        onclick={() => applyFilter({ q: '', object_type: undefined, constellation: undefined })}
+        onclick={() =>
+          applyFilter({
+            q: '',
+            object_type: undefined,
+            constellation: undefined,
+            size: undefined
+          })}
       >
         Clear filters
       </button>
@@ -171,17 +215,52 @@
   }
   .filters {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 1.5rem;
     margin-bottom: 1rem;
     font-size: 0.9rem;
   }
-  .filters label {
+  .filters label,
+  .filter-group {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     color: var(--fg-muted, #888);
     font-family: var(--font-mono);
     font-size: 12px;
+  }
+  .type-group {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .filter-label {
+    color: var(--fg-muted, #888);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip-toggle {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--fg-muted, #888);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .chip-toggle:hover {
+    border-color: var(--accent, #4a90e2);
+  }
+  .chip-toggle.active {
+    border-color: var(--accent, #4a90e2);
+    color: var(--accent, #4a90e2);
+    background: color-mix(in srgb, var(--accent, #4a90e2) 12%, var(--bg-elevated));
   }
   .filters select {
     background: var(--bg-elevated);
