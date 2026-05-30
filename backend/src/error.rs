@@ -34,6 +34,9 @@ pub enum AppError {
     #[error("rate limited")]
     RateLimited,
 
+    #[error("service unavailable")]
+    ServiceUnavailable,
+
     #[error("quota exceeded: {0}")]
     QuotaExceeded(String),
 
@@ -90,6 +93,7 @@ impl AppError {
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             AppError::RateLimited => StatusCode::TOO_MANY_REQUESTS,
+            AppError::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
             AppError::QuotaExceeded(_) => StatusCode::PAYLOAD_TOO_LARGE,
             AppError::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             AppError::MagicByteMismatch(_) => StatusCode::BAD_REQUEST,
@@ -110,6 +114,7 @@ impl AppError {
             AppError::Conflict(_) => "conflict",
             AppError::TooManyRequests(_) => "too-many-requests",
             AppError::RateLimited => "rate-limited",
+            AppError::ServiceUnavailable => "service-unavailable",
             AppError::QuotaExceeded(_) => "quota-exceeded",
             AppError::PayloadTooLarge(_) => "payload-too-large",
             AppError::MagicByteMismatch(_) => "magic-byte-mismatch",

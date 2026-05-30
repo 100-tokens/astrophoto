@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into login_throttle (user_id, failed_count, locked_until, updated_at)\n              values ($1, 1, null, now())\n         on conflict (user_id) do update set\n             failed_count = case\n                 when login_throttle.failed_count + 1 >= $2 then 0\n                 else login_throttle.failed_count + 1\n             end,\n             locked_until = case\n                 when login_throttle.failed_count + 1 >= $2\n                      and (login_throttle.locked_until is null\n                           or login_throttle.locked_until <= now())\n                 then now() + make_interval(mins => $3)\n                 else login_throttle.locked_until\n             end,\n             updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8fce77d685c0d2436f37d4deecb43cfa84a41e6298f44fcf98e091215718560b"
+}
