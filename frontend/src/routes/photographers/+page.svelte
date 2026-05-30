@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { ldJsonScriptTag } from '$lib/utils/seo';
   import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
@@ -103,7 +104,7 @@
   <meta name="twitter:title" content={pageTitle} />
   <meta name="twitter:description" content={pageDescription} />
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  {@html `<script type="application/ld+json">${listJsonLd}</script>`}
+  {@html ldJsonScriptTag(listJsonLd)}
 </svelte:head>
 
 <AppHeader active="Photographers" />

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import { ldJsonScriptTag } from '$lib/utils/seo';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import HeroPage from '$lib/components/profile/HeroPage.svelte';
@@ -96,7 +97,7 @@
   <meta name="twitter:image" content={ogImage} />
 
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  {@html `<script type="application/ld+json">${jsonLd}</script>`}
+  {@html ldJsonScriptTag(jsonLd)}
 </svelte:head>
 
 <AppHeader />
