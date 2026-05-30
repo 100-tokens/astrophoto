@@ -27,6 +27,7 @@
   const ALADIN_SRC = 'https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js';
 
   let containerEl: HTMLDivElement | undefined = $state();
+  let visible = $state(false);
   let scriptLoaded = $state(false);
   let initialized = $state(false);
 
@@ -41,8 +42,28 @@
     return Math.max(0.1, Math.min(5, deg));
   }
 
+  // Lazy-load: only pull Aladin + DSS2 tiles once the map scrolls near the
+  // viewport. The page content is already fast (~0.5s); this keeps ~4-5s of
+  // external CDS requests off the initial load on every target detail page.
   $effect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !containerEl) return;
+    if (ra === null || dec === null) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          visible = true;
+          io.disconnect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    io.observe(containerEl);
+    return () => io.disconnect();
+  });
+
+  // Inject the Aladin script from the CDS CDN — only after the map is near view.
+  $effect(() => {
+    if (typeof window === 'undefined' || !visible) return;
     if (ra === null || dec === null) return;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +121,7 @@
     </header>
     <div bind:this={containerEl} class="aladin-container">
       {#if !scriptLoaded}
-        <div class="loading">Loading sky map…</div>
+        <div class="loading">{visible ? 'Loading sky map…' : 'Sky map'}</div>
       {/if}
     </div>
     <p class="attribution">
