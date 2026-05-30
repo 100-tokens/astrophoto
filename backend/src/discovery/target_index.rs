@@ -41,6 +41,14 @@ const MAX_LIMIT: i64 = 60;
 /// (unknown RA) so they keyset-paginate last instead of via SQL NULL ordering.
 const NULLS_LAST: i32 = 9999;
 
+/// "Optimal now" only surfaces objects within this many days of opposition —
+/// i.e. observable in a dark sky this season. Beyond it the object is near
+/// conjunction (up in the daytime sky), so it isn't an "optimal" target now;
+/// without this cut a sparse filter would pad page 1 with un-shootable objects.
+/// A distance proxy: it ignores observer latitude (high-dec circumpolar
+/// objects stay up out of season), consistent with the RA-only opposition scope.
+const OPTIMAL_WINDOW_DAYS: i32 = 90;
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct PopularCursor {
     count: i64,
@@ -217,6 +225,8 @@ pub async fn list(
                           and p.status = 'ready'))
                   and ($9::real is null or t.major_axis_arcmin >= $9)
                   and ($10::real is null or t.major_axis_arcmin < $10)
+                  and least(abs(t.opposition_doy::int4 - $8::int4),
+                            365 - abs(t.opposition_doy::int4 - $8::int4)) <= $11::int4
                 order by coalesce(least(abs(t.opposition_doy::int4 - $8::int4),
                                         365 - abs(t.opposition_doy::int4 - $8::int4)), 9999) asc,
                          t.id asc
@@ -231,7 +241,8 @@ pub async fn list(
                 has_photos,
                 today,
                 size_min,
-                size_max
+                size_max,
+                OPTIMAL_WINDOW_DAYS
             )
             .fetch_all(&state.pool)
             .await?

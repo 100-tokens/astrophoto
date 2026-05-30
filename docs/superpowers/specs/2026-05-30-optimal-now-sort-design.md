@@ -32,6 +32,13 @@ tonight.
   up all night). Symmetric: 2 weeks before opposition ties 2 weeks after —
   both well-placed tonight. NULL `opposition_doy` (unknown RA) → `coalesce`
   to the existing `9999` sentinel → sorts last.
+- **Observability window (`OPTIMAL_WINDOW_DAYS = 90`)**: `optimal` only
+  returns objects within ±90 days of opposition ("in season" — observable in
+  a dark sky now). Beyond that the object is near conjunction (daytime sky),
+  so it is not an "optimal" target; without this cut a sparse filter pads
+  page 1 with un-shootable objects (e.g. Orion nebulae in May). Distance
+  proxy — ignores latitude/circumpolar, consistent with the RA-only scope.
+  NULL-RA objects fall outside the window and are excluded from `optimal`.
 - Keyset cursor changes from day-of-year to the computed distance:
   `OptimalCursor { dist: i32, id: Uuid }`, keyset
   `(coalesce(<dist>, 9999), id) > ($cur_dist, $cur_id)`.
