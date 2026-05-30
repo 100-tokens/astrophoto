@@ -101,6 +101,7 @@ export async function fetchSearch(f: FetchFn, q: string): Promise<SearchResults>
 
 export interface TargetListOpts {
   q?: string;
+  /** One or more object types, comma-joined (e.g. `G,Neb`). */
   object_type?: string;
   constellation?: string;
   sort?: string;
@@ -109,6 +110,9 @@ export interface TargetListOpts {
   /** Only return targets with at least one published photo. The public
    *  /t index defaults this on; autocomplete/search omit it. */
   has_photos?: boolean;
+  /** Major-axis bounds (arcmin): inclusive lower, exclusive upper. */
+  size_min?: number;
+  size_max?: number;
 }
 
 export async function fetchTargetList(

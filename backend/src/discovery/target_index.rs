@@ -5,16 +5,19 @@ use axum::{
     extract::{Query, State},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use chrono::Datelike;
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::AppError;
 use crate::api_types::{TargetIndexPage, TargetListItem, TargetPreviewThumb};
+use crate::discovery::opposition::circular_doy_distance;
 use crate::http::AppState;
 
 #[derive(Deserialize)]
 pub struct ListQ {
     pub q: Option<String>,
+    /// One or more object types, comma-joined (e.g. `G,Neb,OCl`). Empty = all.
     pub object_type: Option<String>,
     pub constellation: Option<String>,
     pub sort: Option<String>,
@@ -25,10 +28,18 @@ pub struct ListQ {
     /// shows photographed objects, not the ~12k empty OpenNGC stubs.
     /// Autocomplete / search backends omit it to get the full catalog.
     pub has_photos: Option<bool>,
+    /// Inclusive lower / exclusive upper bound on the object's major axis
+    /// (arcmin) — the focal-length-hinted size buckets on `/t`.
+    pub size_min: Option<f32>,
+    pub size_max: Option<f32>,
 }
 
 const DEFAULT_LIMIT: i64 = 24;
 const MAX_LIMIT: i64 = 60;
+
+/// Sentinel for the effective sort key of targets with no opposition date
+/// (unknown RA) so they keyset-paginate last instead of via SQL NULL ordering.
+const NULLS_LAST: i32 = 9999;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct PopularCursor {
@@ -43,9 +54,10 @@ struct NameCursor {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-struct OppositionCursor {
-    /// Effective sort key: `opposition_doy`, or the 9999 NULLS-LAST sentinel.
-    doy: i32,
+struct OptimalCursor {
+    /// Circular day-of-year distance from "today" to the object's opposition,
+    /// or the NULLS_LAST sentinel for targets with no opposition date.
+    dist: i32,
     id: Uuid,
 }
 
@@ -69,12 +81,12 @@ fn decode_name(s: &str) -> Option<NameCursor> {
     serde_json::from_slice(&b).ok()
 }
 
-fn encode_opposition(c: &OppositionCursor) -> String {
+fn encode_optimal(c: &OptimalCursor) -> String {
     let bytes = serde_json::to_vec(c).unwrap_or_default();
     URL_SAFE_NO_PAD.encode(bytes)
 }
 
-fn decode_opposition(s: &str) -> Option<OppositionCursor> {
+fn decode_optimal(s: &str) -> Option<OptimalCursor> {
     let b = URL_SAFE_NO_PAD.decode(s).ok()?;
     serde_json::from_slice(&b).ok()
 }
@@ -98,9 +110,27 @@ pub async fn list(
     let sort = q.sort.as_deref().unwrap_or("popular");
 
     let q_str = q.q.as_deref();
-    let obj = q.object_type.as_deref();
     let cons = q.constellation.as_deref();
     let has_photos = q.has_photos.unwrap_or(false);
+    let size_min = q.size_min;
+    let size_max = q.size_max;
+
+    // Multiple object types arrive comma-joined; an empty/blank list means
+    // "no type filter" (bind NULL so the `= any(...)` clause is skipped).
+    let types: Option<Vec<String>> = q.object_type.as_deref().and_then(|s| {
+        let v: Vec<String> = s
+            .split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_string)
+            .collect();
+        (!v.is_empty()).then_some(v)
+    });
+
+    // "Optimal now" ranks by circular distance from today's day-of-year to each
+    // object's opposition. `ordinal()` is 1..=366; clamp leap-day 366 into the
+    // non-leap reference calendar that `opposition_doy` uses.
+    let today = (chrono::Utc::now().ordinal() as i32).clamp(1, 365);
 
     let rows: Vec<PageRow> = match sort {
         "name" => {
@@ -122,7 +152,7 @@ pub async fn list(
                        t.canonical_name ilike '%' || $1 || '%' or
                        t.slug ilike '%' || $1 || '%' or
                        exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
-                  and ($2::text is null or t.object_type = $2)
+                  and ($2::text[] is null or t.object_type = any($2))
                   and ($3::text is null or t.constellation = $3)
                   and ($4::text is null or (t.canonical_name, t.id) > ($4, $5))
                   and ($7::bool is not true or exists (
@@ -131,27 +161,32 @@ pub async fn list(
                         where pt.target_id = t.id
                           and p.published_at is not null
                           and p.status = 'ready'))
+                  and ($8::real is null or t.major_axis_arcmin >= $8)
+                  and ($9::real is null or t.major_axis_arcmin < $9)
                 order by t.canonical_name asc, t.id asc
                 limit $6
                 "#,
                 q_str,
-                obj,
+                types.as_deref(),
                 cons,
                 cur_name,
                 cur_id,
                 limit + 1,
-                has_photos
+                has_photos,
+                size_min,
+                size_max
             )
             .fetch_all(&state.pool)
             .await?
         }
-        "opposition" => {
-            // Best-observation order: by opposition / midnight-culmination date
-            // through the calendar year (Jan → Dec). Targets without a known RA
-            // (hence no opposition date) sort last via the 9999 NULLS-LAST
-            // sentinel, keyset-paginated on (effective doy, id).
-            let cur = q.cursor.as_deref().and_then(decode_opposition);
-            let cur_doy = cur.as_ref().map(|c| c.doy);
+        "optimal" => {
+            // Best-to-observe-now order: ascending circular day-of-year distance
+            // from `today` to each object's opposition (see
+            // opposition::circular_doy_distance — the SQL mirrors it exactly).
+            // Targets without a known RA (null opposition_doy) sort last via the
+            // NULLS_LAST sentinel, keyset-paginated on (distance, id).
+            let cur = q.cursor.as_deref().and_then(decode_optimal);
+            let cur_dist = cur.as_ref().map(|c| c.dist);
             let cur_id = cur.as_ref().map(|c| c.id).unwrap_or_else(Uuid::nil);
             sqlx::query_as!(
                 PageRow,
@@ -168,25 +203,35 @@ pub async fn list(
                        t.canonical_name ilike '%' || $1 || '%' or
                        t.slug ilike '%' || $1 || '%' or
                        exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
-                  and ($2::text is null or t.object_type = $2)
+                  and ($2::text[] is null or t.object_type = any($2))
                   and ($3::text is null or t.constellation = $3)
-                  and ($4::int4 is null or (coalesce(t.opposition_doy, 9999), t.id) > ($4, $5))
+                  and ($4::int4 is null or
+                       (coalesce(least(abs(t.opposition_doy::int4 - $8::int4),
+                                       365 - abs(t.opposition_doy::int4 - $8::int4)), 9999), t.id)
+                        > ($4, $5))
                   and ($7::bool is not true or exists (
                         select 1 from photo_targets pt
                         join photos p on p.id = pt.photo_id
                         where pt.target_id = t.id
                           and p.published_at is not null
                           and p.status = 'ready'))
-                order by coalesce(t.opposition_doy, 9999) asc, t.id asc
+                  and ($9::real is null or t.major_axis_arcmin >= $9)
+                  and ($10::real is null or t.major_axis_arcmin < $10)
+                order by coalesce(least(abs(t.opposition_doy::int4 - $8::int4),
+                                        365 - abs(t.opposition_doy::int4 - $8::int4)), 9999) asc,
+                         t.id asc
                 limit $6
                 "#,
                 q_str,
-                obj,
+                types.as_deref(),
                 cons,
-                cur_doy,
+                cur_dist,
                 cur_id,
                 limit + 1,
-                has_photos
+                has_photos,
+                today,
+                size_min,
+                size_max
             )
             .fetch_all(&state.pool)
             .await?
@@ -211,7 +256,7 @@ pub async fn list(
                           t.canonical_name ilike '%' || $1 || '%' or
                           t.slug ilike '%' || $1 || '%' or
                           exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
-                     and ($2::text is null or t.object_type = $2)
+                     and ($2::text[] is null or t.object_type = any($2))
                      and ($3::text is null or t.constellation = $3)
                      and ($7::bool is not true or exists (
                            select 1 from photo_targets pt
@@ -219,6 +264,8 @@ pub async fn list(
                            where pt.target_id = t.id
                              and p.published_at is not null
                              and p.status = 'ready'))
+                     and ($8::real is null or t.major_axis_arcmin >= $8)
+                     and ($9::real is null or t.major_axis_arcmin < $9)
                 )
                 select id as "id!", slug as "slug!", canonical_name as "canonical_name!",
                        object_type, constellation, magnitude_v, opposition_doy,
@@ -229,12 +276,14 @@ pub async fn list(
                  limit $6
                 "#,
                 q_str,
-                obj,
+                types.as_deref(),
                 cons,
                 cur_count,
                 cur_id,
                 limit + 1,
-                has_photos
+                has_photos,
+                size_min,
+                size_max
             )
             .fetch_all(&state.pool)
             .await?
@@ -251,8 +300,11 @@ pub async fn list(
                 name: last.canonical_name.clone(),
                 id: last.id,
             }),
-            "opposition" => encode_opposition(&OppositionCursor {
-                doy: last.opposition_doy.map(i32::from).unwrap_or(9999),
+            "optimal" => encode_optimal(&OptimalCursor {
+                dist: last
+                    .opposition_doy
+                    .map(|o| circular_doy_distance(o as i32, today))
+                    .unwrap_or(NULLS_LAST),
                 id: last.id,
             }),
             _ => encode_popular(&PopularCursor {
@@ -343,8 +395,21 @@ mod cursor_tests {
     }
 
     #[test]
+    fn optimal_cursor_roundtrip() {
+        let c = OptimalCursor {
+            dist: 37,
+            id: Uuid::new_v4(),
+        };
+        let encoded = encode_optimal(&c);
+        let decoded = decode_optimal(&encoded).unwrap();
+        assert_eq!(decoded.dist, c.dist);
+        assert_eq!(decoded.id, c.id);
+    }
+
+    #[test]
     fn invalid_cursor_returns_none() {
         assert!(decode_popular("not-base64!!!").is_none());
         assert!(decode_name("also-not!!!").is_none());
+        assert!(decode_optimal("nope!!!").is_none());
     }
 }

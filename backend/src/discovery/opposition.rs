@@ -113,6 +113,17 @@ pub fn midnight_culmination_doy(ra_deg: f64) -> i16 {
     (best_day + 1) as i16
 }
 
+/// Circular day-of-year distance (`0..=182`) between two days in the non-leap
+/// reference calendar — how far apart they are going around the year the short
+/// way (e.g. doy 5 vs doy 360 → 10, not 355). Used to rank targets by how near
+/// their opposition is to a given date for the "optimal now" sort; the SQL
+/// `ORDER BY` in `target_index` mirrors this exact expression, and this helper
+/// computes the matching keyset cursor value so the two never drift.
+pub fn circular_doy_distance(a: i32, b: i32) -> i32 {
+    let d = (a - b).abs();
+    d.min(365 - d)
+}
+
 /// Populates `targets.opposition_doy` for every row that has a right ascension
 /// but no cached opposition date yet. Idempotent: after the first run no NULL
 /// rows remain, so subsequent boots fetch nothing and update nothing. This is
@@ -245,5 +256,29 @@ mod tests {
         // 2025-01-01 00:00 UT is JD 2460676.5; J2000.0 is JD 2451545.0 (noon).
         assert!((julian_day(2025, 1, 1.0) - 2460676.5).abs() < 1e-6);
         assert!((julian_day(2000, 1, 1.5) - 2451545.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn circular_distance_is_zero_at_the_same_day() {
+        assert_eq!(circular_doy_distance(200, 200), 0);
+    }
+
+    #[test]
+    fn circular_distance_wraps_the_year_boundary() {
+        // doy 5 (early Jan) and doy 360 (late Dec) are 10 days apart, not 355.
+        assert_eq!(circular_doy_distance(5, 360), 10);
+        assert_eq!(circular_doy_distance(360, 5), 10); // symmetric
+    }
+
+    #[test]
+    fn circular_distance_is_symmetric_and_capped_at_half_year() {
+        assert_eq!(circular_doy_distance(1, 100), circular_doy_distance(100, 1));
+        // Opposite sides of the year are at most ~half a year apart.
+        assert_eq!(circular_doy_distance(1, 183), 182);
+        let mut max = 0;
+        for d in 1..=365 {
+            max = max.max(circular_doy_distance(1, d));
+        }
+        assert_eq!(max, 182);
     }
 }
