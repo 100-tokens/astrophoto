@@ -87,28 +87,34 @@ pub async fn cone_search(
     let dec_min = dec_deg - radius_deg;
     let dec_max = dec_deg + radius_deg;
     let rows: Vec<CandidateRow> = match ra_window(ra_deg, dec_deg, radius_deg) {
-        RaWindow::Single(lo, hi) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_SINGLE)
-            .bind(dec_min)
-            .bind(dec_max)
-            .bind(lo)
-            .bind(hi)
-            .fetch_all(pool)
-            .await?,
-        RaWindow::Wrap(lo1, hi1, lo2, hi2) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_WRAP)
-            .bind(dec_min)
-            .bind(dec_max)
-            .bind(lo1)
-            .bind(hi1)
-            .bind(lo2)
-            .bind(hi2)
-            .fetch_all(pool)
-            .await?,
+        RaWindow::Single(lo, hi) => {
+            sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_SINGLE)
+                .bind(dec_min)
+                .bind(dec_max)
+                .bind(lo)
+                .bind(hi)
+                .fetch_all(pool)
+                .await?
+        }
+        RaWindow::Wrap(lo1, hi1, lo2, hi2) => {
+            sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_WRAP)
+                .bind(dec_min)
+                .bind(dec_max)
+                .bind(lo1)
+                .bind(hi1)
+                .bind(lo2)
+                .bind(hi2)
+                .fetch_all(pool)
+                .await?
+        }
     };
 
     // Exact filter — drop the corners introduced by the bounding box.
     Ok(rows
         .into_iter()
-        .filter(|r| arc_distance_deg(ra_deg, dec_deg, r.right_ascension, r.declination) <= radius_deg)
+        .filter(|r| {
+            arc_distance_deg(ra_deg, dec_deg, r.right_ascension, r.declination) <= radius_deg
+        })
         .collect())
 }
 
@@ -124,27 +130,33 @@ pub async fn cone_search_in_tx(
     let dec_min = dec_deg - radius_deg;
     let dec_max = dec_deg + radius_deg;
     let rows: Vec<CandidateRow> = match ra_window(ra_deg, dec_deg, radius_deg) {
-        RaWindow::Single(lo, hi) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_SINGLE)
-            .bind(dec_min)
-            .bind(dec_max)
-            .bind(lo)
-            .bind(hi)
-            .fetch_all(&mut **tx)
-            .await?,
-        RaWindow::Wrap(lo1, hi1, lo2, hi2) => sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_WRAP)
-            .bind(dec_min)
-            .bind(dec_max)
-            .bind(lo1)
-            .bind(hi1)
-            .bind(lo2)
-            .bind(hi2)
-            .fetch_all(&mut **tx)
-            .await?,
+        RaWindow::Single(lo, hi) => {
+            sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_SINGLE)
+                .bind(dec_min)
+                .bind(dec_max)
+                .bind(lo)
+                .bind(hi)
+                .fetch_all(&mut **tx)
+                .await?
+        }
+        RaWindow::Wrap(lo1, hi1, lo2, hi2) => {
+            sqlx::query_as::<_, CandidateRow>(CONE_SEARCH_SQL_WRAP)
+                .bind(dec_min)
+                .bind(dec_max)
+                .bind(lo1)
+                .bind(hi1)
+                .bind(lo2)
+                .bind(hi2)
+                .fetch_all(&mut **tx)
+                .await?
+        }
     };
 
     Ok(rows
         .into_iter()
-        .filter(|r| arc_distance_deg(ra_deg, dec_deg, r.right_ascension, r.declination) <= radius_deg)
+        .filter(|r| {
+            arc_distance_deg(ra_deg, dec_deg, r.right_ascension, r.declination) <= radius_deg
+        })
         .collect())
 }
 

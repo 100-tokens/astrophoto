@@ -12,7 +12,11 @@ use testcontainers_modules::postgres::Postgres as PgImage;
 use uuid::Uuid;
 
 async fn fresh_db() -> (sqlx::PgPool, String) {
-    let pg = PgImage::default().with_tag("16-alpine").start().await.unwrap();
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
     let host = pg.get_host().await.unwrap();
     let port = pg.get_host_port_ipv4(5432).await.unwrap();
     let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
@@ -77,9 +81,20 @@ async fn identify_writes_expected_rows_with_filter() {
     .await
     .unwrap();
 
-    assert!(kept_slugs.contains(&"m99-test".to_string()), "kept_slugs = {:?}", kept_slugs);
-    assert!(kept_slugs.contains(&"ngc-test".to_string()), "kept_slugs = {:?}", kept_slugs);
-    assert!(!kept_slugs.contains(&"pgc-far".to_string()), "pgc-far should be out of FOV");
+    assert!(
+        kept_slugs.contains(&"m99-test".to_string()),
+        "kept_slugs = {:?}",
+        kept_slugs
+    );
+    assert!(
+        kept_slugs.contains(&"ngc-test".to_string()),
+        "kept_slugs = {:?}",
+        kept_slugs
+    );
+    assert!(
+        !kept_slugs.contains(&"pgc-far".to_string()),
+        "pgc-far should be out of FOV"
+    );
     assert!(outcome.kept >= 2);
 }
 
