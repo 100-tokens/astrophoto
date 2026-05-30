@@ -234,6 +234,54 @@ async fn password_reset_throttle_60s_per_email() {
 }
 
 #[tokio::test]
+async fn password_reset_hourly_cap_is_per_account_not_global() {
+    // Regression for the global-bucket recovery-DoS: the per-hour cap used to be
+    // keyed on `(user_id = $1 OR request_ip = $3)`. Behind the proxy every
+    // request shares one IP, so saturating ONE account's hourly cap from that IP
+    // silently denied password recovery to EVERY other user. The cap is now
+    // per-account (user_id only). Filling an attacker account's cap from the
+    // shared proxy IP (127.0.0.1 — the MockConnectInfo address every test POST
+    // presents) must NOT block a fresh victim.
+    let (app, pool, outbox, _pg) = boot().await;
+    signup(&app, &pool, "attacker@example.com", "longenoughpw1").await;
+    signup(&app, &pool, "victim@example.com", "longenoughpw2").await;
+
+    let attacker_id: uuid::Uuid = sqlx::query_scalar::<_, uuid::Uuid>(
+        "select id from users where email = $1",
+    )
+    .bind("attacker@example.com")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    // PER_HOUR_CAP (5) tokens for the attacker, all from the shared proxy IP.
+    for i in 0u8..5 {
+        sqlx::query(
+            "insert into password_reset_tokens (token_hash, user_id, expires_at, request_ip, created_at)
+             values ($1, $2, now() + interval '1 hour', '127.0.0.1'::inet, now())",
+        )
+        .bind(vec![i; 32])
+        .bind(attacker_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    outbox.lock().unwrap().clear();
+
+    let resp = app
+        .oneshot(reset_request("victim@example.com"))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    let sent = outbox.lock().unwrap();
+    assert_eq!(
+        sent.len(),
+        1,
+        "victim must still receive a reset mail — the cap is per-account, not global"
+    );
+    assert_eq!(sent[0].to, "victim@example.com");
+}
+
+#[tokio::test]
 async fn password_reset_full_happy_path() {
     let (app, pool, outbox, _pg) = boot().await;
     signup(&app, &pool, "marie@example.com", "longenoughpw1").await;
