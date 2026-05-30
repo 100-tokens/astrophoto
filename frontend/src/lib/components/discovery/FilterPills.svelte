@@ -11,20 +11,26 @@
     category = undefined,
     following = false,
     variant = 'explore',
+    authed = true,
     onSortChange,
     onSinceChange,
     onCategoryChange,
-    onFollowingChange
+    onFollowingChange,
+    onClear
   }: {
     sort?: Sort;
     since?: Since;
     category?: string;
     following?: boolean;
     variant?: 'explore' | 'target' | 'tag' | 'equipment' | 'category' | 'search';
+    /** Whether a session is present — the "Following only" toggle is hidden
+     * for anonymous visitors (it can only ever return an empty feed). */
+    authed?: boolean;
     onSortChange?: (v: Sort) => void;
     onSinceChange?: (v: Since) => void;
     onCategoryChange?: (v: string | undefined) => void;
     onFollowingChange?: (v: boolean) => void;
+    onClear?: () => void;
   } = $props();
 
   const sortOptions: Array<{ label: string; value: Sort }> = [
@@ -51,7 +57,12 @@
   // Show sort pills for all variants; since/category/following only for explore.
   let showSince = $derived(variant === 'explore');
   let showCategory = $derived(variant === 'explore');
-  let showFollowing = $derived(variant === 'explore');
+  // Following toggle requires a session — anonymous visitors follow nobody, so
+  // the backend would return an empty feed with no explanation.
+  let showFollowing = $derived(variant === 'explore' && authed);
+  let hasActiveFilters = $derived(
+    category !== undefined || following || since !== '7d' || sort !== 'newest'
+  );
 </script>
 
 <section class="filter-rail">
@@ -115,15 +126,13 @@
         </button>
       {/if}
 
-      {#if showCategory && category}
+      {#if hasActiveFilters}
         <button
           type="button"
           class="chip chip-clear"
-          onclick={() => {
-            onCategoryChange?.(undefined);
-          }}
+          onclick={() => (onClear ? onClear() : onCategoryChange?.(undefined))}
         >
-          ✕ Clear
+          ✕ Clear filters
         </button>
       {/if}
     </div>

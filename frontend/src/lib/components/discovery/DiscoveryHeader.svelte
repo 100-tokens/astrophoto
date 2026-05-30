@@ -6,8 +6,9 @@
   import { formatRA, formatDec } from '$lib/utils/coords';
   import { objectTypeLabel, constellationLabel } from '$lib/data/celestial';
   import { CATEGORY_LABELS } from '$lib/util/categoryLabel';
+  import { daysToNextNewMoon } from '$lib/util/moon';
 
-  type ExploreProps = { variant: 'explore'; photoCount?: number };
+  type ExploreProps = { variant: 'explore'; photoCount?: number | bigint };
   type TargetProps = { variant: 'target'; meta: TargetMeta };
   type TagProps = { variant: 'tag'; meta: TagMeta };
   type EquipmentProps = { variant: 'equipment'; meta: EquipmentMeta };
@@ -29,6 +30,15 @@
   function fmt(n: bigint | number): string {
     return Number(n).toLocaleString('en-US');
   }
+
+  // Dark-sky planning hint for the explore right rail. Mean lunation, ±1 day.
+  const newMoonDays = daysToNextNewMoon();
+  const moonLabel =
+    newMoonDays <= 0
+      ? 'NEW MOON TONIGHT'
+      : newMoonDays === 1
+        ? 'NEW MOON TOMORROW'
+        : `NEW MOON IN ${newMoonDays} DAYS`;
 </script>
 
 {#if props.variant === 'explore'}
@@ -42,7 +52,7 @@
       <h1 class="display">The <em>archive</em>, across photographers</h1>
     </div>
     <div class="header-right">
-      <p class="stat-label" style="color: var(--fg-muted);">NEW MOON IN 6 DAYS</p>
+      <p class="stat-label" style="color: var(--fg-muted);">{moonLabel}</p>
     </div>
   </section>
 {:else if props.variant === 'target'}

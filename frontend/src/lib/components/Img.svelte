@@ -9,6 +9,8 @@
     sizes?: string;
     blurhash?: string;
     aspectRatio?: string; // e.g. "3/2"
+    /** Eager-load + high fetchpriority for above-the-fold / LCP images. */
+    priority?: boolean;
     class?: string;
   }
 
@@ -20,6 +22,7 @@
     sizes = '(max-width: 640px) 100vw, 800px',
     blurhash,
     aspectRatio,
+    priority = false,
     class: cls = ''
   }: Props = $props();
 
@@ -35,7 +38,8 @@
   srcset={srcset(photoId, widths, transform)}
   {sizes}
   {alt}
-  loading="lazy"
+  loading={priority ? 'eager' : 'lazy'}
+  fetchpriority={priority ? 'high' : undefined}
   decoding="async"
   style:aspect-ratio={aspectRatio}
   class={cls}

@@ -95,7 +95,7 @@
     padding: 1rem;
     background: var(--bg-elevated, #141414);
     border: 1px solid var(--border-subtle, #2a2a2a);
-    border-radius: var(--r-md, 6px);
+    border-radius: var(--r-md);
   }
   .external-archives h2 {
     font-size: 1.05rem;
@@ -128,8 +128,8 @@
       background 0.15s;
   }
   li a:hover {
-    border-color: var(--accent, #4a90e2);
-    background: var(--bg-accent-tint, rgba(74, 144, 226, 0.06));
+    border-color: var(--accent);
+    background: var(--bg-accent-tint, rgba(232, 164, 58, 0.07));
   }
   .archive-label {
     font-weight: 600;
@@ -149,8 +149,8 @@
   }
   .search-note code {
     font-family: var(--font-mono);
-    background: var(--bg-faint, #0a0a0a);
+    background: var(--bg-canvas);
     padding: 0 0.3em;
-    border-radius: 3px;
+    border-radius: var(--r-sm);
   }
 </style>

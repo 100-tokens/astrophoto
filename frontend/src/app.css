@@ -163,6 +163,45 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Offset in-page anchors (incl. the skip target) so they don't land under
+   the 64px sticky AppHeader. */
+html {
+  scroll-padding-top: 64px;
+}
+
+/* Skip-to-content link: visually hidden until keyboard focus, then a visible
+   box pinned top-left over the page content. */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link:focus {
+  position: fixed;
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: 1000;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  overflow: visible;
+  clip: auto;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--r-sm);
+}
+
 /* Globally upweight display serif so it reads as confident, not faint */
 h1,
 h2,
@@ -608,4 +647,25 @@ img {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  /* Drop the photo-card hover zoom and its 600ms image transition. */
+  .photo-card img {
+    transition: none !important;
+  }
+  .photo-card:hover img {
+    transform: none !important;
+  }
 }

@@ -67,10 +67,29 @@ export const handle: Handle = async ({ event, resolve }) => {
   const density = (densityCookie === 'data' ? 'data' : 'work') as 'work' | 'data';
   event.locals.preferences = { theme, density };
 
-  return resolve(event, {
+  const response = await resolve(event, {
     // Global replace + done = true filter so the placeholder is robust to
     // chunk boundaries (the SvelteKit `transformPageChunk` is called per
     // chunk; a non-global `replace` would silently miss multi-occurrence).
     transformPageChunk: ({ html }) => html.replace(/%theme%/g, theme).replace(/%density%/g, density)
   });
+
+  // Baseline security headers. Set each only if a downstream handler/route
+  // hasn't already provided it, so route-specific overrides win.
+  // NOTE: no Content-Security-Policy here on purpose — enforcing one risks
+  // breaking Google Fonts, the image CDN, and Svelte's inline styles. A
+  // properly scoped CSP needs dedicated work (nonces/hashes) and should land
+  // as its own change.
+  const securityHeaders: Record<string, string> = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+  };
+  for (const [name, value] of Object.entries(securityHeaders)) {
+    if (!response.headers.has(name)) response.headers.set(name, value);
+  }
+
+  return response;
 };

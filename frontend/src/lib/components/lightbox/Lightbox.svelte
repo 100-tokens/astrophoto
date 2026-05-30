@@ -26,6 +26,15 @@
 
   let title = $derived(photo.target ?? photo.original_name);
 
+  // a11y: the Lightbox is always a modal — every consumer renders it gated on
+  // the shallow-route `page.state.lightbox` flag (LightboxHost over a feed, or
+  // the permalink page when reached via shallow nav). The standalone full-page
+  // permalink renders PhotoDetailFull instead, so there is no non-modal branch
+  // here to exclude. Capture/restore focus and trap Tab like Modal.svelte.
+  let dialogEl: HTMLDivElement = $state() as HTMLDivElement;
+  let closeBtnEl: HTMLButtonElement = $state() as HTMLButtonElement;
+  let invokerBefore: HTMLElement | null = null;
+
   function onKeydown(e: KeyboardEvent) {
     switch (e.key) {
       case 'Escape':
@@ -37,6 +46,24 @@
       case 'ArrowRight':
         if (onNext) onNext();
         break;
+      case 'Tab': {
+        // Trap focus within the dialog (cycle first <-> last focusable).
+        if (!dialogEl) return;
+        const focusables = dialogEl.querySelectorAll<HTMLElement>(
+          'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusables.length) return;
+        const first = focusables[0] as HTMLElement | undefined;
+        const last = focusables[focusables.length - 1] as HTMLElement | undefined;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+        break;
+      }
       case 'i':
       case 'I':
         showExif = !showExif;
@@ -53,8 +80,53 @@
   onMount(() => {
     // Prevent body scroll while lightbox is open
     document.body.style.overflow = 'hidden';
+
+    // Capture the element that opened the lightbox (the originating tile link)
+    // so focus can be restored to it on close.
+    invokerBefore = document.activeElement as HTMLElement | null;
+
+    // Mark the page content behind the modal inert. The dialog is nested
+    // somewhere inside the page tree (not a direct <body> child), so we walk up
+    // from the dialog to <body> and inert every sibling along the way — i.e.
+    // everything except the dialog's own ancestor chain. This needs no
+    // reference to <main>/header/footer, so it works without a refactor.
+    const inerted: HTMLElement[] = [];
+    // Guard against a same-tick mount→unmount: if cleanup runs before this
+    // microtask flushes, skip the inert walk entirely so no `inert` leaks onto
+    // the page (which would freeze it for everyone).
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      // The backdrop is the dialog's immediate previous sibling and must stay
+      // interactive (click-to-close), so it is never inerted.
+      const backdrop = dialogEl?.previousElementSibling ?? null;
+      let node: HTMLElement | null = dialogEl;
+      while (node && node !== document.body) {
+        const parentEl: HTMLElement | null = node.parentElement;
+        if (!parentEl) break;
+        for (const sibling of Array.from(parentEl.children)) {
+          if (sibling === node || sibling === backdrop) continue;
+          if (!(sibling instanceof HTMLElement)) continue;
+          if (sibling.hasAttribute('inert')) continue;
+          // Keep live regions announcing — prev/next call goto() (a real route
+          // change), and SvelteKit's #svelte-announcer must stay reachable so
+          // screen-reader users hear the new page title.
+          if (sibling.id === 'svelte-announcer' || sibling.hasAttribute('aria-live')) continue;
+          sibling.setAttribute('inert', '');
+          inerted.push(sibling);
+        }
+        node = parentEl;
+      }
+      // Focus the close button once the dialog is in the DOM.
+      closeBtnEl?.focus();
+    });
+
     return () => {
+      cancelled = true;
       document.body.style.overflow = '';
+      for (const el of inerted) el.removeAttribute('inert');
+      // Restore focus to the originating tile link.
+      invokerBefore?.focus();
     };
   });
 </script>
@@ -65,10 +137,16 @@
 <div class="backdrop" role="presentation" onclick={onClose}></div>
 
 <!-- Overlay -->
-<div class="lightbox" role="dialog" aria-modal="true" aria-label={title}>
+<div class="lightbox" role="dialog" aria-modal="true" aria-label={title} bind:this={dialogEl}>
   <!-- Top bar -->
   <div class="topbar">
-    <button class="close-btn" type="button" aria-label="Close lightbox" onclick={onClose}>
+    <button
+      class="close-btn"
+      type="button"
+      aria-label="Close lightbox"
+      onclick={onClose}
+      bind:this={closeBtnEl}
+    >
       ×
     </button>
   </div>
@@ -135,11 +213,23 @@
     font-size: 28px;
     line-height: 1;
     cursor: pointer;
+    /* WCAG 2.5.8: target >= 24x24px. Use a 44px box for a comfortable hit
+       area and center the glyph. */
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 4px 8px;
     opacity: 0.8;
     transition: opacity 0.15s;
   }
   .close-btn:hover {
+    opacity: 1;
+  }
+  .close-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
     opacity: 1;
   }
 

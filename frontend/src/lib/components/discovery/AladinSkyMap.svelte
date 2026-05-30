@@ -137,9 +137,9 @@
   .aladin-container {
     width: 100%;
     height: 480px;
-    background: var(--bg-faint, #0a0a0a);
+    background: var(--bg-canvas);
     border: 1px solid var(--border-subtle, #2a2a2a);
-    border-radius: var(--r-md, 6px);
+    border-radius: var(--r-md);
     overflow: hidden;
     position: relative;
   }
