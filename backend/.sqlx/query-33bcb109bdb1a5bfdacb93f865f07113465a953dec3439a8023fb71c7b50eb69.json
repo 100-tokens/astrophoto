@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                select id, short_id, target, width, height, blurhash, appreciations_count, published_at\n                from photos\n                where owner_id = $1\n                  and published_at is not null\n                  and status = 'ready'\n                  and ($2::int4 is null or appreciations_count < $2 or\n                       (appreciations_count = $2 and (published_at, id) < ($3, $4)))\n                order by appreciations_count desc, published_at desc, id desc\n                limit $5\n                ",
+  "query": "\n                select id, short_id, target, original_name, width, height, blurhash, appreciations_count, published_at\n                from photos\n                where owner_id = $1\n                  and published_at is not null\n                  and status = 'ready'\n                  and ($2::int4 is null or appreciations_count < $2 or\n                       (appreciations_count = $2 and (published_at, id) < ($3, $4)))\n                order by appreciations_count desc, published_at desc, id desc\n                limit $5\n                ",
   "describe": {
     "columns": [
       {
@@ -20,26 +20,31 @@
       },
       {
         "ordinal": 3,
+        "name": "original_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "width",
         "type_info": "Int4"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "height",
         "type_info": "Int4"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "blurhash",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "appreciations_count",
         "type_info": "Int4"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "published_at",
         "type_info": "Timestamptz"
       }
@@ -57,6 +62,7 @@
       false,
       false,
       true,
+      false,
       true,
       true,
       true,
@@ -64,5 +70,5 @@
       true
     ]
   },
-  "hash": "c392dcd5df89639bcbfd586cd89b0a2ce2b78dc248885f0bae6a80bb09d9d247"
+  "hash": "33bcb109bdb1a5bfdacb93f865f07113465a953dec3439a8023fb71c7b50eb69"
 }

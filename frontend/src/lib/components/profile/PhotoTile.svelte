@@ -36,7 +36,7 @@
     class="img"
   />
   <span class="cap">
-    <PhotoTitle photo={{ target: photo.target }} size="md" />
+    <PhotoTitle photo={{ target: photo.target, original_name: photo.original_name }} size="md" />
     <span class="apps">{photo.appreciations_count} ❤</span>
   </span>
 </a>

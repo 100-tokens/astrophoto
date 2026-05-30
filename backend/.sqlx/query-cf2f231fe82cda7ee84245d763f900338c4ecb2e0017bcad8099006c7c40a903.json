@@ -1,0 +1,99 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select p.id as \"id!\", p.short_id as \"short_id!\", p.target, p.original_name,\n                   p.width, p.height, p.blurhash,\n                   p.appreciations_count as \"appreciations_count!\",\n                   p.published_at,\n                   u.id as \"owner_id!\", u.handle as \"handle!\", u.display_name as \"display_name!\"\n            from photos p\n            join users u on u.id = p.owner_id\n            where p.published_at is not null\n              and p.status = 'ready'\n              and ($1::int4 is null or\n                   p.appreciations_count < $1 or\n                   (p.appreciations_count = $1 and (p.published_at, p.id) < ($2, $3)))\n              and ($4::text is null or p.category = $4)\n              and ($5::int8 is null or p.published_at > now() - ($5::int8 || ' seconds')::interval)\n              and ($6::uuid is null or exists (\n                    select 1 from follows f\n                    where f.follower_id = $6 and f.followed_id = p.owner_id))\n            order by p.appreciations_count desc, p.published_at desc, p.id desc\n            limit $7\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "original_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "height",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "blurhash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "appreciations_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "owner_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "handle!",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "display_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cf2f231fe82cda7ee84245d763f900338c4ecb2e0017bcad8099006c7c40a903"
+}

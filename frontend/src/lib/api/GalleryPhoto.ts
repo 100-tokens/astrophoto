@@ -4,6 +4,7 @@ export type GalleryPhoto = {
   id: string;
   short_id: string;
   target: string | null;
+  original_name: string | null;
   width: number | null;
   height: number | null;
   blurhash: string | null;
