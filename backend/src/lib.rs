@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod api_types;
 pub mod auth;
 pub mod celestial;
@@ -11,6 +12,7 @@ pub mod http;
 pub mod jobs;
 pub mod mail;
 pub mod photos;
+pub mod settings;
 pub mod storage;
 pub mod users;
 

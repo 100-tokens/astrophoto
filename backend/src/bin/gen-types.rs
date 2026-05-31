@@ -5,13 +5,13 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    ApplySetupInput, AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest,
-    BatchPublishResponse, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto,
-    DraftListItem, DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket,
-    EquipmentFacets, EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta,
-    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
-    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
-    PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
+    AdminEquipmentItem, AdminEquipmentPage, ApplySetupInput, AuthError, BatchApplyRequest,
+    BatchApplyResponse, BatchPublishRequest, BatchPublishResponse, CategoryPage, CelestialObject,
+    DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse, EquipmentCatalogResponse,
+    EquipmentFacetBucket, EquipmentFacets, EquipmentItemDetail, EquipmentItemInput,
+    EquipmentItemRef, EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSummary,
+    FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats, LocationSummary, MeStats,
+    PatchTargetsItem, PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
     PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
     SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
     SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
@@ -22,6 +22,7 @@ use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
 use astrophoto::photos::xisf_display::XisfDisplayMeta;
 use astrophoto::photos::xisf_processing::ProcessingReport;
+use astrophoto::settings::AppSettings;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = Path::new("../frontend/src/lib/api");
@@ -100,6 +101,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // export_all_to pulls all transitive deps, so this one call emits
     // ProcessStep, KeyValue, ProcessTable, WhiteBalance, DisplayStretch too.
     ProcessingReport::export_all_to(out_dir)?;
+    AppSettings::export_all_to(out_dir)?;
+    AdminEquipmentItem::export_all_to(out_dir)?;
+    AdminEquipmentPage::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

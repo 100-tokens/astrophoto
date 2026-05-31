@@ -35,6 +35,15 @@ pub async fn handler(
         .map_err(|e| AppError::Validation(e.to_string()))?;
     crate::auth::handle::validate(&body.handle).map_err(|e| AppError::Validation(e.to_string()))?;
 
+    // Runtime maintenance switch (super-admin setting). Checked before the
+    // expensive password hash so a closed signup is cheap to reject. The
+    // settings reader is fail-safe (defaults to enabled on any error).
+    if !crate::settings::get(&state.pool).await.signups_enabled {
+        return Err(AppError::BadRequest(
+            "registration is currently closed".into(),
+        ));
+    }
+
     let hash = crate::auth::password::hash(body.password).await?;
     let user = queries::create_with_password(
         &state.pool,

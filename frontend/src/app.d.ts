@@ -10,6 +10,7 @@ declare global {
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';
         avatarId: string | null;
+        isAdmin: boolean;
       } | null;
       preferences: { theme: 'dark' | 'light'; density: 'work' | 'data' };
     }
@@ -23,6 +24,7 @@ declare global {
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';
         avatarId: string | null;
+        isAdmin: boolean;
       } | null;
     }
   }

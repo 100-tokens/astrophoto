@@ -12,6 +12,7 @@ pub struct UserRow {
     pub password_hash: Option<String>,
     pub created_at: DateTime<Utc>,
     pub email_verified_at: Option<DateTime<Utc>>,
+    pub is_admin: bool,
 }
 
 pub async fn create_with_password(
@@ -26,7 +27,7 @@ pub async fn create_with_password(
         r#"
         insert into users (email, handle, display_name, password_hash, password_changed_at)
         values ($1, $2, $3, $4, now())
-        returning id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at
+        returning id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at, is_admin
         "#,
         email,
         handle,
@@ -50,7 +51,7 @@ pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<UserRow>
     let row = sqlx::query_as!(
         UserRow,
         r#"
-        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at
+        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at, is_admin
         from users where email = $1
         "#,
         email
@@ -64,7 +65,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<UserRow>, AppE
     let row = sqlx::query_as!(
         UserRow,
         r#"
-        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at
+        select id, email::text as "email!", handle::text as "handle!", display_name, password_hash, created_at, email_verified_at, is_admin
         from users where id = $1
         "#,
         id

@@ -11,4 +11,8 @@ handle: string, created_at: string, following_ids: Array<string>, pending_deleti
  * Current avatar id, or null if none. The image renders through the
  * CDN at `/img/<avatar_id>` (key `display/<avatar_id>.jpg`).
  */
-avatar_id: string | null, };
+avatar_id: string | null, 
+/**
+ * Super-admin flag. Gates the `/admin` UI and the `/api/admin/*` API.
+ */
+is_admin: boolean, };

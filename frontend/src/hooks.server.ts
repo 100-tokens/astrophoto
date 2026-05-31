@@ -48,7 +48,8 @@ export const handle: Handle = async ({ event, resolve }) => {
         following_ids: user.following_ids ?? [],
         pending_deletion_at: user.pending_deletion_at ?? null,
         tier: user.tier ?? 'free',
-        avatarId: user.avatar_id ?? null
+        avatarId: user.avatar_id ?? null,
+        isAdmin: user.is_admin ?? false
       };
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {

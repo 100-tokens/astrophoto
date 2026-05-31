@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select brand, model, variant, display_name\n             from equipment_items where id = $1 for update",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "efd0d3f68d6f42e1fcebdab16a2af4cc1b025c33d62da247eb07d9af7bb4fcd7"
+}

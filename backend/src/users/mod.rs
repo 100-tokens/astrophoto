@@ -33,6 +33,7 @@ impl From<UserRow> for User {
             pending_deletion_at: None,
             tier: UserTier::Free,
             avatar_id: None,
+            is_admin: r.is_admin,
         }
     }
 }
