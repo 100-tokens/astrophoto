@@ -244,6 +244,18 @@ pub fn router(
             axum::routing::post(crate::users::cover::set),
         )
         .route(
+            "/api/me/avatar/init",
+            axum::routing::post(crate::users::avatar::init),
+        )
+        .route(
+            "/api/me/avatar/finalize",
+            axum::routing::post(crate::users::avatar::finalize),
+        )
+        .route(
+            "/api/me/avatar",
+            axum::routing::delete(crate::users::avatar::clear),
+        )
+        .route(
             "/api/me/featured/order",
             axum::routing::patch(crate::users::featured::reorder),
         )

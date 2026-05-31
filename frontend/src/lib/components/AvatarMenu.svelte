@@ -1,9 +1,16 @@
 <script lang="ts">
+  import { cdn } from '$lib/cdn';
+
   interface Props {
-    user: { id: string; displayName: string; handle: string };
+    user: { id: string; displayName: string; handle: string; avatarId?: string | null };
   }
 
   let { user }: Props = $props();
+
+  // 32px button → request a 64px square so it stays crisp on retina.
+  let avatarSrc = $derived(
+    user.avatarId ? cdn(user.avatarId, { w: 64, h: 64, fit: 'cover' }) : null
+  );
 
   let open = $state(false);
   let containerEl: HTMLDivElement | undefined = $state();
@@ -39,7 +46,11 @@
 
 <div class="avatar-wrap" bind:this={containerEl}>
   <button type="button" class="avatar" aria-haspopup="menu" aria-expanded={open} onclick={toggle}>
-    {initial}
+    {#if avatarSrc}
+      <img src={avatarSrc} alt={user.displayName} width="32" height="32" />
+    {:else}
+      {initial}
+    {/if}
   </button>
 
   {#if open}
@@ -81,6 +92,14 @@
     border: 0;
     cursor: pointer;
     padding: 0;
+    overflow: hidden;
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   .menu {

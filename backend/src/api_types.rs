@@ -25,6 +25,9 @@ pub struct User {
     pub following_ids: Vec<String>,
     pub pending_deletion_at: Option<String>, // RFC3339, present only when scheduled
     pub tier: UserTier,
+    /// Current avatar id, or null if none. The image renders through the
+    /// CDN at `/img/<avatar_id>` (key `display/<avatar_id>.jpg`).
+    pub avatar_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS, PartialEq, Eq, Clone, Copy)]
@@ -229,6 +232,8 @@ pub struct Profile {
     pub tagline: Option<String>,
     pub bio_html: Option<String>,
     pub cover_photo_id: Option<Uuid>,
+    /// Current avatar id (rendered via the CDN at `/img/<avatar_id>`), or null.
+    pub avatar_id: Option<Uuid>,
     pub equipment: EquipmentSummary,
     pub location: LocationSummary,
     pub social_links: Vec<SocialLink>,
@@ -292,6 +297,8 @@ pub struct PublicProfile {
     pub tagline: Option<String>,
     pub bio_html: Option<String>,
     pub cover: Option<FeaturedPhotoSummary>,
+    /// Current avatar id (rendered via the CDN at `/img/<avatar_id>`), or null.
+    pub avatar_id: Option<Uuid>,
     pub equipment: EquipmentSummary,
     pub location: LocationSummary,
     pub social_links: Vec<SocialLink>,

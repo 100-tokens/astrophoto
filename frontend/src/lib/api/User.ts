@@ -6,4 +6,9 @@ export type User = { id: string, email: string, display_name: string,
  * URL handle — used to build /u/<handle> profile URLs from the
  * session user without a second round-trip to look it up.
  */
-handle: string, created_at: string, following_ids: Array<string>, pending_deletion_at: string | null, tier: UserTier, };
+handle: string, created_at: string, following_ids: Array<string>, pending_deletion_at: string | null, tier: UserTier, 
+/**
+ * Current avatar id, or null if none. The image renders through the
+ * CDN at `/img/<avatar_id>` (key `display/<avatar_id>.jpg`).
+ */
+avatar_id: string | null, };

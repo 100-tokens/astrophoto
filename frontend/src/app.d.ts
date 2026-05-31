@@ -9,6 +9,7 @@ declare global {
         following_ids: string[];
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';
+        avatarId: string | null;
       } | null;
       preferences: { theme: 'dark' | 'light'; density: 'work' | 'data' };
     }
@@ -21,6 +22,7 @@ declare global {
         following_ids: string[];
         pending_deletion_at: string | null;
         tier: 'free' | 'subscriber';
+        avatarId: string | null;
       } | null;
     }
   }

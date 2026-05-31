@@ -13,6 +13,7 @@ pub async fn handler(
         r#"
         select u.pending_deletion_at,
                u.tier,
+               u.avatar_id,
                coalesce(array_agg(f.followed_id) filter (where f.followed_id is not null), '{}') as "ids!: Vec<uuid::Uuid>"
           from users u
           left join follows f on f.follower_id = u.id
@@ -42,6 +43,7 @@ pub async fn handler(
             .pending_deletion_at
             .map(|t: chrono::DateTime<chrono::Utc>| t.to_rfc3339()),
         tier,
+        avatar_id: row.avatar_id.map(|id| id.to_string()),
     };
 
     Ok(Json(dto))
