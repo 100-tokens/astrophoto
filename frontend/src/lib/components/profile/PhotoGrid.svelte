@@ -24,19 +24,24 @@
   let containerWidth = $state(0);
   let containerEl: HTMLDivElement | null = null;
 
-  // Re-fetch when sort changes (skip the very first run if `initial` is set).
-  let firstRun = true;
+  // Re-fetch when the user changes the sort. We react to the `sort` VALUE
+  // only — never to `initial`'s object identity. An unrelated `invalidateAll()`
+  // elsewhere on the page (avatar / cover / profile save re-run the page load)
+  // hands us a brand-new `firstPage` object; if the effect depended on it,
+  // each re-render would reset + re-fetch in a runaway loop (Svelte
+  // `effect_update_depth_exceeded`, hammering `/photos`). `photos` is already
+  // seeded once from `initial` at mount, so this component owns its list
+  // afterwards and ignoring later `initial` changes is correct.
+  let appliedSort = untrack(() => sort);
   $effect(() => {
-    const _ = sort; // dependency
-    if (firstRun && (initial?.photos.length ?? 0) > 0) {
-      firstRun = false;
-      return;
-    }
-    firstRun = false;
-    photos = [];
-    nextCursor = null;
-    loading = false;
-    void loadMore();
+    if (sort === appliedSort) return;
+    appliedSort = sort;
+    untrack(() => {
+      photos = [];
+      nextCursor = null;
+      loading = false;
+      void loadMore();
+    });
   });
 
   async function loadMore() {
