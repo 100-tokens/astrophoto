@@ -1,0 +1,17 @@
+-- User avatar (profile picture).
+--
+-- `avatar_id` is a standalone UUID identifying the user's current avatar
+-- image. It is NOT a foreign key to `photos` — avatars are uploaded
+-- directly (not picked from published photos, unlike `cover_photo_id`).
+-- The processed avatar is stored at `display/<avatar_id>.jpg`, the exact
+-- key scheme the CloudFront + Lambda@Edge origin-request handler already
+-- serves for `/img/<uuid>` (it fetches `display/<uuid>.jpg` and transforms
+-- on the fly). Reusing that namespace means avatars render through the CDN
+-- with NO Lambda or bucket-policy change. UUIDs never collide with photo
+-- ids, and the deletion/cleanup jobs only delete keys derived from the
+-- `photos` table, so an avatar object is never reaped as an orphan.
+--
+-- A fresh UUID is minted on every (re)upload so the CDN URL changes and
+-- caches bust naturally; the previous `display/<old>.jpg` object is
+-- deleted by the finalize handler.
+alter table users add column avatar_id uuid;

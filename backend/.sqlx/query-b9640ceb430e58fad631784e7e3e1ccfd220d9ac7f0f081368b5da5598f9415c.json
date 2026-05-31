@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select u.pending_deletion_at,\n               u.tier,\n               u.avatar_id,\n               coalesce(array_agg(f.followed_id) filter (where f.followed_id is not null), '{}') as \"ids!: Vec<uuid::Uuid>\"\n          from users u\n          left join follows f on f.follower_id = u.id\n         where u.id = $1\n         group by u.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pending_deletion_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "tier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "avatar_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "ids!: Vec<uuid::Uuid>",
+        "type_info": "UuidArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "b9640ceb430e58fad631784e7e3e1ccfd220d9ac7f0f081368b5da5598f9415c"
+}

@@ -1,3 +1,4 @@
+pub mod avatar;
 pub mod bio;
 pub mod by_handle;
 pub mod cover;
@@ -31,6 +32,7 @@ impl From<UserRow> for User {
             following_ids: vec![],
             pending_deletion_at: None,
             tier: UserTier::Free,
+            avatar_id: None,
         }
     }
 }

@@ -17,6 +17,7 @@ pub async fn get(
             tagline,
             bio_html,
             cover_photo_id,
+            avatar_id,
             equipment_telescope,
             equipment_camera,
             equipment_mount,
@@ -42,6 +43,7 @@ pub async fn get(
         tagline: row.tagline,
         bio_html: row.bio_html,
         cover_photo_id: row.cover_photo_id,
+        avatar_id: row.avatar_id,
         equipment: EquipmentSummary {
             telescope: row.equipment_telescope,
             camera: row.equipment_camera,

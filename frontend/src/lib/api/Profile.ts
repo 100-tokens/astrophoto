@@ -11,6 +11,10 @@ export type Profile = {
   tagline: string | null;
   bio_html: string | null;
   cover_photo_id: string | null;
+  /**
+   * Current avatar id (rendered via the CDN at `/img/<avatar_id>`), or null.
+   */
+  avatar_id: string | null;
   equipment: EquipmentSummary;
   location: LocationSummary;
   social_links: Array<SocialLink>;

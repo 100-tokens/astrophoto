@@ -22,7 +22,11 @@
 </script>
 
 <section class="identity" class:identity--no-cover={!hasCover}>
-  <HeroAvatar handle={profile.handle} displayName={profile.display_name} />
+  <HeroAvatar
+    handle={profile.handle}
+    displayName={profile.display_name}
+    avatarId={profile.avatar_id}
+  />
   <div class="middle">
     <HeroName displayName={profile.display_name} />
     <HeroTagline

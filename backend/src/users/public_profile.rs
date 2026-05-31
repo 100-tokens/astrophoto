@@ -18,7 +18,7 @@ pub async fn get(
     let user = sqlx::query!(
         r#"
         select id, display_name, handle, tagline, bio_html,
-               cover_photo_id,
+               cover_photo_id, avatar_id,
                equipment_telescope, equipment_camera, equipment_mount,
                equipment_filters,   equipment_guiding,
                location_text, bortle_class,
@@ -123,6 +123,7 @@ pub async fn get(
         tagline: u.tagline,
         bio_html: u.bio_html,
         cover,
+        avatar_id: u.avatar_id,
         equipment: EquipmentSummary {
             telescope: u.equipment_telescope,
             camera: u.equipment_camera,

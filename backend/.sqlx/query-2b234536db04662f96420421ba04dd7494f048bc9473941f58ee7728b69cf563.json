@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select avatar_id from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "avatar_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "2b234536db04662f96420421ba04dd7494f048bc9473941f58ee7728b69cf563"
+}

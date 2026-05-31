@@ -6,6 +6,7 @@
   } from '$lib/api/profileClient';
   import type { Profile } from '$lib/api/Profile';
   import IdentitySection from './IdentitySection.svelte';
+  import AvatarSection from './AvatarSection.svelte';
   import AboutSection from './AboutSection.svelte';
   import EquipmentSection from './EquipmentSection.svelte';
   import LocationSection from './LocationSection.svelte';
@@ -103,6 +104,13 @@
           <p class="status err">{error}</p>
         {:else if profile}
           {#if show('identity')}
+            <AvatarSection
+              avatarId={profile.avatar_id}
+              displayName={profile.display_name}
+              onChanged={(id) => {
+                if (profile) profile = { ...profile, avatar_id: id };
+              }}
+            />
             <IdentitySection
               displayName={profile.display_name}
               tagline={profile.tagline}
