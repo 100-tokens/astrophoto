@@ -48,13 +48,17 @@
       const id = await uploadAvatar(fetch, file);
       current = id;
       onChanged?.(id);
-      // Refresh layout (header AvatarMenu) + profile hero loads.
-      await invalidateAll();
     } catch (err) {
       error = (err as Error).message;
-    } finally {
       busy = false;
+      return;
     }
+    busy = false;
+    // The avatar is saved and the editor preview already updated. Refresh the
+    // header AvatarMenu + profile hero in the BACKGROUND — never block the
+    // button on it, so a slow (or previously looping) load can't strand it in
+    // "Uploading…".
+    invalidateAll().catch(() => {});
   }
 
   async function onRemove() {
@@ -64,12 +68,13 @@
       await clearAvatar(fetch);
       current = null;
       onChanged?.(null);
-      await invalidateAll();
     } catch (err) {
       error = (err as Error).message;
-    } finally {
       busy = false;
+      return;
     }
+    busy = false;
+    invalidateAll().catch(() => {});
   }
 </script>
 
@@ -94,7 +99,12 @@
         {busy ? 'Uploading…' : current ? 'Change photo' : 'Upload photo'}
       </button>
       {#if current}
-        <button type="button" class="btn btn--ghost" onclick={() => void onRemove()} disabled={busy}>
+        <button
+          type="button"
+          class="btn btn--ghost"
+          onclick={() => void onRemove()}
+          disabled={busy}
+        >
           Remove
         </button>
       {/if}
