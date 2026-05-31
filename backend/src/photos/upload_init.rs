@@ -32,8 +32,6 @@ pub struct InitResponse {
     pub files: Vec<InitFile>,
 }
 
-const FREE_MAX: u64 = 50 * 1024 * 1024;
-const SUBSCRIBER_MAX: u64 = 200 * 1024 * 1024;
 const PUT_TTL_SECS: u64 = 600;
 
 pub async fn handler(
@@ -49,11 +47,12 @@ pub async fn handler(
         .fetch_one(&state.pool)
         .await?;
 
-    let max_bytes = if tier == "subscriber" {
-        SUBSCRIBER_MAX
-    } else {
-        FREE_MAX
-    };
+    // Per-tier upload ceiling comes from the runtime app settings (super-admin
+    // editable); falls back to the historical defaults (50/200 MiB) on any
+    // settings read error.
+    let max_bytes = crate::settings::get(&state.pool)
+        .await
+        .upload_max_bytes(&tier);
 
     // Pre-validation pass: check size and MIME before touching the database.
     for f in &body.files {

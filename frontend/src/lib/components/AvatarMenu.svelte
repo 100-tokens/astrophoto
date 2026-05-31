@@ -2,7 +2,13 @@
   import { cdn } from '$lib/cdn';
 
   interface Props {
-    user: { id: string; displayName: string; handle: string; avatarId?: string | null };
+    user: {
+      id: string;
+      displayName: string;
+      handle: string;
+      avatarId?: string | null;
+      isAdmin?: boolean;
+    };
   }
 
   let { user }: Props = $props();
@@ -65,6 +71,9 @@
       <a href="/me/drafts" class="menu-item" role="menuitem" onclick={close}>Drafts</a>
       <a href="/upload" class="menu-item" role="menuitem" onclick={close}>Upload</a>
       <div class="menu-divider"></div>
+      {#if user.isAdmin}
+        <a href="/admin" class="menu-item menu-item-admin" role="menuitem" onclick={close}>Admin</a>
+      {/if}
       <a href="/settings" class="menu-item" role="menuitem" onclick={close}>Settings</a>
       <form method="POST" action="/account/logout">
         <button type="submit" class="menu-item menu-item-button" role="menuitem"> Sign out </button>
@@ -159,6 +168,10 @@
   .menu-item-button:hover {
     background: var(--bg-raised);
     color: var(--fg-primary);
+  }
+
+  .menu-item-admin {
+    color: var(--accent);
   }
 
   form {

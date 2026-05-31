@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) as \"c!\"\n             from equipment_items\n            where ($1::text is null or kind = $1)\n              and ($2::text is null\n                   or display_name ilike $2 or canonical_name ilike $2\n                   or brand ilike $2 or model ilike $2)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "971af15a07626abba84a0bf4b794727b83e2c08427fc07cef1bfb23a9d11e221"
+}

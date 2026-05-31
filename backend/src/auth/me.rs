@@ -44,6 +44,7 @@ pub async fn handler(
             .map(|t: chrono::DateTime<chrono::Utc>| t.to_rfc3339()),
         tier,
         avatar_id: row.avatar_id.map(|id| id.to_string()),
+        is_admin: user.is_admin,
     };
 
     Ok(Json(dto))

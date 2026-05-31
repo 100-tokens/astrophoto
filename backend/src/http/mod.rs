@@ -255,6 +255,18 @@ pub fn router(
             "/api/me/avatar",
             axum::routing::delete(crate::users::avatar::clear),
         )
+        // Super-admin surface — each handler is guarded by the `AdminUser`
+        // extractor (401 anonymous, 403 non-admin).
+        .route(
+            "/api/admin/settings",
+            get(crate::admin::settings::get).put(crate::admin::settings::put),
+        )
+        .route("/api/admin/equipment", get(crate::admin::equipment::list))
+        .route(
+            "/api/admin/equipment/:id",
+            axum::routing::patch(crate::admin::equipment::edit)
+                .delete(crate::admin::equipment::delete),
+        )
         .route(
             "/api/me/featured/order",
             axum::routing::patch(crate::users::featured::reorder),

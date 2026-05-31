@@ -28,6 +28,8 @@ pub struct User {
     /// Current avatar id, or null if none. The image renders through the
     /// CDN at `/img/<avatar_id>` (key `display/<avatar_id>.jpg`).
     pub avatar_id: Option<String>,
+    /// Super-admin flag. Gates the `/admin` UI and the `/api/admin/*` API.
+    pub is_admin: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS, PartialEq, Eq, Clone, Copy)]
@@ -1104,4 +1106,33 @@ pub struct CelestialObject {
     pub minor_axis_arcmin: Option<f32>,
     pub position_angle_deg: Option<f32>,
     pub confidence: f32,
+}
+
+/// One row in the super-admin equipment catalog manager. Unlike the public
+/// catalog views, this exposes moderation metadata (status, submitter) and
+/// every kind/status (not just `approved`).
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "AdminEquipmentItem.ts")]
+pub struct AdminEquipmentItem {
+    pub id: Uuid,
+    pub kind: String,
+    pub brand: String,
+    pub model: String,
+    pub variant: Option<String>,
+    pub display_name: String,
+    pub canonical_name: String,
+    pub usage_count: i32,
+    pub status: String,
+    pub submitted_by_handle: Option<String>,
+    pub created_at: String,
+}
+
+/// Paginated admin equipment listing.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "AdminEquipmentPage.ts")]
+pub struct AdminEquipmentPage {
+    pub items: Vec<AdminEquipmentItem>,
+    pub total: i64,
+    pub page: i32,
+    pub has_more: bool,
 }

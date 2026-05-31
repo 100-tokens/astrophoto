@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.usage_count,\n                  (select count(*) from setup_items s where s.item_id = e.id)   as \"setups!\",\n                  (select count(*) from photo_filters f where f.item_id = e.id) as \"filters!\"\n             from equipment_items e where e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "setups!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "filters!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "0fb2c4ab0bbc482a9c8ff168418ec4b5cca41c34436db770e263a0c4e7e11c32"
+}

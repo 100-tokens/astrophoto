@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select e.id, e.kind, e.brand, e.model, e.variant, e.display_name,\n                  e.canonical_name, e.usage_count, e.status, e.created_at,\n                  u.handle::text as submitted_by_handle\n             from equipment_items e\n             left join users u on u.id = e.submitted_by\n            where ($1::text is null or e.kind = $1)\n              and ($2::text is null\n                   or e.display_name ilike $2 or e.canonical_name ilike $2\n                   or e.brand ilike $2 or e.model ilike $2)\n            order by e.usage_count desc, e.created_at desc\n            limit $3 offset $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "submitted_by_handle",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "865d441d518bc09a67c28f9d74cc1ef8113903f518f61028cb038f4a404ee07b"
+}

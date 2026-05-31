@@ -13,6 +13,12 @@ pub struct CurrentUser(pub UserRow);
 /// Holds an optional user; `None` when the request has no valid session cookie.
 pub struct OptionalUser(pub Option<UserRow>);
 
+/// Guards `/api/admin/*` routes: yields the authenticated user only when they
+/// are a super-admin. Self-contained (resolves the session itself, no
+/// ordering dependency): `401 Unauthorized` with no valid session, `403
+/// Forbidden` when authenticated but `is_admin` is false.
+pub struct AdminUser(pub UserRow);
+
 /// Session id of the currently-authenticated request.
 ///
 /// **Ordering invariant:** This extractor must appear AFTER
@@ -91,6 +97,21 @@ impl FromRequestParts<AppState> for CurrentUser {
     ) -> Result<Self, Self::Rejection> {
         match resolve(state, parts).await? {
             Some(u) => Ok(CurrentUser(u)),
+            None => Err(AppError::Unauthorized),
+        }
+    }
+}
+
+#[axum::async_trait]
+impl FromRequestParts<AppState> for AdminUser {
+    type Rejection = AppError;
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        match resolve(state, parts).await? {
+            Some(u) if u.is_admin => Ok(AdminUser(u)),
+            Some(_) => Err(AppError::Forbidden),
             None => Err(AppError::Unauthorized),
         }
     }
