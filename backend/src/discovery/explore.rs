@@ -29,6 +29,7 @@ struct Row {
     id: Uuid,
     short_id: String,
     target: Option<String>,
+    original_name: String,
     width: Option<i32>,
     height: Option<i32>,
     blurhash: Option<String>,
@@ -78,7 +79,7 @@ pub async fn get(
             sqlx::query_as!(
                 Row,
                 r#"
-            select p.id as "id!", p.short_id as "short_id!", p.target,
+            select p.id as "id!", p.short_id as "short_id!", p.target, p.original_name,
                    p.width, p.height, p.blurhash,
                    p.appreciations_count as "appreciations_count!",
                    p.published_at,
@@ -113,7 +114,7 @@ pub async fn get(
             sqlx::query_as!(
                 Row,
                 r#"
-            select p.id as "id!", p.short_id as "short_id!", p.target,
+            select p.id as "id!", p.short_id as "short_id!", p.target, p.original_name,
                    p.width, p.height, p.blurhash,
                    p.appreciations_count as "appreciations_count!",
                    p.published_at,
@@ -170,6 +171,7 @@ pub async fn get(
                 id: r.id,
                 short_id: r.short_id,
                 target: r.target,
+                original_name: Some(r.original_name),
                 width: r.width,
                 height: r.height,
                 blurhash: r.blurhash,

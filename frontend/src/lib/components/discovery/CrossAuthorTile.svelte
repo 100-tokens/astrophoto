@@ -36,12 +36,12 @@
   class="tile"
   style="--ar:{ar}; flex-grow:{ar}; background-image:url('{lqip}');"
   href="/u/{photo.author_handle}/p/{photo.short_id}"
-  aria-label={`${photo.target ?? 'Untitled'} by @${photo.author_handle}`}
+  aria-label={`${photo.target ?? photo.original_name ?? 'Untitled'} by @${photo.author_handle}`}
 >
   <Img photoId={photo.id} w={nominalW} sizes={`${nominalW}px`} {priority} alt="" class="img" />
   <span class="cap">
     <span class="cap-left">
-      <span class="title">{photo.target ?? 'Untitled'}</span>
+      <span class="title">{photo.target ?? photo.original_name ?? 'Untitled'}</span>
       <span class="meta">
         <AuthorChip handle={photo.author_handle} />
         {#if rel}<span class="ago">· {rel}{rel === 'NOW' ? '' : ' AGO'}</span>{/if}

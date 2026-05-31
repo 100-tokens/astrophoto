@@ -45,6 +45,7 @@ struct PhotoRow {
     id: Uuid,
     short_id: String,
     target: Option<String>,
+    original_name: String,
     width: Option<i32>,
     height: Option<i32>,
     blurhash: Option<String>,
@@ -79,7 +80,7 @@ pub async fn get(
             sqlx::query_as!(
                 PhotoRow,
                 r#"
-                select id, short_id, target, width, height, blurhash, appreciations_count, published_at
+                select id, short_id, target, original_name, width, height, blurhash, appreciations_count, published_at
                 from photos
                 where owner_id = $1
                   and published_at is not null
@@ -104,7 +105,7 @@ pub async fn get(
             sqlx::query_as!(
                 PhotoRow,
                 r#"
-                select id, short_id, target, width, height, blurhash, appreciations_count, published_at
+                select id, short_id, target, original_name, width, height, blurhash, appreciations_count, published_at
                 from photos
                 where owner_id = $1
                   and published_at is not null
@@ -150,6 +151,7 @@ pub async fn get(
                 id: r.id,
                 short_id: r.short_id,
                 target: r.target,
+                original_name: Some(r.original_name),
                 width: r.width,
                 height: r.height,
                 blurhash: r.blurhash,

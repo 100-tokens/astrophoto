@@ -179,6 +179,8 @@ pub async fn get(
                     id: r.id,
                     short_id: r.short_id,
                     target: r.target,
+                    // Detail/discovery grids don't surface the filename fallback.
+                    original_name: None,
                     width: r.width,
                     height: r.height,
                     blurhash: r.blurhash,
