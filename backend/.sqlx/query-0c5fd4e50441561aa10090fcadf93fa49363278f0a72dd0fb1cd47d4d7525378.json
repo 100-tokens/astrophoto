@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select brand as \"value!\", count(*)::int4 as \"count!\"\n             from equipment_items\n            where kind = $1 and brand <> '' and status <> 'merged'\n            group by brand\n            order by count(*) desc, brand",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "value!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "0c5fd4e50441561aa10090fcadf93fa49363278f0a72dd0fb1cd47d4d7525378"
+}

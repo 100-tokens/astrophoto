@@ -119,7 +119,6 @@ pub struct EditBody {
     pub model: Option<String>,
     /// Provided (non-empty) sets the variant; provided empty clears it; absent leaves it.
     pub variant: Option<String>,
-    pub display_name: Option<String>,
     /// Moderation status: `approved` | `pending` | `rejected` (not `merged`).
     pub status: Option<String>,
     /// Replace the per-kind specs row. Its `kind` discriminator must match the
@@ -137,7 +136,7 @@ pub async fn edit(
     let mut tx = state.pool.begin().await?;
 
     let row = sqlx::query!(
-        r#"select kind, brand, model, variant, display_name
+        r#"select kind, brand, model, variant
              from equipment_items where id = $1 for update"#,
         id
     )
@@ -176,15 +175,21 @@ pub async fn edit(
         }
         None => row.variant,
     };
-    let display_name = body
-        .display_name
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or(row.display_name);
-
     if model.is_empty() {
         return Err(AppError::Validation("model cannot be empty".into()));
     }
+    // Catalog v2: brand/model/variant are the source of truth — regenerate
+    // display_name + canonical_name from them (same shape as items_create).
+    // `brand = ''` (unknown) drops the leading space so the name stays clean.
+    let variant_suffix = variant
+        .as_deref()
+        .map(|v| format!(" {v}"))
+        .unwrap_or_default();
+    let display_name = if brand.is_empty() {
+        format!("{model}{variant_suffix}")
+    } else {
+        format!("{brand} {model}{variant_suffix}")
+    };
     let canonical = crate::equipment::normalize_canonical(&display_name);
 
     // `coalesce($7, status)` leaves status untouched when not provided.

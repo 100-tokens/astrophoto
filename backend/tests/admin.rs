@@ -194,24 +194,26 @@ async fn equipment_admin_list_edit_delete() {
         "listing should include the seeded item"
     );
 
-    // Edit display_name → canonical_name regenerated.
+    // Edit a structured field (model) → display_name + canonical regenerated
+    // from brand/model/variant.
     let (status, _) = send(
         &app,
         "PATCH",
         &format!("/api/admin/equipment/{item_id}"),
         Some(&cookie),
-        Some(json!({ "display_name": "ZWO ASI533 MC" })),
+        Some(json!({ "model": "ASI533 MC" })),
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    let canonical: String = sqlx::query_scalar!(
-        "select canonical_name from equipment_items where id = $1",
+    let row = sqlx::query!(
+        "select display_name, canonical_name from equipment_items where id = $1",
         item_id
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(canonical, "zwo asi533 mc");
+    assert_eq!(row.display_name, "ZWO ASI533 MC");
+    assert_eq!(row.canonical_name, "zwo asi533 mc");
 
     // Delete an orphaned item → 204, gone.
     let (status, _) = send(

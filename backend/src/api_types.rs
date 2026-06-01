@@ -1127,6 +1127,26 @@ pub struct AdminEquipmentItem {
     pub created_at: String,
 }
 
+/// One distinct catalog value (brand / model / variant) with how many items
+/// currently use it — powers the assisted, duplicate-avoiding LOV inputs.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "CatalogValue.ts")]
+pub struct CatalogValue {
+    pub value: String,
+    pub count: i32,
+}
+
+/// Cascading distinct values for the brand/model/variant pickers.
+/// `brands` is always the distinct brands for the kind; `models` is populated
+/// only when a brand is supplied; `variants` only when brand + model are.
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "CatalogValues.ts")]
+pub struct CatalogValues {
+    pub brands: Vec<CatalogValue>,
+    pub models: Vec<CatalogValue>,
+    pub variants: Vec<CatalogValue>,
+}
+
 /// Paginated admin equipment listing.
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "AdminEquipmentPage.ts")]

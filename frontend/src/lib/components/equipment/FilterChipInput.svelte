@@ -447,6 +447,7 @@
             value={createBM}
             disabled={createBusy}
             label={displayPreview || null}
+            kind="filter"
             onChange={(next) => {
               createBM = next;
               // Focus the Brand input on first open. The first

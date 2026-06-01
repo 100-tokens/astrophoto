@@ -6,17 +6,17 @@ use ts_rs::TS;
 
 use astrophoto::api_types::{
     AdminEquipmentItem, AdminEquipmentPage, ApplySetupInput, AuthError, BatchApplyRequest,
-    BatchApplyResponse, BatchPublishRequest, BatchPublishResponse, CategoryPage, CelestialObject,
-    DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse, EquipmentCatalogResponse,
-    EquipmentFacetBucket, EquipmentFacets, EquipmentItemDetail, EquipmentItemInput,
-    EquipmentItemRef, EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSummary,
-    FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats, LocationSummary, MeStats,
-    PatchTargetsItem, PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
-    PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
-    SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
-    SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
-    TargetPage, TargetPreviewThumb, User, UserPublic,
+    BatchApplyResponse, BatchPublishRequest, BatchPublishResponse, CatalogValues, CategoryPage,
+    CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse,
+    EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets, EquipmentItemDetail,
+    EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage, EquipmentPaired,
+    EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats,
+    LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail, PhotoFilterChip,
+    PhotographerIndexPage, PhotographerListItem, Preferences, Profile, PublicProfile,
+    PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
+    SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason,
+    SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage,
+    TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
@@ -104,6 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     AppSettings::export_all_to(out_dir)?;
     AdminEquipmentItem::export_all_to(out_dir)?;
     AdminEquipmentPage::export_all_to(out_dir)?;
+    CatalogValues::export_all_to(out_dir)?;
 
     println!("Wrote types to: {}", out_dir.display());
     Ok(())

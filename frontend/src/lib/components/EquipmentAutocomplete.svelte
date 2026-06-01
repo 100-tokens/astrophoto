@@ -485,6 +485,7 @@
           value={createBM}
           disabled={createBusy}
           label={displayPreview || null}
+          {kind}
           onChange={(next) => (createBM = next)}
         />
         {#if kind === 'telescope'}
