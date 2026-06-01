@@ -1,25 +1,30 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select brand, model, variant, display_name\n             from equipment_items where id = $1 for update",
+  "query": "select kind, brand, model, variant, display_name\n             from equipment_items where id = $1 for update",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "brand",
+        "name": "kind",
         "type_info": "Text"
       },
       {
         "ordinal": 1,
-        "name": "model",
+        "name": "brand",
         "type_info": "Text"
       },
       {
         "ordinal": 2,
-        "name": "variant",
+        "name": "model",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "display_name",
         "type_info": "Text"
       }
@@ -32,9 +37,10 @@
     "nullable": [
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "efd0d3f68d6f42e1fcebdab16a2af4cc1b025c33d62da247eb07d9af7bb4fcd7"
+  "hash": "5a8c91f743ad9c2fa6ed11133f61454bd21848b59bd406ae431c319a6673f5b7"
 }

@@ -21,11 +21,16 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::AppError;
-use crate::api_types::{AdminEquipmentItem, AdminEquipmentPage};
+use crate::api_types::{AdminEquipmentItem, AdminEquipmentPage, EquipmentSpecsPayload};
 use crate::auth::middleware::AdminUser;
+use crate::equipment::specs;
 use crate::http::AppState;
 
 const PAGE_SIZE: i64 = 50;
+
+/// Statuses an admin may set from the editor. `merged` is intentionally
+/// excluded — it implies the (deferred) merge tooling, not a manual toggle.
+const EDITABLE_STATUSES: &[&str] = &["approved", "pending", "rejected"];
 
 #[derive(Deserialize)]
 pub struct ListQuery {
@@ -115,6 +120,12 @@ pub struct EditBody {
     /// Provided (non-empty) sets the variant; provided empty clears it; absent leaves it.
     pub variant: Option<String>,
     pub display_name: Option<String>,
+    /// Moderation status: `approved` | `pending` | `rejected` (not `merged`).
+    pub status: Option<String>,
+    /// Replace the per-kind specs row. Its `kind` discriminator must match the
+    /// item's kind. Absent leaves the specs untouched.
+    #[serde(default)]
+    pub specs: Option<EquipmentSpecsPayload>,
 }
 
 pub async fn edit(
@@ -126,13 +137,25 @@ pub async fn edit(
     let mut tx = state.pool.begin().await?;
 
     let row = sqlx::query!(
-        r#"select brand, model, variant, display_name
+        r#"select kind, brand, model, variant, display_name
              from equipment_items where id = $1 for update"#,
         id
     )
     .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(|| AppError::not_found("equipment item"))?;
+
+    // Validate specs kind + status before writing anything (clean rollback).
+    if let Some(ref payload) = body.specs {
+        specs::ensure_matches_kind(&row.kind, payload)?;
+    }
+    if let Some(ref s) = body.status
+        && !EDITABLE_STATUSES.contains(&s.as_str())
+    {
+        return Err(AppError::Validation(
+            "status must be approved | pending | rejected".into(),
+        ));
+    }
 
     let brand = body
         .brand
@@ -164,10 +187,12 @@ pub async fn edit(
     }
     let canonical = crate::equipment::normalize_canonical(&display_name);
 
+    // `coalesce($7, status)` leaves status untouched when not provided.
     let res = sqlx::query!(
         r#"update equipment_items
               set brand = $1, model = $2, variant = $3,
-                  display_name = $4, canonical_name = $5
+                  display_name = $4, canonical_name = $5,
+                  status = coalesce($7, status)
             where id = $6"#,
         brand,
         model,
@@ -175,6 +200,7 @@ pub async fn edit(
         display_name,
         canonical,
         id,
+        body.status.as_deref(),
     )
     .execute(&mut *tx)
     .await;
@@ -187,6 +213,13 @@ pub async fn edit(
             ));
         }
         Err(e) => return Err(AppError::Database(e)),
+    }
+
+    // Replace the per-kind specs row, if provided (same contract as the public
+    // PATCH /api/equipment/items/:id: replace-all, empty field = cleared).
+    if let Some(ref payload) = body.specs {
+        specs::delete_specs_row(&mut tx, id, &row.kind).await?;
+        specs::insert_specs_row(&mut tx, id, payload).await?;
     }
 
     tx.commit().await?;

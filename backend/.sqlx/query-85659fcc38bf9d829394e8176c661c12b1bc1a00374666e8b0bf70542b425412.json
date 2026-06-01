@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update equipment_items\n              set brand = $1, model = $2, variant = $3,\n                  display_name = $4, canonical_name = $5,\n                  status = coalesce($7, status)\n            where id = $6",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "85659fcc38bf9d829394e8176c661c12b1bc1a00374666e8b0bf70542b425412"
+}
