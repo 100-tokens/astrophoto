@@ -55,7 +55,6 @@ export interface EquipmentEdit {
   brand?: string;
   model?: string;
   variant?: string;
-  display_name?: string;
   status?: string;
   /** Replace the per-kind specs row (tagged `{ kind, ...fields }`). */
   specs?: EquipmentSpecsPayload;

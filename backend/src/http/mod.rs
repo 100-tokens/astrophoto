@@ -341,6 +341,10 @@ pub fn router(
             axum::routing::get(crate::equipment::catalog_browse::handler),
         )
         .route(
+            "/api/equipment/catalog-values",
+            axum::routing::get(crate::equipment::catalog_values::handler),
+        )
+        .route(
             "/api/equipment/items",
             axum::routing::post(crate::equipment::items_create::handler),
         )

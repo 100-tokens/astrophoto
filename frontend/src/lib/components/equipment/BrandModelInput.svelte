@@ -11,7 +11,9 @@
   // the submit cycle and read `value` / `value.brand` etc. on their
   // own confirm action.
 
+  import { onMount } from 'svelte';
   import { KNOWN_BRANDS } from '$lib/equipment/brands';
+  import type { CatalogValues } from '$lib/api/CatalogValues';
 
   export type BrandModel = {
     brand: string;
@@ -30,10 +32,37 @@
      * fields. Pass through `displayName` from the parent.
      */
     label?: string | null;
+    /**
+     * Equipment kind. When provided, the brand datalist is seeded from the
+     * EXISTING catalog brands for that kind (most-used first) so users pick a
+     * real value instead of minting "SkyWatcher" next to "Sky-Watcher".
+     * Falls back to the static KNOWN_BRANDS list when absent or on error.
+     */
+    kind?: string;
     onChange: (next: BrandModel) => void;
   };
 
-  let { value, disabled = false, label = null, onChange }: Props = $props();
+  let { value, disabled = false, label = null, kind = undefined, onChange }: Props = $props();
+
+  // Catalog-derived brand suggestions for the kind (loaded once on mount).
+  let catalogBrands = $state<string[]>([]);
+  onMount(async () => {
+    if (!kind) return;
+    try {
+      const r = await fetch(`/api/equipment/catalog-values?kind=${encodeURIComponent(kind)}`, {
+        credentials: 'include'
+      });
+      if (r.ok) catalogBrands = ((await r.json()) as CatalogValues).brands.map((b) => b.value);
+    } catch {
+      // Non-fatal — the static KNOWN_BRANDS list still backs the datalist.
+    }
+  });
+
+  // Existing catalog brands first, then any KNOWN_BRANDS not already present.
+  let brandOptions = $derived.by(() => {
+    const seen = new Set(catalogBrands.map((b) => b.toLowerCase()));
+    return [...catalogBrands, ...KNOWN_BRANDS.filter((b) => !seen.has(b.toLowerCase()))];
+  });
 
   // Stable id for the brand datalist — avoid collisions when two
   // BrandModelInputs co-exist on the same page (rare but possible).
@@ -92,7 +121,7 @@
   </div>
 
   <datalist id={datalistId}>
-    {#each KNOWN_BRANDS as brand (brand)}
+    {#each brandOptions as brand (brand)}
       <option value={brand}></option>
     {/each}
   </datalist>

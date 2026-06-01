@@ -2,6 +2,9 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import Field from '$lib/components/equipment/Field.svelte';
+  import BrandModelVariantPicker, {
+    type BMV
+  } from '$lib/components/equipment/BrandModelVariantPicker.svelte';
   import { FIELDS_BY_KIND, type SpecField } from '$lib/equipment/specs-fields';
   import { editEquipment, deleteEquipment } from '$lib/api/adminClient';
   import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
@@ -11,11 +14,24 @@
   const STATUSES = ['approved', 'pending', 'rejected'];
 
   // Header fields — seeded once from the item; edits drive local state.
-  let brand = $state(untrack(() => data.item.brand));
-  let model = $state(untrack(() => data.item.model));
-  let variant = $state(untrack(() => data.item.variant ?? ''));
-  let displayName = $state(untrack(() => data.item.display_name));
+  let bmv = $state<BMV>(
+    untrack(() => ({
+      brand: data.item.brand,
+      model: data.item.model,
+      variant: data.item.variant ?? ''
+    }))
+  );
   let status = $state(untrack(() => data.item.status));
+
+  // display_name is derived from brand/model/variant (the backend regenerates
+  // it on save). Shown read-only as a live preview.
+  let displayPreview = $derived.by(() => {
+    const b = bmv.brand.trim();
+    const m = bmv.model.trim();
+    const v = bmv.variant.trim();
+    const suffix = v ? ` ${v}` : '';
+    return b ? `${b} ${m}${suffix}` : `${m}${suffix}`;
+  });
 
   const fields: SpecField[] = $derived(
     (FIELDS_BY_KIND as Record<string, SpecField[]>)[data.item.kind] ?? []
@@ -59,10 +75,9 @@
         cleanedSpecs[f.name] = f.type === 'number' ? Number(v) : v;
       }
       await editEquipment(fetch, data.item.id, {
-        brand,
-        model,
-        variant,
-        display_name: displayName,
+        brand: bmv.brand,
+        model: bmv.model,
+        variant: bmv.variant,
         status,
         specs: cleanedSpecs as unknown as EquipmentSpecsPayload
       });
@@ -121,15 +136,15 @@
 >
   <fieldset class="section">
     <legend>Identity</legend>
-    <div class="grid">
-      <Field label="Display name">
-        <input class="input" bind:value={displayName} />
+    <p class="hint hint--top">
+      Brand / model / variant are assisted from the existing catalog — pick a suggested value to
+      avoid creating duplicates. The display name is regenerated from them on save.
+    </p>
+    <BrandModelVariantPicker kind={data.item.kind} value={bmv} onChange={(next) => (bmv = next)} />
+    <div class="grid grid--secondary">
+      <Field label="Display name" hint="Generated from brand / model / variant.">
+        <input class="input" value={displayPreview} disabled />
       </Field>
-      <Field label="Brand">
-        <input class="input" bind:value={brand} placeholder="(unknown)" />
-      </Field>
-      <Field label="Model"><input class="input" bind:value={model} /></Field>
-      <Field label="Variant"><input class="input" bind:value={variant} placeholder="—" /></Field>
       <Field label="Kind" hint="Recategorising is not supported here.">
         <input class="input" value={data.item.kind} disabled />
       </Field>
@@ -269,6 +284,12 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+  }
+  .grid--secondary {
+    margin-top: 16px;
+  }
+  .hint--top {
+    margin: 0 0 14px;
   }
   @media (max-width: 720px) {
     .grid {

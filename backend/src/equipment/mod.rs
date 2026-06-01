@@ -1,5 +1,6 @@
 pub mod autocomplete;
 pub mod catalog_browse;
+pub mod catalog_values;
 pub mod items_create;
 pub mod items_get;
 pub mod items_update;
