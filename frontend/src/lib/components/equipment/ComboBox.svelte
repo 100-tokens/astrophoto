@@ -6,10 +6,12 @@
   // - Keyboard: ↓/↑ move, Enter picks the highlighted option, Esc closes.
   // - Free entry is ALWAYS allowed (you can create a genuinely new value).
   // - Duplicate-avoidance is advisory, never blocking:
-  //     · typed value matches an existing one only after normalising
-  //       (lowercase + strip non-alphanumerics) → "Did you mean 'X'?" with a
-  //       one-click apply (catches "SkyWatcher" vs "Sky-Watcher").
-  //     · typed value has no match at all → "New — will be added to the catalog".
+  //     · typed value is close to an existing one — same after normalising
+  //       (lowercase + strip non-alphanumerics: "SkyWatcher" vs "Sky-Watcher")
+  //       OR within a small edit distance (typos: "Baadr" → "Baader") → "Did
+  //       you mean 'X'?" with a one-click apply. Close values also resurface in
+  //       the dropdown even when the substring filter misses them.
+  //     · typed value has no close match → "New — will be added to the catalog".
   //     · exact existing value → a quiet "existing" tick.
   //   (The DB's real uniqueness is on the exact canonical name; this is help,
   //   not a guarantee.)
@@ -42,20 +44,65 @@
 
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+  // Levenshtein distance — small strings only, so the O(m·n) version is fine.
+  // The `?? 0` guards satisfy noUncheckedIndexedAccess; indices are in-bounds.
+  function editDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    const m = a.length;
+    const n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    let prev: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+    for (let i = 1; i <= m; i++) {
+      const cur: number[] = [i];
+      const ai = a[i - 1];
+      for (let j = 1; j <= n; j++) {
+        const cost = ai === b[j - 1] ? 0 : 1;
+        cur[j] = Math.min((prev[j] ?? 0) + 1, (cur[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+      }
+      prev = cur;
+    }
+    return prev[n] ?? 0;
+  }
+
   let filtered = $derived.by(() => {
     const raw = value.trim();
     if (!raw) return options;
     const lc = raw.toLowerCase();
     const nv = norm(raw);
-    return options.filter((o) => o.value.toLowerCase().includes(lc) || norm(o.value).includes(nv));
+    const sub = options.filter(
+      (o) => o.value.toLowerCase().includes(lc) || norm(o.value).includes(nv)
+    );
+    // Substring hits first; if none and the input is long enough, surface
+    // close existing values (typo tolerance) so they're still pickable.
+    if (sub.length > 0 || raw.length < 3) return sub;
+    return options
+      .map((o) => ({ o, d: editDistance(nv, norm(o.value)) }))
+      .filter((x) => x.d <= 2)
+      .sort((x, y) => x.d - y.d)
+      .map((x) => x.o);
   });
 
   let exact = $derived(options.some((o) => o.value === value.trim()) && value.trim() !== '');
+  // The closest existing value to the typed text (normalised) — fires for
+  // case/punctuation variants (distance 0) AND small typos (within a
+  // length-scaled threshold). Advisory only; free entry is still allowed.
   let near = $derived.by(() => {
     const raw = value.trim();
     if (!raw || exact) return null;
     const nv = norm(raw);
-    return options.find((o) => norm(o.value) === nv && o.value !== raw)?.value ?? null;
+    let best: string | null = null;
+    let bestD = Infinity;
+    for (const o of options) {
+      if (o.value === raw) continue;
+      const d = editDistance(nv, norm(o.value));
+      if (d < bestD) {
+        bestD = d;
+        best = o.value;
+      }
+    }
+    const threshold = Math.min(2, Math.max(1, Math.floor(nv.length / 4)));
+    return best !== null && bestD <= threshold ? best : null;
   });
   let isNew = $derived(value.trim().length > 0 && !exact && !near);
 
