@@ -1,5 +1,10 @@
 // Per-kind spec field definitions for the equipment catalog setup builder.
 // Used to render the right spec inputs inside SpecsPanel for each equipment kind.
+//
+// IMPORTANT: this table must list EVERY editable column of each `<kind>_specs`
+// row (except DB-computed fields, marked `type: 'computed'`). The specs save is
+// replace-all — any populated column NOT rendered here is dropped to NULL on
+// save. Keep it in sync with the spec structs in backend `api_types.rs`.
 
 export type SpecField =
   | {
@@ -63,7 +68,24 @@ export const TELESCOPE_FIELDS: SpecField[] = [
     label: 'Focal ratio · computed',
     type: 'computed',
     helpText: 'focal_length_mm / aperture_mm — DB-generated, read-only.'
-  }
+  },
+  {
+    name: 'self_weight_kg',
+    label: 'Self weight (kg)',
+    type: 'number',
+    min: 0,
+    step: 0.01,
+    unit: 'kg'
+  },
+  {
+    name: 'optical_length_mm',
+    label: 'Optical length (mm)',
+    type: 'number',
+    min: 0,
+    step: 1,
+    unit: 'mm'
+  },
+  { name: 'backfocus_mm', label: 'Backfocus (mm)', type: 'number', min: 0, step: 0.1, unit: 'mm' }
 ];
 
 export const CAMERA_FIELDS: SpecField[] = [
@@ -97,7 +119,18 @@ export const CAMERA_FIELDS: SpecField[] = [
     unit: 'µm'
   },
   { name: 'sensor_width_px', label: 'Sensor width (px)', type: 'number', min: 1, step: 1 },
-  { name: 'sensor_height_px', label: 'Sensor height (px)', type: 'number', min: 1, step: 1 }
+  { name: 'sensor_height_px', label: 'Sensor height (px)', type: 'number', min: 1, step: 1 },
+  { name: 'self_weight_g', label: 'Self weight (g)', type: 'number', min: 0, step: 1, unit: 'g' },
+  {
+    name: 'full_well_capacity_e',
+    label: 'Full-well capacity (e⁻)',
+    type: 'number',
+    min: 0,
+    step: 1
+  },
+  { name: 'read_noise_e', label: 'Read noise (e⁻)', type: 'number', min: 0, step: 0.1 },
+  { name: 'mount_thread', label: 'Mount thread', type: 'text', helpText: 'e.g. M42, M48, T2' },
+  { name: 'backfocus_mm', label: 'Backfocus (mm)', type: 'number', min: 0, step: 0.1, unit: 'mm' }
 ];
 
 export const FILTER_FIELDS: SpecField[] = [
@@ -146,7 +179,25 @@ export const FILTER_FIELDS: SpecField[] = [
       { value: 'other', label: 'Other' }
     ]
   },
-  { name: 'mounted', label: 'Threaded cell', type: 'bool' }
+  { name: 'mounted', label: 'Threaded cell', type: 'bool' },
+  {
+    name: 'mounted_diameter_mm',
+    label: 'Mounted diameter (mm)',
+    type: 'number',
+    min: 0,
+    step: 0.1,
+    unit: 'mm'
+  },
+  { name: 'thickness_mm', label: 'Thickness (mm)', type: 'number', min: 0, step: 0.1, unit: 'mm' },
+  {
+    name: 'peak_transmission_pct',
+    label: 'Peak transmission (%)',
+    type: 'number',
+    min: 0,
+    max: 100,
+    step: 0.1,
+    unit: '%'
+  }
 ];
 
 export const MOUNT_FIELDS: SpecField[] = [
@@ -172,7 +223,30 @@ export const MOUNT_FIELDS: SpecField[] = [
     step: 0.1,
     unit: 'kg'
   },
-  { name: 'goto', label: 'GoTo', type: 'bool' }
+  { name: 'goto', label: 'GoTo', type: 'bool' },
+  {
+    name: 'self_weight_kg',
+    label: 'Self weight (kg)',
+    type: 'number',
+    min: 0,
+    step: 0.01,
+    unit: 'kg'
+  },
+  {
+    name: 'periodic_error_arcsec',
+    label: 'Periodic error (arcsec)',
+    type: 'number',
+    min: 0,
+    step: 0.1,
+    unit: '″'
+  },
+  { name: 'tripod_included', label: 'Tripod included', type: 'bool' },
+  {
+    name: 'control_protocol',
+    label: 'Control protocol',
+    type: 'text',
+    helpText: 'e.g. EQMOD, INDI, ASCOM'
+  }
 ];
 
 export const FOCAL_MODIFIER_FIELDS: SpecField[] = [
@@ -197,7 +271,49 @@ export const FOCAL_MODIFIER_FIELDS: SpecField[] = [
     max: 5,
     step: 0.01,
     helpText: '1.0 = pure flattener · 0.79 = typical reducer · 2.0 = Barlow ×2'
+  },
+  { name: 'self_weight_g', label: 'Self weight (g)', type: 'number', min: 0, step: 1, unit: 'g' },
+  { name: 'backfocus_mm', label: 'Backfocus (mm)', type: 'number', min: 0, step: 0.1, unit: 'mm' },
+  {
+    name: 'image_circle_mm',
+    label: 'Image circle (mm)',
+    type: 'number',
+    min: 0,
+    step: 0.1,
+    unit: 'mm'
   }
+];
+
+export const GUIDING_FIELDS: SpecField[] = [
+  {
+    name: 'setup_kind',
+    label: 'Setup',
+    type: 'enum',
+    helpText: 'Required for guiding specs.',
+    options: [
+      { value: 'oag', label: 'Off-axis guider (OAG)' },
+      { value: 'guidescope', label: 'Guidescope' },
+      { value: 'oag_prism', label: 'OAG prism' },
+      { value: 'other', label: 'Other' }
+    ]
+  },
+  {
+    name: 'guide_focal_mm',
+    label: 'Guide focal length (mm)',
+    type: 'number',
+    min: 0,
+    step: 1,
+    unit: 'mm'
+  },
+  {
+    name: 'guide_aperture_mm',
+    label: 'Guide aperture (mm)',
+    type: 'number',
+    min: 0,
+    step: 1,
+    unit: 'mm'
+  },
+  { name: 'guide_camera', label: 'Guide camera', type: 'text', helpText: 'e.g. ZWO ASI120MM Mini' }
 ];
 
 export const FIELDS_BY_KIND = {
@@ -205,5 +321,6 @@ export const FIELDS_BY_KIND = {
   camera: CAMERA_FIELDS,
   filter: FILTER_FIELDS,
   mount: MOUNT_FIELDS,
-  focal_modifier: FOCAL_MODIFIER_FIELDS
+  focal_modifier: FOCAL_MODIFIER_FIELDS,
+  guiding: GUIDING_FIELDS
 } as const;

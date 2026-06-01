@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
-  import { editEquipment, deleteEquipment, type EquipmentEdit } from '$lib/api/adminClient';
+  import { deleteEquipment } from '$lib/api/adminClient';
   import type { AdminEquipmentItem } from '$lib/api/AdminEquipmentItem';
 
   let { data } = $props();
@@ -15,44 +15,11 @@
   let busy = $state(false);
   let errorMsg = $state<string | null>(null);
 
-  let editingId = $state<string | null>(null);
-  let draft = $state<EquipmentEdit>({});
-
   function applyFilters() {
     const params = new URLSearchParams();
     if (kind) params.set('kind', kind);
     if (q.trim()) params.set('q', q.trim());
     void goto(`/admin/equipment${params.toString() ? `?${params}` : ''}`);
-  }
-
-  function startEdit(item: AdminEquipmentItem) {
-    editingId = item.id;
-    draft = {
-      brand: item.brand,
-      model: item.model,
-      variant: item.variant ?? '',
-      display_name: item.display_name
-    };
-    errorMsg = null;
-  }
-
-  function cancelEdit() {
-    editingId = null;
-    draft = {};
-  }
-
-  async function saveEdit(id: string) {
-    busy = true;
-    errorMsg = null;
-    try {
-      await editEquipment(fetch, id, draft);
-      editingId = null;
-      await invalidateAll();
-    } catch (e) {
-      errorMsg = (e as Error).message;
-    } finally {
-      busy = false;
-    }
   }
 
   async function remove(item: AdminEquipmentItem) {
@@ -120,45 +87,30 @@
   </thead>
   <tbody>
     {#each data.items as item (item.id)}
-      {#if editingId === item.id}
-        <tr class="editing">
-          <td><input bind:value={draft.display_name} /></td>
-          <td><input bind:value={draft.brand} /></td>
-          <td><input bind:value={draft.model} /></td>
-          <td><input bind:value={draft.variant} placeholder="—" /></td>
-          <td>{item.kind}</td>
-          <td class="num">{item.usage_count}</td>
-          <td>{item.status}</td>
-          <td>{item.submitted_by_handle ? `@${item.submitted_by_handle}` : '—'}</td>
-          <td class="actions">
-            <button type="button" disabled={busy} onclick={() => saveEdit(item.id)}>Save</button>
-            <button type="button" class="ghost" disabled={busy} onclick={cancelEdit}>Cancel</button>
-          </td>
-        </tr>
-      {:else}
-        <tr>
-          <td class="name">{item.display_name}</td>
-          <td>{item.brand || '—'}</td>
-          <td>{item.model}</td>
-          <td>{item.variant ?? '—'}</td>
-          <td>{item.kind}</td>
-          <td class="num">{item.usage_count}</td>
-          <td><span class="status status--{item.status}">{item.status}</span></td>
-          <td>{item.submitted_by_handle ? `@${item.submitted_by_handle}` : '—'}</td>
-          <td class="actions">
-            <button type="button" disabled={busy} onclick={() => startEdit(item)}>Edit</button>
-            <button
-              type="button"
-              class="danger"
-              disabled={busy || item.usage_count > 0}
-              title={item.usage_count > 0 ? 'In use — cannot delete' : 'Delete'}
-              onclick={() => remove(item)}
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      {/if}
+      <tr>
+        <td class="name">
+          <a href="/admin/equipment/{item.id}">{item.display_name}</a>
+        </td>
+        <td>{item.brand || '—'}</td>
+        <td>{item.model}</td>
+        <td>{item.variant ?? '—'}</td>
+        <td>{item.kind}</td>
+        <td class="num">{item.usage_count}</td>
+        <td><span class="status status--{item.status}">{item.status}</span></td>
+        <td>{item.submitted_by_handle ? `@${item.submitted_by_handle}` : '—'}</td>
+        <td class="actions">
+          <a class="btnlink" href="/admin/equipment/{item.id}">Manage</a>
+          <button
+            type="button"
+            class="danger"
+            disabled={busy || item.usage_count > 0}
+            title={item.usage_count > 0 ? 'In use — cannot delete' : 'Delete'}
+            onclick={() => remove(item)}
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
     {:else}
       <tr><td colspan="9" class="empty">No equipment found.</td></tr>
     {/each}
@@ -223,9 +175,19 @@
     opacity: 0.4;
     cursor: default;
   }
-  button.ghost {
-    background: transparent;
-    color: var(--fg-muted);
+  .btnlink {
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-subtle);
+    color: var(--fg-primary);
+    padding: 7px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .btnlink:hover {
+    background: var(--bg-raised);
   }
   button.danger {
     border-color: var(--danger, #c33);
@@ -253,20 +215,17 @@
   td.name {
     font-weight: 500;
   }
+  td.name a {
+    color: var(--fg-primary);
+    text-decoration: none;
+  }
+  td.name a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
   .num {
     text-align: right;
     font-variant-numeric: tabular-nums;
-  }
-  td input {
-    width: 100%;
-    background: var(--bg-canvas);
-    border: 1px solid var(--border-default, var(--accent-dim));
-    color: var(--fg-primary);
-    padding: 5px 7px;
-    font-size: 13px;
-  }
-  tr.editing {
-    background: var(--bg-raised);
   }
   .actions {
     display: flex;

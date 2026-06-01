@@ -265,3 +265,89 @@ async fn equipment_delete_refuses_in_use_item() {
         "in-use item must not be deletable"
     );
 }
+
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn equipment_admin_edit_specs_and_status_lossless() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "specs@example.com", "specsadmin").await;
+    mark_admin(&pool, "specs@example.com").await;
+
+    let item_id = Uuid::new_v4();
+    sqlx::query!(
+        r#"insert into equipment_items
+              (id, kind, canonical_name, display_name, brand, model, status)
+           values ($1, 'camera', 'zwo asi2600', 'ZWO ASI2600', 'ZWO', 'ASI2600', 'approved')"#,
+        item_id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let specs = json!({
+        "kind": "camera", "sensor_type": "cmos", "cooled": true,
+        "read_noise_e": 1.5, "full_well_capacity_e": 51000, "mount_thread": "M42"
+    });
+
+    // Set per-kind specs (incl. v2 completeness fields) + moderation status.
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/equipment/{item_id}"),
+        Some(&cookie),
+        Some(json!({ "status": "pending", "specs": specs })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, body) = send(
+        &app,
+        "GET",
+        &format!("/api/equipment/items/{item_id}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let detail: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(detail["status"], "pending");
+    assert_eq!(
+        detail["specs"]["read_noise_e"], 1.5,
+        "v2 spec field persisted"
+    );
+    assert_eq!(detail["specs"]["mount_thread"], "M42");
+    let specs_a = detail["specs"].clone();
+
+    // Round-trip: re-submit the read-back specs (a no-op admin save) — the
+    // stored specs must be byte-for-byte identical (no v2 field dropped).
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/equipment/{item_id}"),
+        Some(&cookie),
+        Some(json!({ "specs": specs_a })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, body2) = send(
+        &app,
+        "GET",
+        &format!("/api/equipment/items/{item_id}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    let detail2: Value = serde_json::from_slice(&body2).unwrap();
+    assert_eq!(detail2["specs"], specs_a, "lossless specs round-trip");
+
+    // `merged` status is not admin-settable.
+    let (status, _) = send(
+        &app,
+        "PATCH",
+        &format!("/api/admin/equipment/{item_id}"),
+        Some(&cookie),
+        Some(json!({ "status": "merged" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
