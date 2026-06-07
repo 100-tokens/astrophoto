@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::AppError;
 use crate::api_types::{ApiTokenCreated, ApiTokenRow};
-use crate::auth::middleware::{CurrentUser, TokenAuth};
+use crate::auth::middleware::{CurrentUser, SessionOnly};
 use crate::http::AppState;
 
 pub const TOKEN_PREFIX: &str = "astrophoto_pat_";
@@ -45,15 +45,6 @@ pub struct CreateBody {
     pub name: String,
 }
 
-/// Guard shared by the management handlers: a PAT must not mint or
-/// revoke PATs — that stays a logged-in-browser operation.
-fn reject_token_auth(parts_has_token: bool) -> Result<(), AppError> {
-    if parts_has_token {
-        return Err(AppError::Forbidden);
-    }
-    Ok(())
-}
-
 /// `POST /api/me/tokens` — mint a new personal access token. The full
 /// secret is returned exactly once in the response body.
 ///
@@ -63,10 +54,9 @@ fn reject_token_auth(parts_has_token: bool) -> Result<(), AppError> {
 pub async fn create(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
-    token_auth: Option<axum::Extension<TokenAuth>>,
+    _session_only: SessionOnly,
     Json(body): Json<CreateBody>,
 ) -> Result<Json<ApiTokenCreated>, AppError> {
-    reject_token_auth(token_auth.is_some())?;
     let name = body.name.trim();
     if name.is_empty() || name.len() > 80 {
         return Err(AppError::bad_request("name"));
@@ -75,8 +65,8 @@ pub async fn create(
     let hash = hash_secret(&secret);
     let prefix = display_prefix(&secret).to_string();
     let row = sqlx::query!(
-        r#"insert into api_tokens (user_id, name, token_hash, prefix)
-           values ($1, $2, $3, $4)
+        r#"insert into api_tokens (user_id, name, token_hash, prefix, scope)
+           values ($1, $2, $3, $4, 'publish')
            returning id"#,
         user.id,
         name,
@@ -97,9 +87,10 @@ pub async fn create(
 pub async fn list(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
+    _session_only: SessionOnly,
 ) -> Result<Json<Vec<ApiTokenRow>>, AppError> {
     let rows = sqlx::query!(
-        r#"select id, name, prefix, created_at, last_used_at, revoked_at
+        r#"select id, name, prefix, scope, created_at, last_used_at, revoked_at
              from api_tokens where user_id = $1
             order by created_at desc"#,
         user.id
@@ -112,6 +103,7 @@ pub async fn list(
                 id: r.id.to_string(),
                 name: r.name,
                 prefix: r.prefix,
+                scope: r.scope,
                 created_at: r.created_at.to_rfc3339(),
                 last_used_at: r.last_used_at.map(|t| t.to_rfc3339()),
                 revoked_at: r.revoked_at.map(|t| t.to_rfc3339()),
@@ -127,10 +119,9 @@ pub async fn list(
 pub async fn revoke(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
-    token_auth: Option<axum::Extension<TokenAuth>>,
+    _session_only: SessionOnly,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
-    reject_token_auth(token_auth.is_some())?;
     let res = sqlx::query!(
         "update api_tokens set revoked_at = now() \
          where id = $1 and user_id = $2 and revoked_at is null",

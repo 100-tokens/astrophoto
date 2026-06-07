@@ -25,6 +25,16 @@ pub struct OptionalUser(pub Option<UserRow>);
 /// Forbidden` when authenticated but `is_admin` is false.
 pub struct AdminUser(pub UserRow);
 
+/// Rejects requests authenticated via a Bearer PAT. Add to handlers
+/// that must stay browser-session-only: account control (password /
+/// email change, deletion) and PAT management itself. A stolen token
+/// must never be able to escalate into account takeover.
+///
+/// **Ordering invariant:** must appear AFTER [`CurrentUser`] in the
+/// handler signature — `CurrentUser`'s `resolve()` populates the
+/// `TokenAuth` extension this extractor inspects.
+pub struct SessionOnly;
+
 /// Session id of the currently-authenticated request.
 ///
 /// **Ordering invariant:** This extractor must appear AFTER
@@ -169,6 +179,20 @@ impl FromRequestParts<AppState> for AdminUser {
             Some(_) => Err(AppError::Forbidden),
             None => Err(AppError::Unauthorized),
         }
+    }
+}
+
+#[axum::async_trait]
+impl FromRequestParts<AppState> for SessionOnly {
+    type Rejection = AppError;
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        if parts.extensions.get::<TokenAuth>().is_some() {
+            return Err(AppError::Forbidden);
+        }
+        Ok(SessionOnly)
     }
 }
 

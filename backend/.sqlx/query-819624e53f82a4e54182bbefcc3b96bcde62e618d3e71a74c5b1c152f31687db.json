@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, prefix, created_at, last_used_at, revoked_at\n             from api_tokens where user_id = $1\n            order by created_at desc",
+  "query": "select id, name, prefix, scope, created_at, last_used_at, revoked_at\n             from api_tokens where user_id = $1\n            order by created_at desc",
   "describe": {
     "columns": [
       {
@@ -20,16 +20,21 @@
       },
       {
         "ordinal": 3,
+        "name": "scope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "last_used_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "revoked_at",
         "type_info": "Timestamptz"
       }
@@ -44,9 +49,10 @@
       false,
       false,
       false,
+      false,
       true,
       true
     ]
   },
-  "hash": "1dec2605b5c9e630ae07e2bb440764db677f23891607b006399ba7552f64d8ab"
+  "hash": "819624e53f82a4e54182bbefcc3b96bcde62e618d3e71a74c5b1c152f31687db"
 }

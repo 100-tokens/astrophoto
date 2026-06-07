@@ -2,7 +2,7 @@ use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 
 use crate::AppError;
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::{CurrentUser, SessionOnly};
 use crate::http::AppState;
 use crate::mail::templates;
 
@@ -17,6 +17,8 @@ const REQUIRED_PHRASE: &str = "DELETE MY ACCOUNT";
 pub async fn request(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
+    // Account-control endpoint: browser sessions only, never PATs.
+    _session_only: SessionOnly,
     Json(body): Json<RequestBody>,
 ) -> Result<impl IntoResponse, AppError> {
     if body.confirmation_phrase != REQUIRED_PHRASE {
@@ -70,6 +72,8 @@ pub async fn request(
 pub async fn cancel(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
+    // Account-control endpoint: browser sessions only, never PATs.
+    _session_only: SessionOnly,
 ) -> Result<impl IntoResponse, AppError> {
     let row = sqlx::query!(
         r#"update users set pending_deletion_at = null

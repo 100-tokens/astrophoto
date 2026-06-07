@@ -132,6 +132,10 @@ pub struct ApiTokenRow {
     pub id: String,
     pub name: String,
     pub prefix: String,
+    /// Informational for now: recorded at mint time, not yet enforced
+    /// per-route (PATs are barred from account-control endpoints via
+    /// `SessionOnly` instead).
+    pub scope: String,
     pub created_at: String, // RFC3339
     pub last_used_at: Option<String>,
     pub revoked_at: Option<String>,

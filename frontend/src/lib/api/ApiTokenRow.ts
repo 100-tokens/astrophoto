@@ -4,6 +4,12 @@ export type ApiTokenRow = {
   id: string;
   name: string;
   prefix: string;
+  /**
+   * Informational for now: recorded at mint time, not yet enforced
+   * per-route (PATs are barred from account-control endpoints via
+   * `SessionOnly` instead).
+   */
+  scope: string;
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
