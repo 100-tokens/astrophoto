@@ -127,6 +127,27 @@ pub struct SessionRow {
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "ApiTokenRow.ts")]
+pub struct ApiTokenRow {
+    pub id: String,
+    pub name: String,
+    pub prefix: String,
+    pub created_at: String, // RFC3339
+    pub last_used_at: Option<String>,
+    pub revoked_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "ApiTokenCreated.ts")]
+pub struct ApiTokenCreated {
+    pub id: String,
+    pub name: String,
+    pub prefix: String,
+    /// Full secret — returned exactly once, at creation.
+    pub secret: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "MeStats.ts")]
 pub struct MeStats {
     pub published_count: i64,
