@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update api_tokens set revoked_at = now() where id = $1 and user_id = $2 and revoked_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "28254547c4a0dc1a14f24a682e2ec35783d750836d9d7043d95c4fd3ccd377b1"
+}
