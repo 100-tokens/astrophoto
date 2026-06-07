@@ -5,18 +5,18 @@ use std::path::Path;
 use ts_rs::TS;
 
 use astrophoto::api_types::{
-    AdminEquipmentItem, AdminEquipmentPage, ApplySetupInput, AuthError, BatchApplyRequest,
-    BatchApplyResponse, BatchPublishRequest, BatchPublishResponse, CatalogValues, CategoryPage,
-    CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem, DraftListResponse,
-    EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets, EquipmentItemDetail,
-    EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage, EquipmentPaired,
-    EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health, HeroStats,
-    LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail, PhotoFilterChip,
-    PhotographerIndexPage, PhotographerListItem, Preferences, Profile, PublicProfile,
-    PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit, SessionRow,
-    SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason,
-    SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage,
-    TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
+    AdminEquipmentItem, AdminEquipmentPage, ApiTokenCreated, ApiTokenRow, ApplySetupInput,
+    AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest, BatchPublishResponse,
+    CatalogValues, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem,
+    DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets,
+    EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage,
+    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
+    HeroStats, LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail,
+    PhotoFilterChip, PhotographerIndexPage, PhotographerListItem, Preferences, Profile,
+    PublicProfile, PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit,
+    SessionRow, SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats,
+    SkipReason, SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage,
+    TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
@@ -36,6 +36,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     UserPublic::export_all_to(out_dir)?;
     Preferences::export_all_to(out_dir)?;
     SessionRow::export_all_to(out_dir)?;
+    ApiTokenRow::export_all_to(out_dir)?;
+    ApiTokenCreated::export_all_to(out_dir)?;
     MeStats::export_all_to(out_dir)?;
     PhotoDetail::export_all_to(out_dir)?;
     SocialPlatform::export_all_to(out_dir)?;
