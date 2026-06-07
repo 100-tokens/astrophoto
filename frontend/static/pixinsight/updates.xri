@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xri version="1.0">
+   <description>
+      <p>Astrophoto Publisher — publish XISF images to Astrophoto from PixInsight.</p>
+      <p>Copyright (c) 2026 Pascal Le Clech.</p>
+   </description>
+   <platform os="all" arch="noarch" version="1.8.9-1:1.9.9">
+      <package fileName="astrophoto-publisher-20260607.zip" sha1="99ec72aaf610ab002877f042f5890ea8c1f1522f" type="script" releaseDate="20260607">
+         <title>
+            Astrophoto Publisher
+         </title>
+         <description>
+            <p>Adds Script &gt; Astrophoto &gt; Publish to Astrophoto: one dialog that uploads the active XISF image to Astrophoto with metadata prefilled from the image, authorized by a personal access token from your Astrophoto settings page.</p>
+         </description>
+      </package>
+   </platform>
+</xri>
