@@ -302,6 +302,14 @@ pub fn router(
             axum::routing::post(crate::users::sessions::sign_out_others),
         )
         .route(
+            "/api/me/tokens",
+            axum::routing::get(crate::auth::tokens::list).post(crate::auth::tokens::create),
+        )
+        .route(
+            "/api/me/tokens/:id",
+            axum::routing::delete(crate::auth::tokens::revoke),
+        )
+        .route(
             "/api/me/delete-request",
             post(crate::users::deletion::request),
         )

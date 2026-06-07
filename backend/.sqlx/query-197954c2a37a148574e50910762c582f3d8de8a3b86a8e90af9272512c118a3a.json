@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into api_tokens (user_id, name, token_hash, prefix, scope)\n           values ($1, $2, $3, $4, 'publish')\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "197954c2a37a148574e50910762c582f3d8de8a3b86a8e90af9272512c118a3a"
+}

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::AppError;
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::{CurrentUser, SessionOnly};
 use crate::auth::password;
 use crate::http::AppState;
 use crate::mail::templates;
@@ -31,6 +31,8 @@ pub struct ConfirmResponse {
 pub async fn request(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
+    // Account-control endpoint: browser sessions only, never PATs.
+    _session_only: SessionOnly,
     Json(body): Json<RequestBody>,
 ) -> Result<impl IntoResponse, AppError> {
     // Verify current password. OAuth-only users (no password_hash) cannot

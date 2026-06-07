@@ -60,7 +60,12 @@
     </button>
   </div>
 {:else if photos.length === 0 && !loading}
-  <EmptyState title={emptyTitle} message={emptyMessage} ctaLabel="Upload a frame" ctaHref="/upload" />
+  <EmptyState
+    title={emptyTitle}
+    message={emptyMessage}
+    ctaLabel="Upload a frame"
+    ctaHref="/upload"
+  />
 {/if}
 
 <style>

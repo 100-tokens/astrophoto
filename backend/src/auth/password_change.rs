@@ -11,7 +11,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::AppError;
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::{CurrentUser, SessionOnly};
 use crate::auth::{password, session};
 use crate::http::AppState;
 
@@ -24,6 +24,9 @@ pub struct Body {
 pub async fn change(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
+    // PATs must not change passwords — OAuth-only accounts skip the
+    // current-password check below, so a stolen token would suffice.
+    _session_only: SessionOnly,
     Json(body): Json<Body>,
 ) -> Result<impl IntoResponse, AppError> {
     password::validate_strength(&body.new_password).map_err(AppError::bad_request)?;

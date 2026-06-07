@@ -192,6 +192,15 @@ export const api = {
   signOutOthers: (opts?: ApiCall) =>
     request<void>('POST', '/api/me/sessions/sign-out-others', undefined, opts),
 
+  createApiToken: (name: string, opts?: ApiCall) =>
+    request<import('./ApiTokenCreated').ApiTokenCreated>('POST', '/api/me/tokens', { name }, opts),
+
+  listApiTokens: (opts?: ApiCall) =>
+    request<import('./ApiTokenRow').ApiTokenRow[]>('GET', '/api/me/tokens', undefined, opts),
+
+  revokeApiToken: (id: string, opts?: ApiCall) =>
+    request<void>('DELETE', `/api/me/tokens/${encodeURIComponent(id)}`, undefined, opts),
+
   requestEmailChange: (new_email: string, current_password: string, opts?: ApiCall) =>
     request<void>('POST', '/api/me/email-change/request', { new_email, current_password }, opts),
 
