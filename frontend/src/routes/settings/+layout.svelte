@@ -10,6 +10,7 @@
     { slug: 'email', label: 'EMAIL & SECURITY', enabled: true, tone: '' },
     { slug: 'appearance', label: 'APPEARANCE', enabled: true, tone: '' },
     { slug: 'sessions', label: 'SESSIONS', enabled: true, tone: '' },
+    { slug: 'tokens', label: 'PixInsight & API', enabled: true, tone: '' },
     { slug: 'delete', label: 'DELETE ACCOUNT', enabled: true, tone: 'danger' }
   ];
 
@@ -23,6 +24,7 @@
     password: 'Password',
     appearance: 'Appearance',
     sessions: 'Sessions',
+    tokens: 'PixInsight & API',
     delete: 'Delete account'
   };
   let pageTitle = $derived(`${TITLES[active] ?? 'Settings'} — Astrophoto`);
