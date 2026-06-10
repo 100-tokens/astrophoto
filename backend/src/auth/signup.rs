@@ -44,6 +44,24 @@ pub async fn handler(
         ));
     }
 
+    // Handles released by a rename sit in a 90-day anti-impersonation
+    // cooldown (handle_redirects.released_at). The rename path enforces
+    // it; signup must too, or the cooldown is trivially bypassed with a
+    // fresh account. New signups have no prior handle to reclaim, so any
+    // in-cooldown row is a hard conflict. The redirect row is left in
+    // place — /u/<old-handle> keeps 301-ing until expiry, and the unique
+    // index on users.handle is the backstop for the expired-row race.
+    let reserved = sqlx::query_scalar!(
+        r#"select (released_at > now()) as "in_cooldown!"
+             from handle_redirects where old_handle = $1"#,
+        body.handle
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    if reserved == Some(true) {
+        return Err(AppError::Conflict("handle is reserved".into()));
+    }
+
     let hash = crate::auth::password::hash(body.password).await?;
     let user = queries::create_with_password(
         &state.pool,
