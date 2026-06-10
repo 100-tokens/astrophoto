@@ -180,13 +180,18 @@ pub async fn mark_failed(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), Ap
 /// up next and fills in `display_key` + telemetry via the external
 /// service, then transitions status to `ready`.
 pub async fn mark_awaiting_calibration(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
-    // Runtime query — the cached `.sqlx/` doesn't have this exact SQL
-    // yet. Promoted to `sqlx::query!` after `cargo sqlx prepare`.
-    sqlx::query("update photos set status='awaiting-calibration', pipeline_error=null where id=$1")
-        .bind(id)
-        .execute(pool)
-        .await
-        .map_err(AppError::from)?;
+    // `calibration_requested_at` is the clock the cleanup sweep uses to
+    // time out interrupted calibrations — created_at/replaced_at are
+    // wrong for retried finalizes (see migration 0034).
+    sqlx::query!(
+        "update photos
+            set status='awaiting-calibration', pipeline_error=null,
+                calibration_requested_at=now()
+          where id=$1",
+        id
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
