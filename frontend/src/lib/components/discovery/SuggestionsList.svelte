@@ -33,7 +33,7 @@
   }
 </script>
 
-<div class="suggestions" role="listbox" aria-label="Search suggestions">
+<div class="suggestions" id="global-search-listbox" role="listbox" aria-label="Search suggestions">
   {#if results.targets.length > 0}
     <div class="bucket">
       <div class="bucket-label">● TARGETS · {results.targets.length}</div>
@@ -42,6 +42,7 @@
           type="button"
           class="drop-row"
           class:drop-row-focused={focusedIndex === i}
+          id={`global-search-opt-${i}`}
           role="option"
           aria-selected={focusedIndex === i}
           onmouseenter={() => onFocusChange?.(i)}
@@ -68,6 +69,7 @@
           type="button"
           class="drop-row"
           class:drop-row-focused={focusedIndex === idx}
+          id={`global-search-opt-${idx}`}
           role="option"
           aria-selected={focusedIndex === idx}
           onmouseenter={() => onFocusChange?.(idx)}
@@ -90,6 +92,7 @@
           type="button"
           class="drop-row"
           class:drop-row-focused={focusedIndex === idx}
+          id={`global-search-opt-${idx}`}
           role="option"
           aria-selected={focusedIndex === idx}
           onmouseenter={() => onFocusChange?.(idx)}
@@ -102,7 +105,7 @@
     </div>
   {/if}
 
-  <div class="footer">
+  <div class="footer" role="presentation">
     <span class="footer-hint">↑↓ NAVIGATE · ↩ OPEN · ESC CLOSE</span>
     <span class="footer-all">SEE ALL →</span>
   </div>

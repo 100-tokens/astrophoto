@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { env } from '$env/dynamic/public';
 import { api, ApiError } from '$lib/api/client';
 import type { Handle } from '@sveltejs/kit';
 
@@ -12,6 +13,34 @@ function parseCookie(header: string, name: string): string | null {
   const m = header.match(re);
   return m ? decodeURIComponent(m[1] ?? '') : null;
 }
+
+// Report-only CSP: surfaces would-be violations in browser consoles without
+// any breakage risk. Enforcing needs browser validation (SvelteKit's inline
+// hydration bootstrap, the app.html font-loader's inline `onload` handler —
+// both covered by 'unsafe-inline' below) and should graduate to kit.csp
+// (mode 'auto', which nonces the bootstrap) once this policy stays quiet.
+// img-src includes the image CDN origin when PUBLIC_CDN_BASE_URL is
+// absolute (the '/cdn' dev fallback is same-origin, covered by 'self');
+// connect-src allows *.amazonaws.com for the direct-to-S3 presigned PUT
+// upload path, which bypasses the /api proxy by design.
+const cdnOrigin = (() => {
+  const base = env.PUBLIC_CDN_BASE_URL ?? '';
+  if (!base.startsWith('http')) return '';
+  try {
+    return new URL(base).origin;
+  } catch {
+    return '';
+  }
+})();
+const REPORT_ONLY_CSP = [
+  `default-src 'self'`,
+  `script-src 'self' 'unsafe-inline'`,
+  `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+  `font-src 'self' https://fonts.gstatic.com`,
+  `img-src 'self' data: blob:${cdnOrigin ? ` ${cdnOrigin}` : ''}`,
+  `connect-src 'self' https://*.amazonaws.com${cdnOrigin ? ` ${cdnOrigin}` : ''}`,
+  `frame-ancestors 'none'`
+].join('; ');
 
 export const handle: Handle = async ({ event, resolve }) => {
   // Apex → www redirect. The canonical host is www.astrophoto.pics; apex
@@ -78,11 +107,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // Baseline security headers. Set each only if a downstream handler/route
   // hasn't already provided it, so route-specific overrides win.
-  // NOTE: no Content-Security-Policy here on purpose — enforcing one risks
-  // breaking Google Fonts, the image CDN, and Svelte's inline styles. A
-  // properly scoped CSP needs dedicated work (nonces/hashes) and should land
-  // as its own change.
+  // NOTE: no enforcing Content-Security-Policy on purpose — enforcing one
+  // risks breaking Google Fonts, the image CDN, and Svelte's inline styles.
+  // The Report-Only variant (built above) is shipped instead to gather
+  // violation data; graduating it to enforcing needs dedicated work
+  // (nonces/hashes via kit.csp) and should land as its own change.
   const securityHeaders: Record<string, string> = {
+    'Content-Security-Policy-Report-Only': REPORT_ONLY_CSP,
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'Referrer-Policy': 'strict-origin-when-cross-origin',

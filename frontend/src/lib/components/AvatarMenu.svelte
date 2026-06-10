@@ -20,6 +20,7 @@
 
   let open = $state(false);
   let containerEl: HTMLDivElement | undefined = $state();
+  let triggerEl: HTMLButtonElement | undefined = $state();
 
   function toggle() {
     open = !open;
@@ -37,7 +38,11 @@
       if (containerEl && !containerEl.contains(e.target as Node)) close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        close();
+        // Closing unmounts the dropdown; without this, focus drops to <body>.
+        triggerEl?.focus();
+      }
     };
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onKey);
@@ -51,7 +56,7 @@
 </script>
 
 <div class="avatar-wrap" bind:this={containerEl}>
-  <button type="button" class="avatar" aria-haspopup="menu" aria-expanded={open} onclick={toggle}>
+  <button type="button" class="avatar" bind:this={triggerEl} aria-expanded={open} onclick={toggle}>
     {#if avatarSrc}
       <img src={avatarSrc} alt={user.displayName} width="32" height="32" />
     {:else}
@@ -60,23 +65,25 @@
   </button>
 
   {#if open}
-    <div class="menu" role="menu">
+    <!-- Plain disclosure (no role=menu): items are native links/buttons
+         operable via Tab, so ARIA menu keyboard semantics are not required. -->
+    <div class="menu">
       <div class="menu-greeting">
         <span class="t-meta" style="color: var(--fg-muted);">Signed in as</span>
         <div style="color: var(--fg-primary); font-size: 13px;">{user.displayName}</div>
       </div>
       <div class="menu-divider"></div>
-      <a href="/u/{user.handle}" class="menu-item" role="menuitem" onclick={close}>Profile</a>
-      <a href="/account/frames" class="menu-item" role="menuitem" onclick={close}>My frames</a>
-      <a href="/me/drafts" class="menu-item" role="menuitem" onclick={close}>Drafts</a>
-      <a href="/upload" class="menu-item" role="menuitem" onclick={close}>Upload</a>
+      <a href="/u/{user.handle}" class="menu-item" onclick={close}>Profile</a>
+      <a href="/account/frames" class="menu-item" onclick={close}>My frames</a>
+      <a href="/me/drafts" class="menu-item" onclick={close}>Drafts</a>
+      <a href="/upload" class="menu-item" onclick={close}>Upload</a>
       <div class="menu-divider"></div>
       {#if user.isAdmin}
-        <a href="/admin" class="menu-item menu-item-admin" role="menuitem" onclick={close}>Admin</a>
+        <a href="/admin" class="menu-item menu-item-admin" onclick={close}>Admin</a>
       {/if}
-      <a href="/settings" class="menu-item" role="menuitem" onclick={close}>Settings</a>
+      <a href="/settings" class="menu-item" onclick={close}>Settings</a>
       <form method="POST" action="/account/logout">
-        <button type="submit" class="menu-item menu-item-button" role="menuitem"> Sign out </button>
+        <button type="submit" class="menu-item menu-item-button"> Sign out </button>
       </form>
     </div>
   {/if}

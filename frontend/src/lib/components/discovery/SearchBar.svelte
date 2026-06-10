@@ -188,6 +188,13 @@
       autocomplete="off"
       spellcheck={false}
       aria-label="Search"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-expanded={showSuggestions}
+      aria-controls="global-search-listbox"
+      aria-activedescendant={showSuggestions && focusedIdx >= 0
+        ? `global-search-opt-${focusedIdx}`
+        : undefined}
       onfocus={() => {
         focused = true;
       }}

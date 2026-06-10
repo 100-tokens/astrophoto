@@ -303,13 +303,15 @@
       <UploadDropzone {onFiles} tierMax={TIER_MAX} tier={data.tier} />
 
       {#if queueCapWarning}
-        <p class="cap-warning t-meta">⚠ {queueCapWarning}</p>
+        <p class="cap-warning t-meta" role="alert">⚠ {queueCapWarning}</p>
       {/if}
 
       {#if slots.length}
         <div class="file-list">
           <header class="queue-header">
-            <p class="t-eyebrow">
+            <!-- Polite live region: mirrors per-file state transitions as
+                 aggregate counts so screen readers hear queue progress. -->
+            <p class="t-eyebrow" aria-live="polite" aria-atomic="true">
               ● FILES · {slots.length} · {queueCounts.ready} ready · {queueCounts.inflight} uploading
               {#if queueCounts.blocked > 0}· {queueCounts.blocked} blocked{/if}
             </p>

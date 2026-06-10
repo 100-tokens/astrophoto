@@ -67,7 +67,10 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
         `      <pubDate>${pubDate}</pubDate>`,
         `      <dc:creator>${escape(p.author_display_name || p.author_handle)}</dc:creator>`,
         `      <description>${escape(`${title} — captured by ${p.author_display_name || '@' + p.author_handle} on Astrophoto.`)}</description>`,
-        `      <enclosure url="${escape(imgUrl)}" type="image/jpeg" />`,
+        // RSS 2.0 requires all three enclosure attributes; length="0" is the
+        // RSS Best Practices Profile's sanctioned value for unknown sizes
+        // (we never fetch the image bytes here).
+        `      <enclosure url="${escape(imgUrl)}" length="0" type="image/jpeg" />`,
         `      <media:content url="${escape(imgUrl)}" medium="image" />`,
         '    </item>'
       ].join('\n');

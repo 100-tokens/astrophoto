@@ -571,8 +571,9 @@
             </div>
 
             <div class="block">
-              <div class="t-label">CAPTION</div>
+              <label class="t-label" for="verify-caption">CAPTION</label>
               <Textarea
+                id="verify-caption"
                 name="caption"
                 rows={4}
                 bind:value={caption}
