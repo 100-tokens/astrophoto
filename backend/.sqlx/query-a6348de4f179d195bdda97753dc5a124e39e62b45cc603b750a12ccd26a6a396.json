@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select owner_id, storage_key from photos where id = $1",
+  "query": "select owner_id, storage_key, display_key from photos where id = $1",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "storage_key",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_key",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -21,8 +26,9 @@
     },
     "nullable": [
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "a1182f6aa3344cb3f7b6fb19bfa724eadb8db2ca20bdcb458051555ab597a26c"
+  "hash": "a6348de4f179d195bdda97753dc5a124e39e62b45cc603b750a12ccd26a6a396"
 }

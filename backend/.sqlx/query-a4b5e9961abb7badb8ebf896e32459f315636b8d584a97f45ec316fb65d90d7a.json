@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set status='awaiting-calibration', pipeline_error=null,\n                calibration_requested_at=now()\n          where id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a4b5e9961abb7badb8ebf896e32459f315636b8d584a97f45ec316fb65d90d7a"
+}

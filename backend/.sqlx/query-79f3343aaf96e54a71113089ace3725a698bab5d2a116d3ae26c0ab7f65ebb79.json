@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select owner_id, storage_key, status, published_at from photos where id = $1",
+  "query": "select owner_id, storage_key, display_key, status, published_at from photos where id = $1",
   "describe": {
     "columns": [
       {
@@ -15,11 +15,16 @@
       },
       {
         "ordinal": 2,
-        "name": "status",
+        "name": "display_key",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "published_at",
         "type_info": "Timestamptz"
       }
@@ -32,9 +37,10 @@
     "nullable": [
       false,
       false,
+      true,
       false,
       true
     ]
   },
-  "hash": "bc6d97e0b3498dad3dc2cf7f9f21195f1b7595bd47b8a8379670d1e4c77af35f"
+  "hash": "79f3343aaf96e54a71113089ace3725a698bab5d2a116d3ae26c0ab7f65ebb79"
 }

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select d.storage_key from photo_pending_deletes d\n           join photos p on p.id = d.photo_id\n          where d.queued_at < now() - interval '7 days'\n            and p.status = 'ready'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "10207626afa900766c72846e1eef1a565b3216977594c4e91563be2d61d5e5b9"
+}

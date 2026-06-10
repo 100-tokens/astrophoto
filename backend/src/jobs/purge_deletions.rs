@@ -58,9 +58,16 @@ pub async fn purge_once(pool: &PgPool, storage: &dyn Storage) -> Result<u64, App
 }
 
 pub async fn sweep_pending_deletes(pool: &PgPool, storage: &dyn Storage) -> Result<u64, AppError> {
+    // Only drain rows whose photo is back in status='ready': pending
+    // deletes hold the PREVIOUS original/thumbnails of a replace, and a
+    // replace that failed (or is still mid-calibration) means those keys
+    // are the only good assets the photo has left. Deleting them on age
+    // alone would permanently destroy a bricked photo's archival master.
     let stale: Vec<String> = sqlx::query_scalar!(
-        "select storage_key from photo_pending_deletes
-         where queued_at < now() - interval '7 days'"
+        "select d.storage_key from photo_pending_deletes d
+           join photos p on p.id = d.photo_id
+          where d.queued_at < now() - interval '7 days'
+            and p.status = 'ready'"
     )
     .fetch_all(pool)
     .await?;
@@ -69,7 +76,11 @@ pub async fn sweep_pending_deletes(pool: &PgPool, storage: &dyn Storage) -> Resu
     }
     storage.delete_objects(&stale).await?;
     let n = sqlx::query!(
-        "delete from photo_pending_deletes where queued_at < now() - interval '7 days'"
+        "delete from photo_pending_deletes d
+          using photos p
+          where p.id = d.photo_id
+            and d.queued_at < now() - interval '7 days'
+            and p.status = 'ready'"
     )
     .execute(pool)
     .await?
@@ -90,6 +101,16 @@ async fn purge_one_user(
     .fetch_all(pool)
     .await?;
 
+    // Display masters — the keys CloudFront actually serves. Skipping
+    // them would leave every deleted user's images publicly fetchable.
+    let display_keys: Vec<String> = sqlx::query_scalar!(
+        r#"select display_key as "display_key!" from photos
+           where owner_id = $1 and display_key is not null"#,
+        user_id
+    )
+    .fetch_all(pool)
+    .await?;
+
     // Collect S3 keys for all thumbnails belonging to those photos.
     let thumb_keys: Vec<String> = sqlx::query_scalar!(
         "select t.storage_key from thumbnails t
@@ -100,7 +121,32 @@ async fn purge_one_user(
     .fetch_all(pool)
     .await?;
 
-    let to_delete: Vec<String> = photo_keys.into_iter().chain(thumb_keys).collect();
+    // Keys still queued from replaces (the user CASCADE takes the rows).
+    let pending_keys: Vec<String> = sqlx::query_scalar!(
+        "select pd.storage_key from photo_pending_deletes pd
+         join photos p on p.id = pd.photo_id
+         where p.owner_id = $1",
+        user_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    // The avatar display object lives outside the photos table.
+    let avatar_id: Option<Uuid> =
+        sqlx::query_scalar!("select avatar_id from users where id = $1", user_id)
+            .fetch_optional(pool)
+            .await?
+            .flatten();
+
+    let mut to_delete: Vec<String> = photo_keys
+        .into_iter()
+        .chain(display_keys)
+        .chain(thumb_keys)
+        .chain(pending_keys)
+        .collect();
+    if let Some(aid) = avatar_id {
+        to_delete.push(format!("display/{aid}.jpg"));
+    }
 
     if !to_delete.is_empty() {
         storage.delete_objects(&to_delete).await?;
