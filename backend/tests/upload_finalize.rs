@@ -244,7 +244,7 @@ async fn finalize_404_cross_owner() {
 
 #[allow(clippy::unwrap_used)]
 #[tokio::test]
-async fn finalize_408_no_s3_object() {
+async fn finalize_409_no_s3_object() {
     let pg = PgImage::default()
         .with_tag("16-alpine")
         .start()
@@ -286,8 +286,8 @@ async fn finalize_408_no_s3_object() {
     let resp = finalize(&app, photo_id, &cookie).await;
     assert_eq!(
         resp.status(),
-        408,
-        "missing S3 object should return 408 (PendingFinalizeStuck)"
+        409,
+        "missing S3 object should return 409 (PendingFinalizeStuck)"
     );
     let body_bytes = resp.into_body().collect().await.unwrap().to_bytes();
     let v: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();

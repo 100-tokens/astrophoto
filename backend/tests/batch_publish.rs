@@ -18,7 +18,7 @@ async fn insert_with_status(pool: &sqlx::PgPool, owner: Uuid, status: &str) -> U
 #[tokio::test]
 async fn batch_publish_publishes_ready_skips_processing() {
     let app = TestApp::launch().await;
-    let (cookie, user_id) = app.signup_with_handle("M", "m", "m@m.com").await;
+    let (cookie, user_id) = app.signup_with_handle("M", "marie", "m@m.com").await;
     let ready = insert_with_status(&app.pool, user_id, "ready").await;
     let processing = insert_with_status(&app.pool, user_id, "processing").await;
     let failed = insert_with_status(&app.pool, user_id, "failed").await;
@@ -47,8 +47,8 @@ async fn batch_publish_publishes_ready_skips_processing() {
 #[tokio::test]
 async fn batch_publish_403_on_other_users_id() {
     let app = TestApp::launch().await;
-    let (cookie_a, user_a) = app.signup_with_handle("A", "a", "a@a.com").await;
-    let (_, user_b) = app.signup_with_handle("B", "b", "b@b.com").await;
+    let (cookie_a, user_a) = app.signup_with_handle("A", "alice", "a@a.com").await;
+    let (_, user_b) = app.signup_with_handle("B", "bob", "b@b.com").await;
     let mine = insert_with_status(&app.pool, user_a, "ready").await;
     let theirs = insert_with_status(&app.pool, user_b, "ready").await;
 
@@ -66,7 +66,7 @@ async fn batch_publish_403_on_other_users_id() {
 #[tokio::test]
 async fn batch_publish_already_published_is_skipped_not_errored() {
     let app = TestApp::launch().await;
-    let (cookie, user_id) = app.signup_with_handle("M", "m", "m@m.com").await;
+    let (cookie, user_id) = app.signup_with_handle("M", "marie", "m@m.com").await;
     let pub1 = app.ready_photo(user_id).await;
 
     let (status, resp): (_, serde_json::Value) = app

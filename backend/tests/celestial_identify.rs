@@ -45,17 +45,21 @@ async fn identify_writes_expected_rows_with_filter() {
 
     // Fake photo solved at 180/0 with a 0.4° FOV (1440 px × 1″/px).
     let owner = Uuid::new_v4();
-    sqlx::query("insert into users (id, display_name) values ($1, 'tester')")
-        .bind(owner)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "insert into users (id, display_name, email, handle)
+         values ($1, 'tester', $1 || '@test.local', 'u-' || left($1::text, 8))",
+    )
+    .bind(owner)
+    .execute(&pool)
+    .await
+    .unwrap();
     let photo_id = Uuid::new_v4();
     sqlx::query(
-        r#"insert into photos (id, owner_id, storage_key, original_name, mime,
+        r#"insert into photos (id, owner_id, storage_key, original_name, bytes, mime,
                                ra_deg, dec_deg, platesolve_pixel_scale_arcsec,
-                               width, height)
-           values ($1, $2, 'k', 'n', 'image/jpeg', 180.0, 0.0, 1.0, 1440, 1440)"#,
+                               width, height, original_uploaded_at, short_id)
+           values ($1, $2, 'k', 'n', 10, 'image/jpeg', 180.0, 0.0, 1.0, 1440, 1440,
+                   now(), upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))"#,
     )
     .bind(photo_id)
     .bind(owner)
@@ -103,17 +107,22 @@ async fn identify_short_circuits_when_photo_missing_solve_data() {
     let (pool, _url) = fresh_db().await;
 
     let owner = Uuid::new_v4();
-    sqlx::query("insert into users (id, display_name) values ($1, 'tester')")
-        .bind(owner)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "insert into users (id, display_name, email, handle)
+         values ($1, 'tester', $1 || '@test.local', 'u-' || left($1::text, 8))",
+    )
+    .bind(owner)
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Photo with no solve data (ra_deg null).
     let photo_id = Uuid::new_v4();
     sqlx::query(
-        r#"insert into photos (id, owner_id, storage_key, original_name, mime, width, height)
-           values ($1, $2, 'k', 'n', 'image/jpeg', 1000, 1000)"#,
+        r#"insert into photos (id, owner_id, storage_key, original_name, bytes, mime,
+                               width, height, original_uploaded_at, short_id)
+           values ($1, $2, 'k', 'n', 10, 'image/jpeg', 1000, 1000,
+                   now(), upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))"#,
     )
     .bind(photo_id)
     .bind(owner)
