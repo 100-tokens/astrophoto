@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Compile sqlx macros against the committed backend/.sqlx/ cache —
+      # no database is needed to build. Integration tests spin up their
+      # own Postgres via testcontainers (Docker is preinstalled and
+      # running on GitHub-hosted ubuntu runners).
+      SQLX_OFFLINE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (per rust-toolchain.toml)
+        # rust-toolchain.toml at the repo root pins the channel and the
+        # rustfmt/clippy components; no-arg install reads it.
+        working-directory: .
+        run: rustup toolchain install
+
+      - name: Restore cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: cargo fmt
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --all-targets
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable pnpm via corepack
+        # package.json has no `packageManager` field, so pin the version
+        # explicitly (matches the lockfileVersion 9.0 lockfile).
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.2 --activate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm check
+        run: pnpm check
+
+      - name: pnpm lint
+        run: pnpm lint
