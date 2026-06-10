@@ -83,6 +83,12 @@ pub struct CallbackQuery {
 struct Userinfo {
     sub: String,
     email: String,
+    // Google asserts this only for addresses it has actually verified
+    // (absent => false via serde default). Account linking and creation
+    // below MUST gate on it — an unverified email claim matching an
+    // existing local account would otherwise be an account takeover.
+    #[serde(default)]
+    email_verified: bool,
     name: Option<String>,
 }
 
@@ -199,6 +205,16 @@ async fn upsert_oauth_user(pool: &sqlx::PgPool, info: &Userinfo) -> Result<uuid:
     .await?
     {
         return Ok(row.user_id);
+    }
+
+    // Steps 2 and 3 trust the Google-asserted email (to link to an
+    // existing account, or to mint a new one pre-verified). Refuse both
+    // unless Google says the address is verified. Step 1 (identity
+    // already linked) is keyed on the immutable `sub` and stays usable.
+    if !info.email_verified {
+        return Err(AppError::Validation(
+            "Google account email is not verified".into(),
+        ));
     }
 
     // 2. User exists by email? Link them.
