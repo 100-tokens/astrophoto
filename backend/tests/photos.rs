@@ -28,7 +28,6 @@ fn config_for(url: &str) -> Config {
         bind: "127.0.0.1:0".into(),
         log: "info".into(),
         database_url: url.into(),
-        session_domain: "localhost".into(),
         session_secure: false,
         public_base_url: "http://localhost:8080".into(),
         s3_endpoint: None,
