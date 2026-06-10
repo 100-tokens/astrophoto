@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::AppError;
 use crate::auth::middleware::CurrentUser;
 use crate::http::AppState;
-use crate::photos::{pipeline, queries};
+use crate::photos::{magic, pipeline, platesolve_upload, queries};
 
 const MAX_BYTES: usize = 50 * 1024 * 1024;
 const ALLOWED_MIMES: &[&str] = &[
@@ -35,7 +35,7 @@ pub async fn handler(
     if row.owner_id != user.id {
         return Err(AppError::Forbidden);
     }
-    if row.status == "processing" {
+    if row.status == "processing" || row.status == "awaiting-calibration" {
         return Err(AppError::BadRequest("pipeline busy".into()));
     }
 
@@ -71,6 +71,25 @@ pub async fn handler(
     if !ALLOWED_MIMES.contains(&mime.as_str()) {
         return Err(AppError::Validation(format!("unsupported mime: {mime}")));
     }
+    // XISF can't be decoded locally — it goes through the external
+    // plate-solve service (same as upload_finalize). Without a client
+    // configured the photo would brick in `awaiting-calibration`.
+    let is_xisf = mime == "application/x-xisf";
+    if is_xisf && state.platesolve.is_none() {
+        return Err(AppError::UnsupportedFormat(format!(
+            "{mime} (plate-solve service not configured)"
+        )));
+    }
+
+    // Magic-byte sniff BEFORE any destructive prep. The steps below
+    // enqueue the old master for deletion and swap the storage key, so
+    // a payload that can never finalize must be rejected up front —
+    // otherwise the photo is left failed and the 7-day sweep would
+    // destroy the only good original.
+    let sig = magic::sniff(&bytes);
+    if !magic::matches_mime(sig, &mime) {
+        return Err(AppError::MagicByteMismatch(format!("{sig:?}")));
+    }
 
     // 1. Stash old master + thumb keys for deferred deletion.
     let mut to_stash = vec![row.storage_key.clone()];
@@ -101,7 +120,19 @@ pub async fn handler(
         .execute(&state.pool)
         .await?;
 
-    // 5. Spawn pipeline with Replace options — drains pending deletes on success.
+    // 5a. XISF: no local decoder — route through the auto-calibrate
+    // path exactly like upload_finalize. The solve service returns the
+    // WCS + display JPEG and transitions status to ready/failed. The
+    // stashed pending deletes stay queued; the purge sweep only drains
+    // rows for photos back in status='ready', so the old original
+    // survives until the replacement is actually viable.
+    if is_xisf {
+        queries::mark_awaiting_calibration(&state.pool, id).await?;
+        platesolve_upload::auto_calibrate_xisf(state.clone(), id, new_key, user.id);
+        return Ok(StatusCode::ACCEPTED);
+    }
+
+    // 5b. Spawn pipeline with Replace options — drains pending deletes on success.
     let pool = state.pool.clone();
     let storage = state.storage.clone();
     tokio::spawn(async move {
