@@ -136,7 +136,7 @@ pub async fn edit(
     let mut tx = state.pool.begin().await?;
 
     let row = sqlx::query!(
-        r#"select kind, brand, model, variant
+        r#"select kind, brand, model, variant, display_name
              from equipment_items where id = $1 for update"#,
         id
     )
@@ -218,6 +218,13 @@ pub async fn edit(
             ));
         }
         Err(e) => return Err(AppError::Database(e)),
+    }
+
+    // photos.filters is a denormalized cache of display names derived from
+    // the photo_filters junction — a rename must rebuild it for every photo
+    // referencing this item, in the same transaction.
+    if display_name != row.display_name {
+        crate::photos::filters_cache::rebuild_for_item(&mut tx, id).await?;
     }
 
     // Replace the per-kind specs row, if provided (same contract as the public
