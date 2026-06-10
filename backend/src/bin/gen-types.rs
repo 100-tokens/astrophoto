@@ -9,14 +9,15 @@ use astrophoto::api_types::{
     AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest, BatchPublishResponse,
     CatalogValues, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem,
     DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets,
-    EquipmentItemDetail, EquipmentItemInput, EquipmentItemRef, EquipmentMeta, EquipmentPage,
-    EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage, GalleryPhoto, Health,
-    HeroStats, LocationSummary, MeStats, PatchTargetsItem, PatchTargetsResponse, PhotoDetail,
-    PhotoFilterChip, PhotographerIndexPage, PhotographerListItem, Preferences, Profile,
-    PublicProfile, PublishedItem, RoleCount, SearchResults, SearchTargetHit, SearchUserHit,
-    SessionRow, SetupDetail, SetupInput, SetupInputItem, SetupItem, SetupSummary, SiteStats,
-    SkipReason, SkippedItem, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage,
-    TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
+    EquipmentItemDetail, EquipmentItemInput, EquipmentItemPatch, EquipmentItemRef, EquipmentMeta,
+    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
+    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
+    PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
+    PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
+    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
+    SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
+    SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
+    TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
@@ -72,6 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     SetupInputItem::export_all_to(out_dir)?;
     SetupInput::export_all_to(out_dir)?;
     EquipmentItemInput::export_all_to(out_dir)?;
+    EquipmentItemPatch::export_all_to(out_dir)?;
     ApplySetupInput::export_all_to(out_dir)?;
     DraftListItem::export_all_to(out_dir)?;
     DraftListResponse::export_all_to(out_dir)?;

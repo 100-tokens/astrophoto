@@ -13,9 +13,9 @@ export type CameraSpecs = {
   /**
    * Catalog v2 (migration 0022): completeness fields.
    */
-  self_weight_g: number | null;
-  full_well_capacity_e: number | null;
-  read_noise_e: number | null;
-  mount_thread: string | null;
-  backfocus_mm: number | null;
+  self_weight_g?: number | null;
+  full_well_capacity_e?: number | null;
+  read_noise_e?: number | null;
+  mount_thread?: string | null;
+  backfocus_mm?: number | null;
 };

@@ -294,7 +294,7 @@
       }
     }
     if (
-      createSpecs.mounted_diameter_mm === null ||
+      createSpecs.mounted_diameter_mm == null ||
       !Number.isFinite(createSpecs.mounted_diameter_mm) ||
       createSpecs.mounted_diameter_mm <= 0
     ) {

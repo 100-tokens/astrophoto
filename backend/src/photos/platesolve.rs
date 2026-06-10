@@ -224,6 +224,9 @@ pub struct PlatesolveResult {
     pub fits: Vec<FitsKeyword>,
     pub pcl_properties: Vec<PclProperty>,
     pub has_distortion: bool,
+    // JSON numbers, not TS bigint — JSON.parse never yields bigint and the
+    // values fit comfortably in 2^53.
+    #[ts(type = "number")]
     pub elapsed_ms: u64,
     /// Present iff `SolveOptions::render == Some(true)` AND the
     /// service successfully decoded the XISF into a JPEG. Render

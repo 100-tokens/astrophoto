@@ -50,7 +50,7 @@
 
 <header class="head">
   <h1>Equipment catalog</h1>
-  <p class="count">{data.total} item{data.total === 1n ? '' : 's'}</p>
+  <p class="count">{data.total} item{data.total === 1 ? '' : 's'}</p>
 </header>
 
 <div class="filters">

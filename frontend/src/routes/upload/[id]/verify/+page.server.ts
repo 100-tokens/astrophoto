@@ -1,5 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import type { SetupDetail } from '$lib/api/SetupDetail';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
@@ -105,11 +106,8 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
         headers: { Cookie: cookie }
       });
       if (dr.ok) {
-        const detail = await dr.json();
-        const items = (detail.items ?? []) as Array<{
-          role: string;
-          item: { display_name: string };
-        }>;
+        const detail: SetupDetail = await dr.json();
+        const items = detail.items ?? [];
         const byRole = (role: string): string | null =>
           items.find((i) => i.role === role)?.item.display_name ?? null;
         setupValues = {
@@ -117,7 +115,7 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
           scope: byRole('optical_tube'),
           mount: byRole('mount'),
           focal_modifier: byRole('focal_modifier'),
-          guiding: (detail.guiding as string | null) ?? null
+          guiding: detail.guiding ?? null
         };
       }
     } catch {

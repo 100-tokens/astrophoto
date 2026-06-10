@@ -6,7 +6,7 @@ import type { AdminEquipmentItem } from './AdminEquipmentItem';
  */
 export type AdminEquipmentPage = {
   items: Array<AdminEquipmentItem>;
-  total: bigint;
+  total: number;
   page: number;
   has_more: boolean;
 };

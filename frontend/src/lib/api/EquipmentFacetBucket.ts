@@ -4,4 +4,4 @@
  * One facet bucket: a category value and the number of items in the
  * catalog (for the given kind) that have that value.
  */
-export type EquipmentFacetBucket = { value: string; count: bigint };
+export type EquipmentFacetBucket = { value: string; count: number };

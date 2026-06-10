@@ -11,6 +11,6 @@ export type TargetListItem = {
    * Opposition / midnight-culmination day-of-year (1..365). See TargetMeta.
    */
   opposition_doy: number | null;
-  photo_count: bigint;
+  photo_count: number;
   preview_thumbs: Array<TargetPreviewThumb>;
 };

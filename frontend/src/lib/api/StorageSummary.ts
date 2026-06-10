@@ -6,12 +6,12 @@ export type StorageSummary = {
    * Sum of `photos.bytes` for rows owned by the caller. Doesn't
    * include thumbnails or display masters.
    */
-  used_bytes: bigint;
+  used_bytes: number;
   /**
    * Tier-derived ceiling, used by the upload page footer to render
    * "STORAGE · 1.84 / 5.00 GB USED". Soft signal only — per-file
    * size enforcement lives in the upload-init handler.
    */
-  quota_bytes: bigint;
+  quota_bytes: number;
   tier: UserTier;
 };

@@ -8,7 +8,7 @@ export type PhotoDetail = {
   short_id: string;
   status: string;
   original_name: string;
-  bytes: bigint;
+  bytes: number;
   mime: string;
   width: number | null;
   height: number | null;
@@ -32,10 +32,18 @@ export type PhotoDetail = {
   dec_deg: number | null;
   target: string | null;
   caption: string | null;
+  /**
+   * User-entered acquisition freetext + taxonomy (migration 0009).
+   * Mirrors the handler's response struct in photos/get.rs.
+   */
+  scope: string | null;
+  mount: string | null;
+  guiding: string | null;
+  category: string | null;
   taken_at: string | null;
   created_at: string;
-  appreciation_count: bigint;
-  comment_count: bigint;
+  appreciation_count: number;
+  comment_count: number;
   is_draft: boolean;
   last_step: string | null;
   replaced_at: string | null;

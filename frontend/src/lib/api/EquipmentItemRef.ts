@@ -14,5 +14,5 @@ export type EquipmentItemRef = {
    */
   brand: string;
   model: string;
-  variant: string | null;
+  variant?: string | null;
 };

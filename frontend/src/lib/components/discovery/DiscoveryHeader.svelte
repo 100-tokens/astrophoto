@@ -13,7 +13,7 @@
   type TargetProps = { variant: 'target'; meta: TargetMeta };
   type TagProps = { variant: 'tag'; meta: TagMeta };
   type EquipmentProps = { variant: 'equipment'; meta: EquipmentMeta };
-  type CategoryProps = { variant: 'category'; category: string; photoCount?: bigint };
+  type CategoryProps = { variant: 'category'; category: string; photoCount?: number };
   type SearchProps = { variant: 'search'; q: string; resultCount?: number };
 
   type Props = ExploreProps | TargetProps | TagProps | EquipmentProps | CategoryProps | SearchProps;

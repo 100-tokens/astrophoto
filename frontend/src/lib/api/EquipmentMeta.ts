@@ -6,5 +6,5 @@ export type EquipmentMeta = {
   slug: string;
   canonical_name: string;
   display_name: string;
-  photo_count: bigint;
+  photo_count: number;
 };

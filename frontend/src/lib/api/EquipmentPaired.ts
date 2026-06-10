@@ -4,5 +4,5 @@ export type EquipmentPaired = {
   kind: string;
   slug: string;
   display_name: string;
-  shared_count: bigint;
+  shared_count: number;
 };

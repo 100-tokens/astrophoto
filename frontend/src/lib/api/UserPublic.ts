@@ -9,5 +9,5 @@ export type UserPublic = {
   handle: string;
   display_name: string;
   created_at: string;
-  photo_count: bigint;
+  photo_count: number;
 };

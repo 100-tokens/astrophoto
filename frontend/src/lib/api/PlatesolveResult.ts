@@ -19,7 +19,7 @@ export type PlatesolveResult = {
   fits: Array<FitsKeyword>;
   pclProperties: Array<PclProperty>;
   hasDistortion: boolean;
-  elapsedMs: bigint;
+  elapsedMs: number;
   /**
    * Present iff `SolveOptions::render == Some(true)` AND the
    * service successfully decoded the XISF into a JPEG. Render

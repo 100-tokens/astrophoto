@@ -16,6 +16,7 @@
   import VerifyStepper from '$lib/components/verify-form/VerifyStepper.svelte';
   import { computeProvenance } from '$lib/utils/provenance';
   import type { FilterIntegration as FilterIntegrationT } from '$lib/api/FilterIntegration';
+  import type { PhotoDetail } from '$lib/api/PhotoDetail';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
   import type { PlatesolveStatus } from '$lib/api/PlatesolveStatus';
   import type { SetupSummary } from '$lib/api/SetupSummary';
@@ -176,17 +177,8 @@
   // The cast and helper-function pattern dodges the "$state initialized
   // from prop" lint while keeping the seeding intentional and readable.
   // --------------------------------------------------------------------
-  type ShowcasePhoto = typeof data.photo & {
-    setup_id?: string | null;
-    category?: string | null;
-    scope?: string | null;
-    focal_modifier?: string | null;
-    mount?: string | null;
-    filters?: string | null;
-    guiding?: string | null;
-  };
   function initialPhoto() {
-    return data.photo as ShowcasePhoto;
+    return data.photo as PhotoDetail;
   }
   function initialFilterChips() {
     return (data.photo.filter_items ?? []) as PhotoFilterChip[];
@@ -332,7 +324,7 @@
   // truth → FROM SOLVE (spec B). The load already fetched the solve status.
   let solved = $derived(data.platesolveStatus?.state === 'solved');
   let provenance = $derived(
-    computeProvenance(data.photo as ShowcasePhoto, data.setupValues, { solved })
+    computeProvenance(data.photo as PhotoDetail, data.setupValues, { solved })
   );
   let fromExif = $derived(provenance.fromExif);
   let fromSetup = $derived(provenance.fromSetup);
