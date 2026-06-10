@@ -75,6 +75,26 @@ pub async fn verify(password: String, hash_str: String) -> Result<bool, AppError
         .map_err(|e| AppError::Internal(format!("argon2 join: {e}")))?
 }
 
+/// A real Argon2id hash (crate-default params, identical to what [`hash`]
+/// produces) of a throwaway password. [`verify_dummy`] runs a full
+/// verification against it so login failure paths that have no stored hash
+/// to check (unknown email, OAuth-only account, locked account) take the
+/// same time as a wrong-password attempt — closing the timing oracle on
+/// account existence.
+const DUMMY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$YXN0cm9waG90by1kdW1teQ$MVt5sdsmSF/59qH7oei2aeNwKeeiXMOH/z26z+e5nCI";
+
+/// Burn one Argon2 verification against a fixed hash. The boolean result is
+/// discarded — only the (constant) work matters. Runs on the blocking pool
+/// behind the same concurrency semaphore as a real verify.
+pub async fn verify_dummy() -> Result<(), AppError> {
+    verify(
+        "astrophoto-timing-equalizer".to_string(),
+        DUMMY_HASH.to_string(),
+    )
+    .await?;
+    Ok(())
+}
+
 fn hash_blocking(password: &str) -> Result<String, AppError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -107,6 +127,14 @@ mod tests {
                 .unwrap()
         );
         assert!(!verify("wrong password".to_string(), h).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn dummy_hash_parses_and_verify_dummy_succeeds() {
+        // Guards the hard-coded DUMMY_HASH literal: it must stay parseable
+        // by the argon2 crate or every login failure path would 500.
+        assert!(PasswordHash::new(DUMMY_HASH).is_ok());
+        verify_dummy().await.unwrap();
     }
 
     #[tokio::test]

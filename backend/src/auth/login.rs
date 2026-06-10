@@ -20,20 +20,29 @@ pub async fn handler(
     headers: HeaderMap,
     Json(body): Json<LoginBody>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user = queries::find_by_email(&state.pool, &body.email)
-        .await?
-        .ok_or(AppError::Unauthorized)?;
+    // Every 401 path below performs exactly one Argon2 verification (real or
+    // dummy), so response timing never reveals whether the email exists, has
+    // a password, or is locked (anti-enumeration).
+    let Some(user) = queries::find_by_email(&state.pool, &body.email).await? else {
+        password::verify_dummy().await?;
+        return Err(AppError::Unauthorized);
+    };
 
     // Per-account brute-force throttle: a locked account short-circuits to a
-    // generic 401 (uniform with a wrong password, and skipping Argon2 keeps the
-    // timing the same as a non-existent email) BEFORE any expensive work. This
-    // also means no failure is recorded while locked, so the lock duration is
-    // fixed regardless of how long the attack continues. See `login_throttle`.
+    // generic 401 BEFORE the real verify, so no failure is recorded while
+    // locked and the lock duration is fixed regardless of how long the attack
+    // continues — the dummy verify keeps the timing uniform without touching
+    // the throttle state. See `login_throttle`.
     if login_throttle::is_locked(&state.pool, user.id).await? {
+        password::verify_dummy().await?;
         return Err(AppError::Unauthorized);
     }
 
-    let stored = user.password_hash.clone().ok_or(AppError::Unauthorized)?;
+    // OAuth-only account: no stored hash to check, same uniform 401.
+    let Some(stored) = user.password_hash.clone() else {
+        password::verify_dummy().await?;
+        return Err(AppError::Unauthorized);
+    };
     let ok = password::verify(body.password, stored).await?;
     if !ok {
         login_throttle::record_failure(&state.pool, user.id).await?;

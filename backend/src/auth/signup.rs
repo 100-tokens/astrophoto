@@ -60,19 +60,33 @@ pub async fn handler(
         .and_then(|s| s.split(',').next())
         .and_then(|s| s.trim().parse().ok());
 
-    let token = email_verify::issue_token(&state.pool, user.id, ip).await?;
-    let link = format!(
-        "{}/verify/{}",
-        state.config.public_base_url.trim_end_matches('/'),
-        token
-    );
-    let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
-    if let Err(e) = state
-        .mailer
-        .send_plain(&user.email, &subject, &mail_body)
-        .await
-    {
-        tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
+    // Site-wide hourly ceiling on outbound verification mail, shared with
+    // the resend endpoint (same token bucket). Without it, mass signups turn
+    // the service into a mail-bombing relay and burn SES reputation. On cap
+    // hit the account is still created and the response is unchanged — the
+    // user can use "resend verification" once the window clears. Per-IP
+    // throttling is intentionally absent (see login_throttle.rs: behind the
+    // reverse proxy the IP axis collapses to one egress address).
+    if email_verify::global_cap_hit(&state.pool).await? {
+        tracing::warn!(
+            user_id = %user.id,
+            "signup: aggregate hourly verification-mail cap hit; suppressing token issuance"
+        );
+    } else {
+        let token = email_verify::issue_token(&state.pool, user.id, ip).await?;
+        let link = format!(
+            "{}/verify/{}",
+            state.config.public_base_url.trim_end_matches('/'),
+            token
+        );
+        let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
+        if let Err(e) = state
+            .mailer
+            .send_plain(&user.email, &subject, &mail_body)
+            .await
+        {
+            tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
+        }
     }
 
     Ok((

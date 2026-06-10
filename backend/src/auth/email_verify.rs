@@ -29,6 +29,21 @@ pub(crate) const PER_HOUR_CAP: i64 = 5;
 // alone now; this is a separate, non-OR-combined aggregate backstop).
 const GLOBAL_HOUR_CAP: i64 = 200;
 
+/// True when the site-wide hourly verification-mail ceiling is reached.
+/// Checked by both `resend` and signup before issuing a token + email —
+/// signup-issued tokens land in the same `email_verification_tokens`
+/// bucket, so one count covers both senders.
+pub(crate) async fn global_cap_hit(pool: &PgPool) -> Result<bool, AppError> {
+    Ok(sqlx::query_scalar!(
+        "select count(*) >= $1 from email_verification_tokens
+          where created_at > now() - interval '1 hour'",
+        GLOBAL_HOUR_CAP
+    )
+    .fetch_one(pool)
+    .await?
+    .unwrap_or(false))
+}
+
 /// Generate a fresh token, insert its sha256 hash, return the raw token
 /// (URL-safe base64, no padding) for embedding into the email link.
 pub(crate) async fn issue_token(
@@ -153,14 +168,7 @@ pub async fn resend(
         .unwrap_or(false);
 
         // Separate site-wide ceiling on outbound verification mail.
-        let global_cap_hit = sqlx::query_scalar!(
-            "select count(*) >= $1 from email_verification_tokens
-              where created_at > now() - interval '1 hour'",
-            GLOBAL_HOUR_CAP
-        )
-        .fetch_one(&state.pool)
-        .await?
-        .unwrap_or(false);
+        let global_cap_hit = global_cap_hit(&state.pool).await?;
         if global_cap_hit {
             tracing::warn!("email-verify aggregate hourly cap hit; suppressing token issuance");
         }
