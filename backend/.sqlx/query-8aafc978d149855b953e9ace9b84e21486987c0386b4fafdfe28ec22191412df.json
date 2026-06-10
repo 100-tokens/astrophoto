@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos p\n              set appreciations_count = greatest(p.appreciations_count - a.cnt, 0)\n             from (select photo_id, count(*)::int4 as cnt\n                     from appreciations\n                    where user_id = $1\n                    group by photo_id) a\n            where p.id = a.photo_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8aafc978d149855b953e9ace9b84e21486987c0386b4fafdfe28ec22191412df"
+}

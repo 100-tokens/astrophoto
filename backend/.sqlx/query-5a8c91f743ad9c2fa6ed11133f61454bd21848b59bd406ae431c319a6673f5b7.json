@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select kind, brand, model, variant\n             from equipment_items where id = $1 for update",
+  "query": "select kind, brand, model, variant, display_name\n             from equipment_items where id = $1 for update",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "ordinal": 3,
         "name": "variant",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "display_name",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -33,8 +38,9 @@
       false,
       false,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "65f182f2b87ba55e657198df01ed9efb4f5ed29dffbca0a52f3a7d6eb09bcd09"
+  "hash": "5a8c91f743ad9c2fa6ed11133f61454bd21848b59bd406ae431c319a6673f5b7"
 }

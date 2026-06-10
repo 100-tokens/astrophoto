@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*)::int8 as \"c!\" from photos p\n               where p.published_at is not null and p.status = 'ready'\n               and (exists (select 1 from photo_filters pf\n                             where pf.photo_id = p.id and pf.item_id = $2)\n                    or lower(p.filters) = $1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "76da2cd2ca042a832b94b99da6b800adaaada166dd93ee81fbad2cb0941a84a8"
+}

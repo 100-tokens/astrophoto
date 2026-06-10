@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from email_change_tokens where created_at < now() - interval '30 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "604821b48d139f0c33eb3694b2219382ed96a2a06c43dd2fbeeeb1353e438cd3"
+}

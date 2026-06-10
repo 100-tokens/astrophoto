@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos p\n              set filters = sub.s\n             from (select pf.photo_id,\n                          string_agg(e.display_name, ', '\n                                     order by pf.position, e.display_name) as s\n                     from photo_filters pf\n                     join equipment_items e on e.id = pf.item_id\n                    where pf.photo_id in (select photo_id from photo_filters\n                                           where item_id = $1)\n                    group by pf.photo_id) sub\n            where p.id = sub.photo_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3dd80f176283fc93be949b964e1ae2ccde5f7b4248969c679c672835b931f3e1"
+}

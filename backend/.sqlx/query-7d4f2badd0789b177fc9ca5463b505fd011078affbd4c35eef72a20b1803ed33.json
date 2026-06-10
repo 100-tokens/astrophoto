@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select count(*) >= $1 from email_verification_tokens\n              where created_at > now() - interval '1 hour'",
+  "query": "select count(*) >= $1 from email_verification_tokens\n          where created_at > now() - interval '1 hour'",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "44c7f8c01ba65c959a08579e031b672047fa5f46a37ee0880b00aef7d42da5f1"
+  "hash": "7d4f2badd0789b177fc9ca5463b505fd011078affbd4c35eef72a20b1803ed33"
 }

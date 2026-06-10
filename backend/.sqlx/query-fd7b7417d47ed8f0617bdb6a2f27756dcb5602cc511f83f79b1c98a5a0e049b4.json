@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select\n          coalesce(count(distinct owner_id), 0)::bigint as \"practitioners!\",\n          coalesce(count(*), 0)::bigint as \"frames!\",\n          coalesce(sum(exposure_s * coalesce(sessions, 1)), 0)::bigint as \"integration_seconds!\"\n        from photos\n        where published_at is not null\n        ",
+  "query": "\n                select\n                  coalesce(count(distinct owner_id), 0)::bigint as \"practitioners!\",\n                  coalesce(count(*), 0)::bigint as \"frames!\",\n                  coalesce(sum(exposure_s * coalesce(sessions, 1)), 0)::bigint as \"integration_seconds!\"\n                from photos\n                where published_at is not null\n                ",
   "describe": {
     "columns": [
       {
@@ -28,5 +28,5 @@
       null
     ]
   },
-  "hash": "347ce952fccc38a03d816b408ec936eca653e632c0de1ee61d2f22dad9b83b0c"
+  "hash": "fd7b7417d47ed8f0617bdb6a2f27756dcb5602cc511f83f79b1c98a5a0e049b4"
 }

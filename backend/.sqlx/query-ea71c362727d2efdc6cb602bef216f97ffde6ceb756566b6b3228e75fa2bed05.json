@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set status = 'processing'\n            where id = $1 and status not in ('processing', 'awaiting-calibration')\n        returning storage_key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ea71c362727d2efdc6cb602bef216f97ffde6ceb756566b6b3228e75fa2bed05"
+}

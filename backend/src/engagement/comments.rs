@@ -62,6 +62,14 @@ impl From<CommentRow> for Comment {
     }
 }
 
+/// Hard cap on a single comments response. The endpoint is public and
+/// was previously unbounded — a flooded photo made every anonymous GET
+/// buffer and serialize the full set. The inner query takes the NEWEST
+/// rows, re-sorted ascending so the response shape is identical to the
+/// old one for photos under the cap; older comments beyond it are not
+/// reachable until a cursor parameter ships.
+const LIST_LIMIT: i64 = 200;
+
 pub async fn list(
     State(state): State<AppState>,
     user: OptionalUser,
@@ -73,15 +81,23 @@ pub async fn list(
     let rows = sqlx::query_as!(
         CommentRow,
         r#"
-        select c.id, c.photo_id, c.author_id,
-               coalesce(u.display_name, '[deleted]') as "author_display_name!: String",
-               c.body, c.created_at
-        from comments c
-        left join users u on u.id = c.author_id
-        where c.photo_id = $1
-        order by c.created_at asc
+        select id, photo_id, author_id,
+               author_display_name as "author_display_name!: String",
+               body, created_at
+        from (
+            select c.id, c.photo_id, c.author_id,
+                   coalesce(u.display_name, '[deleted]') as author_display_name,
+                   c.body, c.created_at
+            from comments c
+            left join users u on u.id = c.author_id
+            where c.photo_id = $1
+            order by c.created_at desc, c.id desc
+            limit $2
+        ) newest
+        order by created_at asc
         "#,
-        photo_id
+        photo_id,
+        LIST_LIMIT
     )
     .fetch_all(&state.pool)
     .await?;
