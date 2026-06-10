@@ -11,6 +11,9 @@
 /frontend/.svelte-kit/
 /frontend/build/
 /frontend/.vite/
+# Playwright artifacts (screenshots/traces may embed authenticated sessions)
+/frontend/test-results/
+/frontend/playwright-report/
 
 # Env
 .env

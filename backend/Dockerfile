@@ -16,5 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=builder /app/target/release/astrophoto /usr/local/bin/astrophoto
 COPY --from=builder /app/migrations ./migrations
+# Non-root, mirroring Dockerfile.backend (prod). Nothing under /app is
+# written at runtime, so no chown is needed.
+RUN useradd --system --uid 10001 --user-group --home-dir /app --shell /usr/sbin/nologin app
+USER app
 EXPOSE 8080
 CMD ["astrophoto"]
