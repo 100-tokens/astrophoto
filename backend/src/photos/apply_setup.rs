@@ -234,8 +234,13 @@ pub async fn apply(
                                           or camera = '' then $5 else camera end,
                mount          = case when $2::bool or mount is null
                                           or mount = '' then $6 else mount end,
-               filters        = case when $2::bool or filters is null
-                                          or filters = '' then $7 else filters end,
+               -- Cache column only moves when the junction is also synced
+               -- ($12 = overwrite || do_junction_sync). Writing the string
+               -- while leaving a non-empty junction untouched would break
+               -- the photo_filters-is-source-of-truth invariant (CLAUDE.md):
+               -- fill_empty with junction rows but an empty cache must not
+               -- adopt the setup's filter names.
+               filters        = case when $12::bool then $7 else filters end,
                guiding        = case when $2::bool or guiding is null
                                           or guiding = '' then $8 else guiding end,
                -- FRAMING derived from the optical train. Only written when a
@@ -260,7 +265,8 @@ pub async fn apply(
         guiding,
         setup_uuid,
         derived_focal_mm,
-        derived_aperture_f
+        derived_aperture_f,
+        mode_overwrite || do_junction_sync
     )
     .fetch_one(&mut *tx)
     .await?;

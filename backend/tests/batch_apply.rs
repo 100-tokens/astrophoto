@@ -82,7 +82,9 @@ async fn batch_apply_rejects_published_photos() {
 #[tokio::test]
 async fn batch_apply_with_empty_string_target_is_400() {
     let app = TestApp::launch().await;
-    let (cookie, user_id) = app.signup_with_handle("M", "m", "m@m.com").await;
+    // Handle must satisfy auth::handle's 3-char minimum — "m" never did,
+    // and this test silently failed for as long as CI ran no tests.
+    let (cookie, user_id) = app.signup_with_handle("M", "marie", "m@m.com").await;
     let draft = insert_draft(&app.pool, user_id).await;
 
     let body = json!({ "ids": [draft], "target": "" });
@@ -95,7 +97,8 @@ async fn batch_apply_with_empty_string_target_is_400() {
 #[tokio::test]
 async fn batch_apply_empty_tags_array_clears_tags() {
     let app = TestApp::launch().await;
-    let (cookie, user_id) = app.signup_with_handle("M", "m", "m@m.com").await;
+    // Same 3-char-minimum fix as above.
+    let (cookie, user_id) = app.signup_with_handle("M", "marie", "m@m.com").await;
     let draft = insert_draft(&app.pool, user_id).await;
     app.attach_tags(draft, &["old"]).await;
 

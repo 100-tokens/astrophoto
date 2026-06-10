@@ -10,11 +10,11 @@ import type { EquipmentItemDetail } from './EquipmentItemDetail';
 export type EquipmentCatalogResponse = {
   items: Array<EquipmentItemDetail>;
   facets: EquipmentFacets;
-  total: bigint;
+  total: number;
   /**
    * Page size used to compute `total / limit` pagination on the
    * frontend. Mirrors the request param (clamped server-side).
    */
-  limit: bigint;
-  offset: bigint;
+  limit: number;
+  offset: number;
 };

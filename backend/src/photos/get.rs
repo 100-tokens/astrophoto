@@ -121,62 +121,93 @@ pub async fn handler(
         return Err(AppError::not_found("photo"));
     }
 
-    let row = queries::find_by_id(&state.pool, id)
-        .await?
-        .ok_or(AppError::not_found("photo"))?;
+    // The six reads below are independent of each other — run them
+    // concurrently instead of serially (this endpoint is hit on every
+    // photo-detail SSR render AND by the verify page's 2 s poll, and
+    // each extra round-trip holds a pool slot for longer).
+    let pool = &state.pool;
+    let (row, appreciation_count, comment_count, tags, filter_rows, fi_json) = tokio::try_join!(
+        queries::find_by_id(pool, id),
+        async {
+            Ok::<_, AppError>(
+                sqlx::query!(
+                    r#"select count(*) as "count!" from appreciations where photo_id = $1"#,
+                    id
+                )
+                .fetch_one(pool)
+                .await?
+                .count,
+            )
+        },
+        async {
+            Ok::<_, AppError>(
+                sqlx::query!(
+                    r#"select count(*) as "count!" from comments where photo_id = $1"#,
+                    id
+                )
+                .fetch_one(pool)
+                .await?
+                .count,
+            )
+        },
+        async {
+            Ok::<_, AppError>(
+                sqlx::query_scalar!(
+                    "select t.name
+                       from photo_tags pt
+                       join tags t on t.id = pt.tag_id
+                      where pt.photo_id = $1
+                      order by t.name",
+                    id
+                )
+                .fetch_all(pool)
+                .await?,
+            )
+        },
+        async {
+            Ok::<_, AppError>(
+                sqlx::query!(
+                    r#"select pf.item_id, pf.position, e.display_name as "display_name!",
+                              fs.filter_type, fs.bandwidth_nm
+                         from photo_filters pf
+                         join equipment_items e on e.id = pf.item_id
+                    left join filter_specs fs on fs.item_id = pf.item_id
+                        where pf.photo_id = $1
+                        order by pf.position, e.display_name"#,
+                    id
+                )
+                .fetch_all(pool)
+                .await?,
+            )
+        },
+        async {
+            Ok::<_, AppError>(
+                sqlx::query_scalar!(
+                    r#"select filter_integrations as "fi!" from photos where id = $1"#,
+                    id
+                )
+                .fetch_optional(pool)
+                .await?,
+            )
+        },
+    )?;
 
-    let appreciation_count = sqlx::query!(
-        r#"select count(*) as "count!" from appreciations where photo_id = $1"#,
-        id
-    )
-    .fetch_one(&state.pool)
-    .await?
-    .count;
+    let row = row.ok_or(AppError::not_found("photo"))?;
 
-    let comment_count = sqlx::query!(
-        r#"select count(*) as "count!" from comments where photo_id = $1"#,
-        id
-    )
-    .fetch_one(&state.pool)
-    .await?
-    .count;
-
-    let tags: Vec<String> = sqlx::query_scalar!(
-        "select t.name
-           from photo_tags pt
-           join tags t on t.id = pt.tag_id
-          where pt.photo_id = $1
-          order by t.name",
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?;
-
-    let filter_items: Vec<crate::api_types::PhotoFilterChip> = sqlx::query!(
-        r#"select pf.item_id, pf.position, e.display_name as "display_name!",
-                  fs.filter_type, fs.bandwidth_nm
-             from photo_filters pf
-             join equipment_items e on e.id = pf.item_id
-        left join filter_specs fs on fs.item_id = pf.item_id
-            where pf.photo_id = $1
-            order by pf.position, e.display_name"#,
-        id
-    )
-    .fetch_all(&state.pool)
-    .await?
-    .into_iter()
-    .map(|r| crate::api_types::PhotoFilterChip {
-        id: r.item_id.to_string(),
-        display_name: r.display_name,
-        filter_type: r
-            .filter_type
-            .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()),
-        bandwidth_nm: r
-            .bandwidth_nm
-            .and_then(|n| n.to_string().parse::<f64>().ok()),
-        position: r.position as i32,
-    })
-    .collect();
+    let filter_items: Vec<crate::api_types::PhotoFilterChip> = filter_rows
+        .into_iter()
+        .map(|r| crate::api_types::PhotoFilterChip {
+            id: r.item_id.to_string(),
+            display_name: r.display_name,
+            filter_type: r
+                .filter_type
+                .and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()),
+            bandwidth_nm: r
+                .bandwidth_nm
+                .and_then(|n| n.to_string().parse::<f64>().ok()),
+            position: r.position as i32,
+        })
+        .collect();
 
     let row_owner = row.owner_id;
     let mut dto: PhotoDetail = row.into();
@@ -184,13 +215,9 @@ pub async fn handler(
     dto.comment_count = comment_count;
     dto.tags = tags;
     dto.filter_items = filter_items;
-    let fi_json: serde_json::Value = sqlx::query_scalar!(
-        r#"select filter_integrations as "fi!" from photos where id = $1"#,
-        id
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    dto.filter_integrations = serde_json::from_value(fi_json).unwrap_or_default();
+    dto.filter_integrations = fi_json
+        .map(|v| serde_json::from_value(v).unwrap_or_default())
+        .unwrap_or_default();
     // Hide pipeline_error from non-owners — it can carry internal diagnostic strings.
     if viewer != Some(row_owner) {
         dto.pipeline_error = None;

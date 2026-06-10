@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select (released_at > now()) as \"in_cooldown!\"\n             from handle_redirects where old_handle = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_cooldown!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "53a4058eba1cbb2838f5d721550e6bebb10502ab44053ce2b0aa3a8b8095f1e2"
+}

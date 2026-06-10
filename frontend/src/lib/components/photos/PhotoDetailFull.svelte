@@ -404,7 +404,13 @@
     <!-- Image stage: full-bleed black, ratio held by the photo -->
     <div class="stage">
       <div class="stage-frame">
-        <ZoomableImage photoId={p.id} alt={title} w={2560} maxHeight="calc(100dvh - 64px - 96px)">
+        <ZoomableImage
+          photoId={p.id}
+          alt={title}
+          w={2560}
+          maxHeight="calc(100dvh - 64px - 96px)"
+          priority
+        >
           {#snippet overlay(zoomScale)}
             {#if celestial.length > 0 && solveForOverlay && overlayEnabled}
               <CelestialOverlay
@@ -574,7 +580,7 @@
           <div class="more-grid">
             {#each data.morePhotos.slice(0, 4) as mp}
               <a class="more-tile" href={`/u/${data.handle}/p/${mp.short_id}`}>
-                <Img photoId={mp.id} alt={mp.target ?? ''} w={300} />
+                <Img photoId={mp.id} alt={mp.target ?? 'Untitled'} w={300} />
               </a>
             {/each}
           </div>

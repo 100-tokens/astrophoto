@@ -18,8 +18,11 @@ use crate::photos::platesolve::PlatesolveClient;
 /// Maximum concurrent plate-solve uploads held in memory at once. Each
 /// in-flight solve owns the full XISF body (capped by the
 /// `/platesolve` route's `DefaultBodyLimit`) for the duration of the
-/// upstream call + retries — so this bounds RSS. Sized for the Koyeb
-/// Nano/Micro tier (≤512 MB); bump once we move to a larger instance.
+/// upstream call + retries. Callers acquire a permit BEFORE buffering
+/// or fetching the XISF (side-channel handler: `try_acquire` → 503 on
+/// contention; auto-calibrate: queued `acquire` while holding nothing)
+/// — so this bounds RSS. Sized for the Koyeb Nano/Micro tier (≤512 MB);
+/// bump once we move to a larger instance.
 const PLATESOLVE_MAX_CONCURRENT: usize = 1;
 
 #[derive(Clone)]

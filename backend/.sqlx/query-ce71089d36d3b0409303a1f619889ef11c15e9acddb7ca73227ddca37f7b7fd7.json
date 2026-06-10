@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update photos\n           set scope          = case when $2::bool or scope is null\n                                          or scope = '' then $3 else scope end,\n               focal_modifier = case when $2::bool or focal_modifier is null\n                                          or focal_modifier = '' then $4 else focal_modifier end,\n               camera         = case when $2::bool or camera is null\n                                          or camera = '' then $5 else camera end,\n               mount          = case when $2::bool or mount is null\n                                          or mount = '' then $6 else mount end,\n               -- Cache column only moves when the junction is also synced\n               -- ($12 = overwrite || do_junction_sync). Writing the string\n               -- while leaving a non-empty junction untouched would break\n               -- the photo_filters-is-source-of-truth invariant (CLAUDE.md):\n               -- fill_empty with junction rows but an empty cache must not\n               -- adopt the setup's filter names.\n               filters        = case when $12::bool then $7 else filters end,\n               guiding        = case when $2::bool or guiding is null\n                                          or guiding = '' then $8 else guiding end,\n               -- FRAMING derived from the optical train. Only written when a\n               -- value was derived ($10/$11 not null); otherwise the existing\n               -- column is preserved regardless of mode.\n               focal_mm       = case when ($2::bool or focal_mm is null)\n                                          and $10::float8 is not null then $10 else focal_mm end,\n               aperture_f     = case when ($2::bool or aperture_f is null)\n                                          and $11::float4 is not null then $11 else aperture_f end,\n               setup_id       = $9\n         where id = $1\n       returning setup_id, scope, focal_modifier, camera, mount, filters, guiding,\n                 focal_mm, aperture_f\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "setup_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "scope",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "focal_modifier",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "camera",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "mount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "filters",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "guiding",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "focal_mm",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "aperture_f",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Uuid",
+        "Float8",
+        "Float4",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ce71089d36d3b0409303a1f619889ef11c15e9acddb7ca73227ddca37f7b7fd7"
+}

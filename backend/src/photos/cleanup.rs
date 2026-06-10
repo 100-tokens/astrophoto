@@ -1,4 +1,4 @@
-//! Pending-upload reaper.
+//! Pending-upload reaper + stuck-pipeline sweeps.
 //!
 //! Photos rows with status='pending' that never received a finalize call
 //! become orphans (the user closed the tab, lost network, or our cancel
@@ -7,11 +7,19 @@
 //!
 //! TTL is intentionally generous (24 h) so a slow upload on a poor link
 //! never triggers a false positive.
+//!
+//! The same hourly tick also recovers rows a crash or lost race left in
+//! a transient status forever: 'awaiting-calibration' (XISF whose
+//! background solve died, or whose side-channel solve won the claim and
+//! never transitioned status) and 'processing' (finalize/replace died
+//! mid-pipeline). Those rows are marked ready/failed — never deleted —
+//! so the user can retry and no asset is destroyed.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::AppError;
+use crate::photos::platesolve::{ABORTED_SENTINEL, SOLVING_SENTINEL};
 use crate::storage::Storage;
 
 const REAP_INTERVAL: Duration = Duration::from_secs(60 * 60); // 1h
@@ -52,6 +60,84 @@ pub async fn reap_once<S: Storage + ?Sized>(
     Ok(deleted)
 }
 
+/// Recover photos stuck in a transient pipeline status after a crash,
+/// restart, or lost claim race. Runs on the same hourly ticker as
+/// [`reap_once`]. Never deletes anything.
+pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
+    // 1. Lost-race promotion: a side-channel solve won the claim while
+    //    the auto-calibrate flow held 'awaiting-calibration'. The solve
+    //    landed (platesolve_solved_at set, display rendered) but nobody
+    //    transitioned status — promote to ready.
+    //
+    //    The solve must postdate THIS calibration request: a photo that
+    //    was solved in a past life keeps its old platesolve_solved_at
+    //    through a replace (nothing clears it), and promoting on the
+    //    stale timestamp would publish the old display master while the
+    //    new calibration is still queued — then 'ready' would let
+    //    sweep_pending_deletes destroy the stashed previous original.
+    let promoted = sqlx::query!(
+        "update photos set status='ready', pipeline_error=null
+          where status='awaiting-calibration'
+            and platesolve_solved_at
+                >= coalesce(calibration_requested_at, replaced_at, created_at)"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    // 2. Interrupted calibration: no solve landed within 30 minutes of
+    //    the calibration request. Mark failed so the UI surfaces a retry.
+    //    Swapping a stale 'solving' sentinel for the aborted one is
+    //    load-bearing: a re-run of finalize would otherwise hit
+    //    ClaimOutcome::AlreadySolving and silently no-op.
+    //    "No solve landed" mirrors arm 1's clock: a platesolve_solved_at
+    //    older than this calibration request is a previous solve, not
+    //    this one.
+    let timed_out = sqlx::query!(
+        "update photos
+            set status='failed',
+                pipeline_error='auto-calibration interrupted — retry by re-running finalize',
+                platesolve_error = case when platesolve_error = $1 then $2
+                                        else platesolve_error end
+          where status='awaiting-calibration'
+            and (platesolve_solved_at is null
+                 or platesolve_solved_at
+                    < coalesce(calibration_requested_at, replaced_at, created_at))
+            and coalesce(calibration_requested_at, replaced_at, created_at)
+                < now() - interval '30 minutes'",
+        SOLVING_SENTINEL,
+        ABORTED_SENTINEL,
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    // 3. Interrupted finalize/replace: 'processing' is held only while
+    //    the pipeline task is alive (seconds to minutes). Rows older
+    //    than 6 hours mean the process died mid-pipeline; resurface as
+    //    a retryable failure instead of leaving the photo wedged.
+    let interrupted = sqlx::query!(
+        "update photos
+            set status='failed',
+                pipeline_error='processing interrupted — retry the upload or replace'
+          where status='processing'
+            and coalesce(replaced_at, created_at) < now() - interval '6 hours'"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if promoted + timed_out + interrupted > 0 {
+        tracing::info!(
+            promoted,
+            timed_out,
+            interrupted,
+            "cleanup: recovered stuck pipeline rows"
+        );
+    }
+    Ok(())
+}
+
 /// Spawn a tokio task that calls `reap_once` every hour. Errors are logged
 /// and never propagated — we never want the reaper to crash the binary.
 pub fn spawn_periodic(pool: sqlx::PgPool, storage: Arc<dyn Storage>) {
@@ -63,6 +149,9 @@ pub fn spawn_periodic(pool: sqlx::PgPool, storage: Arc<dyn Storage>) {
             ticker.tick().await;
             if let Err(e) = reap_once(&pool, storage.as_ref()).await {
                 tracing::error!(error = %e, "cleanup: reap_once errored");
+            }
+            if let Err(e) = sweep_stuck_pipeline(&pool).await {
+                tracing::error!(error = %e, "cleanup: sweep_stuck_pipeline errored");
             }
         }
     });

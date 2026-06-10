@@ -90,10 +90,16 @@
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: 'Astrophoto',
+    url: 'https://www.astrophoto.pics/',
     description: homeDescription,
     potentialAction: {
       '@type': 'SearchAction',
-      target: { '@type': 'EntryPoint', urlTemplate: '/?q={query}' },
+      // Must be an absolute URL pointing at the route that actually reads
+      // `q` (/search) — the home load function ignores it.
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: 'https://www.astrophoto.pics/search?q={query}'
+      },
       'query-input': 'required name=query'
     }
   }).replace(/</g, '\\u003c');

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select pd.storage_key from photo_pending_deletes pd\n         join photos p on p.id = pd.photo_id\n         where p.owner_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ae4ff39b33b3fb1b6b07a13ce498a1c78d9b19a70de0eb1404594c5519c6ecaf"
+}

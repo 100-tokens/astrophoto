@@ -20,9 +20,9 @@ const DISPLAY_MASTER_QUALITY: u8 = 85;
 
 /// Resize to at most `DISPLAY_MASTER_LONG_EDGE` on the long side, encode as
 /// JPEG q85. ICC and EXIF metadata are stripped by the encode round-trip.
-fn derive_display_master_blocking(bytes: &[u8]) -> Result<Bytes, AppError> {
-    let img = image::load_from_memory(bytes)
-        .map_err(|e| AppError::Internal(format!("display decode: {e}")))?;
+/// Takes the already-decoded image — the pipeline decodes the original
+/// exactly once (decode dominates CPU for large originals).
+fn derive_display_master_blocking(img: &image::DynamicImage) -> Result<Bytes, AppError> {
     let (w, h) = (img.width(), img.height());
     let scale = if w.max(h) > DISPLAY_MASTER_LONG_EDGE {
         DISPLAY_MASTER_LONG_EDGE as f32 / w.max(h) as f32
@@ -31,23 +31,23 @@ fn derive_display_master_blocking(bytes: &[u8]) -> Result<Bytes, AppError> {
     };
     let target_w = (w as f32 * scale) as u32;
     let target_h = (h as f32 * scale) as u32;
-    let resized = if scale < 1.0 {
-        img.resize(target_w, target_h, image::imageops::FilterType::Lanczos3)
+    let resized_owned;
+    let resized: &image::DynamicImage = if scale < 1.0 {
+        resized_owned = img.resize(target_w, target_h, image::imageops::FilterType::Lanczos3);
+        &resized_owned
     } else {
         img
     };
     let mut out = Vec::with_capacity(256 * 1024);
     let mut enc =
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, DISPLAY_MASTER_QUALITY);
-    enc.encode_image(&resized)
+    enc.encode_image(resized)
         .map_err(|e| AppError::Internal(format!("display encode: {e}")))?;
     Ok(Bytes::from(out))
 }
 
 /// Compute a blurhash string using 4×3 components from a 32×32 downsample.
-fn derive_blurhash_blocking(bytes: &[u8]) -> Result<String, AppError> {
-    let img = image::load_from_memory(bytes)
-        .map_err(|e| AppError::Internal(format!("blurhash decode: {e}")))?;
+fn derive_blurhash_blocking(img: &image::DynamicImage) -> Result<String, AppError> {
     let small = img.resize(32, 32, image::imageops::FilterType::Triangle);
     let rgba = small.to_rgba8();
     let (w, h) = (rgba.width(), rgba.height());
@@ -117,12 +117,19 @@ pub async fn finalize(
     let bytes_for_blocking = bytes.clone();
     let parsed = tokio::task::spawn_blocking(move || {
         let exif_data = exif::parse_blocking(&bytes_for_blocking)?;
+        // Decode ONCE and derive every artifact (thumbs, display master,
+        // blurhash) from the same DynamicImage — decoding a 50–100 MP
+        // original dominates this pipeline's CPU and used to run four
+        // times per upload. The error stays Validation to match the
+        // category the first thumb decode used to produce.
+        let img = image::load_from_memory(&bytes_for_blocking)
+            .map_err(|e| AppError::Validation(format!("decode: {e}")))?;
         let mut generated = Vec::with_capacity(THUMB_SIZES.len());
         for size in THUMB_SIZES {
-            generated.push(thumbs::generate_blocking(&bytes_for_blocking, *size)?);
+            generated.push(thumbs::generate_blocking(&img, *size)?);
         }
-        let display = derive_display_master_blocking(&bytes_for_blocking)?;
-        let blurhash = derive_blurhash_blocking(&bytes_for_blocking)?;
+        let display = derive_display_master_blocking(&img)?;
+        let blurhash = derive_blurhash_blocking(&img)?;
         Ok::<_, AppError>((exif_data, generated, display, blurhash))
     })
     .await
@@ -197,7 +204,8 @@ mod display_tests {
     #[allow(clippy::unwrap_used)]
     fn display_master_clamps_long_edge() {
         let big = include_bytes!("../../tests/fixtures/wide_5000.jpg");
-        let out = derive_display_master_blocking(big).unwrap();
+        let decoded = image::load_from_memory(big).unwrap();
+        let out = derive_display_master_blocking(&decoded).unwrap();
         let img = image::load_from_memory(&out).unwrap();
         assert!(img.width().max(img.height()) <= 4096);
     }

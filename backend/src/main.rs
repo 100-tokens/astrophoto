@@ -1,12 +1,13 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
 use astrophoto::{Config, db, http, photos::platesolve::PlatesolveClient, storage::S3Storage};
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, header};
 use tokio::net::TcpListener;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
@@ -56,6 +57,18 @@ async fn main() -> Result<()> {
     astrophoto::jobs::purge_deletions::spawn(pool.clone(), storage.clone());
     astrophoto::photos::cleanup::spawn_periodic(pool.clone(), storage.clone());
 
+    // Fail fast: prod/staging (session_secure=true) must name the real
+    // frontend origin. The localhost fallback below is dev-only — with it,
+    // the service boots green while the CSRF origin guard 403s every
+    // cookie-authenticated mutation, which is far harder to diagnose than
+    // a boot panic naming the missing variable.
+    if cfg.session_secure && cfg.cors_origin.is_none() {
+        panic!(
+            "APP_CORS_ORIGIN must be set when APP_SESSION_SECURE=true (prod/staging); \
+             the http://localhost:5173 default is dev-only"
+        );
+    }
+
     // Allow the SvelteKit app to reach the backend with credentials.
     // Reads APP_CORS_ORIGIN from the environment; falls back to the dev server.
     let cors_origin_str = cfg
@@ -86,22 +99,71 @@ async fn main() -> Result<()> {
     // Layer order (tower applies them router-first = innermost-first): the
     // origin guard sits innermost (closest to the router), CORS wraps it so an
     // OPTIONS preflight is answered before the guard runs, TraceLayer outermost.
-    let app = http::router(pool, cfg.clone(), storage, mailer, platesolve)
+    // Security headers: the backend origin is directly browser-reachable
+    // (OAuth callback sets the session cookie there; /cdn/img serves image
+    // bytes under APP_CDN_LOCAL_FALLBACK), so it needs its own hardening —
+    // the frontend's hooks.server.ts headers never cover this host.
+    let mut app = http::router(pool, cfg.clone(), storage, mailer, platesolve)
         .layer(axum::middleware::from_fn_with_state(
             allowed_origins,
             http::csrf::origin_guard,
         ))
         .layer(http::cors_layer(cors_origin))
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::REFERRER_POLICY,
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ));
+    // HSTS only where HTTPS is guaranteed (prod/staging). Sending it from
+    // plain-HTTP dev would poison localhost for every other local project.
+    if cfg.session_secure {
+        app = app.layer(SetResponseHeaderLayer::if_not_present(
+            header::STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ));
+    }
 
     let listener = TcpListener::bind(&cfg.bind).await?;
     tracing::info!(bind = %cfg.bind, "astrophoto listening");
+    // Graceful shutdown: on SIGTERM (Koyeb deploy/stop) or ctrl-c, stop
+    // accepting new connections and drain in-flight requests (finalize,
+    // replace) instead of aborting them mid-write. Rows orphaned by a hard
+    // kill are still recovered by `photos::cleanup::sweep_stuck_pipeline`.
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(shutdown_signal())
     .await?;
     Ok(())
+}
+
+/// Resolves when the process receives SIGTERM or SIGINT/ctrl-c.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install ctrl-c handler");
+    };
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    tracing::info!("shutdown signal received; draining in-flight requests");
 }
 
 fn init_tracing(log: &str) {

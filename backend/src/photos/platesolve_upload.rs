@@ -7,12 +7,14 @@
 //! `docs/platesolve-integration.md` for the design discussion.
 //!
 //! Flow:
-//! 1. Owner-checked, atomically claim the in-progress sentinel
+//! 1. `try_acquire` a semaphore permit BEFORE reading the body — the
+//!    permit must precede buffering, or queued requests would each
+//!    hold a full XISF in memory and the cap would not bound RSS at
+//!    all. Contention answers 503 immediately (fail fast, no queue).
+//! 2. Magic-byte sniff the body (must be XISF).
+//! 3. Parse the optional `options` JSON multipart field.
+//! 4. Owner-checked, atomically claim the in-progress sentinel
 //!    ([`platesolve::try_claim`]). 404/409/proceed.
-//! 2. Acquire a semaphore permit so we cap concurrent solves (bounds
-//!    RSS on the Koyeb tier).
-//! 3. Magic-byte sniff the body (must be XISF).
-//! 4. Parse the optional `options` JSON multipart field.
 //! 5. Spawn a background task that calls the plate-solve client with
 //!    bounded retries on transient failures; the task owns a drop
 //!    guard that swaps the sentinel for [`ABORTED_SENTINEL`] if it
@@ -29,7 +31,7 @@ use axum::{
 };
 use bytes::Bytes;
 use sqlx::PgPool;
-use tokio::sync::Semaphore;
+use tokio::sync::OwnedSemaphorePermit;
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -65,10 +67,19 @@ pub async fn handler(
         .ok_or_else(|| AppError::Internal("plate-solve service not configured".into()))?
         .clone();
 
-    // Parse the multipart up front (cheap; body is already in memory
-    // thanks to the route's DefaultBodyLimit). We need the bytes
-    // before claiming the sentinel so a malformed payload doesn't
-    // leave a stale 'solving' row to clean up.
+    // Acquire the concurrency permit BEFORE buffering the body. With
+    // try_acquire (not acquire) a queued request never sits holding a
+    // 128 MiB body while waiting — contention fails fast with 503 and
+    // the client retries. This is what actually bounds RSS.
+    let permit = match Arc::clone(&state.platesolve_permits).try_acquire_owned() {
+        Ok(p) => p,
+        Err(_) => return Err(AppError::ServiceUnavailable),
+    };
+
+    // Parse the multipart (body is capped by the route's
+    // DefaultBodyLimit). We need the bytes before claiming the
+    // sentinel so a malformed payload doesn't leave a stale
+    // 'solving' row to clean up.
     let parts = parse_multipart(multipart, id).await?;
     let sig = magic::sniff(&parts.xisf_bytes);
     if sig != SniffResult::Xisf {
@@ -95,12 +106,11 @@ pub async fn handler(
     // upload reads the same `run_solve` result and does transition status.
     let pool = state.pool.clone();
     let storage = Arc::clone(&state.storage);
-    let permits = Arc::clone(&state.platesolve_permits);
     tokio::spawn(async move {
         let _ = run_solve(
             pool,
             storage,
-            permits,
+            permit,
             client,
             id,
             parts.xisf_bytes,
@@ -178,8 +188,9 @@ async fn parse_multipart(mut mp: Multipart, photo_id: Uuid) -> Result<UploadPart
 /// `ready` or `failed`).
 ///
 /// The function owns:
-/// - the semaphore permit (acquired internally so the queue depth
-///   bounds RSS),
+/// - the semaphore permit (passed in by the caller, who MUST acquire
+///   it BEFORE buffering or fetching the XISF — that ordering is what
+///   bounds RSS; see the module doc),
 /// - the sentinel drop-guard (fires on panic / runtime shutdown so
 ///   the photo never stays stuck in `platesolve_error='solving'`).
 ///
@@ -189,29 +200,13 @@ async fn parse_multipart(mut mp: Multipart, photo_id: Uuid) -> Result<UploadPart
 pub async fn run_solve(
     pool: PgPool,
     storage: Arc<dyn Storage>,
-    permits: Arc<Semaphore>,
+    permit: OwnedSemaphorePermit,
     client: Arc<PlatesolveClient>,
     photo_id: Uuid,
     xisf_bytes: Bytes,
     filename: String,
     options: Option<SolveOptions>,
 ) -> Result<platesolve::PlatesolveResult, PlatesolveError> {
-    // Acquire the concurrency permit. `acquire_owned` so the permit
-    // lives inside the spawned task without borrowing.
-    let permit = match Arc::clone(&permits).acquire_owned().await {
-        Ok(p) => p,
-        Err(_) => {
-            // Semaphore was closed — only happens during shutdown.
-            // Let the drop guard mark the sentinel aborted.
-            warn!(
-                photo_id = %photo_id,
-                "plate-solve permit semaphore closed before acquire"
-            );
-            platesolve::mark_aborted_if_solving(pool, photo_id);
-            return Err(PlatesolveError::Internal("permit semaphore closed".into()));
-        }
-    };
-
     // Drop guard armed for the duration of the solve. Disarmed below
     // once `save_result` / `save_error` has cleared the sentinel.
     let guard = SentinelGuard::new(pool.clone(), photo_id);
@@ -309,6 +304,24 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
     };
 
     tokio::spawn(async move {
+        // Acquire the concurrency permit BEFORE fetching the XISF from
+        // S3 — a queued auto-calibrate then holds ~0 bytes instead of a
+        // full 50–200 MB file while waiting its turn. Blocking-queue
+        // semantics (acquire, not try_acquire) are fine here: nothing
+        // is buffered yet and the upload already succeeded.
+        let permit = match Arc::clone(&state.platesolve_permits).acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => {
+                // Semaphore closed — only happens during shutdown.
+                warn!(
+                    photo_id = %photo_id,
+                    "auto-calibrate: permit semaphore closed before acquire"
+                );
+                mark_calibration_failed(&state.pool, photo_id, "shutdown before calibration").await;
+                return;
+            }
+        };
+
         // Fetch the XISF bytes from S3. The original was uploaded via
         // the presigned PUT and is sitting at `storage_key`. Missing
         // object = the PUT never landed — should never happen because
@@ -386,7 +399,7 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
         let result = run_solve(
             state.pool.clone(),
             Arc::clone(&state.storage),
-            Arc::clone(&state.platesolve_permits),
+            permit,
             client,
             photo_id,
             xisf_bytes,

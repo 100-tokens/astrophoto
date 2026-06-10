@@ -180,13 +180,18 @@ pub async fn mark_failed(pool: &PgPool, id: Uuid, reason: &str) -> Result<(), Ap
 /// up next and fills in `display_key` + telemetry via the external
 /// service, then transitions status to `ready`.
 pub async fn mark_awaiting_calibration(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
-    // Runtime query — the cached `.sqlx/` doesn't have this exact SQL
-    // yet. Promoted to `sqlx::query!` after `cargo sqlx prepare`.
-    sqlx::query("update photos set status='awaiting-calibration', pipeline_error=null where id=$1")
-        .bind(id)
-        .execute(pool)
-        .await
-        .map_err(AppError::from)?;
+    // `calibration_requested_at` is the clock the cleanup sweep uses to
+    // time out interrupted calibrations — created_at/replaced_at are
+    // wrong for retried finalizes (see migration 0034).
+    sqlx::query!(
+        "update photos
+            set status='awaiting-calibration', pipeline_error=null,
+                calibration_requested_at=now()
+          where id=$1",
+        id
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
@@ -210,8 +215,12 @@ pub async fn drain_pending_deletes(pool: &PgPool, photo_id: Uuid) -> Result<(), 
     Ok(())
 }
 
+/// Queue S3 keys for deferred deletion. Takes a connection (not the
+/// pool) so replace can run it atomically WITH the storage-key swap:
+/// a key must never sit in this queue while it is still the photo's
+/// live asset, or the 7-day sweep destroys a healthy photo's original.
 pub async fn enqueue_pending_deletes(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     photo_id: Uuid,
     storage_keys: &[String],
 ) -> Result<(), AppError> {
@@ -224,14 +233,33 @@ pub async fn enqueue_pending_deletes(
             photo_id,
             key
         )
-        .execute(pool)
+        .execute(&mut *conn)
         .await?;
     }
     Ok(())
 }
 
+/// Atomically claim a photo's pipeline for a replace: flip `status` to
+/// 'processing' only when no pipeline or calibration is in flight, and
+/// return the storage key of the master being replaced (read in the same
+/// statement so a racing replace can never hand the caller a stale key).
+/// `None` = the claim lost — another pipeline owns the row. Mirrors the
+/// upload-finalize claim; the old read-then-check pattern let two
+/// concurrent replaces both proceed and leak an untracked S3 original.
+pub async fn claim_for_replace(pool: &PgPool, id: Uuid) -> Result<Option<String>, AppError> {
+    let row = sqlx::query!(
+        r#"update photos set status = 'processing'
+            where id = $1 and status not in ('processing', 'awaiting-calibration')
+        returning storage_key"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.storage_key))
+}
+
 pub async fn swap_storage_key_for_replace(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     id: Uuid,
     new_key: &str,
     original_name: &str,
@@ -256,7 +284,7 @@ pub async fn swap_storage_key_for_replace(
         mime,
         bytes
     )
-    .execute(pool)
+    .execute(conn)
     .await?;
     Ok(())
 }

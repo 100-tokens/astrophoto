@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set status='failed',\n                pipeline_error='processing interrupted — retry the upload or replace'\n          where status='processing'\n            and coalesce(replaced_at, created_at) < now() - interval '6 hours'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "2c5d276c1f0c9943844f0c40cc722aef60b56da717bf0a361860b814799dded0"
+}

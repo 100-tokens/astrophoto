@@ -27,10 +27,9 @@
     cursor = data.initial.page.next_cursor;
   });
 
-  function applyFilter(next: { sort?: string; since?: string; category?: string | undefined }) {
+  function applyFilter(next: { sort?: string; category?: string | undefined }) {
     const u = new URL(window.location.href);
     if (next.sort !== undefined) u.searchParams.set('sort', next.sort);
-    if (next.since !== undefined) u.searchParams.set('since', next.since);
     if ('category' in next) {
       if (next.category) {
         u.searchParams.set('category', next.category);
@@ -46,7 +45,6 @@
     const cur = cursor;
     const result = await fetchTagPage(fetch, data.initial.tag.slug, {
       sort: data.sort,
-      since: data.since,
       ...(data.category !== undefined ? { category: data.category } : {}),
       cursor: cur,
       limit: 24
@@ -74,16 +72,19 @@
 
 <main>
   <DiscoveryHeader variant="tag" meta={data.initial.tag} />
+  <!-- No `since` here: only /api/explore implements it; the tag endpoint
+       silently ignores the param, so forwarding it would lie to the user. -->
   <FilterPills
     variant="tag"
     sort={data.sort}
-    since={data.since}
     {...data.category !== undefined ? { category: data.category } : {}}
     onSortChange={(s) => applyFilter({ sort: s })}
-    onSinceChange={(s) => applyFilter({ since: s })}
     onCategoryChange={(c) => applyFilter({ category: c })}
   />
-  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+  <!-- The slug must be part of the key: same-route navigation between two
+       tags reuses this page instance, and CrossAuthorGrid keeps its own
+       loaded-pages state, which would leak across tags. -->
+  {#key `${data.initial.tag.slug}|${data.sort}|${data.category ?? ''}`}
     <CrossAuthorGrid
       initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
       loadMore={loadMoreFn}

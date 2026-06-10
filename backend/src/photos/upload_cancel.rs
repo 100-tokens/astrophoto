@@ -14,7 +14,7 @@ pub async fn handler(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
     let row = sqlx::query!(
-        "select owner_id, storage_key, status, published_at from photos where id = $1",
+        "select owner_id, storage_key, display_key, status, published_at from photos where id = $1",
         id
     )
     .fetch_optional(&state.pool)
@@ -31,6 +31,18 @@ pub async fn handler(
         return Err(AppError::Conflict("photo is not cancellable".into()));
     }
 
+    // A cancel racing the processing pipeline may already have a display
+    // master and thumbnails in S3 — collect them before the CASCADE delete.
+    let mut to_delete = vec![row.storage_key];
+    if let Some(dk) = row.display_key {
+        to_delete.push(dk);
+    }
+    let thumb_keys: Vec<String> =
+        sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
+            .fetch_all(&state.pool)
+            .await?;
+    to_delete.extend(thumb_keys);
+
     sqlx::query!("delete from photos where id = $1", id)
         .execute(&state.pool)
         .await?;
@@ -38,7 +50,7 @@ pub async fn handler(
     // Best-effort S3 cleanup. If this fails we log but return 204 — the DB row
     // is gone so the upload is functionally cancelled; orphan S3 objects are
     // recoverable via a sweep if one is added later.
-    if let Err(e) = state.storage.delete_objects(&[row.storage_key]).await {
+    if let Err(e) = state.storage.delete_objects(&to_delete).await {
         tracing::warn!(photo_id=%id, error=%e, "upload_cancel: S3 cleanup failed");
     }
 

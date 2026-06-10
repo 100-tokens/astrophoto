@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
@@ -13,12 +13,19 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
     .map((c) => `${c.name}=${c.value}`)
     .join('; ');
 
+  // Surface backend failures as a real error page instead of letting an
+  // AppError JSON flow into Number(...) (NaN stats) or a non-JSON gateway
+  // body reject r.json() into an opaque 500.
+  const fetchJson = async (path: string): Promise<Record<string, unknown>> => {
+    const r = await fetch(`${API}${path}`, { headers: { Cookie: cookie } });
+    if (!r.ok) error(502, 'Backend error');
+    return (await r.json()) as Record<string, unknown>;
+  };
+
   const [stats, published, drafts] = await Promise.all([
-    fetch(`${API}/api/me/stats`, { headers: { Cookie: cookie } }).then((r) => r.json()),
-    fetch(`${API}/api/photos?owner_id=${locals.user.id}`, { headers: { Cookie: cookie } }).then(
-      (r) => r.json()
-    ),
-    fetch(`${API}/api/photos?drafts=true`, { headers: { Cookie: cookie } }).then((r) => r.json())
+    fetchJson('/api/me/stats'),
+    fetchJson(`/api/photos?owner_id=${locals.user.id}`),
+    fetchJson('/api/photos?drafts=true')
   ]);
 
   // Cast bigint-typed fields to number before serializing to the page.
@@ -43,13 +50,18 @@ export const load: PageServerLoad = async ({ locals, url, fetch, cookies }) => {
     created_at: string;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function normalisePhoto(p: any): PhotoRow {
-    return { ...p, appreciation_count: Number(p.appreciation_count ?? 0) } as PhotoRow;
+  function normalisePhoto(p: unknown): PhotoRow {
+    // Keep the spread: rows carry fields beyond PhotoRow at runtime that
+    // downstream components rely on (e.g. last_step for DraftCard).
+    const rec = p as Record<string, unknown>;
+    return { ...rec, appreciation_count: Number(rec.appreciation_count ?? 0) } as PhotoRow;
   }
 
-  const publishedPhotos: PhotoRow[] = (published.photos ?? []).map(normalisePhoto);
-  const draftsPhotos: PhotoRow[] = (drafts.photos ?? []).map(normalisePhoto);
+  const photosOf = (resp: Record<string, unknown>): unknown[] =>
+    Array.isArray(resp.photos) ? resp.photos : [];
+
+  const publishedPhotos: PhotoRow[] = photosOf(published).map(normalisePhoto);
+  const draftsPhotos: PhotoRow[] = photosOf(drafts).map(normalisePhoto);
 
   let rows: PhotoRow[] =
     filter === 'drafts'

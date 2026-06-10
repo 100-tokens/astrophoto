@@ -55,8 +55,11 @@ pub struct AuthError {
 pub struct PhotographerListItem {
     pub handle: String,
     pub display_name: String,
+    #[ts(type = "number")]
     pub frame_count: i64,
+    #[ts(type = "number")]
     pub follower_count: i64,
+    #[ts(type = "number")]
     pub integration_seconds: i64,
     pub cover_photo_id: Option<String>,
     pub member_since_year: i32,
@@ -74,8 +77,11 @@ pub struct PhotographerIndexPage {
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "SiteStats.ts")]
 pub struct SiteStats {
+    #[ts(type = "number")]
     pub practitioners: i64,
+    #[ts(type = "number")]
     pub frames: i64,
+    #[ts(type = "number")]
     pub integration_seconds: i64,
 }
 
@@ -84,10 +90,12 @@ pub struct SiteStats {
 pub struct StorageSummary {
     /// Sum of `photos.bytes` for rows owned by the caller. Doesn't
     /// include thumbnails or display masters.
+    #[ts(type = "number")]
     pub used_bytes: i64,
     /// Tier-derived ceiling, used by the upload page footer to render
     /// "STORAGE · 1.84 / 5.00 GB USED". Soft signal only — per-file
     /// size enforcement lives in the upload-init handler.
+    #[ts(type = "number")]
     pub quota_bytes: i64,
     pub tier: UserTier,
 }
@@ -101,6 +109,7 @@ pub struct UserPublic {
     pub handle: String,
     pub display_name: String,
     pub created_at: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
 }
 
@@ -154,9 +163,12 @@ pub struct ApiTokenCreated {
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "MeStats.ts")]
 pub struct MeStats {
+    #[ts(type = "number")]
     pub published_count: i64,
+    #[ts(type = "number")]
     pub draft_count: i64,
     pub integration_secs: f64,
+    #[ts(type = "number")]
     pub appreciations_received: i64,
 }
 
@@ -168,6 +180,7 @@ pub struct PhotoDetail {
     pub short_id: String,
     pub status: String,
     pub original_name: String,
+    #[ts(type = "number")]
     pub bytes: i64,
     pub mime: String,
     pub width: Option<i32>,
@@ -188,9 +201,17 @@ pub struct PhotoDetail {
     pub dec_deg: Option<f64>,
     pub target: Option<String>,
     pub caption: Option<String>,
+    /// User-entered acquisition freetext + taxonomy (migration 0009).
+    /// Mirrors the handler's response struct in photos/get.rs.
+    pub scope: Option<String>,
+    pub mount: Option<String>,
+    pub guiding: Option<String>,
+    pub category: Option<String>,
     pub taken_at: Option<String>,
     pub created_at: String,
+    #[ts(type = "number")]
     pub appreciation_count: i64,
+    #[ts(type = "number")]
     pub comment_count: i64,
     pub is_draft: bool,
     pub last_step: Option<String>,
@@ -293,10 +314,15 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "HeroStats.ts")]
 pub struct HeroStats {
+    #[ts(type = "number")]
     pub frames: i64,
+    #[ts(type = "number")]
     pub integration_seconds: i64,
+    #[ts(type = "number")]
     pub followers: i64,
+    #[ts(type = "number")]
     pub appreciations: i64,
+    #[ts(type = "number")]
     pub targets: i64,
     pub member_since_year: i32,
 }
@@ -386,7 +412,9 @@ pub struct TargetMeta {
     pub canonical_name: String,
     pub aliases: Vec<String>,
     pub kind: Option<String>,
+    #[ts(type = "number")]
     pub photo_count: i64,
+    #[ts(type = "number")]
     pub contributor_count: i64,
     // — additions D2b —
     pub right_ascension: Option<f64>,
@@ -414,6 +442,7 @@ pub struct TargetPage {
 pub struct TagMeta {
     pub slug: String,
     pub name: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
 }
 
@@ -432,6 +461,7 @@ pub struct EquipmentMeta {
     pub slug: String,
     pub canonical_name: String,
     pub display_name: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
 }
 
@@ -441,6 +471,7 @@ pub struct EquipmentPaired {
     pub kind: String,
     pub slug: String,
     pub display_name: String,
+    #[ts(type = "number")]
     pub shared_count: i64,
 }
 
@@ -472,6 +503,7 @@ pub struct EquipmentPage {
 #[ts(export, export_to = "CategoryPage.ts")]
 pub struct CategoryPage {
     pub category: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
     pub page: DiscoveryPage,
 }
@@ -481,6 +513,7 @@ pub struct CategoryPage {
 pub struct SearchTargetHit {
     pub slug: String,
     pub canonical_name: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
 }
 
@@ -514,6 +547,7 @@ pub struct EquipmentItemRef {
     pub brand: String,
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub variant: Option<String>,
 }
 
@@ -529,6 +563,7 @@ pub struct SetupItem {
 #[ts(export, export_to = "RoleCount.ts")]
 pub struct RoleCount {
     pub role: String,
+    #[ts(type = "number")]
     pub count: i64,
 }
 
@@ -730,6 +765,7 @@ pub struct TargetListItem {
     pub magnitude_v: Option<f32>,
     /// Opposition / midnight-culmination day-of-year (1..365). See TargetMeta.
     pub opposition_doy: Option<i16>,
+    #[ts(type = "number")]
     pub photo_count: i64,
     pub preview_thumbs: Vec<TargetPreviewThumb>,
 }
@@ -861,10 +897,13 @@ pub struct TelescopeSpecs {
     pub focal_ratio_f: Option<f64>,
     /// Catalog v2 (migration 0022): completeness fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub self_weight_kg: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub optical_length_mm: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub backfocus_mm: Option<f64>,
 }
 
@@ -880,14 +919,19 @@ pub struct CameraSpecs {
     pub sensor_height_px: Option<i32>,
     /// Catalog v2 (migration 0022): completeness fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub self_weight_g: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub full_well_capacity_e: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub read_noise_e: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub mount_thread: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub backfocus_mm: Option<f64>,
 }
 
@@ -900,10 +944,13 @@ pub struct FilterSpecs {
     pub mounted: Option<bool>,
     /// Catalog v2 (migration 0022): completeness fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub mounted_diameter_mm: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub thickness_mm: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub peak_transmission_pct: Option<f64>,
 }
 
@@ -915,12 +962,16 @@ pub struct MountSpecs {
     pub goto: Option<bool>,
     /// Catalog v2 (migration 0022): completeness fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub self_weight_kg: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub periodic_error_arcsec: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub tripod_included: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub control_protocol: Option<String>,
 }
 
@@ -931,10 +982,13 @@ pub struct FocalModifierSpecs {
     pub factor: Option<f64>,
     /// Catalog v2 (migration 0022): completeness fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub self_weight_g: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub backfocus_mm: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub image_circle_mm: Option<f64>,
 }
 
@@ -946,10 +1000,13 @@ pub struct FocalModifierSpecs {
 pub struct GuidingSpecs {
     pub setup_kind: Option<GuidingSetupKind>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub guide_focal_mm: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub guide_aperture_mm: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub guide_camera: Option<String>,
 }
 
@@ -971,8 +1028,10 @@ pub enum EquipmentSpecsPayload {
 #[ts(export, export_to = "EquipmentItemPatch.ts")]
 pub struct EquipmentItemPatch {
     #[serde(default)]
+    #[ts(optional = nullable)]
     pub display_name: Option<String>,
     #[serde(default)]
+    #[ts(optional = nullable)]
     pub specs: Option<EquipmentSpecsPayload>,
 }
 
@@ -996,16 +1055,19 @@ pub struct EquipmentItemDetail {
     pub brand: String,
     pub model: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub variant: Option<String>,
     /// Submitter handle, surfaced for the detail page's "added by
     /// @handle" footer. None when `submitted_by` is null OR when the
     /// submitter has been deleted (FK is ON DELETE SET NULL upstream).
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub submitted_by_handle: Option<String>,
     /// Number of distinct `equipment_setups` referencing this item via
     /// `setup_items`. Drives the detail-page stat strip and the
     /// "Delete" affordance (only shown when zero setups + zero photos).
     #[serde(default)]
+    #[ts(type = "number")]
     pub setup_count: i64,
 }
 
@@ -1021,6 +1083,7 @@ pub struct EquipmentItemDetail {
 #[ts(export, export_to = "EquipmentFacetBucket.ts")]
 pub struct EquipmentFacetBucket {
     pub value: String,
+    #[ts(type = "number")]
     pub count: i64,
 }
 
@@ -1033,20 +1096,28 @@ pub struct EquipmentFacetBucket {
 pub struct EquipmentFacets {
     pub brands: Vec<EquipmentFacetBucket>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub designs: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub sensor_types: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub color_types: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub cooled: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub mount_types: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub filter_types: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub modifier_types: Option<Vec<EquipmentFacetBucket>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub setup_kinds: Option<Vec<EquipmentFacetBucket>>,
 }
 
@@ -1058,10 +1129,13 @@ pub struct EquipmentFacets {
 pub struct EquipmentCatalogResponse {
     pub items: Vec<EquipmentItemDetail>,
     pub facets: EquipmentFacets,
+    #[ts(type = "number")]
     pub total: i64,
     /// Page size used to compute `total / limit` pagination on the
     /// frontend. Mirrors the request param (clamped server-side).
+    #[ts(type = "number")]
     pub limit: i64,
+    #[ts(type = "number")]
     pub offset: i64,
 }
 
@@ -1097,6 +1171,7 @@ pub struct FilterIntegration {
     /// `None` when the band has no catalog entry — e.g. Luminance for a
     /// photographer who keeps no L filter in their catalog.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub filter_item_id: Option<String>,
     /// Per-session camera gain (unitless ZWO/CMOS setting, FITS `GAIN`).
     /// Session-specific, so it lives here rather than the global
@@ -1104,10 +1179,12 @@ pub struct FilterIntegration {
     /// `None` when unknown. See `docs/superpowers/specs/2026-05-27-
     /// acquisition-session-fields-design.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub gain: Option<i32>,
     /// Per-session sensor temperature in °C (FITS `CCD-TEMP`, actual,
     /// preferred over `SET-TEMP`). Nullable; legitimately negative.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
     pub sensor_temp_c: Option<f64>,
 }
 
@@ -1177,6 +1254,7 @@ pub struct CatalogValues {
 #[ts(export, export_to = "AdminEquipmentPage.ts")]
 pub struct AdminEquipmentPage {
     pub items: Vec<AdminEquipmentItem>,
+    #[ts(type = "number")]
     pub total: i64,
     pub page: i32,
     pub has_more: bool,

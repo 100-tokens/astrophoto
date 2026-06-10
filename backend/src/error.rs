@@ -97,7 +97,12 @@ impl AppError {
             AppError::QuotaExceeded(_) => StatusCode::PAYLOAD_TOO_LARGE,
             AppError::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             AppError::MagicByteMismatch(_) => StatusCode::BAD_REQUEST,
-            AppError::PendingFinalizeStuck(_) => StatusCode::REQUEST_TIMEOUT,
+            // 409, not 408: finalize was called while the upload is not in
+            // the required state (the presigned PUT never landed) — a
+            // resource-state conflict, not a request-transmission timeout.
+            // 408 also invites automatic retries (some HTTP clients retry it
+            // by default), which can never succeed here.
+            AppError::PendingFinalizeStuck(_) => StatusCode::CONFLICT,
             AppError::UnsupportedFormat(_) => StatusCode::BAD_REQUEST,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -183,6 +188,16 @@ mod tests {
         let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["error"], "bad-request");
+    }
+
+    #[tokio::test]
+    async fn pending_finalize_stuck_maps_to_409() {
+        let resp = AppError::PendingFinalizeStuck("object never arrived".into()).into_response();
+        assert_eq!(resp.status(), StatusCode::CONFLICT);
+        let bytes = to_bytes(resp.into_body(), 1024).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        // The machine-readable code is the client contract — must not change.
+        assert_eq!(v["error"], "pending-finalize-stuck");
     }
 
     #[tokio::test]

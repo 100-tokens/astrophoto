@@ -3,7 +3,7 @@
   // the cursor; drag pans (bounded so the frame never shows gaps);
   // double-click toggles zoom; controls + reset. Astrophotos reward
   // close inspection — this is the core of that experience.
-  import { cdn } from '$lib/cdn';
+  import { cdn, srcset } from '$lib/cdn';
   import type { Snippet } from 'svelte';
 
   // `maxHeight` caps the image so it fits the viewport; pass a context-
@@ -18,17 +18,22 @@
   // The snippet receives the current zoom `scale` so it can counter-scale
   // any element that should stay a constant on-screen size (e.g. text labels)
   // while everything else scales with the image.
+  // `priority` marks the image as the page's LCP element (photo permalink
+  // hero): eager fetchpriority=high. Leave false for post-load contexts
+  // like the lightbox.
   let {
     photoId,
     alt,
     w = 2560,
     maxHeight = '80vh',
+    priority = false,
     overlay
   }: {
     photoId: string;
     alt: string;
     w?: number;
     maxHeight?: string;
+    priority?: boolean;
     overlay?: Snippet<[number]>;
   } = $props();
 
@@ -46,6 +51,12 @@
   let lastY = 0;
 
   const zoomed = $derived(scale > 1.001);
+
+  // Latched on the first zoom interaction: flips `sizes` from the viewport
+  // width to the full requested width, so the browser upgrades the srcset
+  // pick to the high-res asset only once the user actually zooms (browsers
+  // never downgrade an already-loaded candidate, so the swap is safe).
+  let everZoomed = $state(false);
 
   // Max pan offset at current scale, so the contain-fitted image edges
   // never pull inside the frame (no gaps). Uses the pre-transform size.
@@ -78,6 +89,7 @@
     tx = cx - ((cx - tx) * ns) / scale;
     ty = cy - ((cy - ty) * ns) / scale;
     scale = ns;
+    if (ns > 1.001) everZoomed = true;
     clamp();
   }
 
@@ -145,13 +157,22 @@
   role="presentation"
 >
   <div class="tlayer" style="transform: translate({tx}px, {ty}px) scale({scale});">
-    <img bind:this={img} src={cdn(photoId, { w })} {alt} draggable="false" />
+    <img
+      bind:this={img}
+      src={cdn(photoId, { w })}
+      srcset={srcset(photoId, [800, 1280, w])}
+      sizes={everZoomed ? `${w}px` : '100vw'}
+      fetchpriority={priority ? 'high' : undefined}
+      decoding="async"
+      {alt}
+      draggable="false"
+    />
     {#if overlay}
       <div class="overlay-slot">{@render overlay(scale)}</div>
     {/if}
   </div>
 
-  <div class="controls" class:hidden={!zoomed && false}>
+  <div class="controls">
     <button type="button" aria-label="Zoom in" onclick={() => zoomBy(1.5)}>+</button>
     <button type="button" aria-label="Zoom out" onclick={() => zoomBy(1 / 1.5)}>−</button>
     <button type="button" aria-label="Reset zoom" onclick={reset} disabled={!zoomed}>⤢</button>
@@ -231,8 +252,13 @@
     transition: opacity 150ms var(--ease-out, ease-out);
   }
   .viewer:hover .controls,
+  .viewer:focus-within .controls,
   .viewer.zoomed .controls {
     opacity: 1;
+  }
+  .controls button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .controls button {
     width: 30px;

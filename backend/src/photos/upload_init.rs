@@ -133,6 +133,14 @@ pub async fn handler(
                 {
                     continue;
                 }
+                // Concurrent double-submit of the same file: the
+                // sequential pre-check above missed it, but the partial
+                // unique index catches it. Same 409 as the pre-check.
+                Err(sqlx::Error::Database(ref db_err))
+                    if db_err.constraint() == Some("photos_owner_hash_uidx") =>
+                {
+                    return Err(AppError::Conflict("file already uploaded".into()));
+                }
                 Err(e) => return Err(AppError::Database(e)),
             }
         };

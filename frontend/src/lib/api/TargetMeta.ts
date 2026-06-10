@@ -5,8 +5,8 @@ export type TargetMeta = {
   canonical_name: string;
   aliases: Array<string>;
   kind: string | null;
-  photo_count: bigint;
-  contributor_count: bigint;
+  photo_count: number;
+  contributor_count: number;
   right_ascension: number | null;
   declination: number | null;
   magnitude_v: number | null;

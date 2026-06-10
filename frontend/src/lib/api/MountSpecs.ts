@@ -8,8 +8,8 @@ export type MountSpecs = {
   /**
    * Catalog v2 (migration 0022): completeness fields.
    */
-  self_weight_kg: number | null;
-  periodic_error_arcsec: number | null;
-  tripod_included: boolean | null;
-  control_protocol: string | null;
+  self_weight_kg?: number | null;
+  periodic_error_arcsec?: number | null;
+  tripod_included?: boolean | null;
+  control_protocol?: string | null;
 };

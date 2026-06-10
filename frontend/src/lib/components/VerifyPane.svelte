@@ -9,18 +9,6 @@
   import { useAutosave } from '$lib/upload/useAutosave.svelte';
   import type { PhotoDetail } from '$lib/api/PhotoDetail';
 
-  // The generated PhotoDetail type does not include the per-photo equipment
-  // freetext fields (category, scope, mount, filters, guiding) — those are
-  // written via the metadata patch but not echoed back in PhotoDetail yet.
-  // Cast inline so we can seed the form from the server value.
-  type ShowcasePhoto = PhotoDetail & {
-    category?: string | null;
-    scope?: string | null;
-    mount?: string | null;
-    filters?: string | null;
-    guiding?: string | null;
-  };
-
   interface Props {
     photo: PhotoDetail;
     initialTags: string[];
@@ -33,7 +21,7 @@
   // reference as a direct $state initializer dependency. These fields are
   // form-editable state, intentionally seeded once from the server value.
   function sp() {
-    return photo as ShowcasePhoto;
+    return photo;
   }
   const _sp = sp();
   function spTags() {

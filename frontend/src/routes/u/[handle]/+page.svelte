@@ -40,11 +40,20 @@
 
   let canonicalUrl = $derived(`${page.url.origin}/u/${encodeURIComponent(data.profile.handle)}`);
 
+  // SVG is not an accepted og/twitter image format (Facebook, X, Slack,
+  // Discord all reject it), so never fall back to the favicon. Cover first,
+  // then the avatar (a raster, but only addressable via the CDN — there is
+  // no /api/photos thumb route for avatars), else omit og:image entirely.
   let ogImage = $derived.by(() => {
-    if (!data.profile.cover) return `${page.url.origin}/favicon.svg`;
-    return CDN_BASE
-      ? `${CDN_BASE}/img/${data.profile.cover.id}?w=1200`
-      : `${page.url.origin}/api/photos/${data.profile.cover.id}/thumb/1200`;
+    if (data.profile.cover) {
+      return CDN_BASE
+        ? `${CDN_BASE}/img/${data.profile.cover.id}?w=1200`
+        : `${page.url.origin}/api/photos/${data.profile.cover.id}/thumb/1200`;
+    }
+    if (data.profile.avatar_id && CDN_BASE) {
+      return `${CDN_BASE}/img/${data.profile.avatar_id}?w=1200`;
+    }
+    return null;
   });
 
   // schema.org Person — gives AI engines a clean photographer entity to
@@ -88,13 +97,17 @@
   <meta property="og:title" content={title} />
   <meta property="og:description" content={metaDescription} />
   <meta property="og:url" content={canonicalUrl} />
-  <meta property="og:image" content={ogImage} />
+  {#if ogImage}
+    <meta property="og:image" content={ogImage} />
+  {/if}
   <meta property="profile:username" content={data.profile.handle} />
 
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={metaDescription} />
-  <meta name="twitter:image" content={ogImage} />
+  {#if ogImage}
+    <meta name="twitter:image" content={ogImage} />
+  {/if}
 
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html ldJsonScriptTag(jsonLd)}
@@ -103,16 +116,25 @@
 <AppHeader />
 
 <main>
-  <HeroPage
-    profile={data.profile}
-    viewMode={data.viewMode}
-    firstPage={data.firstPage}
-    onEditProfile={(s) => {
-      editorSection = s ?? null;
-      editorOpen = true;
-    }}
-    onPickCover={() => (coverPickerOpen = true)}
-  />
+  <!-- Key on the profile id (a stable scalar): same-route navigation to
+       another photographer (e.g. via the header search) reuses this page
+       instance, and PhotoGrid/FollowButton seed one-shot $state from props,
+       so without a remount they keep showing the previous user's grid and
+       follow state. invalidateAll() on the SAME profile yields a new object
+       but the same id, so no remount occurs and the documented
+       identity-churn fix in PhotoGrid is preserved. -->
+  {#key data.profile.id}
+    <HeroPage
+      profile={data.profile}
+      viewMode={data.viewMode}
+      firstPage={data.firstPage}
+      onEditProfile={(s) => {
+        editorSection = s ?? null;
+        editorOpen = true;
+      }}
+      onPickCover={() => (coverPickerOpen = true)}
+    />
+  {/key}
 
   {#if data.viewMode === 'owner'}
     <ProfileEditor

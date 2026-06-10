@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select t.name\n                       from photo_tags pt\n                       join tags t on t.id = pt.tag_id\n                      where pt.photo_id = $1\n                      order by t.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b5572f085d0386b2fffedc2be3e02c611661ed3b489c52cf7cdfd2acd6066d02"
+}

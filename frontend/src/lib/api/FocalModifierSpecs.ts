@@ -7,7 +7,7 @@ export type FocalModifierSpecs = {
   /**
    * Catalog v2 (migration 0022): completeness fields.
    */
-  self_weight_g: number | null;
-  backfocus_mm: number | null;
-  image_circle_mm: number | null;
+  self_weight_g?: number | null;
+  backfocus_mm?: number | null;
+  image_circle_mm?: number | null;
 };

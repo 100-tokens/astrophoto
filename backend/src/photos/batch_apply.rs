@@ -68,14 +68,18 @@ pub async fn handler(
     }
 
     if let Some(tags) = &body.tags {
+        // Delete + re-attach atomically: a failure mid-attach must not
+        // leave some photos stripped of their tags.
+        let mut tx = state.pool.begin().await?;
         sqlx::query!("delete from photo_tags where photo_id = any($1)", &body.ids)
-            .execute(&state.pool)
+            .execute(&mut *tx)
             .await?;
         if !tags.is_empty() {
             for id in &body.ids {
-                crate::photos::tags::attach(&state.pool, *id, tags).await?;
+                crate::photos::tags::attach(&mut tx, *id, tags).await?;
             }
         }
+        tx.commit().await?;
     }
 
     Ok(Json(BatchApplyResponse {

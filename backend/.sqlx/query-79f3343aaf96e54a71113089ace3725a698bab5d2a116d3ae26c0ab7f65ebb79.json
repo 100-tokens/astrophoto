@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select owner_id, storage_key, display_key, status, published_at from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "79f3343aaf96e54a71113089ace3725a698bab5d2a116d3ae26c0ab7f65ebb79"
+}

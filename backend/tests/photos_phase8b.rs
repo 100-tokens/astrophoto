@@ -49,7 +49,6 @@ fn config_for(url: &str) -> Config {
         bind: "127.0.0.1:0".into(),
         log: "info".into(),
         database_url: url.into(),
-        session_domain: "localhost".into(),
         session_secure: false,
         public_base_url: "http://localhost:8080".into(),
         s3_endpoint: None,
@@ -1071,10 +1070,13 @@ async fn purge_worker_sweeps_pending_deletes_older_than_7_days() {
     .execute(&pool)
     .await
     .unwrap();
+    // status must be 'ready': since the 2026-06 audit the sweep refuses to
+    // drain pending deletes for photos in any other state (a failed replace's
+    // queued keys are the photo's only remaining good assets).
     let id = sqlx::query_scalar!(
         "insert into photos (owner_id, storage_key, original_name, bytes, mime,
                              status, original_uploaded_at, last_step, short_id)
-         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'failed', now(), 'upload',
+         values ($1, 'k', 'n.jpg', 10, 'image/jpeg', 'ready', now(), 'upload',
                  upper(left(replace(gen_random_uuid()::text, '-', ''), 8)))
          returning id",
         owner

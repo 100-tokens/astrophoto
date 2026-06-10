@@ -4,6 +4,8 @@
   import SpecsPanel from '$lib/components/equipment/SpecsPanel.svelte';
   import Field from '$lib/components/equipment/Field.svelte';
   import { FIELDS_BY_KIND, type SpecField } from '$lib/equipment/specs-fields';
+  import type { EquipmentItemPatch } from '$lib/api/EquipmentItemPatch';
+  import type { EquipmentSpecsPayload } from '$lib/api/EquipmentSpecsPayload';
 
   let { data } = $props();
 
@@ -47,11 +49,16 @@
         cleaned[f.name] = f.type === 'number' ? Number(v) : v;
       }
 
+      // `cleaned` is assembled dynamically per kind, so it needs one cast
+      // into the tagged union — the payload itself is contract-typed.
+      const payload: EquipmentItemPatch = {
+        specs: cleaned as unknown as EquipmentSpecsPayload
+      };
       const r = await fetch(`/api/equipment/items/${data.item.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ specs: cleaned })
+        body: JSON.stringify(payload)
       });
       if (!r.ok) {
         const body = await r.text();

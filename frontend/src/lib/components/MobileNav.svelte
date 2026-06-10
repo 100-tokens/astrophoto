@@ -48,7 +48,6 @@
     class="burger"
     class:open
     aria-label={open ? 'Close menu' : 'Open menu'}
-    aria-haspopup="true"
     aria-expanded={open}
     onclick={toggle}
   >

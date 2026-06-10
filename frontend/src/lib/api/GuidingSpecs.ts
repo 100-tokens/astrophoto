@@ -8,7 +8,7 @@ import type { GuidingSetupKind } from './GuidingSetupKind';
  */
 export type GuidingSpecs = {
   setup_kind: GuidingSetupKind | null;
-  guide_focal_mm: number | null;
-  guide_aperture_mm: number | null;
-  guide_camera: string | null;
+  guide_focal_mm?: number | null;
+  guide_aperture_mm?: number | null;
+  guide_camera?: string | null;
 };

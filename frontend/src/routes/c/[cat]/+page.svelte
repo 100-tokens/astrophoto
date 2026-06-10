@@ -30,10 +30,9 @@
     cursor = data.initial.page.next_cursor;
   });
 
-  function applyFilter(next: { sort?: string; since?: string }) {
+  function applyFilter(next: { sort?: string }) {
     const u = new URL(window.location.href);
     if (next.sort !== undefined) u.searchParams.set('sort', next.sort);
-    if (next.since !== undefined) u.searchParams.set('since', next.since);
     void goto(u.pathname + u.search, { replaceState: true, keepFocus: true, noScroll: true });
   }
 
@@ -41,7 +40,6 @@
     if (!cursor) return { photos: [], next_cursor: null };
     const result = await fetchCategoryPage(fetch, data.initial.category, {
       sort: data.sort,
-      since: data.since,
       cursor,
       limit: 24
     });
@@ -72,14 +70,13 @@
     category={data.initial.category}
     photoCount={data.initial.photo_count}
   />
-  <FilterPills
-    variant="category"
-    sort={data.sort}
-    since={data.since}
-    onSortChange={(s) => applyFilter({ sort: s })}
-    onSinceChange={(s) => applyFilter({ since: s })}
-  />
-  {#key `${data.sort}|${data.since}`}
+  <!-- No `since` here: only /api/explore implements it; the category endpoint
+       silently ignores the param, so forwarding it would lie to the user. -->
+  <FilterPills variant="category" sort={data.sort} onSortChange={(s) => applyFilter({ sort: s })} />
+  <!-- The category must be part of the key: same-route navigation between two
+       categories reuses this page instance, and CrossAuthorGrid keeps its own
+       loaded-pages state, which would leak across categories. -->
+  {#key `${data.initial.category}|${data.sort}`}
     <CrossAuthorGrid
       initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
       loadMore={loadMoreFn}

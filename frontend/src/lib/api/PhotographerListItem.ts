@@ -8,9 +8,9 @@
 export type PhotographerListItem = {
   handle: string;
   display_name: string;
-  frame_count: bigint;
-  follower_count: bigint;
-  integration_seconds: bigint;
+  frame_count: number;
+  follower_count: number;
+  integration_seconds: number;
   cover_photo_id: string | null;
   member_since_year: number;
 };

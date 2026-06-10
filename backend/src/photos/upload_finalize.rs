@@ -59,6 +59,24 @@ pub async fn handler(
         return Err(AppError::MagicByteMismatch(format!("{sig:?}")));
     }
 
+    // Atomically claim the row before running the pipeline. Two jobs:
+    // (a) the hourly reaper only deletes status='pending' rows, so an
+    //     in-flight finalize can no longer be reaped (row + S3 original
+    //     destroyed) if it straddles the 24h mark or crashes mid-run;
+    // (b) a concurrent duplicate finalize loses the claim and bounces
+    //     with 409 instead of running the pipeline twice.
+    let claimed = sqlx::query!(
+        "update photos set status='processing'
+          where id = $1 and status in ('pending', 'failed')",
+        id
+    )
+    .execute(&state.pool)
+    .await?
+    .rows_affected();
+    if claimed == 0 {
+        return Err(AppError::Conflict("finalize already in progress".into()));
+    }
+
     // XISF takes a different path: astrophoto has no XISF decoder, so
     // the standard EXIF / thumbnail / display-master / blurhash pipeline
     // can't run. We mark the photo `awaiting-calibration`, fire the

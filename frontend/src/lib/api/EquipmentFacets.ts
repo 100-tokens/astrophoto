@@ -9,12 +9,12 @@ import type { EquipmentFacetBucket } from './EquipmentFacetBucket';
  */
 export type EquipmentFacets = {
   brands: Array<EquipmentFacetBucket>;
-  designs: Array<EquipmentFacetBucket> | null;
-  sensor_types: Array<EquipmentFacetBucket> | null;
-  color_types: Array<EquipmentFacetBucket> | null;
-  cooled: Array<EquipmentFacetBucket> | null;
-  mount_types: Array<EquipmentFacetBucket> | null;
-  filter_types: Array<EquipmentFacetBucket> | null;
-  modifier_types: Array<EquipmentFacetBucket> | null;
-  setup_kinds: Array<EquipmentFacetBucket> | null;
+  designs?: Array<EquipmentFacetBucket> | null;
+  sensor_types?: Array<EquipmentFacetBucket> | null;
+  color_types?: Array<EquipmentFacetBucket> | null;
+  cooled?: Array<EquipmentFacetBucket> | null;
+  mount_types?: Array<EquipmentFacetBucket> | null;
+  filter_types?: Array<EquipmentFacetBucket> | null;
+  modifier_types?: Array<EquipmentFacetBucket> | null;
+  setup_kinds?: Array<EquipmentFacetBucket> | null;
 };

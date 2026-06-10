@@ -47,6 +47,31 @@ pub async fn rename(
         return Ok(StatusCode::NO_CONTENT.into_response());
     }
 
+    // Cooldown check: a handle released by ANOTHER user within the last
+    // 90 days is reserved (anti-impersonation — `released_at` is the
+    // reservable-at instant, written as now()+90d below). The original
+    // owner may always reclaim their own released handle (a → b → a);
+    // doing so, or claiming an expired one, clears the redirect row so
+    // /u/<old-handle> stops 301-ing to its previous owner.
+    let redirect = sqlx::query!(
+        r#"select user_id, (released_at > now()) as "in_cooldown!"
+             from handle_redirects where old_handle = $1"#,
+        body.handle
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(r) = redirect {
+        if r.user_id != user.id && r.in_cooldown {
+            return Err(AppError::Conflict("handle is reserved".into()));
+        }
+        sqlx::query!(
+            "delete from handle_redirects where old_handle = $1",
+            body.handle
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
     // Attempt the update; intercept the unique-constraint violation.
     let res = sqlx::query!(
         "update users set handle = $1 where id = $2",

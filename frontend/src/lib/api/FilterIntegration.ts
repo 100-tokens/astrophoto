@@ -29,7 +29,7 @@ export type FilterIntegration = {
    * `None` when the band has no catalog entry — e.g. Luminance for a
    * photographer who keeps no L filter in their catalog.
    */
-  filter_item_id: string | null;
+  filter_item_id?: string | null;
   /**
    * Per-session camera gain (unitless ZWO/CMOS setting, FITS `GAIN`).
    * Session-specific, so it lives here rather than the global
@@ -37,10 +37,10 @@ export type FilterIntegration = {
    * `None` when unknown. See `docs/superpowers/specs/2026-05-27-
    * acquisition-session-fields-design.md`.
    */
-  gain: number | null;
+  gain?: number | null;
   /**
    * Per-session sensor temperature in °C (FITS `CCD-TEMP`, actual,
    * preferred over `SET-TEMP`). Nullable; legitimately negative.
    */
-  sensor_temp_c: number | null;
+  sensor_temp_c?: number | null;
 };

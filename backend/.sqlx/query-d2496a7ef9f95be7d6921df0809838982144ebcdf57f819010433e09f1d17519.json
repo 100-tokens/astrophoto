@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from handle_redirects where old_handle = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2496a7ef9f95be7d6921df0809838982144ebcdf57f819010433e09f1d17519"
+}

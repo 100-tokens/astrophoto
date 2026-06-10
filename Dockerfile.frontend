@@ -42,6 +42,11 @@ COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 
+# Run as the unprivileged `node` user shipped with the base image. The
+# server only reads ./build and ./node_modules (root-owned, world-readable)
+# and writes nothing to the image filesystem; 3000 is unprivileged.
+USER node
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOST=0.0.0.0

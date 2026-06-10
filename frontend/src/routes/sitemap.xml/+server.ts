@@ -16,12 +16,23 @@ import type { RequestHandler } from './$types';
 
 // Max cursor pages to walk per source. At 60 rows/page this bounds photo
 // enumeration to ~PHOTO_PAGE_CAP*60 URLs and the request to that many
-// sequential API round-trips (intentional; this endpoint is CDN-cached 1h).
+// cursor-sequential API round-trips. The walk cost is bounded by the
+// in-process memo below — there is NO shared CDN in front of the frontend
+// (Koyeb serves it directly; CloudFront only fronts the image bucket), so
+// the Cache-Control header on the response is merely a client/crawler hint.
 // TODO: when published photos exceed ~PHOTO_PAGE_CAP*60, the 60-row clamp
 // makes one sitemap too slow/large — switch to a sitemap index + a bulk
 // (uncapped) enumeration path on the backend rather than raising this cap.
 const PHOTO_PAGE_CAP = 84; // ~5,040 photo permalinks, well under the 50k limit
 const TARGET_PAGE_CAP = 20; // ~1,200 photographed targets
+
+// In-process memo so repeated crawler/curl hits don't each fan out into up
+// to PHOTO_PAGE_CAP + TARGET_PAGE_CAP backend round-trips (an easy
+// unauthenticated amplification lever otherwise). Sitemap freshness is not
+// critical; 10 min staleness is fine. Keyed on origin so a host change
+// (dev vs staging) never serves URLs for the wrong host.
+const SITEMAP_TTL_MS = 10 * 60 * 1000;
+let cached: { origin: string; body: string; expiresAt: number } | null = null;
 
 const STATIC_PATHS = [
   { loc: '/', changefreq: 'hourly', priority: 1.0 },
@@ -70,9 +81,16 @@ interface TargetPage {
   next_cursor?: string | null;
 }
 
+type SitemapUrl = { loc: string; lastmod?: string; changefreq?: string; priority?: number };
+
 export const GET: RequestHandler = async ({ url, fetch }) => {
   const origin = `${url.protocol}//${url.host}`;
-  const urls: { loc: string; lastmod?: string; changefreq?: string; priority?: number }[] = [];
+
+  if (cached && cached.origin === origin && Date.now() < cached.expiresAt) {
+    return sitemapResponse(cached.body);
+  }
+
+  const urls: SitemapUrl[] = [];
 
   for (const s of STATIC_PATHS) {
     urls.push({ loc: `${origin}${s.loc}`, changefreq: s.changefreq, priority: s.priority });
@@ -90,65 +108,76 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
   // `next_cursor` so permalinks beyond the backend's 60-row page are crawlable.
   // Fail soft: a mid-walk hiccup breaks the loop but keeps what we collected
   // (and the static/category entries already pushed above).
-  try {
-    let cursor: string | null = null;
-    for (let page = 0; page < PHOTO_PAGE_CAP; page++) {
-      const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
-      const r = await fetch(`/api/explore?limit=60${qs}`);
-      if (!r.ok) break;
-      const data = (await r.json()) as ExplorePage;
-      const photos = data.photos ?? [];
-      for (const p of photos) {
-        const handle = p.author_handle ?? p.owner_handle;
-        if (!p.short_id || !handle) continue;
-        const lastmod = p.published_at ?? p.created_at;
-        urls.push({
-          loc: `${origin}/u/${encodeURIComponent(handle)}/p/${p.short_id}`,
-          ...(lastmod ? { lastmod } : {}),
-          changefreq: 'weekly',
-          priority: 0.8
-        });
-        // Photographer profile page (deduped via Set below)
-        urls.push({
-          loc: `${origin}/u/${encodeURIComponent(handle)}`,
-          changefreq: 'weekly',
-          priority: 0.6
-        });
+  const photoUrls: SitemapUrl[] = [];
+  const walkPhotos = async () => {
+    try {
+      let cursor: string | null = null;
+      for (let page = 0; page < PHOTO_PAGE_CAP; page++) {
+        const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+        const r = await fetch(`/api/explore?limit=60${qs}`);
+        if (!r.ok) break;
+        const data = (await r.json()) as ExplorePage;
+        const photos = data.photos ?? [];
+        for (const p of photos) {
+          const handle = p.author_handle ?? p.owner_handle;
+          if (!p.short_id || !handle) continue;
+          const lastmod = p.published_at ?? p.created_at;
+          photoUrls.push({
+            loc: `${origin}/u/${encodeURIComponent(handle)}/p/${p.short_id}`,
+            ...(lastmod ? { lastmod } : {}),
+            changefreq: 'weekly',
+            priority: 0.8
+          });
+          // Photographer profile page (deduped via Set below)
+          photoUrls.push({
+            loc: `${origin}/u/${encodeURIComponent(handle)}`,
+            changefreq: 'weekly',
+            priority: 0.6
+          });
+        }
+        // Stop on exhausted cursor or an empty page (defensive: avoids spinning).
+        cursor = data.next_cursor ?? null;
+        if (!cursor || photos.length === 0) break;
       }
-      // Stop on exhausted cursor or an empty page (defensive: avoids spinning).
-      cursor = data.next_cursor ?? null;
-      if (!cursor || photos.length === 0) break;
+    } catch {
+      /* fail soft */
     }
-  } catch {
-    /* fail soft */
-  }
+  };
 
   // Top targets — only those with published photos. After the OpenNGC seed
   // the catalog is ~12k objects, most photo-less; without this filter the
   // sitemap would hand crawlers thousands of empty stub pages. Same 60-row
   // clamp as explore, so walk `next_cursor` here too.
-  try {
-    let cursor: string | null = null;
-    for (let page = 0; page < TARGET_PAGE_CAP; page++) {
-      const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
-      const r = await fetch(`/api/targets?limit=60&has_photos=true${qs}`);
-      if (!r.ok) break;
-      const data = (await r.json()) as TargetPage;
-      const targets = data.targets ?? data.items ?? [];
-      for (const t of targets) {
-        if (!t.slug) continue;
-        urls.push({
-          loc: `${origin}/t/${encodeURIComponent(t.slug)}`,
-          changefreq: 'weekly',
-          priority: 0.7
-        });
+  const targetUrls: SitemapUrl[] = [];
+  const walkTargets = async () => {
+    try {
+      let cursor: string | null = null;
+      for (let page = 0; page < TARGET_PAGE_CAP; page++) {
+        const qs = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+        const r = await fetch(`/api/targets?limit=60&has_photos=true${qs}`);
+        if (!r.ok) break;
+        const data = (await r.json()) as TargetPage;
+        const targets = data.targets ?? data.items ?? [];
+        for (const t of targets) {
+          if (!t.slug) continue;
+          targetUrls.push({
+            loc: `${origin}/t/${encodeURIComponent(t.slug)}`,
+            changefreq: 'weekly',
+            priority: 0.7
+          });
+        }
+        cursor = data.next_cursor ?? null;
+        if (!cursor || targets.length === 0) break;
       }
-      cursor = data.next_cursor ?? null;
-      if (!cursor || targets.length === 0) break;
+    } catch {
+      /* fail soft */
     }
-  } catch {
-    /* fail soft */
-  }
+  };
+
+  // Each walk is internally sequential (cursor pagination), but the two
+  // sources are independent — run them concurrently.
+  await Promise.all([walkPhotos(), walkTargets()]);
+  urls.push(...photoUrls, ...targetUrls);
 
   // Dedupe by URL
   const seen = new Set<string>();
@@ -173,11 +202,18 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       .join('\n') +
     `\n</urlset>\n`;
 
+  cached = { origin, body, expiresAt: Date.now() + SITEMAP_TTL_MS };
+
+  return sitemapResponse(body);
+};
+
+function sitemapResponse(body: string): Response {
   return new Response(body, {
     headers: {
       'content-type': 'application/xml; charset=utf-8',
-      // Cache 1h at the CDN — sitemap content moves slowly enough.
+      // Client/crawler caching hint only — see the memo note above; no
+      // shared cache sits in front of this route.
       'cache-control': 'public, max-age=3600, stale-while-revalidate=86400'
     }
   });
-};
+}

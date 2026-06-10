@@ -240,11 +240,64 @@ async fn post_item_without_specs_still_works() {
 }
 
 // ── PATCH tests ──────────────────────────────────────────────────────────────
+//
+// PATCH /api/equipment/items/:id is admin-only (the catalog is global shared
+// state); every PATCH fixture below promotes its user to super-admin first.
+
+async fn mark_admin(pool: &sqlx::PgPool, email: &str) {
+    sqlx::query!("update users set is_admin = true where email = $1", email)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn patch_item_requires_admin() {
+    let (app, pool) = common::make_app_and_pool().await;
+    let cookie = common::signup_and_cookie(&app, &pool, "nonadmin@example.com", "nonadmin1").await;
+
+    let item_id: uuid::Uuid = sqlx::query_scalar!(
+        r#"insert into equipment_items
+                (kind, canonical_name, display_name, usage_count, status, approved_at,
+                 brand, model)
+            values ('telescope','authz check','Authz Check',0,'approved',now(),
+                    '','Authz Check')
+            returning id"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/api/equipment/items/{item_id}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::COOKIE, &cookie)
+                .body(Body::from(r#"{"display_name":"Vandalised"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 403);
+
+    let name: String = sqlx::query_scalar!(
+        "select display_name from equipment_items where id = $1",
+        item_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(name, "Authz Check");
+}
 
 #[tokio::test]
 async fn patch_item_replaces_specs_row() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "ivan@example.com", "ivan1").await;
+    mark_admin(&pool, "ivan@example.com").await;
 
     // Seed an item with filter_specs (h_alpha, bandwidth_nm=5.0).
     let item_id: uuid::Uuid = sqlx::query_scalar!(
@@ -305,6 +358,7 @@ async fn patch_item_replaces_specs_row() {
 async fn patch_item_renames_display_name_and_canonical() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "judy@example.com", "judy1").await;
+    mark_admin(&pool, "judy@example.com").await;
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
@@ -348,6 +402,7 @@ async fn patch_item_renames_display_name_and_canonical() {
 async fn patch_item_with_wrong_kind_specs_returns_422() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "karl@example.com", "karl1").await;
+    mark_admin(&pool, "karl@example.com").await;
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items
@@ -406,6 +461,7 @@ async fn patch_item_with_wrong_kind_specs_returns_422() {
 async fn patch_item_404_for_unknown_uuid() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "laura@example.com", "laura1").await;
+    mark_admin(&pool, "laura@example.com").await;
 
     let r = app
         .clone()
@@ -427,6 +483,7 @@ async fn patch_item_404_for_unknown_uuid() {
 async fn patch_item_empty_display_name_returns_422() {
     let (app, pool) = common::make_app_and_pool().await;
     let cookie = common::signup_and_cookie(&app, &pool, "mike@example.com", "mike1").await;
+    mark_admin(&pool, "mike@example.com").await;
 
     let item_id: uuid::Uuid = sqlx::query_scalar!(
         r#"insert into equipment_items

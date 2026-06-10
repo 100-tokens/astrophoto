@@ -33,5 +33,11 @@ WORKDIR /app
 COPY --from=builder /app/target/release/astrophoto /usr/local/bin/astrophoto
 COPY --from=builder /app/migrations ./migrations
 
+# Run as a non-root user. The process only reads /app/migrations (root-owned,
+# world-readable) and writes nothing to the image filesystem; 8080 is
+# unprivileged, so no chown is needed.
+RUN useradd --system --uid 10001 --user-group --home-dir /app --shell /usr/sbin/nologin app
+USER app
+
 EXPOSE 8080
 CMD ["astrophoto"]

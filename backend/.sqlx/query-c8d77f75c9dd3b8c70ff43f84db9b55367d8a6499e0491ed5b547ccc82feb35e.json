@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photo_targets set is_primary = false where photo_id = $1 and is_primary and target_id <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8d77f75c9dd3b8c70ff43f84db9b55367d8a6499e0491ed5b547ccc82feb35e"
+}

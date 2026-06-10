@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "delete from photo_pending_deletes d\n          using photos p\n          where p.id = d.photo_id\n            and d.queued_at < now() - interval '7 days'\n            and p.status = 'ready'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "f27796eee5ca479ba88dbc9af180acb9e656b88c1623c63e1180d145d9a894b7"
+}

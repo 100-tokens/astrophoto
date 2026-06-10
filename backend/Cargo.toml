@@ -39,7 +39,7 @@ axum = { version = "0.7", features = ["macros", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 tempfile = "3"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors", "request-id"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "set-header"] }
 hyper = "1"
 
 # DB
@@ -60,7 +60,7 @@ figment = { version = "0.10", features = ["env", "toml"] }
 
 # Auth / crypto
 argon2 = "0.5"
-oauth2 = { version = "4", default-features = false, features = ["rustls-tls"] }
+oauth2 = { version = "5", default-features = false, features = ["reqwest", "rustls-tls"] }
 rand = "0.8"
 base64 = "0.22"
 roxmltree = "0.20" # read-only XISF header XML parsing
@@ -68,7 +68,13 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart"] }
 sha2 = "0.10"
 
 # Storage / images
-aws-sdk-s3 = "1"
+# default-features = false drops the legacy hyper-0.14/rustls-0.21 connector
+# (RUSTSEC-2026-0098/0099/0104 in rustls-webpki 0.101). The runtime client is
+# unchanged: BehaviorVersion::latest() already selects default-https-client
+# (hyper-1 + rustls 0.23). Feature set = upstream default minus "rustls".
+aws-sdk-s3 = { version = "1", default-features = false, features = [
+    "sigv4a", "default-https-client", "rt-tokio"
+] }
 aws-config = "1"
 async-trait = "0.1"
 blurhash = "0.2"
@@ -86,7 +92,7 @@ ammonia = "4"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 nanoid = "0.4"
-validator = { version = "0.18", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
 woothee = "0.13"
 url = "2"

@@ -15,15 +15,17 @@ pub struct Thumb {
     pub height: u32,
 }
 
-/// Decode an image, resize to `max_size` (longest side), encode JPEG.
-/// Returns the encoded bytes plus actual width/height.
-pub fn generate_blocking(input: &[u8], max_size: u32) -> Result<Thumb, AppError> {
-    let img =
-        image::load_from_memory(input).map_err(|e| AppError::Validation(format!("decode: {e}")))?;
-    let resized = if img.width().max(img.height()) <= max_size {
+/// Resize an already-decoded image to `max_size` (longest side), encode
+/// JPEG. Returns the encoded bytes plus actual width/height. Takes a
+/// `DynamicImage` (not raw bytes) so the pipeline decodes the original
+/// exactly once and derives every artifact from it.
+pub fn generate_blocking(img: &image::DynamicImage, max_size: u32) -> Result<Thumb, AppError> {
+    let resized_owned;
+    let resized: &image::DynamicImage = if img.width().max(img.height()) <= max_size {
         img
     } else {
-        img.resize(max_size, max_size, FilterType::Lanczos3)
+        resized_owned = img.resize(max_size, max_size, FilterType::Lanczos3);
+        &resized_owned
     };
     let (w, h) = (resized.width(), resized.height());
     let mut out = Cursor::new(Vec::with_capacity(64 * 1024));
@@ -59,7 +61,8 @@ mod tests {
     #[allow(clippy::unwrap_used)]
     fn resize_to_400() {
         let jpeg = make_test_jpeg();
-        let t = generate_blocking(&jpeg, 400).unwrap();
+        let img = image::load_from_memory(&jpeg).unwrap();
+        let t = generate_blocking(&img, 400).unwrap();
         assert_eq!(t.size, 400);
         assert!(t.width <= 400 && t.height <= 400);
         assert!(!t.bytes.is_empty());
@@ -68,15 +71,11 @@ mod tests {
     #[test]
     #[allow(clippy::unwrap_used)]
     fn smaller_input_unchanged_dims() {
-        let small_jpeg = {
+        let small = {
             use image::{DynamicImage, RgbImage};
-            let img =
-                DynamicImage::ImageRgb8(RgbImage::from_fn(200, 150, |_, _| image::Rgb([0, 0, 0])));
-            let mut buf = Cursor::new(Vec::new());
-            img.write_to(&mut buf, ImageFormat::Jpeg).unwrap();
-            buf.into_inner()
+            DynamicImage::ImageRgb8(RgbImage::from_fn(200, 150, |_, _| image::Rgb([0, 0, 0])))
         };
-        let t = generate_blocking(&small_jpeg, 400).unwrap();
+        let t = generate_blocking(&small, 400).unwrap();
         assert_eq!(t.width, 200);
         assert_eq!(t.height, 150);
     }

@@ -146,7 +146,11 @@
     const hasSpecs = Object.keys(specsFields).length > 0;
 
     if (role.itemId) {
-      // PATCH existing item specs
+      // PATCH existing item specs. Spec curation of shared catalog items
+      // is admin-only on the backend (2026-06 audit): a 403 here just
+      // means this user can't update the shared record — the setup still
+      // references the item, so skip quietly rather than abort the whole
+      // setup save. Any other failure is real and must surface.
       if (hasSpecs) {
         const r = await fetch(`/api/equipment/items/${role.itemId}`, {
           method: 'PATCH',
@@ -154,7 +158,10 @@
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ specs: { kind, ...specsFields } })
         });
-        if (!r.ok) throw new Error(`Failed to update ${kind} specs`);
+        if (!r.ok && r.status !== 403) throw new Error(`Failed to update ${kind} specs`);
+        if (r.status === 403) {
+          console.warn(`${kind} specs not updated: shared catalog specs are admin-curated`);
+        }
       }
       return role.itemId;
     } else {

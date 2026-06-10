@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select user_id, (released_at > now()) as \"in_cooldown!\"\n             from handle_redirects where old_handle = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "in_cooldown!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "ee6b7d1ed8672f6785c33d8abab91c65728ec003025504c61ee1d21987421716"
+}

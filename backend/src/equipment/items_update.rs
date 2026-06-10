@@ -5,6 +5,12 @@
 //! Both fields are optional; omitting both is a no-op that still returns
 //! the current item.
 //!
+//! Admin-only: `equipment_items` is global shared state (joined into
+//! every user's photo specs and the public catalog), so edits go through
+//! super-admins — the admin CRUD pages are the intended editing surface.
+//! Community item *creation* (POST /api/equipment/items) stays open to
+//! all authenticated users.
+//!
 //! Specs replacement is atomic: the old sub-table row is deleted and a
 //! fresh one inserted inside the same transaction. If kind validation
 //! fails (422) the rename is also rolled back.
@@ -13,14 +19,14 @@ use axum::{Json, extract::Path, extract::State, response::IntoResponse};
 use uuid::Uuid;
 
 use crate::api_types::EquipmentItemPatch;
-use crate::auth::middleware::CurrentUser;
+use crate::auth::middleware::AdminUser;
 use crate::equipment::specs;
 use crate::error::AppError;
 use crate::http::AppState;
 
 pub async fn handler(
     State(state): State<AppState>,
-    _user: CurrentUser,
+    _admin: AdminUser,
     Path(id): Path<Uuid>,
     Json(input): Json<EquipmentItemPatch>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -46,7 +52,7 @@ pub async fn handler(
             return Err(AppError::Validation("display_name cannot be empty".into()));
         }
         let canonical = crate::equipment::normalize_canonical(display);
-        sqlx::query!(
+        let res = sqlx::query!(
             r#"update equipment_items
                   set display_name = $1, canonical_name = $2
                 where id = $3"#,
@@ -55,7 +61,22 @@ pub async fn handler(
             id,
         )
         .execute(&mut *tx)
-        .await?;
+        .await;
+        match res {
+            Ok(_) => {}
+            // (kind, canonical_name) unique violation → 409, mirroring the
+            // admin edit endpoint, instead of surfacing as a 500.
+            Err(sqlx::Error::Database(db)) if db.constraint().is_some() => {
+                return Err(AppError::Conflict(
+                    "another item of this kind already uses that name".into(),
+                ));
+            }
+            Err(e) => return Err(AppError::Database(e)),
+        }
+        // photos.filters is a denormalized cache of display names derived
+        // from the photo_filters junction — a rename must rebuild it for
+        // every photo referencing this item, in the same transaction.
+        crate::photos::filters_cache::rebuild_for_item(&mut tx, id).await?;
     }
 
     if let Some(ref payload) = input.specs {

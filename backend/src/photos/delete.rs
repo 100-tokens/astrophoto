@@ -13,23 +13,34 @@ pub async fn handler(
     CurrentUser(user): CurrentUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
-    let row = sqlx::query!("select owner_id, storage_key from photos where id = $1", id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or(AppError::not_found("photo"))?;
+    let row = sqlx::query!(
+        "select owner_id, storage_key, display_key from photos where id = $1",
+        id
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(AppError::not_found("photo"))?;
 
     if row.owner_id != user.id {
         return Err(AppError::Forbidden);
     }
 
-    // Collect master + thumbnail S3 keys BEFORE the delete so the photos row
-    // (and its CASCADE-deleted thumbnails) still exist when we query them.
+    // Collect master + display + thumbnail S3 keys BEFORE the delete so the
+    // photos row (and its CASCADE-deleted thumbnails) still exist when we
+    // query them. display_key is what CloudFront serves — forgetting it
+    // leaves the deleted image publicly fetchable forever.
     let mut to_delete = vec![row.storage_key];
+    if let Some(dk) = row.display_key {
+        to_delete.push(dk);
+    }
     let thumb_keys: Vec<String> =
         sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
             .fetch_all(&state.pool)
             .await?;
     to_delete.extend(thumb_keys);
+    // Keys queued by an in-flight replace would be CASCADE-dropped from
+    // photo_pending_deletes without ever reaching S3 cleanup — fold them in.
+    to_delete.extend(crate::photos::queries::pending_deletes_for(&state.pool, id).await?);
 
     // Delete the photos row. CASCADE removes thumbnails, appreciations, comments,
     // and photo_pending_deletes for this photo.

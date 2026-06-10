@@ -22,6 +22,15 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::http::AppState;
 
+/// Resize-target bounds. The route is unauthenticated and (via
+/// `APP_CDN_LOCAL_FALLBACK`) can be live on staging/prod, so unbounded
+/// `w`/`h` would let one GET allocate gigabytes (`resize_to_fill(50000,
+/// 50000)` ≈ 7.5 GB of RGB). 4096 matches the display-master ceiling —
+/// nothing larger can ever be useful. Out-of-range values are clamped,
+/// not rejected, so existing cached URLs keep working.
+const MIN_DIM: u32 = 16;
+const MAX_DIM: u32 = 4096;
+
 #[derive(Deserialize, Default)]
 pub struct Q {
     /// Target width in pixels.
@@ -52,8 +61,8 @@ pub async fn handler(
         let img = image::load_from_memory_with_format(&bytes, ImageFormat::Jpeg)
             .map_err(|e| AppError::Internal(format!("decode: {e}")))?;
 
-        let target_w = q.w.unwrap_or_else(|| img.width());
-        let target_h = q.h.unwrap_or_else(|| img.height());
+        let target_w = q.w.unwrap_or_else(|| img.width()).clamp(MIN_DIM, MAX_DIM);
+        let target_h = q.h.unwrap_or_else(|| img.height()).clamp(MIN_DIM, MAX_DIM);
         let fit = q.fit.as_deref().unwrap_or("cover");
 
         let resized = match fit {
@@ -62,7 +71,7 @@ pub async fn handler(
         };
 
         let mut out = Vec::with_capacity(64 * 1024);
-        let quality = q.q.unwrap_or(85);
+        let quality = q.q.unwrap_or(85).clamp(1, 100);
         let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality);
         enc.encode_image(&resized)
             .map_err(|e| AppError::Internal(format!("encode: {e}")))?;

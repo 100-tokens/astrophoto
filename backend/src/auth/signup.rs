@@ -44,6 +44,24 @@ pub async fn handler(
         ));
     }
 
+    // Handles released by a rename sit in a 90-day anti-impersonation
+    // cooldown (handle_redirects.released_at). The rename path enforces
+    // it; signup must too, or the cooldown is trivially bypassed with a
+    // fresh account. New signups have no prior handle to reclaim, so any
+    // in-cooldown row is a hard conflict. The redirect row is left in
+    // place — /u/<old-handle> keeps 301-ing until expiry, and the unique
+    // index on users.handle is the backstop for the expired-row race.
+    let reserved = sqlx::query_scalar!(
+        r#"select (released_at > now()) as "in_cooldown!"
+             from handle_redirects where old_handle = $1"#,
+        body.handle
+    )
+    .fetch_optional(&state.pool)
+    .await?;
+    if reserved == Some(true) {
+        return Err(AppError::Conflict("handle is reserved".into()));
+    }
+
     let hash = crate::auth::password::hash(body.password).await?;
     let user = queries::create_with_password(
         &state.pool,
@@ -60,19 +78,33 @@ pub async fn handler(
         .and_then(|s| s.split(',').next())
         .and_then(|s| s.trim().parse().ok());
 
-    let token = email_verify::issue_token(&state.pool, user.id, ip).await?;
-    let link = format!(
-        "{}/verify/{}",
-        state.config.public_base_url.trim_end_matches('/'),
-        token
-    );
-    let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
-    if let Err(e) = state
-        .mailer
-        .send_plain(&user.email, &subject, &mail_body)
-        .await
-    {
-        tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
+    // Site-wide hourly ceiling on outbound verification mail, shared with
+    // the resend endpoint (same token bucket). Without it, mass signups turn
+    // the service into a mail-bombing relay and burn SES reputation. On cap
+    // hit the account is still created and the response is unchanged — the
+    // user can use "resend verification" once the window clears. Per-IP
+    // throttling is intentionally absent (see login_throttle.rs: behind the
+    // reverse proxy the IP axis collapses to one egress address).
+    if email_verify::global_cap_hit(&state.pool).await? {
+        tracing::warn!(
+            user_id = %user.id,
+            "signup: aggregate hourly verification-mail cap hit; suppressing token issuance"
+        );
+    } else {
+        let token = email_verify::issue_token(&state.pool, user.id, ip).await?;
+        let link = format!(
+            "{}/verify/{}",
+            state.config.public_base_url.trim_end_matches('/'),
+            token
+        );
+        let (subject, mail_body) = templates::email_verification(&user.display_name, &link);
+        if let Err(e) = state
+            .mailer
+            .send_plain(&user.email, &subject, &mail_body)
+            .await
+        {
+            tracing::warn!(error = %e, user_id = %user.id, "signup verification mail send failed");
+        }
     }
 
     Ok((

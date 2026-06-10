@@ -33,7 +33,6 @@ pub fn config_for(url: &str) -> Config {
         bind: "127.0.0.1:0".into(),
         log: "info".into(),
         database_url: url.into(),
-        session_domain: "localhost".into(),
         session_secure: false,
         public_base_url: "http://localhost:8080".into(),
         s3_endpoint: None,
@@ -361,11 +360,43 @@ impl TestApp {
         (status, bytes)
     }
 
+    /// Like `oneshot`, but authenticates via `Authorization: Bearer <token>`
+    /// instead of a session cookie. Used by the PAT (personal access token)
+    /// guard tests.
+    pub async fn oneshot_bearer(
+        &self,
+        method: &str,
+        uri: &str,
+        bearer: &str,
+        body: Option<Json>,
+    ) -> (StatusCode, Vec<u8>) {
+        let req = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::AUTHORIZATION, format!("Bearer {bearer}"));
+        let req = if let Some(b) = body {
+            req.header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(b.to_string()))
+                .unwrap()
+        } else {
+            req.body(Body::empty()).unwrap()
+        };
+        let resp = self.app.clone().oneshot(req).await.unwrap();
+        let status = resp.status();
+        let bytes = to_bytes(resp.into_body(), 1_048_576)
+            .await
+            .unwrap()
+            .to_vec();
+        (status, bytes)
+    }
+
     pub async fn attach_tags(&self, photo_id: Uuid, tags: &[&str]) {
         let owned: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
-        astrophoto::photos::tags::attach(&self.pool, photo_id, &owned)
+        let mut tx = self.pool.begin().await.unwrap();
+        astrophoto::photos::tags::attach(&mut tx, photo_id, &owned)
             .await
             .unwrap();
+        tx.commit().await.unwrap();
     }
 
     pub async fn oneshot_json<T: DeserializeOwned>(

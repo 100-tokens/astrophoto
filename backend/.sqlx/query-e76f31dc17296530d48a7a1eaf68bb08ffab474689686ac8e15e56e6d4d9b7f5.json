@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select display_key as \"display_key!\" from photos\n           where owner_id = $1 and display_key is not null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_key!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "e76f31dc17296530d48a7a1eaf68bb08ffab474689686ac8e15e56e6d4d9b7f5"
+}

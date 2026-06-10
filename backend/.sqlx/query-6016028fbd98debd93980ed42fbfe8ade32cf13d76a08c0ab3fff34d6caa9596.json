@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.slug as \"slug!\", t.canonical_name as \"canonical_name!\",\n               (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status='ready')::int8 as \"photo_count!\"\n        from targets t\n        where t.canonical_name ilike $1\n           or t.aliases_text ilike $1\n        order by t.canonical_name\n        limit $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slug!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "6016028fbd98debd93980ed42fbfe8ade32cf13d76a08c0ab3fff34d6caa9596"
+}
