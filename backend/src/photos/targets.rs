@@ -70,6 +70,19 @@ pub async fn attach_primary_by_freetext(
         return Ok(()); // unknown target, just keep photos.target
     };
 
+    // Demote any other primary first, in the same transaction — the
+    // partial unique index `photo_targets_primary_uidx` (0036, one
+    // primary per photo) would otherwise reject the upsert, and this
+    // path historically stacked primaries on every re-edit.
+    sqlx::query!(
+        "update photo_targets set is_primary = false \
+          where photo_id = $1 and is_primary and target_id <> $2",
+        photo_id,
+        tid
+    )
+    .execute(&mut **tx)
+    .await?;
+
     sqlx::query!(
         "insert into photo_targets (photo_id, target_id, source, is_primary) \
          values ($1, $2, 'manual', true) \

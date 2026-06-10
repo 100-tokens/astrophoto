@@ -2,7 +2,7 @@
 //! photo via `photo_tags`. Cap is enforced upstream (max 8) by the
 //! caller (the verify endpoint).
 
-use sqlx::PgPool;
+use sqlx::Postgres;
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -16,8 +16,12 @@ pub fn slugify(name: &str) -> String {
         .to_string()
 }
 
+/// Runs inside the caller's transaction so the replace pattern
+/// (delete photo_tags, then attach) commits or rolls back atomically —
+/// a transient failure mid-attach must not leave the photo half-tagged
+/// (or, worse, with all tags silently dropped by the preceding delete).
 pub async fn attach(
-    pool: &PgPool,
+    tx: &mut sqlx::Transaction<'_, Postgres>,
     photo_id: Uuid,
     tags_freetext: &[String],
 ) -> Result<(), AppError> {
@@ -42,7 +46,7 @@ pub async fn attach(
             slug,
             t.trim()
         )
-        .fetch_one(pool)
+        .fetch_one(&mut **tx)
         .await?;
 
         sqlx::query!(
@@ -51,7 +55,7 @@ pub async fn attach(
             photo_id,
             tag_id
         )
-        .execute(pool)
+        .execute(&mut **tx)
         .await?;
     }
     Ok(())

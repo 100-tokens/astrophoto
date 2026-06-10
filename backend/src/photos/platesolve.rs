@@ -484,6 +484,29 @@ pub async fn save_result(
         None => None,
     };
 
+    // Solver-frame dimensions, persisted BEFORE `celestial::identify` runs
+    // below: identify reads photos.width/height to project the FOV and
+    // silently no-ops when they are NULL (the case for a primary XISF
+    // upload, where the JPEG pipeline never ran) — and a stale
+    // thumbnail-sized value (JPEG-pipeline photos) shrinks the search
+    // radius several-fold. The bundled render is the frame the solver ran
+    // on (see the persist_render comment in platesolve_upload.rs), so its
+    // dimensions match `pixel_scale_arcsec`; FITS NAXIS1/NAXIS2 are the
+    // fallback when the render is absent. persist_render later writes the
+    // same values again, which is idempotent.
+    let solve_width: Option<i32> = result
+        .render
+        .as_ref()
+        .map(|r| r.width as i32)
+        .or_else(|| fits_f64("NAXIS1").map(|v| v as i32))
+        .filter(|v| *v > 0);
+    let solve_height: Option<i32> = result
+        .render
+        .as_ref()
+        .map(|r| r.height as i32)
+        .or_else(|| fits_f64("NAXIS2").map(|v| v as i32))
+        .filter(|v| *v > 0);
+
     // Runtime query (not `sqlx::query!`) on purpose — the new
     // `platesolve_*` columns ship with migration 0021. Until
     // `cargo sqlx prepare` is rerun against a DB that has the
@@ -507,6 +530,10 @@ pub async fn save_result(
                -- written when derived (pixel size + scale known).
                focal_mm   = coalesce($11, focal_mm),
                aperture_f = coalesce($12, aperture_f),
+               -- Solver-frame dims (see above): overwrite stale values
+               -- when known, keep the existing ones otherwise.
+               width      = coalesce($13, width),
+               height     = coalesce($14, height),
                platesolve_error              = null
          where id = $10
         "#,
@@ -523,6 +550,8 @@ pub async fn save_result(
     .bind(photo_id)
     .bind(derived_focal_mm)
     .bind(derived_aperture_f)
+    .bind(solve_width)
+    .bind(solve_height)
     .execute(&mut *tx)
     .await
     .map_err(AppError::from)?;
@@ -686,7 +715,6 @@ mod tests {
             bind: "0.0.0.0:0".into(),
             log: "info".into(),
             database_url: "postgres://x".into(),
-            session_domain: "localhost".into(),
             session_secure: false,
             public_base_url: "http://localhost".into(),
             s3_endpoint: None,

@@ -25,18 +25,12 @@ pub async fn handler(
     Path(id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
-    let row = sqlx::query!(
-        "select owner_id, status, storage_key from photos where id = $1",
-        id
-    )
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(AppError::not_found("photo"))?;
+    let row = sqlx::query!("select owner_id from photos where id = $1", id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or(AppError::not_found("photo"))?;
     if row.owner_id != user.id {
         return Err(AppError::Forbidden);
-    }
-    if row.status == "processing" || row.status == "awaiting-calibration" {
-        return Err(AppError::BadRequest("pipeline busy".into()));
     }
 
     let mut file_bytes: Option<Bytes> = None;
@@ -91,34 +85,59 @@ pub async fn handler(
         return Err(AppError::MagicByteMismatch(format!("{sig:?}")));
     }
 
-    // 1. Stash old master + thumb keys for deferred deletion.
-    let mut to_stash = vec![row.storage_key.clone()];
-    let old_thumb_keys: Vec<String> =
-        sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
-            .fetch_all(&state.pool)
-            .await?;
-    to_stash.extend(old_thumb_keys);
-    queries::enqueue_pending_deletes(&state.pool, id, &to_stash).await?;
+    // Atomically claim the pipeline. The previous read-then-check on
+    // `status` raced concurrent replaces: both passed the check, both
+    // uploaded a fresh original, and the loser's key was referenced by
+    // nothing — leaking in S3 forever. The claim UPDATE flips status to
+    // 'processing' and returns the about-to-be-replaced storage key in
+    // one statement; a concurrent replace (or finalize) loses the claim
+    // and bounces here. Claimed only AFTER body validation, so a
+    // malformed payload never touches the row.
+    let Some(old_storage_key) = queries::claim_for_replace(&state.pool, id).await? else {
+        return Err(AppError::BadRequest("pipeline busy".into()));
+    };
 
-    // 2. Upload new master to a fresh key.
     let new_key = format!("originals/{}", Uuid::new_v4());
-    state.storage.put(&new_key, &mime, bytes.clone()).await?;
+    let prep: Result<(), AppError> = async {
+        // 1. Stash old master + thumb keys for deferred deletion.
+        let mut to_stash = vec![old_storage_key.clone()];
+        let old_thumb_keys: Vec<String> =
+            sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
+                .fetch_all(&state.pool)
+                .await?;
+        to_stash.extend(old_thumb_keys);
+        queries::enqueue_pending_deletes(&state.pool, id, &to_stash).await?;
 
-    // 3. Atomically swap key + size + mime + replaced_at + status='processing'.
-    queries::swap_storage_key_for_replace(
-        &state.pool,
-        id,
-        &new_key,
-        &filename,
-        &mime,
-        bytes.len() as i64,
-    )
-    .await?;
+        // 2. Upload new master to a fresh key.
+        state.storage.put(&new_key, &mime, bytes.clone()).await?;
 
-    // 4. DELETE old thumbnail rows (S3 keys already stashed).
-    sqlx::query!("delete from thumbnails where photo_id = $1", id)
-        .execute(&state.pool)
+        // 3. Swap key + size + mime + replaced_at (status is already
+        //    'processing' from the claim; the swap re-asserting it is a
+        //    no-op).
+        queries::swap_storage_key_for_replace(
+            &state.pool,
+            id,
+            &new_key,
+            &filename,
+            &mime,
+            bytes.len() as i64,
+        )
         .await?;
+
+        // 4. DELETE old thumbnail rows (S3 keys already stashed).
+        sqlx::query!("delete from thumbnails where photo_id = $1", id)
+            .execute(&state.pool)
+            .await?;
+        Ok(())
+    }
+    .await;
+    if let Err(e) = prep {
+        // The claim flipped status to 'processing'; record a terminal
+        // failure so the photo doesn't sit stuck and a retry can re-claim.
+        let reason = format!("replace prep: {e}");
+        let _ = queries::mark_failed(&state.pool, id, &reason).await;
+        return Err(e);
+    }
 
     // 5a. XISF: no local decoder — route through the auto-calibrate
     // path exactly like upload_finalize. The solve service returns the

@@ -33,7 +33,6 @@ pub fn config_for(url: &str) -> Config {
         bind: "127.0.0.1:0".into(),
         log: "info".into(),
         database_url: url.into(),
-        session_domain: "localhost".into(),
         session_secure: false,
         public_base_url: "http://localhost:8080".into(),
         s3_endpoint: None,
@@ -363,9 +362,11 @@ impl TestApp {
 
     pub async fn attach_tags(&self, photo_id: Uuid, tags: &[&str]) {
         let owned: Vec<String> = tags.iter().map(|s| s.to_string()).collect();
-        astrophoto::photos::tags::attach(&self.pool, photo_id, &owned)
+        let mut tx = self.pool.begin().await.unwrap();
+        astrophoto::photos::tags::attach(&mut tx, photo_id, &owned)
             .await
             .unwrap();
+        tx.commit().await.unwrap();
     }
 
     pub async fn oneshot_json<T: DeserializeOwned>(

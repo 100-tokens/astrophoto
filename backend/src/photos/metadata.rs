@@ -142,6 +142,57 @@ pub async fn handler(
         return Err(AppError::Validation("max 8 tags".into()));
     }
 
+    // Length caps on user freetext, mirroring users/profile.rs (bio/tagline
+    // caps) and the comments CHECK (≤ 2000). photos.caption feeds a trigram
+    // GIN index and every gear string is upserted verbatim into the public
+    // equipment catalog, so unbounded input bloats indexes and serves
+    // arbitrarily long strings on browse/autocomplete pages.
+    const MAX_CAPTION_CHARS: usize = 2_000;
+    const MAX_TARGET_CHARS: usize = 200;
+    const MAX_GEAR_CHARS: usize = 200;
+    const MAX_TAG_CHARS: usize = 64;
+
+    if let Some(Some(c)) = &patch.caption
+        && c.chars().count() > MAX_CAPTION_CHARS
+    {
+        return Err(AppError::Validation(format!(
+            "caption too long (max {MAX_CAPTION_CHARS} chars)"
+        )));
+    }
+    if let Some(Some(t)) = &patch.target
+        && t.chars().count() > MAX_TARGET_CHARS
+    {
+        return Err(AppError::Validation(format!(
+            "target too long (max {MAX_TARGET_CHARS} chars)"
+        )));
+    }
+    for (field, val) in [
+        ("camera", patch.camera.as_ref().and_then(|v| v.as_deref())),
+        ("lens", patch.lens.as_ref().and_then(|v| v.as_deref())),
+        ("scope", patch.scope.as_deref()),
+        ("mount", patch.mount.as_deref()),
+        ("filters", patch.filters.as_deref()),
+        ("guiding", patch.guiding.as_deref()),
+        ("focal_modifier", patch.focal_modifier.as_deref()),
+    ] {
+        if let Some(v) = val
+            && v.chars().count() > MAX_GEAR_CHARS
+        {
+            return Err(AppError::Validation(format!(
+                "{field} too long (max {MAX_GEAR_CHARS} chars)"
+            )));
+        }
+    }
+    if let Some(tags) = &patch.tags {
+        for t in tags {
+            if t.chars().count() > MAX_TAG_CHARS {
+                return Err(AppError::Validation(format!(
+                    "tag too long (max {MAX_TAG_CHARS} chars)"
+                )));
+            }
+        }
+    }
+
     // Extract values needed after the UPDATE before moving them into the query.
     let target_freetext: Option<String> = patch.target.as_ref().and_then(|v| v.clone());
     let targets_list = patch.targets.clone();
@@ -331,16 +382,20 @@ pub async fn handler(
         crate::photos::filters_cache::rebuild(&mut tx, id).await?;
     }
 
+    // --- tag replacement: delete-then-attach in the SAME transaction ---
+    // A transient failure between the delete and the attach must roll the
+    // whole save back; running this on the pool (as before June 2026)
+    // could silently drop every tag on the photo.
+    if let Some(tags) = &tags_list {
+        sqlx::query!("delete from photo_tags where photo_id = $1", id)
+            .execute(&mut *tx)
+            .await?;
+        crate::photos::tags::attach(&mut tx, id, tags).await?;
+    }
+
     tx.commit().await?;
 
     // --- remaining post-update helpers run outside the transaction ---
-
-    if let Some(tags) = &tags_list {
-        sqlx::query!("delete from photo_tags where photo_id = $1", id)
-            .execute(&state.pool)
-            .await?;
-        crate::photos::tags::attach(&state.pool, id, tags).await?;
-    }
 
     // Equipment catalog fan-out. Insert missing rows on a per-kind basis,
     // recording the calling user as `submitted_by` on miss. Then recompute

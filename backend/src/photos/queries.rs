@@ -235,6 +235,25 @@ pub async fn enqueue_pending_deletes(
     Ok(())
 }
 
+/// Atomically claim a photo's pipeline for a replace: flip `status` to
+/// 'processing' only when no pipeline or calibration is in flight, and
+/// return the storage key of the master being replaced (read in the same
+/// statement so a racing replace can never hand the caller a stale key).
+/// `None` = the claim lost — another pipeline owns the row. Mirrors the
+/// upload-finalize claim; the old read-then-check pattern let two
+/// concurrent replaces both proceed and leak an untracked S3 original.
+pub async fn claim_for_replace(pool: &PgPool, id: Uuid) -> Result<Option<String>, AppError> {
+    let row = sqlx::query!(
+        r#"update photos set status = 'processing'
+            where id = $1 and status not in ('processing', 'awaiting-calibration')
+        returning storage_key"#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.storage_key))
+}
+
 pub async fn swap_storage_key_for_replace(
     pool: &PgPool,
     id: Uuid,
