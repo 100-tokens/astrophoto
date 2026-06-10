@@ -5,11 +5,17 @@ import { error, redirect } from '@sveltejs/kit';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
-export const load: PageServerLoad = async ({ fetch, params, cookies }) => {
-  // Auth is required to edit catalog specs. Phase 1 lets any signed-in
-  // user write; phase 2 will gate by role.
-  const session = cookies.get('session') ?? cookies.get('__Host-session');
-  if (!session) throw redirect(303, `/signin?next=/equip/${params.kind}/${params.slug}/edit`);
+export const load: PageServerLoad = async ({ fetch, params, locals }) => {
+  // Catalog spec editing is admin-only (the backend PATCH is
+  // AdminUser-guarded since the 2026-06 audit — the "phase 2" role gate
+  // the previous comment promised). Mirrors /admin's layout guard so
+  // non-admins get a clear error instead of a dead form + 403 on save.
+  if (!locals.user) {
+    throw redirect(303, `/signin?next=/equip/${params.kind}/${params.slug}/edit`);
+  }
+  if (!locals.user.isAdmin) {
+    throw error(403, 'Catalog editing requires an admin account');
+  }
 
   let initial;
   try {
