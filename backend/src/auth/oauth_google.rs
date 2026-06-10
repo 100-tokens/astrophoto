@@ -5,9 +5,9 @@ use axum::{
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
-    PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl, basic::BasicClient,
-    reqwest::async_http_client,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndpointNotSet, EndpointSet,
+    PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    basic::BasicClient,
 };
 use serde::Deserialize;
 
@@ -19,21 +19,27 @@ const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-fn client(state: &AppState) -> Result<BasicClient, AppError> {
+// oauth2 v5 encodes which endpoints are configured in the client's type
+// (type-state builder): auth + token URIs set, device/introspection/
+// revocation not set.
+type GoogleClient =
+    BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>;
+
+fn client(state: &AppState) -> Result<GoogleClient, AppError> {
     let cfg = &state.config;
     if cfg.oauth_google_client_id.is_empty() {
         return Err(AppError::Internal("Google OAuth not configured".into()));
     }
-    let client = BasicClient::new(
-        ClientId::new(cfg.oauth_google_client_id.clone()),
-        Some(ClientSecret::new(cfg.oauth_google_client_secret.clone())),
-        AuthUrl::new(AUTH_URL.into()).map_err(|e| AppError::Internal(e.to_string()))?,
-        Some(TokenUrl::new(TOKEN_URL.into()).map_err(|e| AppError::Internal(e.to_string()))?),
-    )
-    .set_redirect_uri(
-        RedirectUrl::new(cfg.oauth_google_redirect_url.clone())
-            .map_err(|e| AppError::Internal(e.to_string()))?,
-    );
+    let client = BasicClient::new(ClientId::new(cfg.oauth_google_client_id.clone()))
+        .set_client_secret(ClientSecret::new(cfg.oauth_google_client_secret.clone()))
+        .set_auth_uri(AuthUrl::new(AUTH_URL.into()).map_err(|e| AppError::Internal(e.to_string()))?)
+        .set_token_uri(
+            TokenUrl::new(TOKEN_URL.into()).map_err(|e| AppError::Internal(e.to_string()))?,
+        )
+        .set_redirect_uri(
+            RedirectUrl::new(cfg.oauth_google_redirect_url.clone())
+                .map_err(|e| AppError::Internal(e.to_string()))?,
+        );
     Ok(client)
 }
 
@@ -129,12 +135,17 @@ pub async fn callback(
         return Err(AppError::Validation("state mismatch".into()));
     }
 
-    // Exchange code for token
+    // Exchange code for token. oauth2 v5 takes a caller-supplied HTTP
+    // client; redirects MUST stay disabled (SSRF hardening per oauth2 docs).
     let client = client(&state)?;
+    let http_client = reqwest::ClientBuilder::new()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| AppError::Internal(format!("oauth http client: {e}")))?;
     let token = client
         .exchange_code(AuthorizationCode::new(code))
         .set_pkce_verifier(PkceCodeVerifier::new(saved.pkce_verifier))
-        .request_async(async_http_client)
+        .request_async(&http_client)
         .await
         .map_err(|e| AppError::Internal(format!("oauth exchange: {e}")))?;
 
