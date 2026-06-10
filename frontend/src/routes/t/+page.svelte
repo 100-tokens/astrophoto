@@ -25,6 +25,7 @@
   let cursor = $state(untrack(() => data.initial.next_cursor));
   let q = $state(untrack(() => data.q ?? ''));
   let qDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let searchEl = $state<HTMLInputElement>();
 
   // Currently-active object types (the Type filter is multi-select chips).
   const selectedTypes = $derived(new Set((data.object_type ?? '').split(',').filter(Boolean)));
@@ -32,7 +33,12 @@
   $effect(() => {
     items = data.initial.targets;
     cursor = data.initial.next_cursor;
-    q = data.q ?? '';
+    // Don't clobber in-flight typing: while the user is focused in the search
+    // box, a load triggered by an earlier (shorter) prefix can resolve after
+    // more characters were typed; re-syncing q would snap the input back.
+    // applyFilter navigates with keepFocus, so self-initiated loads keep the
+    // input focused — only external navigations (input unfocused) re-sync.
+    if (document.activeElement !== searchEl) q = data.q ?? '';
   });
 
   function applyFilter(next: {
@@ -119,6 +125,7 @@
       class="input search-input"
       placeholder="Search for an object…"
       aria-label="Search for an object"
+      bind:this={searchEl}
       value={q}
       oninput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
     />

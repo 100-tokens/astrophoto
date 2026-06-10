@@ -23,6 +23,34 @@
   let count = $state(untrack(() => initialCount));
   let appreciated = $state(untrack(() => initialAppreciated));
   let pending = $state(false);
+  // Plain (non-reactive) flag: set once the viewer toggles, so a slow
+  // appreciation-state fetch can never clobber their optimistic click.
+  let interacted = false;
+
+  // Re-seed when the photo changes: same-route navigation (lightbox
+  // prev/next, "More from this photographer" tiles) reuses this component
+  // instance, so the one-shot $state above would keep the previous photo's
+  // count/heart. Keyed on photoId ONLY (a stable scalar) — everything else
+  // is read untracked so load-data identity churn under invalidateAll()
+  // cannot re-trigger it. Also fetches the viewer's real appreciation
+  // state, since no consumer passes initialAppreciated today.
+  $effect(() => {
+    const id = photoId;
+    interacted = false;
+    count = untrack(() => initialCount);
+    appreciated = untrack(() => initialAppreciated);
+    pending = false;
+    if (untrack(() => page.data.user)) {
+      api.appreciations
+        .state(id)
+        .then((s) => {
+          if (id === photoId && !interacted) appreciated = s.appreciated;
+        })
+        .catch(() => {
+          /* best-effort: keep the seeded value */
+        });
+    }
+  });
 
   async function toggle() {
     if (!page.data.user) {
@@ -30,6 +58,7 @@
       return;
     }
     if (pending) return;
+    interacted = true;
     pending = true;
 
     const wasOn = appreciated;

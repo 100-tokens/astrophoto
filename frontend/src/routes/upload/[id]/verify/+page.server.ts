@@ -215,7 +215,8 @@ export const actions: Actions = {
       .getAll()
       .map((c) => `${c.name}=${c.value}`)
       .join('; ');
-    await callPut(fetch, cookie, params.id!, patch);
+    const r = await callPut(fetch, cookie, params.id!, patch);
+    if (!r.ok) return fail(r.status, { error: await r.text() });
     redirect(303, '/account/frames');
   },
 

@@ -15,7 +15,6 @@ export const load: PageServerLoad = async ({ fetch, params, cookies }) => {
   try {
     initial = await fetchEquipmentPage(fetch, params.kind, params.slug, {
       sort: 'newest',
-      since: 'all',
       limit: 1
     });
   } catch (e) {

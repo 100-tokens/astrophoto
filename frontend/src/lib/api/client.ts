@@ -74,24 +74,29 @@ async function request<T>(
     ...(body !== undefined ? { body: JSON.stringify(body) } : {})
   });
   if (!res.ok) {
+    // Read the body exactly once — a failed res.json() consumes the stream,
+    // so a res.text() fallback afterwards throws "Body is unusable".
+    const raw = await res.text();
     let errBody: unknown;
     try {
-      errBody = await res.json();
+      errBody = JSON.parse(raw);
     } catch {
-      errBody = await res.text();
+      errBody = raw;
     }
     throw new ApiError(res.status, errBody);
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Tolerate empty success bodies (204, and the few handlers that return a
+  // bare 200 with no payload) instead of letting res.json() throw on "".
+  const text = await res.text();
+  return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
 export const api = {
   health: (opts?: ApiCall) => request<Health>('GET', '/healthz', undefined, opts),
-  signup: (body: { email: string; password: string; display_name: string }, opts?: ApiCall) =>
-    request<User>('POST', '/api/auth/signup', body, opts),
-  login: (body: { email: string; password: string }, opts?: ApiCall) =>
-    request<User>('POST', '/api/auth/login', body, opts),
+  // signup/login intentionally have no wrappers: those flows go through the
+  // form actions in routes/signup and routes/signin (CSRF-safe, cookie-set
+  // server-side). Earlier wrappers here had a wrong request/response contract
+  // and zero callers, so they were removed rather than fixed.
   logout: (opts?: ApiCall) => request<void>('POST', '/api/auth/logout', undefined, opts),
   me: (opts?: ApiCall) => request<User>('GET', '/api/auth/me', undefined, opts),
   photos: {

@@ -48,10 +48,9 @@
     cursor = data.initial.page.next_cursor;
   });
 
-  function applyFilter(next: { sort?: string; since?: string; category?: string | undefined }) {
+  function applyFilter(next: { sort?: string; category?: string | undefined }) {
     const u = new URL(window.location.href);
     if (next.sort !== undefined) u.searchParams.set('sort', next.sort);
-    if (next.since !== undefined) u.searchParams.set('since', next.since);
     if ('category' in next) {
       if (next.category) {
         u.searchParams.set('category', next.category);
@@ -67,7 +66,6 @@
     const cur = cursor;
     const result = await fetchTargetPage(fetch, data.initial.target.slug, {
       sort: data.sort,
-      since: data.since,
       ...(data.category !== undefined ? { category: data.category } : {}),
       cursor: cur,
       limit: 24
@@ -103,16 +101,19 @@
     majorAxisArcmin={data.initial.target.major_axis_arcmin}
     objectName={data.initial.target.canonical_name}
   />
+  <!-- No `since` here: only /api/explore implements it; the target endpoint
+       silently ignores the param, so forwarding it would lie to the user. -->
   <FilterPills
     variant="target"
     sort={data.sort}
-    since={data.since}
     {...data.category !== undefined ? { category: data.category } : {}}
     onSortChange={(s) => applyFilter({ sort: s })}
-    onSinceChange={(s) => applyFilter({ since: s })}
     onCategoryChange={(c) => applyFilter({ category: c })}
   />
-  {#key `${data.sort}|${data.since}|${data.category ?? ''}`}
+  <!-- The slug must be part of the key: same-route navigation between two
+       targets (header search) reuses this page instance, and CrossAuthorGrid
+       keeps its own loaded-pages state, which would leak across targets. -->
+  {#key `${data.initial.target.slug}|${data.sort}|${data.category ?? ''}`}
     <CrossAuthorGrid
       initial={{ photos: data.initial.page.photos, next_cursor: data.initial.page.next_cursor }}
       loadMore={loadMoreFn}
