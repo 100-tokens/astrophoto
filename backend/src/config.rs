@@ -5,7 +5,6 @@ pub struct Config {
     pub bind: String,
     pub log: String,
     pub database_url: String,
-    pub session_domain: String,
     pub session_secure: bool,
     pub public_base_url: String,
 
@@ -94,7 +93,6 @@ mod tests {
             jail.set_env("APP_BIND", "0.0.0.0:1234");
             jail.set_env("APP_LOG", "debug");
             jail.set_env("APP_DATABASE_URL", "postgres://x");
-            jail.set_env("APP_SESSION_DOMAIN", "localhost");
             jail.set_env("APP_SESSION_SECURE", "false");
             jail.set_env("APP_PUBLIC_BASE_URL", "http://localhost:8080");
             jail.set_env("APP_S3_REGION", "us-east-1");
@@ -132,7 +130,6 @@ mod tests {
             jail.set_env("APP_BIND", "0.0.0.0:1234");
             jail.set_env("APP_LOG", "debug");
             jail.set_env("APP_DATABASE_URL", "postgres://x");
-            jail.set_env("APP_SESSION_DOMAIN", "localhost");
             jail.set_env("APP_SESSION_SECURE", "false");
             jail.set_env("APP_PUBLIC_BASE_URL", "http://localhost:8080");
             jail.set_env("APP_S3_REGION", "us-east-1");
