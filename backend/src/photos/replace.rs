@@ -99,23 +99,29 @@ pub async fn handler(
 
     let new_key = format!("originals/{}", Uuid::new_v4());
     let prep: Result<(), AppError> = async {
-        // 1. Stash old master + thumb keys for deferred deletion.
+        // 1. Upload the new master FIRST — a pure addition. If it fails,
+        //    nothing has been queued or swapped and mark_failed below
+        //    leaves a cleanly retryable photo (the orphan S3 object is
+        //    harmless).
+        state.storage.put(&new_key, &mime, bytes.clone()).await?;
+
+        // 2. One transaction: queue the old keys for deferred deletion,
+        //    swap the storage key, drop the old thumbnail rows. Atomic on
+        //    purpose — a key must NEVER sit in photo_pending_deletes
+        //    while it is still the photo's live asset. (A failed prep
+        //    used to leave the live master queued; a later re-finalize
+        //    flipped the photo back to 'ready' and the 7-day sweep then
+        //    destroyed its only original.)
+        let mut tx = state.pool.begin().await?;
         let mut to_stash = vec![old_storage_key.clone()];
         let old_thumb_keys: Vec<String> =
             sqlx::query_scalar!("select storage_key from thumbnails where photo_id = $1", id)
-                .fetch_all(&state.pool)
+                .fetch_all(&mut *tx)
                 .await?;
         to_stash.extend(old_thumb_keys);
-        queries::enqueue_pending_deletes(&state.pool, id, &to_stash).await?;
-
-        // 2. Upload new master to a fresh key.
-        state.storage.put(&new_key, &mime, bytes.clone()).await?;
-
-        // 3. Swap key + size + mime + replaced_at (status is already
-        //    'processing' from the claim; the swap re-asserting it is a
-        //    no-op).
+        queries::enqueue_pending_deletes(&mut tx, id, &to_stash).await?;
         queries::swap_storage_key_for_replace(
-            &state.pool,
+            &mut tx,
             id,
             &new_key,
             &filename,
@@ -123,17 +129,17 @@ pub async fn handler(
             bytes.len() as i64,
         )
         .await?;
-
-        // 4. DELETE old thumbnail rows (S3 keys already stashed).
         sqlx::query!("delete from thumbnails where photo_id = $1", id)
-            .execute(&state.pool)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
         Ok(())
     }
     .await;
     if let Err(e) = prep {
         // The claim flipped status to 'processing'; record a terminal
         // failure so the photo doesn't sit stuck and a retry can re-claim.
+        // The transaction above rolled back, so no live key is queued.
         let reason = format!("replace prep: {e}");
         let _ = queries::mark_failed(&state.pool, id, &reason).await;
         return Err(e);

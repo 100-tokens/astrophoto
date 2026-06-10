@@ -215,8 +215,12 @@ pub async fn drain_pending_deletes(pool: &PgPool, photo_id: Uuid) -> Result<(), 
     Ok(())
 }
 
+/// Queue S3 keys for deferred deletion. Takes a connection (not the
+/// pool) so replace can run it atomically WITH the storage-key swap:
+/// a key must never sit in this queue while it is still the photo's
+/// live asset, or the 7-day sweep destroys a healthy photo's original.
 pub async fn enqueue_pending_deletes(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     photo_id: Uuid,
     storage_keys: &[String],
 ) -> Result<(), AppError> {
@@ -229,7 +233,7 @@ pub async fn enqueue_pending_deletes(
             photo_id,
             key
         )
-        .execute(pool)
+        .execute(&mut *conn)
         .await?;
     }
     Ok(())
@@ -255,7 +259,7 @@ pub async fn claim_for_replace(pool: &PgPool, id: Uuid) -> Result<Option<String>
 }
 
 pub async fn swap_storage_key_for_replace(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     id: Uuid,
     new_key: &str,
     original_name: &str,
@@ -280,7 +284,7 @@ pub async fn swap_storage_key_for_replace(
         mime,
         bytes
     )
-    .execute(pool)
+    .execute(conn)
     .await?;
     Ok(())
 }

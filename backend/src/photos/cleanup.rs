@@ -68,9 +68,18 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
     //    the auto-calibrate flow held 'awaiting-calibration'. The solve
     //    landed (platesolve_solved_at set, display rendered) but nobody
     //    transitioned status — promote to ready.
+    //
+    //    The solve must postdate THIS calibration request: a photo that
+    //    was solved in a past life keeps its old platesolve_solved_at
+    //    through a replace (nothing clears it), and promoting on the
+    //    stale timestamp would publish the old display master while the
+    //    new calibration is still queued — then 'ready' would let
+    //    sweep_pending_deletes destroy the stashed previous original.
     let promoted = sqlx::query!(
         "update photos set status='ready', pipeline_error=null
-          where status='awaiting-calibration' and platesolve_solved_at is not null"
+          where status='awaiting-calibration'
+            and platesolve_solved_at
+                >= coalesce(calibration_requested_at, replaced_at, created_at)"
     )
     .execute(pool)
     .await?
@@ -81,6 +90,9 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
     //    Swapping a stale 'solving' sentinel for the aborted one is
     //    load-bearing: a re-run of finalize would otherwise hit
     //    ClaimOutcome::AlreadySolving and silently no-op.
+    //    "No solve landed" mirrors arm 1's clock: a platesolve_solved_at
+    //    older than this calibration request is a previous solve, not
+    //    this one.
     let timed_out = sqlx::query!(
         "update photos
             set status='failed',
@@ -88,7 +100,9 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
                 platesolve_error = case when platesolve_error = $1 then $2
                                         else platesolve_error end
           where status='awaiting-calibration'
-            and platesolve_solved_at is null
+            and (platesolve_solved_at is null
+                 or platesolve_solved_at
+                    < coalesce(calibration_requested_at, replaced_at, created_at))
             and coalesce(calibration_requested_at, replaced_at, created_at)
                 < now() - interval '30 minutes'",
         SOLVING_SENTINEL,
