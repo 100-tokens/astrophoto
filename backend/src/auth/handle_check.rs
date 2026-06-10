@@ -29,8 +29,14 @@ pub async fn handler(
         Ok(()) => {}
     }
 
+    // A handle is unavailable when a user holds it OR when it was renamed
+    // away less than 90 days ago: `handle_redirects.released_at` stores the
+    // instant the handle becomes reservable again (now()+90d at rename
+    // time — the anti-impersonation cooldown from migration 0005).
     let taken: bool = sqlx::query_scalar!(
-        "select exists(select 1 from users where handle = $1)",
+        r#"select exists(select 1 from users where handle = $1)
+               or exists(select 1 from handle_redirects
+                          where old_handle = $1 and released_at > now())"#,
         q.handle
     )
     .fetch_one(&state.pool)

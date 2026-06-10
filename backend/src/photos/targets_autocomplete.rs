@@ -46,7 +46,7 @@ pub async fn handler(
           from targets
          where slug ilike $1
             or canonical_name ilike $1
-            or exists (select 1 from unnest(aliases) a where a ilike $1)
+            or aliases_text ilike $1
          order by slug
          limit 10
         "#,

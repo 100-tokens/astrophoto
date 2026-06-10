@@ -36,8 +36,8 @@ pub async fn get(
                (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id
                 where pt.target_id = t.id and p.published_at is not null and p.status='ready')::int8 as "photo_count!"
         from targets t
-        where lower(t.canonical_name) like $1
-           or exists (select 1 from unnest(t.aliases) as a where lower(a) like $1)
+        where t.canonical_name ilike $1
+           or t.aliases_text ilike $1
         order by t.canonical_name
         limit $2
         "#,

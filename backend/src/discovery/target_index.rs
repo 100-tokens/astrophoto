@@ -159,7 +159,7 @@ pub async fn list(
                 where ($1::text is null or
                        t.canonical_name ilike '%' || $1 || '%' or
                        t.slug ilike '%' || $1 || '%' or
-                       exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
+                       t.aliases_text ilike '%' || $1 || '%')
                   and ($2::text[] is null or t.object_type = any($2))
                   and ($3::text is null or t.constellation = $3)
                   and ($4::text is null or (t.canonical_name, t.id) > ($4, $5))
@@ -210,7 +210,7 @@ pub async fn list(
                 where ($1::text is null or
                        t.canonical_name ilike '%' || $1 || '%' or
                        t.slug ilike '%' || $1 || '%' or
-                       exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
+                       t.aliases_text ilike '%' || $1 || '%')
                   and ($2::text[] is null or t.object_type = any($2))
                   and ($3::text is null or t.constellation = $3)
                   and ($4::int4 is null or
@@ -266,7 +266,7 @@ pub async fn list(
                    where ($1::text is null or
                           t.canonical_name ilike '%' || $1 || '%' or
                           t.slug ilike '%' || $1 || '%' or
-                          exists (select 1 from unnest(t.aliases) a where a ilike '%' || $1 || '%'))
+                          t.aliases_text ilike '%' || $1 || '%')
                      and ($2::text[] is null or t.object_type = any($2))
                      and ($3::text is null or t.constellation = $3)
                      and ($7::bool is not true or exists (

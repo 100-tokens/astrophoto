@@ -145,11 +145,19 @@ pub async fn get(
             .await?
         }
         "filter" => {
+            // photo_filters is the source of truth (CLAUDE.md gotchas) —
+            // photos.filters is a comma-joined cache of ALL filters, so the
+            // legacy equality only ever matched single-filter photos and
+            // missed the LRGB/SHO norm. The text fallback keeps free-text
+            // photos that predate the junction.
             sqlx::query_scalar!(
-                r#"select count(*)::int8 as "c!" from photos
-               where published_at is not null and status = 'ready'
-               and lower(filters) = $1"#,
-                slug
+                r#"select count(*)::int8 as "c!" from photos p
+               where p.published_at is not null and p.status = 'ready'
+               and (exists (select 1 from photo_filters pf
+                             where pf.photo_id = p.id and pf.item_id = $2)
+                    or lower(p.filters) = $1)"#,
+                slug,
+                item.id
             )
             .fetch_one(&state.pool)
             .await?
@@ -327,6 +335,9 @@ pub async fn get(
             .fetch_all(&state.pool)
             .await?
         }
+        // Filter listings match via the photo_filters junction (source of
+        // truth — multi-filter photos never equal the comma-joined cache),
+        // with the legacy text fallback for pre-junction free-text photos.
         ("filter", "most-appreciated") => {
             sqlx::query_as!(
                 Row,
@@ -336,7 +347,9 @@ pub async fn get(
                       p.published_at,
                       u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
                from photos p join users u on u.id = p.owner_id
-               where lower(p.filters) = $1
+               where (exists (select 1 from photo_filters pf
+                               where pf.photo_id = p.id and pf.item_id = $7)
+                      or lower(p.filters) = $1)
                  and p.published_at is not null and p.status = 'ready'
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
@@ -348,7 +361,8 @@ pub async fn get(
                 cur_pub,
                 cur_id,
                 category,
-                limit + 1
+                limit + 1,
+                item.id
             )
             .fetch_all(&state.pool)
             .await?
@@ -362,7 +376,9 @@ pub async fn get(
                       p.published_at,
                       u.id as "owner_id!", u.handle as "handle!", u.display_name as "display_name!"
                from photos p join users u on u.id = p.owner_id
-               where lower(p.filters) = $1
+               where (exists (select 1 from photo_filters pf
+                               where pf.photo_id = p.id and pf.item_id = $6)
+                      or lower(p.filters) = $1)
                  and p.published_at is not null and p.status = 'ready'
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
@@ -372,7 +388,8 @@ pub async fn get(
                 cur_pub,
                 cur_id,
                 category,
-                limit + 1
+                limit + 1,
+                item.id
             )
             .fetch_all(&state.pool)
             .await?
@@ -455,6 +472,8 @@ pub async fn get(
     // We join equipment_items to photos via the kind→column mapping.
     // The photos that "use this item" are the same set as the photos query above,
     // but we fetch them here via a subquery for the join.
+    // Filter arms go through the photo_filters junction (with the legacy
+    // text-cache fallback) — same rationale as the count/listing queries.
     let paired_rows = sqlx::query_as!(
         PairedRow,
         r#"
@@ -468,7 +487,10 @@ pub async fn get(
             (ei.kind = 'telescope' and lower(p.scope)   = ei.canonical_name) or
             (ei.kind = 'camera'    and lower(p.camera)  = ei.canonical_name) or
             (ei.kind = 'mount'     and lower(p.mount)   = ei.canonical_name) or
-            (ei.kind = 'filter'    and lower(p.filters) = ei.canonical_name) or
+            (ei.kind = 'filter'    and (lower(p.filters) = ei.canonical_name or
+                                        exists (select 1 from photo_filters pf
+                                                 where pf.photo_id = p.id
+                                                   and pf.item_id = ei.id))) or
             (ei.kind = 'guiding'   and lower(p.guiding) = ei.canonical_name)
         )
         where p.published_at is not null and p.status = 'ready'
@@ -480,7 +502,10 @@ pub async fn get(
                     ($1 = 'telescope' and lower(p2.scope)   = $2) or
                     ($1 = 'camera'    and lower(p2.camera)  = $2) or
                     ($1 = 'mount'     and lower(p2.mount)   = $2) or
-                    ($1 = 'filter'    and lower(p2.filters) = $2) or
+                    ($1 = 'filter'    and (lower(p2.filters) = $2 or
+                                           exists (select 1 from photo_filters pf2
+                                                    where pf2.photo_id = p2.id
+                                                      and pf2.item_id = $3))) or
                     ($1 = 'guiding'   and lower(p2.guiding) = $2)
                 )
           )
@@ -489,7 +514,8 @@ pub async fn get(
         limit 4
         "#,
         kind,
-        slug
+        slug,
+        item.id
     )
     .fetch_all(&state.pool)
     .await?;

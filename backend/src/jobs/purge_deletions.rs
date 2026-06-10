@@ -53,8 +53,56 @@ pub async fn purge_once(pool: &PgPool, storage: &dyn Storage) -> Result<u64, App
         Err(e) => tracing::error!(error = ?e, "sweep_pending_deletes failed"),
     }
 
+    // Bounded retention for the auth tables — nothing else ever deletes
+    // expired sessions or spent one-shot tokens, so they grow forever.
+    match purge_expired_auth_rows(pool).await {
+        Ok((sessions, tokens)) if sessions > 0 || tokens > 0 => {
+            tracing::info!(sessions, tokens, "purged expired sessions/auth tokens");
+        }
+        Ok(_) => {}
+        Err(e) => tracing::error!(error = ?e, "auth-row purge failed"),
+    }
+
     tracing::info!(deleted, total_due = due.len(), "purge cycle done");
     Ok(deleted)
+}
+
+/// Delete expired sessions (7 days past `expires_at`, cheap via
+/// `sessions_expires_at_idx`) and month-old one-shot auth tokens.
+///
+/// The token deletes are purely age-based on `created_at` — NOT on
+/// `used_at`/`expires_at` — because those tables double as rate-limit
+/// logs: the issue paths count rows with `created_at > now() - interval
+/// '1 hour'` (see password_reset / email_verify / email_change). All
+/// tokens expire within hours, so 30-day-old rows are inert for both
+/// auth and throttling; deleting them also drops stale IP and
+/// pending-email PII.
+pub async fn purge_expired_auth_rows(pool: &PgPool) -> Result<(u64, u64), AppError> {
+    let sessions =
+        sqlx::query!("delete from sessions where expires_at < now() - interval '7 days'")
+            .execute(pool)
+            .await?
+            .rows_affected();
+    let mut tokens = 0u64;
+    tokens += sqlx::query!(
+        "delete from email_verification_tokens where created_at < now() - interval '30 days'"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+    tokens += sqlx::query!(
+        "delete from password_reset_tokens where created_at < now() - interval '30 days'"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+    tokens += sqlx::query!(
+        "delete from email_change_tokens where created_at < now() - interval '30 days'"
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+    Ok((sessions, tokens))
 }
 
 pub async fn sweep_pending_deletes(pool: &PgPool, storage: &dyn Storage) -> Result<u64, AppError> {
@@ -152,12 +200,32 @@ async fn purge_one_user(
         storage.delete_objects(&to_delete).await?;
     }
 
+    // The user CASCADE silently removes their `appreciations` rows, but
+    // the denormalized photos.appreciations_count on OTHER users' photos
+    // would keep the old totals forever (the drift class migration 0024
+    // resynced once). Decrement in the same transaction as the delete;
+    // greatest() mirrors the unappreciate handler's underflow guard.
+    let mut tx = pool.begin().await?;
+    sqlx::query!(
+        r#"update photos p
+              set appreciations_count = greatest(p.appreciations_count - a.cnt, 0)
+             from (select photo_id, count(*)::int4 as cnt
+                     from appreciations
+                    where user_id = $1
+                    group by photo_id) a
+            where p.id = a.photo_id"#,
+        user_id
+    )
+    .execute(&mut *tx)
+    .await?;
+
     // Delete the user row. ON DELETE CASCADE removes photos, sessions,
     // oauth_identities, appreciations, follows, and tokens automatically.
     // Comments use ON DELETE SET NULL (pseudonymisation — body is preserved).
     sqlx::query!("delete from users where id = $1", user_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+    tx.commit().await?;
 
     Ok(())
 }

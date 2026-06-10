@@ -22,6 +22,29 @@ pub async fn create_with_password(
     display_name: &str,
     password_hash: &str,
 ) -> Result<UserRow, AppError> {
+    // Handle-cooldown guard (migration 0005): a renamed-away handle stays
+    // reserved for 90 days. `handle_redirects.released_at` is the instant
+    // the handle becomes reservable again (now()+90d at rename time).
+    // Claiming during the cooldown is rejected — otherwise /u/<old-handle>
+    // links would instantly resolve to a stranger's profile. An expired
+    // row is cleared so the redirect stops firing for the new owner.
+    let in_cooldown: Option<bool> = sqlx::query_scalar!(
+        r#"select released_at > now() as "in_cooldown!"
+             from handle_redirects where old_handle = $1"#,
+        handle
+    )
+    .fetch_optional(pool)
+    .await?;
+    match in_cooldown {
+        Some(true) => return Err(AppError::Conflict("handle is reserved".into())),
+        Some(false) => {
+            sqlx::query!("delete from handle_redirects where old_handle = $1", handle)
+                .execute(pool)
+                .await?;
+        }
+        None => {}
+    }
+
     sqlx::query_as!(
         UserRow,
         r#"
