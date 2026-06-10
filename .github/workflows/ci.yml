@@ -12,12 +12,29 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # Compile-time database for the sqlx macros. The committed
+      # backend/.sqlx/ cache deliberately covers ONLY the lib (repo
+      # convention: plain `cargo sqlx prepare`); test-target queries
+      # must compile online, exactly like `just check` does locally.
+      # The integration tests themselves still spin up their own
+      # throwaway Postgres instances via testcontainers (Docker is
+      # preinstalled and running on GitHub-hosted ubuntu runners).
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: astrophoto
+          POSTGRES_PASSWORD: astrophoto
+          POSTGRES_DB: astrophoto
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U astrophoto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Compile sqlx macros against the committed backend/.sqlx/ cache —
-      # no database is needed to build. Integration tests spin up their
-      # own Postgres via testcontainers (Docker is preinstalled and
-      # running on GitHub-hosted ubuntu runners).
-      SQLX_OFFLINE: "true"
+      DATABASE_URL: postgres://astrophoto:astrophoto@localhost:5432/astrophoto
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +48,14 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+
+      - name: Install sqlx-cli (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli
+
+      - name: Run migrations against the compile-time database
+        run: sqlx migrate run
 
       - name: cargo fmt
         run: cargo fmt --check
