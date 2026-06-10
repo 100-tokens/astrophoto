@@ -542,3 +542,55 @@ Checked: (1) ts-rs drift — compared 20+ generated files field-by-field against
 
 ### a11y-seo (11 raw findings)
 Checked: all main user-facing routes (/, /explore, /u/[handle], /u/[handle]/p/[shortid], /upload, /upload/[id]/verify, /signin, /signup, /c/[cat], /t, /t/[slug], /tag/[slug], /search, /photographers, +error) plus shared components (Lightbox, Modal/ConfirmDialog, SearchBar+SuggestionsList, AvatarMenu, MobileNav, Img, Photo, ZoomableImage, CrossAuthorGrid/Tile, UploadDropzone/FileRow, CommentThread, TagInput, EquipmentAutocomplete, MoreFromPhotographerStrip) and SEO surfaces (robots.txt, sitemap.xml, rss.xml, llms.txt presence, JSON-LD on home/photo/profile/target/photographers). SEO-1 and SEO-2 were verified live against production (www.astrophoto.pics) and staging via curl (read-only GETs). Confirmed non-issues: duplicate <title> from layout+page is deduped in SSR output (verified on staging HTML); draft photos correctly 404 at the public permalink (backend/src/photos/permalink.rs filters published_at is not null); unknown profiles/photos return real 404s (no soft-404); Lightbox/Modal have solid focus trap, inert background, Escape, and focus restore; /search and /upload and error pages are noindexed; photo-permalink OG/twitter/JSON-LD/canonical are unusually complete. Not checked: rendered-DOM behavior (no browser run per read-only rules beyond curl), color contrast, and the admin/settings sub-tree (out of dimension scope).
+
+---
+
+## Resolution status (same day, branch `fix/prod-audit-p0`)
+
+All 79 confirmed findings were addressed on this branch except the
+six explicit deferrals listed below. Fixes were applied by severity
+(P0 data-loss/security first), each batch gated on
+`cargo clippy -D warnings` + `svelte-check` + `eslint`, and the full
+backend integration suite (300+ tests, testcontainers) passes. The
+first-ever full-suite run also surfaced two pre-existing test-fixture
+bugs (1-char handles in `batch_apply`/`batch_publish`) that the
+gitleaks-only CI had never caught — fixed here, and CI now runs the
+real gates (`.github/workflows/ci.yml`).
+
+New regression coverage: PAT guards (5), OAuth state validation (6),
+session expiry + auth-row purge (3), handle cooldown incl. the
+signup-bypass found during testing (4), photo lifecycle — finalize
+claim, reaper safety, stuck-pipeline sweeps, pending-delete guard,
+delete/cancel key completeness, purge count integrity (11).
+
+### Deferred, with rationale
+
+- **SEC-2 (PAT scope enforcement):** `SessionOnly` already fences
+  password/email/deletion/token routes; scope stays informational
+  until a second scope exists. Enforcement design noted in
+  `auth/middleware.rs`.
+- **SEC-5 (signup 409 enumeration half):** product tradeoff
+  (UX of "email already registered" vs enumeration); login timing
+  oracle is fixed.
+- **DEP-6 (vite 5 EOL):** requires the vite 6+ major cascade
+  (vite-plugin-svelte ^5, vitest ^3). Dev-server-only exposure;
+  `pnpm audit --prod` is clean. Do as its own chore PR.
+- **FSEC-2 (enforcing CSP):** Report-Only policy shipped via
+  `hooks.server.ts`; graduate to enforcing (kit.csp nonces) once the
+  report stream stays quiet in prod.
+- **TEST-4 (/api proxy tests):** no vitest harness exists for the
+  SvelteKit server routes; needs its own setup decision.
+- **TEST-5 (Playwright self-skip):** specs still skip without a
+  verified session; needs a CI session-seeding strategy (separate
+  infra work).
+
+### Operational follow-ups (not code)
+
+- Koyeb: rebuild/redeploy both web services so the patched
+  svelte/kit reach the served bundles; `APP_SESSION_DOMAIN` env var
+  can be deleted from backend services (now ignored).
+- One-shot S3 sweep could reap display masters already orphaned by
+  pre-fix deletions (`display/` keys whose UUID matches no
+  `photos.id` / `users.avatar_id`).
+- `docs/superpowers/specs/2026-05-14-equipment-catalog-enriched-design.md`
+  still describes the user-editable PATCH; superseded by admin-gating.
