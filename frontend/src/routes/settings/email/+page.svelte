@@ -2,9 +2,16 @@
   import Section from '$lib/components/settings/Section.svelte';
   import Row from '$lib/components/settings/Row.svelte';
   import Modal from '$lib/components/Modal.svelte';
+  import { untrack } from 'svelte';
 
   let { data, form } = $props();
-  let showModal = $state(false);
+  // Open initially when re-rendered with an action result: the form is a
+  // non-enhanced POST, so a successful (or failed) submit triggers a full
+  // reload that resets this local state. Without seeding from `form`, the
+  // modal closes on reload and the {#if form?.ok}/error messages never show.
+  // untrack: we intentionally capture only the initial value (then the user
+  // controls it), so this must not become a reactive dependency.
+  let showModal = $state(untrack(() => !!form));
 </script>
 
 <Section title="Sign-in identity" description="The email used to sign in and recover your account.">

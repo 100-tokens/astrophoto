@@ -1,22 +1,19 @@
 /**
  * E2E tests for security / account management flows.
  *
- * NOTE: These tests require the full dev stack running (`just dev`) and a
- * MailHog instance reachable at http://localhost:8025.
- *
- * A `playwright.config.ts` at `frontend/` root is needed to execute these.
- * That config is deferred — add it when wiring up CI Playwright runs.
- * Until then this file is a spec stub: types-check via pnpm check but
- * won't be picked up by any test runner.
+ * Requires the full dev stack running and a MailHog instance reachable at
+ * http://localhost:8025 (PUBLIC_BASE_URL points reset links at :5180).
  */
 
 import { test, expect } from '@playwright/test';
+import { FRONTEND, MAILHOG, freshAccount, apiSignup, signupVerifiedAndLogin } from './helpers';
 
-const MAILHOG = 'http://localhost:8025';
-const BACKEND = 'http://localhost:8080';
-const FRONTEND = 'http://localhost:5173';
-
-/** Pull the most recent email link for a given recipient and URL prefix. */
+/**
+ * Pull the most recent email link for a given recipient and URL path prefix.
+ * The mailer encodes bodies as base64 (Content-Transfer-Encoding: base64), so
+ * decode before matching. Returns the URL path ("/reset/<token>") with any
+ * scheme/host stripped, so it can be reattached to the frontend origin.
+ */
 async function latestMailLink(
   page: import('@playwright/test').Page,
   recipient: string,
@@ -28,7 +25,13 @@ async function latestMailLink(
     (m as { Content: { Headers: { To?: string[] } } }).Content.Headers.To?.[0]?.includes(recipient)
   );
   if (!msgs.length) return null;
-  const body = (msgs[0] as { Content: { Body: string } }).Content.Body;
+  const raw = (msgs[0] as { Content: { Body: string } }).Content.Body;
+  let body = raw;
+  try {
+    body = Buffer.from(raw.replace(/\r?\n/g, ''), 'base64').toString('utf8');
+  } catch {
+    // Not base64 — fall through and match the raw body.
+  }
   const match = body.match(new RegExp(`${prefix}/[A-Za-z0-9_-]+`));
   return match ? match[0] : null;
 }
@@ -37,22 +40,28 @@ test('reset password from sign-in, click MailHog link, set new password, land au
   page,
   request
 }) => {
-  const email = `e2e-${Date.now()}@reset.test`;
+  const acc = freshAccount(Date.now(), 'reset');
 
-  // Create account via API.
-  await request.post(`${BACKEND}/api/auth/signup`, {
-    data: { email, password: 'longenoughpw1', display_name: 'E2E' }
-  });
+  // Create account via API (signup requires a unique handle).
+  await apiSignup(request, acc);
 
   // Request password reset from the UI.
   await page.goto(`${FRONTEND}/reset`);
-  await page.getByLabel('EMAIL').fill(email);
+  await page.getByLabel('EMAIL').fill(acc.email);
   await page.getByRole('button', { name: 'Send reset link' }).click();
   await expect(page).toHaveURL(/\/reset\/sent/);
 
-  // Pull the reset link from MailHog.
-  const link = await latestMailLink(page, email, '/reset');
-  expect(link).toBeTruthy();
+  // Pull the reset link from MailHog. The mail send is async; poll briefly.
+  let link: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        link = await latestMailLink(page, acc.email, '/reset');
+        return link;
+      },
+      { timeout: 10000, intervals: [250] }
+    )
+    .toBeTruthy();
   await page.goto(`${FRONTEND}${link!}`);
 
   // Set the new password.
@@ -61,15 +70,12 @@ test('reset password from sign-in, click MailHog link, set new password, land au
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('toggle theme persists across reload', async ({ page }) => {
-  // NOTE: this test requires the user to be signed in. Add a sign-in fixture
-  // (shared across tests) when playwright.config.ts is wired up.
+test('toggle theme persists across reload', async ({ page, request }) => {
+  // /settings/* is auth-gated (settings/+layout.server.ts redirects to /signin),
+  // so sign in first. The theme is stored in a cookie and read by app.html at
+  // SSR (data-theme); clicking LIGHT POSTs setTheme then redirects back.
+  await signupVerifiedAndLogin(page, request, Date.now(), 'theme');
   await page.goto(`${FRONTEND}/settings/appearance`);
-  // If redirected to sign-in, skip the assertion — fixture not yet in place.
-  if (page.url().includes('/signin')) {
-    test.skip();
-    return;
-  }
   await page.getByRole('button', { name: 'LIGHT' }).click();
   await page.reload();
   const theme = await page.locator('html').getAttribute('data-theme');
