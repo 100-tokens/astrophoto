@@ -17,15 +17,10 @@
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { FRONTEND, BACKEND, freshAccount, verifyEmail } from './helpers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// URLs are env-overridable to accommodate the case where heartbit-crm
-// (or another local app) holds :5173 — start the frontend on :5180 and
-// run with PLAYWRIGHT_BASE_URL=http://localhost:5180.
-const BACKEND = process.env.PLAYWRIGHT_BACKEND_URL ?? 'http://localhost:8080';
-const FRONTEND = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
 
 // NOTE — STATUS: these scenarios were validated live via chrome-devtools-mcp
 // in the post-merge polish session. The Playwright spec itself currently
@@ -46,44 +41,34 @@ const FRONTEND = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
 // cookie. Returns the handle used.
 // ---------------------------------------------------------------------------
 async function signupViaForm(page: import('@playwright/test').Page, ts: number): Promise<string> {
-  // Base-36 suffix keeps the handle short and within the 30-char limit.
-  const handle = `e2e${ts.toString(36).slice(-8)}`;
-  const email = `e2e-${ts}@example.com`;
-  const password = 'longenoughpw1';
+  const acc = freshAccount(ts, 'equip');
 
   await page.goto(`${FRONTEND}/signup`);
 
-  await page.fill('input[name="display_name"]', `E2E ${ts}`);
-  await page.fill('input[name="handle"]', handle);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
+  await page.fill('input[name="display_name"]', acc.displayName);
+  await page.fill('input[name="handle"]', acc.handle);
+  await page.fill('input[name="email"]', acc.email);
+  await page.fill('input[name="password"]', acc.password);
 
   // HandlePicker debounces 300 ms then fetches /api/auth/handle-check.
   await expect(page.locator('[data-status="available"]')).toBeVisible({ timeout: 5000 });
 
   await page.click('button[type="submit"]');
-  // Signup returns 202 since email-verification ships and lands on
-  // /signup/check-email. Confirm we got there.
+  // Signup ships email verification and lands on /signup/check-email.
   await page.waitForURL(/\/signup\/check-email/, { timeout: 15000 });
 
-  // Mark the user verified via direct DB write. The production path
-  // routes through email + /api/auth/verify-email but the outbox is
-  // not addressable from the test runner. Docker postgres is reachable
-  // and the assertion is purely "user can sign in" downstream.
-  const { execSync } = await import('node:child_process');
-  execSync(
-    `docker exec astrophoto-postgres-1 psql -U astrophoto -d astrophoto -c "update users set email_verified_at = now() where email = '${email}'"`,
-    { stdio: 'ignore' }
-  );
+  // Mark the user verified via the shared psql helper (signin is blocked
+  // until email_verified_at is set; the outbox link is not driven here).
+  verifyEmail(acc.email);
 
   // Login via the form to land an authenticated session cookie.
   await page.goto(`${FRONTEND}/signin`);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
+  await page.fill('input[name="email"]', acc.email);
+  await page.fill('input[name="password"]', acc.password);
   await page.click('button[type="submit"]');
   await page.waitForURL(`${FRONTEND}/`, { timeout: 15000 });
 
-  return handle;
+  return acc.handle;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,14 +128,24 @@ test.describe('setup_builder_with_telescope_specs', () => {
       { timeout: 5000 }
     );
 
-    // Click "Save setup" (primary button at the foot of the form).
-    await page.getByRole('button', { name: 'Save setup' }).click();
+    // Re-assert the setup name immediately before saving. The first fill above
+    // can land in the pre-hydration window: SvelteKit serves SSR HTML, and the
+    // controlled `bind:value={setupName}` (initial '') resets the input on
+    // hydrate, eating a value typed before JS attached — so saveSetup() would
+    // bail on its "Setup name is required" guard. By now the "EDITING A SHARED
+    // CATALOG ITEM" transition (a JS fetch) proves hydration is done, so this
+    // fill reliably populates the reactive state.
+    await page.fill('input[placeholder="e.g. Backyard SHO @ Bortle 4"]', setupName);
 
-    // Expect redirect to /settings/equipment.
-    await page.waitForURL(`${FRONTEND}/settings/equipment`, { timeout: 15000 });
+    // Click "Save setup". saveSetup() PATCHes each role's specs (403 for shared
+    // catalog items — handled and ignored), POSTs /api/equipment/setups, then
+    // client-side goto()s. Poll the URL (toHaveURL doesn't wait on a load event,
+    // so it's robust to SvelteKit's client navigation under vite HMR).
+    await page.getByRole('button', { name: 'Save setup' }).click();
+    await expect(page).toHaveURL(`${FRONTEND}/settings/equipment`, { timeout: 15000 });
 
     // The setup name should appear in the list.
-    await expect(page.getByText(setupName)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(setupName)).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -189,6 +184,7 @@ test.describe('upload_verify_chip_input', () => {
 
     // ── Step 2: Upload a real JPEG to obtain a photo id with the verify step.
     await page.goto(`${FRONTEND}/upload`);
+    await page.waitForLoadState('networkidle');
 
     const fixturePath = path.resolve(__dirname, 'fixtures/sample.jpg');
     await page.setInputFiles('input[type="file"]', fixturePath);
@@ -197,14 +193,16 @@ test.describe('upload_verify_chip_input', () => {
     const readyRow = page.locator('[data-state="ready"]');
     await expect(readyRow).toBeVisible({ timeout: 30000 });
 
-    const continueLink = page.locator('a:has-text("Continue to verify")');
-    await expect(continueLink).toBeVisible();
-    await continueLink.click();
+    // The footer "Verify N ready frame →" button advances to the verify step.
+    const continueBtn = page.locator('button:has-text("ready frame")');
+    await expect(continueBtn).toBeEnabled({ timeout: 5000 });
+    await continueBtn.click();
     await page.waitForURL(/\/upload\/[^/]+\/verify/, { timeout: 15000 });
 
     // ── Step 3: Interact with FilterChipInput.
-    // The input is inside the FILTERS section of the metadata form.
-    const chipInput = page.locator('.fchip-input');
+    // The structured-filters input lives in the .equip-filters section. Scope
+    // to it: TagChipInput reuses the bare .fchip-input class for tags too.
+    const chipInput = page.locator('.equip-filters .fchip-input');
     await expect(chipInput).toBeVisible({ timeout: 5000 });
 
     // Click the chip input to open the dropdown.
@@ -233,9 +231,14 @@ test.describe('upload_verify_chip_input', () => {
       await page.waitForTimeout(500);
     }
 
-    // A FilterChip should now be present inside the input container.
-    const chip = chipInput.locator('.fchip');
-    await expect(chip).toBeVisible({ timeout: 5000 });
+    // Close the autocomplete popup so it no longer renders preview chips, then
+    // assert a real FilterChip was added to the input. Added chips live in the
+    // draggable <span> wrappers (direct children of .fchip-input), not in the
+    // .fchip-pop dropdown.
+    await page.keyboard.press('Escape');
+    await expect(popup).toBeHidden({ timeout: 3000 });
+    const chip = chipInput.locator(':scope > span > .fchip');
+    await expect(chip.first()).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -278,23 +281,35 @@ test.describe('equip_browse_specs_header', () => {
 
     // The canonical_name is display_name.to_lowercase() (from items_create.rs).
     // The browse URL is /equip/filter/<canonical_name>.
-    const slug = created.canonical_name;
+    // canonical_name slugs spaces to dashes in the browse URL (see the page's
+    // own /equip/<kind>/<canonical_name.replace(/\s+/g,'-')> links).
+    const slug = created.canonical_name.replace(/\s+/g, '-');
     await page.goto(`${FRONTEND}/equip/filter/${encodeURIComponent(slug)}`);
 
-    // Wait for the specs bar to render.
-    const specsBar = page.locator('.specs-bar');
-    await expect(specsBar).toBeVisible({ timeout: 10000 });
+    // The SPEC SHEET section renders the specs as labelled table rows
+    // (<th>{label}</th><td>{value}</td>) inside .spec-table.
+    const specSheet = page.locator('section.specs');
+    await expect(specSheet).toBeVisible({ timeout: 10000 });
 
-    // BANDWIDTH label and value.
-    await expect(specsBar.locator('.spec-label', { hasText: 'BANDWIDTH' })).toBeVisible();
-    await expect(specsBar).toContainText('3 nm');
+    // Helper: the <td> value cell for an exact <th> label (so "Mounted"
+    // doesn't also match "Mounted diameter").
+    const valueOf = (label: string) =>
+      specSheet
+        .locator('tr', { has: page.getByRole('rowheader', { name: label, exact: true }) })
+        .locator('td');
 
-    // SIZE label and value ("2 inch" per SIZE_LABELS['2in'] in the page).
-    await expect(specsBar.locator('.spec-label', { hasText: 'SIZE' })).toBeVisible();
-    await expect(specsBar).toContainText('2 inch');
+    // BANDWIDTH label and value (fmtVal(3.0, ' nm') ⇒ "3 nm").
+    await expect(
+      specSheet.getByRole('rowheader', { name: 'Bandwidth', exact: true })
+    ).toBeVisible();
+    await expect(valueOf('Bandwidth')).toHaveText('3 nm');
 
-    // MOUNTED label and value.
-    await expect(specsBar.locator('.spec-label', { hasText: 'MOUNTED' })).toBeVisible();
-    await expect(specsBar).toContainText('yes');
+    // SIZE label and value (FILTER_SIZE_LABELS['2in'] ⇒ '2"').
+    await expect(specSheet.getByRole('rowheader', { name: 'Size', exact: true })).toBeVisible();
+    await expect(valueOf('Size')).toHaveText('2"');
+
+    // MOUNTED label and value (mounted === true ⇒ "Yes").
+    await expect(specSheet.getByRole('rowheader', { name: 'Mounted', exact: true })).toBeVisible();
+    await expect(valueOf('Mounted')).toHaveText('Yes');
   });
 });
