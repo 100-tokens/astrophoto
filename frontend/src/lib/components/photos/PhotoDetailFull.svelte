@@ -142,6 +142,26 @@
       .toUpperCase()
   );
 
+  // REPROCESSED eyebrow: shown under PUBLISHED when the photo's image has been
+  // replaced (replaced_at set). Format "DD MMM → DD MMM YYYY"; the left date
+  // drops its year when both dates share a calendar year (spec: same-year
+  // inference keeps the line short).
+  let reprocessedLabel = $derived.by<string | null>(() => {
+    if (!p.replaced_at) return null;
+    const from = new Date(p.created_at);
+    const to = new Date(p.replaced_at);
+    const sameYear = from.getFullYear() === to.getFullYear();
+    const fmt = (d: Date, withYear: boolean) =>
+      d
+        .toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          ...(withYear ? { year: 'numeric' } : {})
+        })
+        .toUpperCase();
+    return `${fmt(from, !sameYear)} → ${fmt(to, true)}`;
+  });
+
   // Acquisition rows — show what's set, drop the rest. Two-line cells where
   // there's a derived value (Exposure → "180 × 360 s" + "= 18.0 hours" accent).
   type Row = { label: string; value: string; sub: string | undefined; subAccent: boolean };
@@ -438,6 +458,9 @@
     <aside class="info">
       <div class="info-inner">
         <div class="t-eyebrow accent">● PUBLISHED {publishedDate}</div>
+        {#if reprocessedLabel}
+          <div class="t-eyebrow reprocessed">● REPROCESSED · {reprocessedLabel}</div>
+        {/if}
 
         <h1 class="title">
           {#if titleHead}
@@ -814,6 +837,11 @@
   .acquisition-header .t-label {
     color: var(--fg-primary);
     letter-spacing: 0.16em;
+  }
+
+  .t-eyebrow.reprocessed {
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
   }
 
   .exif {
