@@ -95,3 +95,97 @@ jobs:
 
       - name: pnpm lint
         run: pnpm lint
+
+  e2e:
+    # Browser end-to-end gate: the production-readiness suite (see
+    # docs/operations/production-readiness-e2e.md and
+    # docs/adr/0001-browser-e2e-production-readiness-bar.md). Brings up the
+    # real dev infra via docker compose (fresh volumes each run → clean,
+    # deterministic DB — no cross-run data pollution), builds + runs the
+    # backend and frontend, then runs Playwright. Functional + mobile + a11y +
+    # security live here; perf/load + cross-browser are deliberately out (run
+    # on-demand). Ports match the suite's committed defaults (frontend :5173,
+    # backend :8080, pg :5434, minio :9100, mailhog :1025/:8025) so no
+    # PLAYWRIGHT_* overrides are needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start infra (postgres + minio + mailhog)
+        run: docker compose up -d --wait postgres minio mailhog
+
+      - name: Install Rust toolchain (per rust-toolchain.toml)
+        run: rustup toolchain install
+
+      - name: Restore cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Install sqlx-cli (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli
+
+      - name: Migrate + build backend
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://astrophoto:astrophoto@localhost:5434/astrophoto
+        run: |
+          sqlx migrate run
+          cargo build --bin astrophoto
+
+      - name: Run backend (:8080)
+        working-directory: backend
+        run: |
+          # The backend dotenv-loads ../.env (see main.rs). The committed
+          # template already targets the compose infra (pg :5434, minio :9100,
+          # mailhog :1025, frontend :5173, backend :8080), so materialize it as
+          # the dev config — same mechanism as `just dev` locally.
+          cp ../.env.example ../.env
+          nohup ./target/debug/astrophoto > backend.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/healthz >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:8080/healthz >/dev/null || { echo "backend failed to start"; cat backend.log; exit 1; }
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.26.2 --activate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install psql (helpers verify email via SQL on :5434)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run frontend (:5173)
+        working-directory: frontend
+        env:
+          BACKEND_URL: http://localhost:8080
+        run: |
+          nohup pnpm exec vite dev --port 5173 > vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:5173 >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:5173 >/dev/null || { echo "frontend failed to start"; cat vite.log; exit 1; }
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright e2e
+        working-directory: frontend
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
