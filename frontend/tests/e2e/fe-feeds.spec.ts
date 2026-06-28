@@ -202,7 +202,7 @@ test.describe('explore edge cases', () => {
     await sortMostAppreciated.click();
 
     // The URL reflects the new sort (replaceState navigation).
-    await page.waitForURL(/sort=most-appreciated/);
+    await expect(page).toHaveURL(/sort=most-appreciated/, { timeout: 15000 });
     // The grid is still mounted and the page did not error (no full reload to a
     // stale cursor); the explore header is present after the re-key.
     await expect(page.locator('.header-explore')).toBeVisible();

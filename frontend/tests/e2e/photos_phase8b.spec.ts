@@ -48,7 +48,7 @@ async function signupVerifiedAndLogin(
   await apiSignup(request, acc);
   verifyEmail(acc.email);
   await uiLogin(page, acc);
-  await page.waitForURL(`${FRONTEND}/`, { timeout: 15000 });
+  await expect(page).toHaveURL(`${FRONTEND}/`, { timeout: 15000 });
   return acc;
 }
 
@@ -180,7 +180,7 @@ test('edit metadata of a published photo via Edit, save changes, no republish', 
     // "Publish") — the save_changes_published action redirects to /photo/<id>,
     // which 301s to the canonical permalink. No publish call is made.
     await page.getByRole('button', { name: 'Save changes' }).click();
-    await page.waitForURL(/\/u\/[^/]+\/p\/[^/]+/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/u\/[^/]+\/p\/[^/]+/, { timeout: 15000 });
 
     // The detail title reflects the edit.
     await expect(page.locator('h1')).toContainText('M42 Orion Nebula (edited)');
@@ -219,13 +219,13 @@ test('replace a published photo, REPROCESSED label appears on detail', async ({
   const continueBtn = page.locator('button:has-text("ready frame")');
   await expect(continueBtn).toBeEnabled({ timeout: 5000 });
   await continueBtn.click();
-  await page.waitForURL(/\/upload\/[^/]+\/verify/, { timeout: 15000 });
+  await expect(page).toHaveURL(/\/upload\/[^/]+\/verify/, { timeout: 15000 });
 
   await page.fill('input#target', 'M42 replace-target');
   await page.locator('input#target').press('Enter');
   await page.locator('input#target').blur();
   await page.getByRole('button', { name: 'Publish' }).click();
-  await page.waitForURL(/\/u\/[^/]+\/p\/[^/]+/, { timeout: 15000 });
+  await expect(page).toHaveURL(/\/u\/[^/]+\/p\/[^/]+/, { timeout: 15000 });
 
   const photoId = sql(
     `select id from photos where owner_id = '${userIdByEmail(acc.email)}' order by created_at desc limit 1`
