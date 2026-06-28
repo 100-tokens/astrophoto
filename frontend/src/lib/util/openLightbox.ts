@@ -1,4 +1,5 @@
 import { preloadData, pushState } from '$app/navigation';
+import { page } from '$app/state';
 import type { Action } from 'svelte/action';
 
 interface Options {
@@ -12,6 +13,11 @@ export const openLightboxOnClick: Action<HTMLAnchorElement, Options> = (node, op
   function handler(e: MouseEvent) {
     if (e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    // Owners need the full detail view (Edit / Replace / Delete), which the
+    // lightbox does not provide. Let their click follow the <a href> to the
+    // full page instead of opening the read-only lightbox. Handles are unique,
+    // so a matching handle means the signed-in user owns this photo.
+    if (page.data.user?.handle && page.data.user.handle === current.handle) return;
     e.preventDefault();
     void open();
   }
