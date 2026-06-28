@@ -199,10 +199,17 @@ test.describe('explore edge cases', () => {
     // block. Switching sort triggers applyFilter → goto(replaceState) → new SSR
     // data → the $effect reseeds `cursor` and the #key rebuilds the grid.
     const sortMostAppreciated = page.getByRole('button', { name: /appreciated/i }).first();
-    await sortMostAppreciated.click();
+    await expect(sortMostAppreciated).toBeVisible();
 
-    // The URL reflects the new sort (replaceState navigation).
-    await expect(page).toHaveURL(/sort=most-appreciated/, { timeout: 15000 });
+    // Re-click until the client-side sort handler is hydrated and the URL
+    // updates (replaceState navigation). Under CI load the first click can land
+    // before hydration attaches the handler and is silently lost, leaving the
+    // URL unchanged — so retry the click+assert until the nav actually fires.
+    await expect(async () => {
+      await sortMostAppreciated.click();
+      await expect(page).toHaveURL(/sort=most-appreciated/, { timeout: 3000 });
+    }).toPass({ timeout: 20000 });
+
     // The grid is still mounted and the page did not error (no full reload to a
     // stale cursor); the explore header is present after the re-key.
     await expect(page.locator('.header-explore')).toBeVisible();
