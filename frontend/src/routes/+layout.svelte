@@ -23,9 +23,11 @@
   });
 </script>
 
-<svelte:head>
-  <title>Astrophoto</title>
-</svelte:head>
+<!-- No <title> here: every route provides its own (pages, section
+     layouts, or PhotoDetailFull for permalinks). A layout-level title
+     competes with the page's in SSR head dedup, and the deployed
+     bundle resolved that race the wrong way — profile pages shipped
+     the generic title to crawlers (og:title was right, <title> wasn't). -->
 
 <a href="#main-content" class="skip-link">Skip to content</a>
 
