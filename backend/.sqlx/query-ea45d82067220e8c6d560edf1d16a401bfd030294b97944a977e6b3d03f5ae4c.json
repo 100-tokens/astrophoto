@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set calibration_requested_at = now() - interval '40 minutes',\n                platesolve_solved_at = now(),\n                display_key = 'display/mr2.jpg',\n                pipeline_error = 'auto-calibration interrupted'\n          where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ea45d82067220e8c6d560edf1d16a401bfd030294b97944a977e6b3d03f5ae4c"
+}

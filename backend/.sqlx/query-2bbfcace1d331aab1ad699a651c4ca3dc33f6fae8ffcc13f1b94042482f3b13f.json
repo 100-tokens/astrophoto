@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set platesolve_solved_at = now(), pipeline_error = 'stale',\n                display_key = 'display/s1.jpg'\n          where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2bbfcace1d331aab1ad699a651c4ca3dc33f6fae8ffcc13f1b94042482f3b13f"
+}

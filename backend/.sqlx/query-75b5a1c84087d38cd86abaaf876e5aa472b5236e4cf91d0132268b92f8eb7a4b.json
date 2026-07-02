@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set platesolve_solved_at = now(),\n                calibration_requested_at = now() - interval '5 minutes'\n          where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "75b5a1c84087d38cd86abaaf876e5aa472b5236e4cf91d0132268b92f8eb7a4b"
+}
