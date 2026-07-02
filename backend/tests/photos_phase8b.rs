@@ -689,7 +689,7 @@ async fn comment_list_on_draft_404s_for_non_owner() {
 
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
-async fn publish_sets_published_at_and_last_step_caption() {
+async fn publish_sets_published_at_and_leaves_last_step() {
     let h = harness().await;
     let alice = h.signup("a@e.com", "longenoughpw", "Alice").await;
     let id = h.seed_photo(&alice).await;
@@ -704,7 +704,9 @@ async fn publish_sets_published_at_and_last_step_caption() {
         .await
         .unwrap();
     assert!(row.published_at.is_some());
-    assert_eq!(row.last_step.as_deref(), Some("caption"));
+    // The dedicated /caption wizard step was removed in 56acf4e — publish
+    // no longer rewrites last_step (it used to stamp 'caption').
+    assert_ne!(row.last_step.as_deref(), Some("caption"));
 }
 
 #[tokio::test]
