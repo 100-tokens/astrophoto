@@ -169,6 +169,13 @@ jobs:
         working-directory: frontend
         env:
           BACKEND_URL: http://localhost:8080
+          # Same value frontend/.env.example documents for dev: image URLs
+          # (tiles, og:image, RSS enclosures) point at the backend's local
+          # /cdn resize route. Unset, cdn() falls back to '/cdn' on the
+          # vite origin, which serves HTML 404s — fe-profile-surface
+          # PSURF-03 asserts enclosure URLs actually route to an image
+          # handler.
+          PUBLIC_CDN_BASE_URL: http://localhost:8080/cdn
         run: |
           nohup pnpm exec vite dev --port 5173 > vite.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:5173 >/dev/null && break; sleep 1; done
