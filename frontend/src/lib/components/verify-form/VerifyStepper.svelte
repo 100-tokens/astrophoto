@@ -1,7 +1,8 @@
 <script lang="ts">
   // VerifyStepper — restyled stepper used by /upload/[id]/verify only.
-  // Distinct from UploadStepper (legacy 4-step) so other routes are not
-  // disturbed by the new active-state ● NOW affordance.
+  // Distinct from UploadStepper (now aligned to the same three-step
+  // model) so other routes are not disturbed by the new active-state
+  // ● NOW affordance.
   //
   // The handoff defaults to the three-step "Verify & Equip" merged variant
   // because Equipment-as-step-03 overlaps with the page's own Equipment

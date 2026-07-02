@@ -1,19 +1,21 @@
 <script lang="ts">
-  // Four-step stepper for the upload flow. Mirrors the equipment-catalog
-  // handoff at docs/superpowers/handoff/2026-05-14-equipment-catalog/
-  // screen-verify.jsx:40 — completed steps carry a ✓, the active step is
-  // accent-colored, future steps are muted.
+  // Three-step stepper for the upload flow — completed steps carry a ✓,
+  // the active step is accent-colored, future steps are muted.
   //
-  // currentStep is 1-based: 1 = upload, 2 = verify data, 3 = equipment,
-  // 4 = caption & publish.
+  // Matches the verify page's own hero stepper and its "STEP NN OF 03"
+  // eyebrows: equipment and caption both live on the verify step since
+  // the dedicated caption page was removed (56acf4e). This used to list
+  // four steps while the surrounding copy said "OF 03".
+  //
+  // currentStep is 1-based: 1 = upload, 2 = verify & equip,
+  // 3 = caption & publish.
 
-  let { currentStep }: { currentStep: 1 | 2 | 3 | 4 } = $props();
+  let { currentStep }: { currentStep: 1 | 2 | 3 } = $props();
 
   const STEPS = [
     { id: 1, label: 'UPLOAD' },
-    { id: 2, label: 'VERIFY DATA' },
-    { id: 3, label: 'EQUIPMENT' },
-    { id: 4, label: 'CAPTION & PUBLISH' }
+    { id: 2, label: 'VERIFY & EQUIP' },
+    { id: 3, label: 'CAPTION & PUBLISH' }
   ];
 
   function stateFor(idx: number): 'done' | 'active' | 'pending' {

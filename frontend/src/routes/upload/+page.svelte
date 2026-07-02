@@ -50,6 +50,42 @@
     }
   });
 
+  // Preflight hashes the WHOLE file in memory (crypto.subtle can't
+  // stream), so a 12-file drop of tier-max originals used to buffer
+  // ~2.4 GB at once. Reuse the pump to bound concurrent hashing.
+  const preflightPump = new Pump({
+    concurrency: 2,
+    runSlot: (clientId) => runPreflight(clientId)
+  });
+
+  async function runPreflight(clientId: string): Promise<void> {
+    const target = slots.find((s) => s.clientId === clientId);
+    if (!target) return;
+    try {
+      const pre = await preflight(target.file);
+      target.hash = pre.hash;
+      // XISF: preflight returns an empty thumb (no browser decoder).
+      // Leave thumbDataUrl undefined so UploadFileRow falls back to
+      // its generic icon instead of rendering an empty <img>.
+      if (pre.thumbDataUrl) target.thumbDataUrl = pre.thumbDataUrl;
+      // Preflight resolves the wire mime (browsers report "" for
+      // `.xisf`; preflight maps it to `application/x-xisf`).
+      target.mime = pre.mime;
+      target.progress = { state: 'queued', pct: 0 };
+
+      const abort = new AbortController();
+      handles.set(clientId, {
+        slot: target,
+        abort,
+        setProgress: (p) => setProgress(clientId, p)
+      });
+      pump.add(clientId);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Preflight failed';
+      setProgress(clientId, { state: 'failed', pct: 0, reason });
+    }
+  }
+
   function setProgress(clientId: string, p: SlotProgress) {
     const idx = slots.findIndex((s) => s.clientId === clientId);
     if (idx < 0) return;
@@ -88,36 +124,7 @@
         progress: { state: 'hashing', pct: 0 }
       };
       slots = [...slots, slot];
-
-      preflight(file)
-        .then((pre) => {
-          const idx = slots.findIndex((s) => s.clientId === clientId);
-          if (idx < 0) return;
-          const target = slots[idx];
-          if (!target) return;
-          target.hash = pre.hash;
-          // XISF: preflight returns an empty thumb (no browser decoder).
-          // Leave thumbDataUrl undefined so UploadFileRow falls back to
-          // its generic icon instead of rendering an empty <img>.
-          if (pre.thumbDataUrl) target.thumbDataUrl = pre.thumbDataUrl;
-          // Preflight resolves the wire mime (browsers report "" for
-          // `.xisf`; preflight maps it to `application/x-xisf`).
-          target.mime = pre.mime;
-          target.progress = { state: 'queued', pct: 0 };
-
-          const abort = new AbortController();
-          const handle: SlotHandle = {
-            slot: target,
-            abort,
-            setProgress: (p) => setProgress(clientId, p)
-          };
-          handles.set(clientId, handle);
-          pump.add(clientId);
-        })
-        .catch((err: unknown) => {
-          const reason = err instanceof Error ? err.message : 'Preflight failed';
-          setProgress(clientId, { state: 'failed', pct: 0, reason });
-        });
+      preflightPump.add(clientId);
     }
   }
 
@@ -201,11 +208,34 @@
     const slot = slots.find((s) => s.clientId === clientId);
     if (!slot || slot.progress.state !== 'failed') return;
 
-    // If there's a stale server-side photo row from the failed init/PUT, drop it
-    // so the per-owner-hash dedup doesn't reject the retry's init.
+    // If there's a stale server-side photo row from the failed
+    // init/PUT/finalize, drop it so the per-owner-hash dedup doesn't
+    // reject the retry's init. 404 is fine (row already gone); any
+    // other failure would just re-manifest as the same dedup 409, so
+    // surface it here instead of looping.
     const oldPhotoId = slot.progress.photoId;
     if (oldPhotoId) {
-      await fetch(`/api/uploads/${oldPhotoId}`, { method: 'DELETE', credentials: 'include' });
+      const del = await fetch(`/api/uploads/${oldPhotoId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!del.ok && del.status !== 404) {
+        setProgress(clientId, {
+          state: 'failed',
+          pct: 0,
+          reason: 'Could not clear the previous attempt — discard it from your drafts, then retry.'
+        });
+        return;
+      }
+    }
+
+    // A preflight-stage failure left the slot with no hash (and possibly
+    // an unresolved mime) — re-running the pump like that re-fails on
+    // init. Re-preflight instead; it re-queues on success.
+    if (!slot.hash) {
+      slot.progress = { state: 'hashing', pct: 0 };
+      preflightPump.add(clientId);
+      return;
     }
 
     const abort = new AbortController();
@@ -237,6 +267,14 @@
   <title>Upload — Astrophoto</title>
   <meta name="robots" content="noindex, nofollow" />
 </svelte:head>
+
+<!-- Queue state is in-memory only: navigating away mid-upload silently
+     aborts every in-flight XHR. Ask before unload while anything moves. -->
+<svelte:window
+  onbeforeunload={(e) => {
+    if (queueCounts.inflight > 0) e.preventDefault();
+  }}
+/>
 
 <AppHeader active="Gallery" />
 

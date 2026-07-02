@@ -38,8 +38,13 @@ export async function preflight(file: File): Promise<Preflight> {
   // in FITS keywords / PCL properties — not in JPEG EXIF. The display
   // image + metadata for an XISF upload land later via the backend's
   // auto-calibrate flow (see `backend/src/photos/platesolve_upload.rs`).
+  // The thumbnail is a nicety, never a gate: createImageBitmap can't
+  // decode TIFF in Chrome/Firefox (the dropzone and backend both accept
+  // it — the backend generates the real thumbnails), so a decode
+  // failure falls back to the generic icon instead of failing the
+  // whole preflight and blocking the upload.
   const [thumbDataUrl, exif, hash] = await Promise.all([
-    isXisf ? Promise.resolve('') : makeThumb(file),
+    isXisf ? Promise.resolve('') : makeThumb(file).catch(() => ''),
     isXisf ? Promise.resolve({}) : parseExif(file).catch(() => ({})),
     sha256(file)
   ]);
