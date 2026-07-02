@@ -7,31 +7,38 @@
   let {
     photo,
     handle,
-    width,
-    height,
-    top,
-    left
+    priority = false
   }: {
     photo: GalleryPhoto;
     handle: string;
-    width: number;
-    height: number;
-    top: number;
-    left: number;
+    /** First-row LCP candidate — eager-load + high fetchpriority. */
+    priority?: boolean;
   } = $props();
+
+  // Aspect ratio drives the CSS-flex justified row (see PhotoGrid): the
+  // browser reserves height from `aspect-ratio` before the image loads,
+  // and server + client render identically — no JS measurement, so the
+  // tile exists in the SSR HTML. Clamp to the same range the old
+  // justified-layout used so panos/portraits stay sane.
+  const ROW_H = 220;
+  let ar = $derived(Math.max(0.2, Math.min(5, (photo.width ?? 3) / (photo.height ?? 2))));
+  // Nominal 1x render width, snapped to 80px buckets to limit CDN cache
+  // fragmentation; srcset adds 2x/3x for retina.
+  let nominalW = $derived(Math.min(1280, Math.max(160, Math.ceil((ar * ROW_H) / 80) * 80)));
 </script>
 
 <a
   use:openLightboxOnClick={{ handle, short_id: photo.short_id }}
   class="tile"
-  style="width:{width}px; height:{height}px; transform: translate({left}px, {top}px);"
+  style="--ar:{ar}; flex-grow:{ar};"
   href="/u/{handle}/p/{photo.short_id}"
   aria-label={photo.target ?? 'Untitled'}
 >
   <Img
     photoId={photo.id}
-    w={Math.round(width)}
-    sizes={`${Math.round(width)}px`}
+    w={nominalW}
+    sizes={`${nominalW}px`}
+    {priority}
     alt={photo.target ?? 'Untitled'}
     class="img"
   />
@@ -43,12 +50,17 @@
 
 <style>
   .tile {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
+    display: block;
+    flex-basis: calc(var(--ar) * var(--row-h, 220px));
+    aspect-ratio: var(--ar);
+    min-width: 0;
     overflow: hidden;
     background: var(--bg-elevated);
-    transform-origin: top left;
+  }
+  .tile:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .tile :global(.img) {
     width: 100%;

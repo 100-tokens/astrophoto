@@ -237,8 +237,9 @@ fn parse_datetime(s: Option<&str>) -> Option<DateTime<Utc>> {
 /// shape) and return the sum across entries. Returns `None` on any
 /// decode failure or when the string is empty / not 8-byte-aligned
 /// (a pre-passthrough server response will have `value: ""`, which
-/// short-circuits cleanly).
-fn decode_total_exposure(s: Option<&str>) -> Option<f64> {
+/// short-circuits cleanly). Shared with [`crate::photos::xisf_meta`],
+/// which decodes the same property straight from the XISF header.
+pub(crate) fn decode_total_exposure(s: Option<&str>) -> Option<f64> {
     use base64::Engine;
     let raw = s?.trim();
     if raw.is_empty() {

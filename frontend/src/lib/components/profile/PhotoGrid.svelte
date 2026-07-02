@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
-  import justifiedLayout from 'justified-layout';
+  import { untrack } from 'svelte';
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
   import { fetchPhotosFeed } from '$lib/api/profileClient';
   import PhotoTile from './PhotoTile.svelte';
@@ -21,8 +20,17 @@
   let photos = $state<GalleryPhoto[]>(untrack(() => initial?.photos ?? []));
   let nextCursor = $state<string | null>(untrack(() => initial?.next_cursor ?? null));
   let loading = $state(false);
-  let containerWidth = $state(0);
-  let containerEl: HTMLDivElement | null = null;
+
+  // Justified-rows layout is pure CSS (flex-grow ∝ aspect-ratio,
+  // flex-basis ∝ aspect-ratio × row-height) — the same pattern as the
+  // explore grid (CrossAuthorGrid). The previous justified-layout
+  // implementation measured the container in onMount, which never runs
+  // during SSR, so the profile gallery server-rendered as an empty
+  // <div style="height:0px"> — invisible to crawlers and no-JS readers
+  // despite +page.server.ts SSR-loading the first page for exactly
+  // that purpose. The trailing spacers keep the last (incomplete) row
+  // from stretching its tiles to full width.
+  const spacers = [0, 1, 2, 3, 4, 5];
 
   // Re-fetch when the user changes the sort. We react to the `sort` VALUE
   // only — never to `initial`'s object identity. An unrelated `invalidateAll()`
@@ -60,53 +68,14 @@
       loading = false;
     }
   }
-
-  onMount(() => {
-    if (containerEl) {
-      containerWidth = containerEl.getBoundingClientRect().width;
-      const ro = new ResizeObserver((entries) => {
-        for (const e of entries) containerWidth = e.contentRect.width;
-      });
-      ro.observe(containerEl);
-      return () => ro.disconnect();
-    }
-  });
-
-  let layout = $derived.by(() => {
-    if (containerWidth <= 0 || photos.length === 0) {
-      return {
-        containerHeight: 0,
-        boxes: [] as Array<{ width: number; height: number; top: number; left: number }>
-      };
-    }
-    const isMobile = containerWidth < 640;
-    const aspectRatios = photos.map((p) => {
-      const w = p.width ?? 3;
-      const h = p.height ?? 2;
-      return Math.max(0.2, Math.min(5, w / h));
-    });
-    const result = justifiedLayout(aspectRatios, {
-      containerWidth,
-      containerPadding: 0,
-      boxSpacing: 8,
-      targetRowHeight: isMobile ? 140 : 220
-    });
-    return result;
-  });
 </script>
 
-<div class="grid" bind:this={containerEl} style="height:{layout.containerHeight}px">
+<div class="grid">
   {#each photos as photo, i (photo.id)}
-    {#if layout.boxes[i]}
-      <PhotoTile
-        {photo}
-        {handle}
-        width={layout.boxes[i].width}
-        height={layout.boxes[i].height}
-        top={layout.boxes[i].top}
-        left={layout.boxes[i].left}
-      />
-    {/if}
+    <PhotoTile {photo} {handle} priority={i < 3} />
+  {/each}
+  {#each spacers as s (s)}
+    <i class="spacer" aria-hidden="true"></i>
   {/each}
 </div>
 
@@ -122,8 +91,24 @@
 
 <style>
   .grid {
-    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin: 0 32px;
+    --row-h: 220px;
+  }
+
+  .spacer {
+    flex-grow: 1000;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  @media (max-width: 640px) {
+    .grid {
+      --row-h: 140px;
+    }
   }
   .more {
     display: flex;

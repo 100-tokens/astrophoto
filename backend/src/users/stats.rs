@@ -22,7 +22,8 @@ pub async fn handler(
         select
           count(*) filter (where published_at is not null) as "pub_count!",
           count(*) filter (where published_at is null)     as "draft_count!",
-          coalesce(sum(exposure_s) filter (where published_at is not null), 0)::float8
+          coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1)))
+            filter (where published_at is not null), 0)::float8
             as "integ!"
         from photos
         where owner_id = $1

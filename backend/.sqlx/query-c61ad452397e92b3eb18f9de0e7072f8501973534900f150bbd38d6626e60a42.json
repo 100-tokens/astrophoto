@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select aperture_f, gain, sensor_temp_c, sessions, ra_deg, dec_deg from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "aperture_f",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 1,
+        "name": "gain",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 2,
+        "name": "sensor_temp_c",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 3,
+        "name": "sessions",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "ra_deg",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "dec_deg",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c61ad452397e92b3eb18f9de0e7072f8501973534900f150bbd38d6626e60a42"
+}

@@ -360,6 +360,13 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
         // an Arc bump; the original moves into `run_solve` below.
         persist_processing_report(&state.pool, photo_id, xisf_bytes.clone()).await;
 
+        // Same independence for the instrumentation columns (camera /
+        // exposure / integration / target …): extract them locally from
+        // the header instead of waiting on the solver echo, so a failed
+        // solve still yields acquisition metadata. COALESCE semantics —
+        // user-entered values are never overwritten.
+        persist_header_metadata(&state.pool, photo_id, xisf_bytes.clone()).await;
+
         // Claim the sentinel so a concurrent side-channel POST from
         // the same owner gets 409.
         match platesolve::try_claim(&state.pool, photo_id, owner_id).await {
@@ -661,6 +668,41 @@ async fn persist_processing_report(pool: &PgPool, photo_id: Uuid, bytes: Bytes) 
         .await
     {
         warn!(photo_id = %photo_id, error = %e, "persist processing_json failed");
+    }
+}
+
+/// Extract instrumentation columns (camera, per-sub exposure, sub
+/// count, total integration, target, …) straight from the XISF header
+/// and persist them via [`crate::photos::xisf_meta::apply`]'s COALESCE
+/// semantics. Best-effort like [`persist_processing_report`]: every
+/// failure is logged and swallowed so it never blocks calibration.
+async fn persist_header_metadata(pool: &PgPool, photo_id: Uuid, bytes: Bytes) {
+    let extracted = tokio::task::spawn_blocking(move || {
+        if bytes.len() < 16 || &bytes[0..8] != b"XISF0100" {
+            return None;
+        }
+        let hlen = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize;
+        let end = 16usize.checked_add(hlen)?;
+        if end > bytes.len() {
+            return None;
+        }
+        let xml = std::str::from_utf8(&bytes[16..end]).ok()?;
+        crate::photos::xisf_meta::extract_from_header_xml(xml)
+    })
+    .await;
+    let meta = match extracted {
+        Ok(Some(m)) => m,
+        Ok(None) => {
+            warn!(photo_id = %photo_id, "xisf header metadata parse failed");
+            return;
+        }
+        Err(e) => {
+            warn!(photo_id = %photo_id, error = %e, "xisf header metadata parse panicked");
+            return;
+        }
+    };
+    if let Err(e) = crate::photos::xisf_meta::apply(pool, photo_id, &meta).await {
+        warn!(photo_id = %photo_id, error = %e, "persist header metadata failed");
     }
 }
 

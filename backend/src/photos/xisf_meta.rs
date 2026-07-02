@@ -51,6 +51,12 @@ pub struct XisfMetadata {
     pub sessions: Option<i16>,
     pub taken_at: Option<DateTime<Utc>>,
     pub target: Option<String>,
+    /// Total integration time in seconds, decoded from the
+    /// `PCL:TotalExposureTime` property PixInsight's ImageIntegration
+    /// writes (F64Vector, summed across channels). Deliberately NOT
+    /// derived from `exposure_s × sessions` here — stats queries do
+    /// that fallback in SQL so we never persist derived data.
+    pub integration_s: Option<f64>,
 }
 
 impl XisfMetadata {
@@ -66,6 +72,7 @@ impl XisfMetadata {
             && self.sessions.is_none()
             && self.taken_at.is_none()
             && self.target.is_none()
+            && self.integration_s.is_none()
     }
 }
 
@@ -73,8 +80,54 @@ impl XisfMetadata {
 /// [`XisfMetadata`]. FITS wins when both sources define the same
 /// field; both being absent leaves the field `None`.
 pub fn extract(result: &PlatesolveResult) -> XisfMetadata {
-    let fits = &result.fits;
-    let pcl = &result.pcl_properties;
+    extract_parts(&result.fits, &result.pcl_properties)
+}
+
+/// Parse the XISF header XML directly and build a [`XisfMetadata`].
+///
+/// This is the local counterpart of [`extract`]: it reads the same
+/// FITS keywords + PCL properties straight from the header bytes we
+/// already hold at calibration time, so it works even when the
+/// plate-solve fails or the solver never echoes instrument keywords
+/// back (the gap documented in the module docs above). `None` only
+/// when the XML itself does not parse.
+pub fn extract_from_header_xml(xml: &str) -> Option<XisfMetadata> {
+    let doc = roxmltree::Document::parse(xml).ok()?;
+    let mut fits: Vec<FitsKeyword> = Vec::new();
+    let mut pcl: Vec<PclProperty> = Vec::new();
+    for n in doc.descendants().filter(roxmltree::Node::is_element) {
+        match n.tag_name().name() {
+            "FITSKeyword" => {
+                if let (Some(name), Some(value)) = (n.attribute("name"), n.attribute("value")) {
+                    fits.push(FitsKeyword {
+                        name: name.to_string(),
+                        value: value.to_string(),
+                        comment: String::new(),
+                    });
+                }
+            }
+            "Property" => {
+                if let Some(id) = n.attribute("id") {
+                    // Scalar properties carry `value=`; vector properties
+                    // (e.g. PCL:TotalExposureTime) carry base64 body text.
+                    let value = n
+                        .attribute("value")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| n.text().unwrap_or("").trim().to_string());
+                    pcl.push(PclProperty {
+                        id: id.to_string(),
+                        type_name: n.attribute("type").unwrap_or("").to_string(),
+                        value,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    Some(extract_parts(&fits, &pcl))
+}
+
+fn extract_parts(fits: &[FitsKeyword], pcl: &[PclProperty]) -> XisfMetadata {
     XisfMetadata {
         camera: find_fits(fits, "INSTRUME")
             .map(strip_fits_quotes)
@@ -108,6 +161,14 @@ pub fn extract(result: &PlatesolveResult) -> XisfMetadata {
         target: find_fits(fits, "OBJECT")
             .map(strip_fits_quotes)
             .or_else(|| find_pcl(pcl, "Observation:Object:Name").map(strip_fits_quotes)),
+        // PixInsight writes the total as an F64Vector (base64 LE);
+        // tolerate a plain scalar first for non-PixInsight writers.
+        integration_s: parse_f64(find_pcl(pcl, "PCL:TotalExposureTime")).or_else(|| {
+            crate::photos::xisf_display::decode_total_exposure(find_pcl(
+                pcl,
+                "PCL:TotalExposureTime",
+            ))
+        }),
     }
 }
 
@@ -146,8 +207,9 @@ pub async fn apply(pool: &PgPool, photo_id: Uuid, meta: &XisfMetadata) -> Result
             sensor_temp_c = coalesce(sensor_temp_c, $6),
             sessions      = coalesce(sessions, $7),
             taken_at      = coalesce(taken_at, $8),
-            target        = coalesce(target, $9)
-        where id = $10
+            target        = coalesce(target, $9),
+            integration_s = coalesce(integration_s, $10)
+        where id = $11
         "#,
     )
     .bind(&meta.camera)
@@ -159,6 +221,7 @@ pub async fn apply(pool: &PgPool, photo_id: Uuid, meta: &XisfMetadata) -> Result
     .bind(meta.sessions)
     .bind(meta.taken_at)
     .bind(&meta.target)
+    .bind(meta.integration_s)
     .bind(photo_id)
     .execute(pool)
     .await
@@ -395,6 +458,87 @@ mod tests {
         let m = extract(&r);
         assert_eq!(m.camera.as_deref(), Some("ZWO ASI533MM Pro"));
         assert_eq!(m.target.as_deref(), Some("NGC 6822"));
+    }
+
+    /// Base64 LE f64 vector, PixInsight's `PCL:TotalExposureTime` shape.
+    fn b64_f64s(vals: &[f64]) -> String {
+        use base64::Engine;
+        let mut bytes = Vec::with_capacity(vals.len() * 8);
+        for v in vals {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    }
+
+    #[test]
+    fn header_xml_extracts_fits_and_pcl_locally() {
+        let total = b64_f64s(&[401_400.0]);
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<xisf version="1.0" xmlns="http://www.pixinsight.com/xisf">
+<Image geometry="10:10:1" sampleFormat="Float32" colorSpace="Gray">
+<FITSKeyword name="INSTRUME" value="'ZWO ASI533MM PRO'" comment="camera"/>
+<FITSKeyword name="EXPTIME" value="300.0" comment="s"/>
+<FITSKeyword name="NCOMBINE" value="1338" comment=""/>
+<FITSKeyword name="OBJECT" value="'NGC 5982'" comment=""/>
+<Property id="PCL:TotalExposureTime" type="F64Vector" length="1">{total}</Property>
+</Image>
+</xisf>"#
+        );
+        let m = extract_from_header_xml(&xml).expect("parses");
+        assert_eq!(m.camera.as_deref(), Some("ZWO ASI533MM PRO"));
+        assert_eq!(m.exposure_s, Some(300.0));
+        assert_eq!(m.sessions, Some(1338));
+        assert_eq!(m.target.as_deref(), Some("NGC 5982"));
+        assert_eq!(m.integration_s, Some(401_400.0));
+    }
+
+    #[test]
+    fn header_xml_total_exposure_sums_channels() {
+        let total = b64_f64s(&[100.0, 250.5, 50.0]);
+        let xml = format!(
+            r#"<xisf xmlns="http://www.pixinsight.com/xisf"><Image>
+<Property id="PCL:TotalExposureTime" type="F64Vector" length="3">{total}</Property>
+</Image></xisf>"#
+        );
+        let m = extract_from_header_xml(&xml).expect("parses");
+        assert_eq!(m.integration_s, Some(400.5));
+    }
+
+    #[test]
+    fn header_xml_scalar_total_exposure_accepted() {
+        // Non-PixInsight writers may emit a plain scalar.
+        let xml = r#"<xisf><Image>
+<Property id="PCL:TotalExposureTime" type="Float64" value="7200"/>
+</Image></xisf>"#;
+        let m = extract_from_header_xml(xml).expect("parses");
+        assert_eq!(m.integration_s, Some(7200.0));
+    }
+
+    #[test]
+    fn header_xml_without_metadata_is_empty() {
+        let xml = r#"<xisf><Image geometry="10:10:1"/></xisf>"#;
+        let m = extract_from_header_xml(xml).expect("parses");
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn header_xml_garbage_is_none() {
+        assert!(extract_from_header_xml("not xml at all <<<").is_none());
+    }
+
+    #[test]
+    fn solver_echo_extracts_integration_when_present() {
+        // If the solve service ever echoes the property back, the
+        // solver-side extractor picks it up identically.
+        let mut r = empty_result();
+        r.pcl_properties = vec![pcl(
+            "PCL:TotalExposureTime",
+            "F64Vector",
+            &b64_f64s(&[1800.0]),
+        )];
+        let m = extract(&r);
+        assert_eq!(m.integration_s, Some(1800.0));
     }
 
     #[test]

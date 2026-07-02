@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select brand, model from equipment_items where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "model",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3b60ade466e288b9beb7d6d74f6bc39f3ea96c259cf87240521662401595da87"
+}

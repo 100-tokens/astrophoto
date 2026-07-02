@@ -8,7 +8,9 @@
 
   interface Props {
     links: Array<{ label: string; href: string }>;
-    active?: string;
+    // `| undefined` so callers under exactOptionalPropertyTypes can
+    // forward their own optional `active` verbatim.
+    active?: string | undefined;
   }
 
   let { links, active }: Props = $props();

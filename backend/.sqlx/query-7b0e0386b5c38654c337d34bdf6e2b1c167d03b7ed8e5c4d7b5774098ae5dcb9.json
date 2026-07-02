@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into users (id, email, password_hash, display_name, handle)\n         values ($1, $2, '', 'O', $5), ($3, $4, '', 'V', $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7b0e0386b5c38654c337d34bdf6e2b1c167d03b7ed8e5c4d7b5774098ae5dcb9"
+}

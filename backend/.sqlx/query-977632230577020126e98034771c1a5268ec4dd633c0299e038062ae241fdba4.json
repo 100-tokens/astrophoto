@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select used_at from email_verification_tokens where token_hash = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "977632230577020126e98034771c1a5268ec4dd633c0299e038062ae241fdba4"
+}

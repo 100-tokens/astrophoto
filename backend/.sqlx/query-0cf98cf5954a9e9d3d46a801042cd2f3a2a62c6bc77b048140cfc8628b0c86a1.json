@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_targets (photo_id, target_id, source, is_primary) values ($1, $2, 'manual', $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0cf98cf5954a9e9d3d46a801042cd2f3a2a62c6bc77b048140cfc8628b0c86a1"
+}

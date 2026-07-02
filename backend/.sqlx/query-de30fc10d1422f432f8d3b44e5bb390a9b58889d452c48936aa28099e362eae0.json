@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n                (kind, canonical_name, display_name, usage_count, status, approved_at,\n                 brand, model)\n            values ('filter','g','G',1,'approved',now(),'','G')\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "de30fc10d1422f432f8d3b44e5bb390a9b58889d452c48936aa28099e362eae0"
+}

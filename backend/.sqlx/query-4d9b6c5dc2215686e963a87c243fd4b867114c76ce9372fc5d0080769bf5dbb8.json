@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items (kind, canonical_name, display_name, usage_count, brand, model)\n         values ('telescope','sky-watcher 200p','Sky-Watcher 200P',0,'Sky-Watcher','200P') returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4d9b6c5dc2215686e963a87c243fd4b867114c76ce9372fc5d0080769bf5dbb8"
+}

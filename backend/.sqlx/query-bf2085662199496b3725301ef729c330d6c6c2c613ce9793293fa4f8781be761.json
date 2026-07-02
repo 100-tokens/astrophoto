@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select appreciations_count as \"c!\" from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bf2085662199496b3725301ef729c330d6c6c2c613ce9793293fa4f8781be761"
+}

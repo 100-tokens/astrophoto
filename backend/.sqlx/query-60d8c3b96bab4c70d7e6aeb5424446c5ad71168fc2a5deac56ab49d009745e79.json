@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set category = 'lunar' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "60d8c3b96bab4c70d7e6aeb5424446c5ad71168fc2a5deac56ab49d009745e79"
+}

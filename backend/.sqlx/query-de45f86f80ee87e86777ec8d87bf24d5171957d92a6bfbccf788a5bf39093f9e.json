@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select filters from photos where id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "filters",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "de45f86f80ee87e86777ec8d87bf24d5171957d92a6bfbccf788a5bf39093f9e"
+}

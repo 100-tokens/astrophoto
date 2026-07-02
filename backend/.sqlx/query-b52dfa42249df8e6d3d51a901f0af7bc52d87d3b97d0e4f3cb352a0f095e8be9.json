@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select usage_count, status, approved_at\n           from equipment_items\n          where kind='telescope' and canonical_name='sky-watcher 200p'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "b52dfa42249df8e6d3d51a901f0af7bc52d87d3b97d0e4f3cb352a0f095e8be9"
+}

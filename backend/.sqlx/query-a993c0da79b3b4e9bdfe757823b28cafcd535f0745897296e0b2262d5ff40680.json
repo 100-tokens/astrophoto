@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select is_default from equipment_setups where owner_id=$1 and name='Backyard rig'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_default",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a993c0da79b3b4e9bdfe757823b28cafcd535f0745897296e0b2262d5ff40680"
+}

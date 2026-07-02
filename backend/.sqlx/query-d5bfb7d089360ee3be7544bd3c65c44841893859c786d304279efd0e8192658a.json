@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into thumbnails (photo_id, size, storage_key, bytes)\n         values ($1, 256, 'k1-thumb', 50)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d5bfb7d089360ee3be7544bd3c65c44841893859c786d304279efd0e8192658a"
+}

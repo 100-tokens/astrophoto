@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import { cdn } from '$lib/cdn';
   import { ldJsonScriptTag } from '$lib/utils/seo';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
@@ -21,7 +22,6 @@
   let title = $derived(`${data.profile.display_name} — Astrophoto`);
 
   // ── SEO / GEO meta ─────────────────────────────────────────────
-  const CDN_BASE: string = (import.meta.env.VITE_CDN_BASE_URL as string | undefined) ?? '';
 
   let metaDescription = $derived.by(() => {
     const p = data.profile;
@@ -42,18 +42,14 @@
 
   // SVG is not an accepted og/twitter image format (Facebook, X, Slack,
   // Discord all reject it), so never fall back to the favicon. Cover first,
-  // then the avatar (a raster, but only addressable via the CDN — there is
-  // no /api/photos thumb route for avatars), else omit og:image entirely.
+  // then the avatar, else omit og:image entirely. `cdn()` reads the runtime
+  // PUBLIC_CDN_BASE_URL ('/cdn' backend-route fallback in dev), so make the
+  // URL absolute for unfurl clients when the base is relative.
   let ogImage = $derived.by(() => {
-    if (data.profile.cover) {
-      return CDN_BASE
-        ? `${CDN_BASE}/img/${data.profile.cover.id}?w=1200`
-        : `${page.url.origin}/api/photos/${data.profile.cover.id}/thumb/1200`;
-    }
-    if (data.profile.avatar_id && CDN_BASE) {
-      return `${CDN_BASE}/img/${data.profile.avatar_id}?w=1200`;
-    }
-    return null;
+    const id = data.profile.cover?.id ?? data.profile.avatar_id;
+    if (!id) return null;
+    const u = cdn(id, { w: 1200 });
+    return u.startsWith('http') ? u : `${page.url.origin}${u}`;
   });
 
   // schema.org Person — gives AI engines a clean photographer entity to

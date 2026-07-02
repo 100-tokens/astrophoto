@@ -32,7 +32,7 @@ pub async fn get(State(state): State<AppState>) -> Result<impl IntoResponse, App
                 select
                   coalesce(count(distinct owner_id), 0)::bigint as "practitioners!",
                   coalesce(count(*), 0)::bigint as "frames!",
-                  coalesce(sum(exposure_s * coalesce(sessions, 1)), 0)::bigint as "integration_seconds!"
+                  coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as "integration_seconds!"
                 from photos
                 where published_at is not null
                 "#

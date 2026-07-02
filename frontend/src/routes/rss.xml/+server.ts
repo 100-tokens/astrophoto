@@ -1,4 +1,5 @@
 import type { RequestHandler } from './$types';
+import { cdn } from '$lib/cdn';
 
 // Site-wide RSS 2.0 feed of recently published photos. Linked from the
 // footer; readers can subscribe in Feedly / NetNewsWire / Inoreach.
@@ -16,8 +17,6 @@ interface ExplorePhoto {
   author_handle: string;
   author_display_name: string;
 }
-
-const CDN_BASE = (import.meta.env.VITE_CDN_BASE_URL as string | undefined) ?? '';
 
 function escape(s: string): string {
   return s
@@ -56,9 +55,13 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       const link = `${origin}/u/${encodeURIComponent(p.author_handle)}/p/${p.short_id}`;
       const title = p.target ?? `Untitled by @${p.author_handle}`;
       const pubDate = rfc822(p.published_at);
-      const imgUrl = CDN_BASE
-        ? `${CDN_BASE}/img/${p.id}?w=1200`
-        : `${origin}/api/photos/${p.id}/thumb/1200`;
+      // Same CDN URL the site's own <img> tags use ($lib/cdn reads the
+      // runtime PUBLIC_CDN_BASE_URL; '/cdn' backend-route fallback in
+      // dev). The old /api/photos/<id>/thumb fallback 404s for photos
+      // without stored thumbnails (every XISF upload), which fed RSS
+      // readers dead enclosure URLs.
+      const cdnUrl = cdn(p.id, { w: 1200 });
+      const imgUrl = cdnUrl.startsWith('http') ? cdnUrl : `${origin}${cdnUrl}`;
       return [
         '    <item>',
         `      <title>${escape(title)}</title>`,

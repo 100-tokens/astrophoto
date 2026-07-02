@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set replaced_at = now() - interval '7 hours' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d988f979e5bc8d4f115b352095280c0455e1a9fdb7c2a803781be9480af152d"
+}

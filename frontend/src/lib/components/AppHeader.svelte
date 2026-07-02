@@ -8,11 +8,15 @@
   import { cls } from '$lib/utils/cls';
 
   interface Props {
+    /** Which primary section this page belongs to. Omit on pages that
+     * aren't one of the four sections (profiles, settings, legal, …) —
+     * no link gets `aria-current="page"` then. Defaulting to 'Gallery'
+     * used to mark /explore as the current page on every such route. */
     active?: 'Gallery' | 'Targets' | 'Photographers' | 'About';
     class?: string;
   }
 
-  let { active = 'Gallery', class: className }: Props = $props();
+  let { active, class: className }: Props = $props();
 
   // Auth state comes from layout data resolved by hooks.server.ts.
   let user = $derived(page.data.user);

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select handle::text as \"h!\" from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "h!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a8d1da1ea601239be15aef4381e671873673e409627a745cc42ffbfc51261c57"
+}

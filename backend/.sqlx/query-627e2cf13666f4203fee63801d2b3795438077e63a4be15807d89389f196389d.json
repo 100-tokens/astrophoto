@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select display_name from equipment_items where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "display_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "627e2cf13666f4203fee63801d2b3795438077e63a4be15807d89389f196389d"
+}

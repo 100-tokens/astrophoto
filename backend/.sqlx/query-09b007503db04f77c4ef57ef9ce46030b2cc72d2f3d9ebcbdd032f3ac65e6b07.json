@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set exposure_s = 300, sessions = 10, appreciations_count = 2 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09b007503db04f77c4ef57ef9ce46030b2cc72d2f3d9ebcbdd032f3ac65e6b07"
+}

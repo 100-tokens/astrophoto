@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_pending_deletes (photo_id, storage_key) values ($1, 'thumbs/fresh.jpg')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3ccb1e333cbfc9f335457a79ca135d8bd481b96d1522d253b66d295cb42cc20e"
+}

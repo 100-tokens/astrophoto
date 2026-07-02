@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select not exists(select 1 from sessions where id = $1) as \"gone!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "gone!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "623c268d8b4b441314a6a3c6d6a5b01966871300f024df2b98b85ff77be5fe8f"
+}

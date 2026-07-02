@@ -90,16 +90,23 @@ pub async fn get(
         None
     };
 
-    // Stats — single round-trip across photos + photo_targets.
+    // Stats — one aggregate over photos, targets via subquery. Targets
+    // must NOT be a LEFT JOIN here: a photo with N targets would fan
+    // out to N rows and multiply the exposure/appreciation sums.
+    // Integration prefers the XISF-decoded total (`integration_s`) and
+    // falls back to per-sub exposure × sub count, matching discovery.
     let stats_row = sqlx::query!(
         r#"
         select
-            count(distinct p.id) filter (where p.published_at is not null and p.status='ready')                  as frames,
-            coalesce(floor(sum(p.exposure_s) filter (where p.published_at is not null)), 0)::int8                 as integration_seconds,
-            coalesce(sum(p.appreciations_count) filter (where p.published_at is not null), 0)::int8               as appreciations,
-            count(distinct pt.target_id) filter (where p.published_at is not null)                                as targets
+            count(*) filter (where p.published_at is not null and p.status='ready')            as frames,
+            coalesce(floor(sum(coalesce(p.integration_s, p.exposure_s * coalesce(p.sessions, 1)))
+                     filter (where p.published_at is not null)), 0)::int8                      as integration_seconds,
+            coalesce(sum(p.appreciations_count) filter (where p.published_at is not null), 0)::int8 as appreciations,
+            (select count(distinct pt.target_id)
+               from photo_targets pt
+               join photos p2 on p2.id = pt.photo_id
+              where p2.owner_id = $1 and p2.published_at is not null)                          as targets
         from photos p
-        left join photo_targets pt on pt.photo_id = p.id
         where p.owner_id = $1
         "#,
         u.id
