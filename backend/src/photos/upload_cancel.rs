@@ -25,8 +25,12 @@ pub async fn handler(
         return Err(AppError::Forbidden);
     }
 
-    let cancellable =
-        row.published_at.is_none() && (row.status == "pending" || row.status == "processing");
+    // 'failed' is cancellable too: the upload page's Retry clears the
+    // stale row through this endpoint before re-initing the same file —
+    // refusing failed rows dead-ended that retry loop (the row survived
+    // and kept its hash-dedup slot).
+    let cancellable = row.published_at.is_none()
+        && (row.status == "pending" || row.status == "processing" || row.status == "failed");
     if !cancellable {
         return Err(AppError::Conflict("photo is not cancellable".into()));
     }

@@ -1,5 +1,7 @@
 use axum::{Json, extract::State, response::IntoResponse};
 use serde::{Deserialize, Serialize};
+// For Transaction::begin (savepoints) in the short_id retry loop.
+use sqlx::Acquire;
 use uuid::Uuid;
 
 use crate::auth::middleware::CurrentUser;
@@ -90,8 +92,12 @@ pub async fn handler(
 
     for f in body.files {
         // Per-owner hash dedup: same owner may not re-upload the same file.
+        // Failed rows don't count (mirrors the partial unique index,
+        // migration 0039): a finalize-stage failure must not block
+        // retrying the identical bytes.
         let dup: Option<Uuid> = sqlx::query_scalar!(
-            "select id from photos where owner_id = $1 and original_hash = $2",
+            "select id from photos \
+             where owner_id = $1 and original_hash = $2 and status <> 'failed'",
             user.id,
             f.hash
         )
@@ -101,13 +107,19 @@ pub async fn handler(
             return Err(AppError::Conflict("file already uploaded".into()));
         }
 
-        // Insert a pending row with short_id collision retry (up to 5 attempts).
+        // Insert a pending row with short_id collision retry (up to 5
+        // attempts). Each attempt runs in a savepoint: a unique-violation
+        // otherwise poisons the whole outer transaction (Postgres 25P02
+        // "current transaction is aborted") and no retry INSERT could
+        // ever succeed — the loop was dead code turning a recoverable
+        // collision into a 500.
         let mut attempts = 0u8;
         let (photo_id, short, key) = loop {
             attempts += 1;
             let pid = Uuid::new_v4();
             let s = short_id::generate();
             let k = format!("originals/{pid}");
+            let mut sp = tx.begin().await?;
             match sqlx::query!(
                 r#"
                 insert into photos
@@ -124,13 +136,17 @@ pub async fn handler(
                 f.hash,
                 s
             )
-            .execute(&mut *tx)
+            .execute(&mut *sp)
             .await
             {
-                Ok(_) => break (pid, s, k),
+                Ok(_) => {
+                    sp.commit().await?;
+                    break (pid, s, k);
+                }
                 Err(sqlx::Error::Database(ref db_err))
                     if db_err.constraint() == Some("photos_short_id_uidx") && attempts < 5 =>
                 {
+                    sp.rollback().await?;
                     continue;
                 }
                 // Concurrent double-submit of the same file: the
