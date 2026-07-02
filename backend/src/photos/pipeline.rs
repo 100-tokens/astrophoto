@@ -124,23 +124,25 @@ pub async fn finalize(
         // category the first thumb decode used to produce.
         let img = image::load_from_memory(&bytes_for_blocking)
             .map_err(|e| AppError::Validation(format!("decode: {e}")))?;
+        // The decoded ORIGINAL's dimensions — not a thumbnail's. These
+        // used to be read off the largest generated thumbnail (long edge
+        // clamped to 1200), so every larger upload recorded e.g.
+        // 1200×800 instead of 6000×4000, showing a wrong resolution on
+        // the detail page and shrinking the celestial-search field of
+        // view several-fold (see platesolve.rs's stale-dims comment).
+        let dims = (img.width() as i32, img.height() as i32);
         let mut generated = Vec::with_capacity(THUMB_SIZES.len());
         for size in THUMB_SIZES {
             generated.push(thumbs::generate_blocking(&img, *size)?);
         }
         let display = derive_display_master_blocking(&img)?;
         let blurhash = derive_blurhash_blocking(&img)?;
-        Ok::<_, AppError>((exif_data, generated, display, blurhash))
+        Ok::<_, AppError>((exif_data, generated, display, blurhash, dims))
     })
     .await
     .map_err(|e| AppError::Internal(format!("spawn_blocking join: {e}")))??;
 
-    let (exif_data, generated, display_bytes, blurhash) = parsed;
-    let (full_w, full_h) = generated
-        .iter()
-        .max_by_key(|t| t.size)
-        .map(|t| (t.width as i32, t.height as i32))
-        .unwrap_or((0, 0));
+    let (exif_data, generated, display_bytes, blurhash, (full_w, full_h)) = parsed;
 
     for thumb in generated {
         let key = format!("thumbs/{photo_id}/{}", thumb.size);

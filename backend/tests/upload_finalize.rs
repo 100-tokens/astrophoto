@@ -513,3 +513,58 @@ async fn finalize_xisf_marks_awaiting_calibration() {
         "no thumbnails should be generated for XISF — pipeline skipped"
     );
 }
+
+/// photos.width/height must be the ORIGINAL's dimensions. They used to
+/// be read off the largest generated thumbnail (long edge clamped to
+/// 1200), so uploads bigger than 1200 px recorded thumbnail dims —
+/// wrong resolution on the detail page and a several-fold too-small
+/// celestial-search field of view.
+#[allow(clippy::unwrap_used)]
+#[tokio::test]
+async fn finalize_persists_original_dimensions_not_thumbnail() {
+    let pg = PgImage::default()
+        .with_tag("16-alpine")
+        .start()
+        .await
+        .unwrap();
+    let host = pg.get_host().await.unwrap();
+    let port = pg.get_host_port_ipv4(5432).await.unwrap();
+    let url = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+    let pool = db::connect(&url).await.unwrap();
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let (mailer, _outbox) = astrophoto::mail::Mailer::for_test();
+    let storage: Arc<dyn astrophoto::storage::Storage> = Arc::new(MemoryStorage::new());
+    let app = http::router(
+        pool.clone(),
+        config_for(&url),
+        Arc::clone(&storage),
+        Arc::new(mailer),
+        None,
+    );
+
+    let cookie = signup_and_get_cookie(&app, &pool, "wide@example.com", "wideuser").await;
+    let owner: Uuid = sqlx::query_scalar!("select id from users where email = 'wide@example.com'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    let key = "originals/wide-dims";
+    let photo_id = insert_pending_photo(&pool, owner, key, "image/jpeg", "hash-wide").await;
+    let jpeg_bytes = Bytes::from_static(include_bytes!("fixtures/wide_5000.jpg"));
+    storage.put(key, "image/jpeg", jpeg_bytes).await.unwrap();
+
+    let resp = finalize(&app, photo_id, &cookie).await;
+    assert_eq!(resp.status(), 200);
+
+    let row = sqlx::query!("select width, height from photos where id = $1", photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        row.width,
+        Some(5000),
+        "original width, not the 1200px thumb"
+    );
+    assert_eq!(row.height, Some(3000), "original height");
+}

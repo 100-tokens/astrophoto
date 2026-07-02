@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select width, height from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "height",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "e6ff098c0f87dfbaaea510df28319b8f1b664009e2469827c4726c8728cf8207"
+}
