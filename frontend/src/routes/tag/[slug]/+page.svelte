@@ -54,7 +54,7 @@
   }
 </script>
 
-<AppHeader />
+<AppHeader active="Gallery" />
 
 <svelte:head>
   <title>{tagTitle}</title>
