@@ -20,6 +20,8 @@
 
   function statusPip(status: string): string {
     if (status === 'processing') return '⟳ processing';
+    if (status === 'awaiting-calibration') return '⟳ calibrating';
+    if (status === 'pending') return '⏳ upload incomplete';
     if (status === 'failed') return '✗ failed';
     return '✓ ready';
   }

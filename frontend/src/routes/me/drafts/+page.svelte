@@ -49,8 +49,14 @@
         {/each}
       </div>
       {#if data.drafts.next_cursor}
+        <!-- encodeURIComponent is load-bearing: the RFC3339 cursor ends in
+             '+00:00', and a literal '+' in a query string decodes to a
+             space — the backend then 400s 'bad cursor' and page 2 of the
+             drafts was unreachable. -->
         <div class="pager">
-          <Button variant="ghost" href={`/me/drafts?cursor=${data.drafts.next_cursor}`}
+          <Button
+            variant="ghost"
+            href={`/me/drafts?cursor=${encodeURIComponent(data.drafts.next_cursor)}`}
             >Older →</Button
           >
         </div>
