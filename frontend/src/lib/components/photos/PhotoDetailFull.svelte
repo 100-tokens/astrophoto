@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { page } from '$app/state';
   import { invalidateAll } from '$app/navigation';
+  import { cdn } from '$lib/cdn';
   import { ldJsonScriptTag } from '$lib/utils/seo';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
@@ -276,7 +277,6 @@
   const orphans = $derived(cacheTokens.filter((t) => !known.has(t)));
 
   // ── SEO / GEO meta ─────────────────────────────────────────────
-  const CDN_BASE: string = (import.meta.env.VITE_CDN_BASE_URL as string | undefined) ?? '';
 
   // Description: 160-char-ish summary built from caption or composed from
   // the acquisition record. Search engines truncate around 160; AI/LLMs
@@ -302,9 +302,12 @@
 
   // Display master at 1200 px makes a good rich-unfurl preview without
   // blowing the social-card weight budget. The CDN handles the resize.
-  let ogImage = $derived(
-    CDN_BASE ? `${CDN_BASE}/img/${p.id}?w=1200` : `${page.url.origin}/api/photos/${p.id}/thumb/1200`
-  );
+  // `cdn()` reads the runtime PUBLIC_CDN_BASE_URL ('/cdn' backend-route
+  // fallback in dev); absolute for unfurl clients when it's relative.
+  let ogImage = $derived.by(() => {
+    const u = cdn(p.id, { w: 1200 });
+    return u.startsWith('http') ? u : `${page.url.origin}${u}`;
+  });
   // og:image:width/height must match what the URL actually serves, not
   // the original capture dims, or unfurl clients reflow on first paint.
   // We request w=1200 so the served dims are 1200 × (1200 × h/w).
