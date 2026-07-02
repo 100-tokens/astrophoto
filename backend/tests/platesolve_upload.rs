@@ -426,6 +426,7 @@ async fn auto_calibrate_marks_photo_failed_when_upstream_unreachable() {
         mailer: Arc::new(mailer),
         platesolve: client,
         platesolve_permits: permits,
+        finalize_permits: Arc::new(tokio::sync::Semaphore::new(1)),
     };
 
     // Build a photo in `awaiting-calibration` state with a real

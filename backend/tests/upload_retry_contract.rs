@@ -97,6 +97,49 @@ async fn reinit_same_hash_succeeds_after_failure() {
     assert!(body["files"][0]["presigned_put_url"].is_string());
 }
 
+/// Finalize before the PUT arrived: the 409 must release the claim back
+/// to 'pending' (the claim now precedes the S3 reads), or the retry
+/// after the PUT completes would 409 'finalize already in progress'.
+#[tokio::test]
+#[allow(clippy::unwrap_used)]
+async fn finalize_missing_object_releases_claim() {
+    let app = TestApp::launch().await;
+    let (cookie, uid) = app
+        .signup_with_handle("Pascal", "pascal", "pascal@x.test")
+        .await;
+    let id = Uuid::new_v4();
+    sqlx::query!(
+        "insert into photos
+            (id, owner_id, storage_key, original_name, bytes, mime, status,
+             last_step, short_id, original_hash, original_uploaded_at)
+         values ($1, $2, $3, 'frame.jpg', 1000, 'image/jpeg', 'pending',
+                 'upload', $4, 'feedf00d01', now())",
+        id,
+        uid,
+        format!("originals/{id}"),
+        &id.to_string()[..8]
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
+
+    let (status, _) = app
+        .oneshot(
+            "POST",
+            &format!("/api/uploads/{id}/finalize"),
+            Some(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT, "no object yet → 409");
+
+    let st: String = sqlx::query_scalar!("select status from photos where id = $1", id)
+        .fetch_one(&app.pool)
+        .await
+        .unwrap();
+    assert_eq!(st, "pending", "claim released so a later retry works");
+}
+
 #[tokio::test]
 #[allow(clippy::unwrap_used)]
 async fn pending_row_still_dedups() {
