@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into photo_pending_deletes (photo_id, storage_key, queued_at)\n             values ($1, $2, now() - interval '8 days')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c9d694a0934357b38a7fc619ad0349c2e49f161682e937f05170c711b8deae91"
+}

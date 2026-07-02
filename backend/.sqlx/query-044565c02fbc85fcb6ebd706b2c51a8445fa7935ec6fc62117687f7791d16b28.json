@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status, pipeline_error, platesolve_error from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "pipeline_error",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "platesolve_error",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "044565c02fbc85fcb6ebd706b2c51a8445fa7935ec6fc62117687f7791d16b28"
+}

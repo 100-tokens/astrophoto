@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select appreciations_count as \"count!\",\n                  (select count(*) from appreciations where photo_id = $1) as \"junction!\"\n             from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "junction!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "80295d08202b80f20542b7eb2fbc28bbca28e92aa3ea751a588584c4ced9e3b5"
+}

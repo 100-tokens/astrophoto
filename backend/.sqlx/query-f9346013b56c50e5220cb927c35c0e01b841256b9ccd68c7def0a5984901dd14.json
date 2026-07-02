@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n            (kind, canonical_name, display_name, usage_count, status, approved_at,\n             brand, model)\n            values ('filter', 'astronomik h-alpha 6nm 2\"', 'Astronomik H-alpha 6nm 2\"',\n                    3, 'approved', now(), 'Astronomik', 'H-alpha 6nm 2\"')\n            returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f9346013b56c50e5220cb927c35c0e01b841256b9ccd68c7def0a5984901dd14"
+}

@@ -6,7 +6,10 @@
 //!
 //! Default: dry-run (prints counts only). Pass `--apply` to write.
 //! Idempotent — the eligibility filter excludes photos that already
-//! have a `processing_json`, so a second `--apply` is a no-op.
+//! have both a `processing_json` and an `integration_s`, so a second
+//! `--apply` is a no-op. (Photos whose headers genuinely carry no
+//! integration metadata stay eligible; re-reading their header on a
+//! later run is bounded and harmless.)
 //!
 //! Side-channel-only uploads (XISF not stored in S3) are skipped.
 
@@ -35,6 +38,9 @@ pub struct BackfillCounts {
     pub no_history: usize,
     pub missing_object: usize,
     pub errors: usize,
+    /// Photos whose header yielded instrumentation metadata
+    /// (camera / exposure / integration / …) to COALESCE in.
+    pub meta_applied: usize,
 }
 
 /// Fetch exactly the XISF envelope + header (`0..16 + header_len`).
@@ -54,6 +60,21 @@ pub async fn fetch_header(storage: &dyn Storage, key: &str) -> Result<Option<Byt
     Ok(storage.get_range(key, 0, 16 + hlen - 1).await?)
 }
 
+/// Slice the header XML out of a full XISF envelope and extract the
+/// instrumentation metadata. `None` on malformed envelope/XML.
+fn header_metadata(bytes: &Bytes) -> Option<astrophoto::photos::xisf_meta::XisfMetadata> {
+    if bytes.len() < 16 || &bytes[0..8] != b"XISF0100" {
+        return None;
+    }
+    let hlen = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize;
+    let end = 16usize.checked_add(hlen)?;
+    if end > bytes.len() {
+        return None;
+    }
+    let xml = std::str::from_utf8(&bytes[16..end]).ok()?;
+    astrophoto::photos::xisf_meta::extract_from_header_xml(xml)
+}
+
 pub async fn run_once(
     pool: &sqlx::PgPool,
     storage: &dyn Storage,
@@ -62,10 +83,14 @@ pub async fn run_once(
     let mut counts = BackfillCounts::default();
 
     // Runtime query (not the `query!` macro) so this compiles offline
-    // before `processing_json` lands in the .sqlx cache.
+    // before `processing_json` lands in the .sqlx cache. Also picks up
+    // photos that predate `integration_s` (migration 0038): re-reading
+    // the header is cheap and `xisf_meta::apply` COALESCEs, so rows
+    // that already have a report only gain the missing columns.
     let rows: Vec<(uuid::Uuid, String)> = sqlx::query_as(
         "select id, storage_key from photos \
-         where mime = 'application/x-xisf' and processing_json is null",
+         where mime = 'application/x-xisf' \
+           and (processing_json is null or integration_s is null)",
     )
     .fetch_all(pool)
     .await?;
@@ -102,6 +127,17 @@ pub async fn run_once(
                 counts.errors += 1;
             }
         }
+        // Instrumentation columns (exposure / sessions / integration_s
+        // / camera / target …) — independent of the processing report,
+        // same header bytes. parse errors already counted above.
+        if let Some(meta) = header_metadata(&bytes)
+            && !meta.is_empty()
+        {
+            counts.meta_applied += 1;
+            if apply {
+                astrophoto::photos::xisf_meta::apply(pool, id, &meta).await?;
+            }
+        }
     }
     Ok(counts)
 }
@@ -132,6 +168,7 @@ async fn main() -> Result<()> {
         no_history = counts.no_history,
         missing_object = counts.missing_object,
         errors = counts.errors,
+        meta_applied = counts.meta_applied,
         apply = args.apply,
         "backfill-processing complete"
     );
@@ -152,11 +189,18 @@ mod tests {
             .replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;");
+        // EXPTIME/NCOMBINE mirror a typical master light so the header
+        // metadata pass has something to apply (integration_s stays
+        // populated → the row leaves the eligibility set, keeping
+        // repeat runs no-ops). 7200s = 300s × 24 subs, base64 LE f64.
         let header = format!(
             r#"<?xml version="1.0" encoding="UTF-8"?>
 <xisf version="1.0" xmlns="http://www.pixinsight.com/xisf">
 <Image geometry="10:10:1" sampleFormat="Float32" colorSpace="Gray">
+<FITSKeyword name="EXPTIME" value="300.0" comment="s"/>
+<FITSKeyword name="NCOMBINE" value="24" comment="subs"/>
 <Property id="XISF:CreatorApplication" type="String" value="PixInsight 1.9.2"/>
+<Property id="PCL:TotalExposureTime" type="F64Vector" length="1">AAAAAAAgvEA=</Property>
 <Property id="PixInsight:ProcessingHistory" type="String">{escaped}</Property>
 </Image>
 </xisf>"#
@@ -305,7 +349,20 @@ mod tests {
         assert_eq!(json["pipeline"].as_array().unwrap().len(), 2);
         assert_eq!(json["creatorApp"], "PixInsight 1.9.2");
 
-        // Second apply is a no-op (eligibility excludes non-null rows).
+        // Header instrumentation applied alongside the report.
+        assert_eq!(applied.meta_applied, 1);
+        let (integration_s, exposure_s, sessions): (Option<f64>, Option<f64>, Option<i16>) =
+            sqlx::query_as("select integration_s, exposure_s, sessions from photos where id = $1")
+                .bind(photo_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(integration_s, Some(7200.0));
+        assert_eq!(exposure_s, Some(300.0));
+        assert_eq!(sessions, Some(24));
+
+        // Second apply is a no-op (eligibility excludes rows that have
+        // both a report and an integration total).
         let again = run_once(&pool, &storage, true).await.unwrap();
         assert_eq!(again.eligible, 0);
     }

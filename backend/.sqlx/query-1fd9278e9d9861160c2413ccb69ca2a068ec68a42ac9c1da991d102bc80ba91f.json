@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into password_reset_tokens (token_hash, user_id, expires_at, created_at)\n         values ($1, $2, now() - interval '30 days', now() - interval '45 days')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1fd9278e9d9861160c2413ccb69ca2a068ec68a42ac9c1da991d102bc80ba91f"
+}

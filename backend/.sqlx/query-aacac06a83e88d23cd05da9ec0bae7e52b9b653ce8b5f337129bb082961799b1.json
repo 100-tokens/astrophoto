@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into equipment_items\n              (id, kind, canonical_name, display_name, brand, model, status)\n           values ($1, 'camera', 'zwo asi2600', 'ZWO ASI2600', 'ZWO', 'ASI2600', 'approved')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aacac06a83e88d23cd05da9ec0bae7e52b9b653ce8b5f337129bb082961799b1"
+}

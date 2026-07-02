@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select email_verified_at from users where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email_verified_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "1947cdcf91a6621aa0e1290309bfeb719b24015cc24bf16cdf648e38e21a7ab8"
+}

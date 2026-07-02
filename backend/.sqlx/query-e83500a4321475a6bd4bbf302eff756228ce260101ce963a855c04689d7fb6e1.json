@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into email_verification_tokens (token_hash, user_id, expires_at, created_at)\n         values ($1, $2, now() + interval '1 day', now() - interval '1 day')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e83500a4321475a6bd4bbf302eff756228ce260101ce963a855c04689d7fb6e1"
+}

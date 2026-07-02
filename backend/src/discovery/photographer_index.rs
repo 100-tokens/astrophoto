@@ -90,20 +90,32 @@ pub async fn list(
             sqlx::query_as!(
                 Row,
                 r#"
-                with stats as (
+                with photo_stats as (
+                  -- Pre-aggregated per owner: joining photos AND follows
+                  -- directly onto users fans out to photos × follows rows
+                  -- and multiplies the integration sum by follower count.
+                  select
+                    owner_id,
+                    count(*)::bigint as frame_count,
+                    coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
+                  from photos
+                  where published_at is not null
+                  group by owner_id
+                ),
+                stats as (
                   select
                     u.id,
                     u.handle::text as handle,
                     u.display_name,
                     u.created_at,
                     u.cover_photo_id,
-                    coalesce(count(distinct p.id) filter (where p.published_at is not null), 0)::bigint as frame_count,
-                    coalesce(sum(p.exposure_s * coalesce(p.sessions, 1)) filter (where p.published_at is not null), 0)::bigint as integration_seconds,
+                    coalesce(ps.frame_count, 0)::bigint as frame_count,
+                    coalesce(ps.integration_seconds, 0)::bigint as integration_seconds,
                     coalesce(count(distinct f.follower_id), 0)::bigint as follower_count
                   from users u
-                  left join photos p on p.owner_id = u.id
+                  left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
-                  group by u.id
+                  group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select
                   id as "id!",
@@ -133,20 +145,32 @@ pub async fn list(
             sqlx::query_as!(
                 Row,
                 r#"
-                with stats as (
+                with photo_stats as (
+                  -- Pre-aggregated per owner: joining photos AND follows
+                  -- directly onto users fans out to photos × follows rows
+                  -- and multiplies the integration sum by follower count.
+                  select
+                    owner_id,
+                    count(*)::bigint as frame_count,
+                    coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
+                  from photos
+                  where published_at is not null
+                  group by owner_id
+                ),
+                stats as (
                   select
                     u.id,
                     u.handle::text as handle,
                     u.display_name,
                     u.created_at,
                     u.cover_photo_id,
-                    coalesce(count(distinct p.id) filter (where p.published_at is not null), 0)::bigint as frame_count,
-                    coalesce(sum(p.exposure_s * coalesce(p.sessions, 1)) filter (where p.published_at is not null), 0)::bigint as integration_seconds,
+                    coalesce(ps.frame_count, 0)::bigint as frame_count,
+                    coalesce(ps.integration_seconds, 0)::bigint as integration_seconds,
                     coalesce(count(distinct f.follower_id), 0)::bigint as follower_count
                   from users u
-                  left join photos p on p.owner_id = u.id
+                  left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
-                  group by u.id
+                  group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select
                   id as "id!",
@@ -177,20 +201,32 @@ pub async fn list(
             sqlx::query_as!(
                 Row,
                 r#"
-                with stats as (
+                with photo_stats as (
+                  -- Pre-aggregated per owner: joining photos AND follows
+                  -- directly onto users fans out to photos × follows rows
+                  -- and multiplies the integration sum by follower count.
+                  select
+                    owner_id,
+                    count(*)::bigint as frame_count,
+                    coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
+                  from photos
+                  where published_at is not null
+                  group by owner_id
+                ),
+                stats as (
                   select
                     u.id,
                     u.handle::text as handle,
                     u.display_name,
                     u.created_at,
                     u.cover_photo_id,
-                    coalesce(count(distinct p.id) filter (where p.published_at is not null), 0)::bigint as frame_count,
-                    coalesce(sum(p.exposure_s * coalesce(p.sessions, 1)) filter (where p.published_at is not null), 0)::bigint as integration_seconds,
+                    coalesce(ps.frame_count, 0)::bigint as frame_count,
+                    coalesce(ps.integration_seconds, 0)::bigint as integration_seconds,
                     coalesce(count(distinct f.follower_id), 0)::bigint as follower_count
                   from users u
-                  left join photos p on p.owner_id = u.id
+                  left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
-                  group by u.id
+                  group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select
                   id as "id!",

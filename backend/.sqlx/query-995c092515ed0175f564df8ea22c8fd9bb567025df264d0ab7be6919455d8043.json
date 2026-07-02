@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select\n            count(*) filter (where p.published_at is not null and p.status='ready')            as frames,\n            coalesce(floor(sum(coalesce(p.integration_s, p.exposure_s * coalesce(p.sessions, 1)))\n                     filter (where p.published_at is not null)), 0)::int8                      as integration_seconds,\n            coalesce(sum(p.appreciations_count) filter (where p.published_at is not null), 0)::int8 as appreciations,\n            (select count(distinct pt.target_id)\n               from photo_targets pt\n               join photos p2 on p2.id = pt.photo_id\n              where p2.owner_id = $1 and p2.published_at is not null)                          as targets\n        from photos p\n        where p.owner_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "frames",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "integration_seconds",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "appreciations",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "targets",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "995c092515ed0175f564df8ea22c8fd9bb567025df264d0ab7be6919455d8043"
+}
