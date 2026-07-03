@@ -164,21 +164,19 @@ test.describe('home / feed edge cases', () => {
 });
 
 test.describe('explore edge cases', () => {
-  test('[FE-0504] backend rejects during SSR → SvelteKit 500 error page, not a blank grid', async ({
+  test('[FE-0504] malformed query params fall back to the default feed, never a 500', async ({
     page
   }) => {
-    // The loader wraps fetchExplore in try/catch and throws error(500, 'Failed to
-    // load explore feed') on any reject. A 4xx from /api/explore (e.g. an
-    // invalid `since`) makes fetchExplore throw (non-ok) → loader catch → 500.
-    const res = await page.goto(`${FRONTEND}/explore?since=garbage`);
-    expect(res?.status()).toBe(500);
-
-    // +error.svelte renders the generic 500 page; the SvelteKit error message
-    // ('Failed to load explore feed') is the page's error.message.
-    await expect(page.locator('h1.error-h1')).toContainText('Something went');
-    await expect(page.locator('.error-eyebrow')).toContainText('500');
-    // Not a blank explore grid: the discovery header is absent on the error page.
-    await expect(page.locator('.header-explore')).toHaveCount(0);
+    // Shared links, stale bookmarks, and crawler-mangled URLs carry
+    // arbitrary query params. The loader used to cast-and-forward them:
+    // the backend 400'd on a bad `since` and the loader's blanket catch
+    // turned that user-input problem into a whole-route 500 (shipped to
+    // prod). Every unknown value now coerces to its default.
+    for (const q of ['since=garbage', 'sort=garbage', 'since=garbage&sort=garbage&category=nope']) {
+      const res = await page.goto(`${FRONTEND}/explore?${q}`);
+      expect(res?.status(), q).toBe(200);
+      await expect(page.locator('.header-explore')).toBeVisible();
+    }
   });
 
   test('[FE-0511] changing sort/since re-keys CrossAuthorGrid and reseeds the cursor', async ({
@@ -215,14 +213,16 @@ test.describe('explore edge cases', () => {
     await expect(page.locator('.header-explore')).toBeVisible();
   });
 
-  test('[FE-0512] category=<script> yields an empty feed with no reflected XSS', async ({
+  test('[FE-0512] category=<script> falls back to the default feed with no reflected XSS', async ({
     page
   }) => {
     const payload = '<script>alert(1)</script>';
     const res = await page.goto(
       `${FRONTEND}/explore?since=all&category=${encodeURIComponent(payload)}`
     );
-    // Backend `p.category = $4` matches no enum value → empty feed, 200 (not 400).
+    // The loader drops non-allowlisted categories before fetching (the
+    // backend would 400 on them now), so the page renders the default
+    // feed — and the payload is never reflected anywhere.
     expect(res?.status()).toBe(200);
 
     const html = await res!.text();
@@ -231,8 +231,12 @@ test.describe('explore edge cases', () => {
     expect(html).not.toContain('<script>alert(1)</script>');
     // The page rendered (title path runs categoryLabel(), not raw category).
     await expect(page).toHaveTitle(/Explore/);
-    // No tiles for the bogus category.
-    await expect(page.locator('a[href^="/photo/"]')).toHaveCount(0);
+    // No tiles: explore tiles link to /u/<handle>/p/<short_id> — the old
+    // a[href^="/photo/"] selector matched only HOME-grid tiles, so this
+    // assertion passed vacuously even with a page full of tiles. The
+    // loader now drops the invalid category entirely (default feed), so
+    // assert the injected value influenced nothing instead.
+    expect(html).not.toContain('alert(1)');
   });
 });
 
