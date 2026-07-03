@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set pending_deletion_at = null where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "992aa2da7e9b3f342d60a666d3a642aa63cb36b0ce38098cbc528a44cbfd3673"
+}

@@ -70,6 +70,15 @@ pub async fn followers_count(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<CountResponse>, AppError> {
+    let visible: bool = sqlx::query_scalar!(
+        r#"select exists(select 1 from users where id = $1 and pending_deletion_at is null) as "e!""#,
+        user_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if !visible {
+        return Err(AppError::not_found("user"));
+    }
     let row = sqlx::query!(
         r#"select count(*) as "count!" from follows where followed_id = $1"#,
         user_id
@@ -83,6 +92,15 @@ pub async fn following_count(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<CountResponse>, AppError> {
+    let visible: bool = sqlx::query_scalar!(
+        r#"select exists(select 1 from users where id = $1 and pending_deletion_at is null) as "e!""#,
+        user_id
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    if !visible {
+        return Err(AppError::not_found("user"));
+    }
     let row = sqlx::query!(
         r#"select count(*) as "count!" from follows where follower_id = $1"#,
         user_id

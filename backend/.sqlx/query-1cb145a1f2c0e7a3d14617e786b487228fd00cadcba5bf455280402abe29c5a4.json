@@ -1,0 +1,105 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ei.id, ei.kind, ei.canonical_name, ei.display_name, ei.usage_count,\n                  ei.status, ei.submitted_by, ei.approved_at, ei.created_at,\n                  ei.brand, ei.model, ei.variant,\n                  case when u.pending_deletion_at is null then u.handle end as \"submitted_by_handle?\",\n                  (select count(distinct setup_id) from setup_items where item_id = ei.id)\n                      as \"setup_count!\"\n             from equipment_items ei\n             left join users u on u.id = ei.submitted_by\n            where ei.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "usage_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "submitted_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 7,
+        "name": "approved_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "brand",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "model",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "submitted_by_handle?",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "setup_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "1cb145a1f2c0e7a3d14617e786b487228fd00cadcba5bf455280402abe29c5a4"
+}

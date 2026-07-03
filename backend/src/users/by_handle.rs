@@ -15,7 +15,7 @@ pub async fn handler(
         select id, handle::text as "handle!", display_name, created_at,
                (select count(*) from photos where owner_id = users.id and published_at is not null)
                    as "photo_count!"
-          from users where handle = $1
+          from users where handle = $1 and pending_deletion_at is null
         "#,
         handle
     )

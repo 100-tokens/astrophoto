@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id from users where handle = $1 and pending_deletion_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ce0b88dd3ad16382955f1dde031e718d04074d408a8183b923ec21a675c97f8f"
+}

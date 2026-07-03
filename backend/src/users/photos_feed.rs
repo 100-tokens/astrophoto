@@ -59,7 +59,7 @@ pub async fn get(
     Query(q): Query<Q>,
 ) -> Result<impl IntoResponse, AppError> {
     let user = sqlx::query!(
-        "select id from users where handle = $1",
+        "select id from users where handle = $1 and pending_deletion_at is null",
         handle.to_lowercase()
     )
     .fetch_optional(&state.pool)

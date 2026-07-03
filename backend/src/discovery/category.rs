@@ -67,6 +67,7 @@ pub async fn get(
         where category = $1
           and published_at is not null
           and status = 'ready'
+          and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
         "#,
         cat
     )
@@ -96,6 +97,7 @@ pub async fn get(
                 where p.category = $1
                   and p.published_at is not null
                   and p.status = 'ready'
+                  and u.pending_deletion_at is null
                   and ($2::int4 is null or
                        p.appreciations_count < $2 or
                        (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
@@ -125,6 +127,7 @@ pub async fn get(
                 where p.category = $1
                   and p.published_at is not null
                   and p.status = 'ready'
+                  and u.pending_deletion_at is null
                   and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                 order by p.published_at desc, p.id desc
                 limit $4

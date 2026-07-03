@@ -49,9 +49,11 @@ pub async fn get(
                t.object_type, t.constellation,
                t.major_axis_arcmin, t.minor_axis_arcmin, t.opposition_doy,
                (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id
-                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as "photo_count!",
+                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready'
+                  and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null))::int8 as "photo_count!",
                (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id
-                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready')::int8 as "contributor_count!"
+                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready'
+                  and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null))::int8 as "contributor_count!"
         from targets t
         where t.slug = $1
         "#,
@@ -88,6 +90,7 @@ pub async fn get(
             where pt.target_id = $1
               and p.published_at is not null
               and p.status = 'ready'
+              and u.pending_deletion_at is null
               and ($2::int4 is null or p.appreciations_count < $2 or
                    (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
               and ($5::text is null or p.category = $5)
@@ -119,6 +122,7 @@ pub async fn get(
             where pt.target_id = $1
               and p.published_at is not null
               and p.status = 'ready'
+              and u.pending_deletion_at is null
               and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
               and ($4::text is null or p.category = $4)
             order by p.published_at desc, p.id desc

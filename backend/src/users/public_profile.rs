@@ -26,7 +26,7 @@ pub async fn get(
                social_links,
                created_at
         from users
-        where handle = $1
+        where handle = $1 and pending_deletion_at is null
         "#,
         handle.to_lowercase()
     )

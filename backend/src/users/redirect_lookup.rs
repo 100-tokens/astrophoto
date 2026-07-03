@@ -14,7 +14,7 @@ pub async fn handler(
         r#"select u.handle::text as "handle!"
              from handle_redirects r
              join users u on u.id = r.user_id
-            where r.old_handle = $1"#,
+            where r.old_handle = $1 and u.pending_deletion_at is null"#,
         old_handle
     )
     .fetch_optional(&state.pool)

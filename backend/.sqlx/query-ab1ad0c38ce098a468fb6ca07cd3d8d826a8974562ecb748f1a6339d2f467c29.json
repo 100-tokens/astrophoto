@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select u.handle::text as \"handle!\"\n             from handle_redirects r\n             join users u on u.id = r.user_id\n            where r.old_handle = $1 and u.pending_deletion_at is null",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "handle!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ab1ad0c38ce098a468fb6ca07cd3d8d826a8974562ecb748f1a6339d2f467c29"
+}

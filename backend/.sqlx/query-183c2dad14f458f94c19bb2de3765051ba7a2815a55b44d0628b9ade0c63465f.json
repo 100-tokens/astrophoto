@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                with photo_stats as (\n                  -- Pre-aggregated per owner: joining photos AND follows\n                  -- directly onto users fans out to photos × follows rows\n                  -- and multiplies the integration sum by follower count.\n                  select\n                    owner_id,\n                    count(*)::bigint as frame_count,\n                    coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds\n                  from photos\n                  where published_at is not null and status = 'ready'\n                  group by owner_id\n                ),\n                stats as (\n                  select\n                    u.id,\n                    u.handle::text as handle,\n                    u.display_name,\n                    u.created_at,\n                    u.cover_photo_id,\n                    coalesce(ps.frame_count, 0)::bigint as frame_count,\n                    coalesce(ps.integration_seconds, 0)::bigint as integration_seconds,\n                    coalesce(count(distinct f.follower_id), 0)::bigint as follower_count\n                  from users u\n                  left join photo_stats ps on ps.owner_id = u.id\n                  left join follows f on f.followed_id = u.id\n                  where u.pending_deletion_at is null\n                  group by u.id, ps.frame_count, ps.integration_seconds\n                )\n                select\n                  id as \"id!\",\n                  handle as \"handle!\",\n                  display_name as \"display_name!\",\n                  created_at as \"created_at!\",\n                  cover_photo_id,\n                  frame_count as \"frame_count!\",\n                  integration_seconds as \"integration_seconds!\",\n                  follower_count as \"follower_count!\"\n                  from stats\n                 where frame_count > 0\n                   and ($1::timestamptz is null or created_at < $1\n                        or (created_at = $1 and id > $2::uuid))\n                 order by created_at desc, id asc\n                 limit $3\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "handle!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "cover_photo_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 5,
+        "name": "frame_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "integration_seconds!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "follower_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "183c2dad14f458f94c19bb2de3765051ba7a2815a55b44d0628b9ade0c63465f"
+}
