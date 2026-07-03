@@ -6,6 +6,7 @@ use axum::{
     extract::{Query, State},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use chrono::Datelike;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -25,13 +26,18 @@ const MAX_LIMIT: i64 = 60;
 
 // One cursor shape per sort. The integer is the sort key tiebreaker
 // (frames / followers / nothing for recent — recent uses created_at).
+// The `sort` tag rejects cross-sort replay: active and followers share
+// the CountCursor shape, so an untagged cursor minted under one sort
+// silently paginated the other from a wrong keyset position.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct CountCursor {
+    sort: String,
     count: i64,
     id: Uuid,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 struct DateCursor {
+    sort: String,
     created_at: chrono::DateTime<chrono::Utc>,
     id: Uuid,
 }
@@ -40,9 +46,16 @@ fn encode<T: serde::Serialize>(c: &T) -> String {
     let bytes = serde_json::to_vec(c).unwrap_or_default();
     URL_SAFE_NO_PAD.encode(bytes)
 }
-fn decode<T: serde::de::DeserializeOwned>(s: &str) -> Option<T> {
-    let b = URL_SAFE_NO_PAD.decode(s).ok()?;
-    serde_json::from_slice(&b).ok()
+
+/// Strict decode: a malformed cursor is a caller error, not a silent
+/// page-1 restart (which fed duplicate rows to keyed clients). Matches
+/// the shared discovery/cursor.rs contract.
+fn decode<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, AppError> {
+    URL_SAFE_NO_PAD
+        .decode(s)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .ok_or_else(|| AppError::bad_request("cursor_invalid"))
 }
 
 struct Row {
@@ -65,12 +78,7 @@ impl From<Row> for PhotographerListItem {
             follower_count: r.follower_count,
             integration_seconds: r.integration_seconds,
             cover_photo_id: r.cover_photo_id.map(|id| id.to_string()),
-            member_since_year: r
-                .created_at
-                .format("%Y")
-                .to_string()
-                .parse()
-                .unwrap_or(2026),
+            member_since_year: r.created_at.year(),
         }
     }
 }
@@ -80,13 +88,23 @@ pub async fn list(
     Query(q): Query<ListQ>,
 ) -> Result<Json<PhotographerIndexPage>, AppError> {
     let limit = q.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-    let sort = q.sort.as_deref().unwrap_or("active");
+    // Unknown sorts are 400s, consistent with the explore contract —
+    // they used to silently serve the 'active' feed.
+    let sort = match q.sort.as_deref() {
+        None | Some("active") => "active",
+        Some("followers") => "followers",
+        Some("recent") => "recent",
+        Some(_) => return Err(AppError::bad_request("sort_invalid")),
+    };
 
     // Per-sort branch — single SQL query each, ordered by sort key + id
     // tiebreaker so the cursor is deterministic across ties.
     let rows = match sort {
         "followers" => {
-            let cur = q.cursor.as_deref().and_then(decode::<CountCursor>);
+            let cur = q.cursor.as_deref().map(decode::<CountCursor>).transpose()?;
+            if cur.as_ref().is_some_and(|c| c.sort != "followers") {
+                return Err(AppError::bad_request("cursor_invalid"));
+            }
             sqlx::query_as!(
                 Row,
                 r#"
@@ -99,7 +117,7 @@ pub async fn list(
                     count(*)::bigint as frame_count,
                     coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
                   from photos
-                  where published_at is not null
+                  where published_at is not null and status = 'ready'
                   group by owner_id
                 ),
                 stats as (
@@ -135,13 +153,16 @@ pub async fn list(
                 "#,
                 cur.as_ref().map(|c| c.count),
                 cur.as_ref().map(|c| c.id),
-                limit
+                limit + 1
             )
             .fetch_all(&state.pool)
             .await?
         }
         "recent" => {
-            let cur = q.cursor.as_deref().and_then(decode::<DateCursor>);
+            let cur = q.cursor.as_deref().map(decode::<DateCursor>).transpose()?;
+            if cur.as_ref().is_some_and(|c| c.sort != "recent") {
+                return Err(AppError::bad_request("cursor_invalid"));
+            }
             sqlx::query_as!(
                 Row,
                 r#"
@@ -154,7 +175,7 @@ pub async fn list(
                     count(*)::bigint as frame_count,
                     coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
                   from photos
-                  where published_at is not null
+                  where published_at is not null and status = 'ready'
                   group by owner_id
                 ),
                 stats as (
@@ -190,14 +211,17 @@ pub async fn list(
                 "#,
                 cur.as_ref().map(|c| c.created_at),
                 cur.as_ref().map(|c| c.id),
-                limit
+                limit + 1
             )
             .fetch_all(&state.pool)
             .await?
         }
         // "active" (default) — by frame_count
         _ => {
-            let cur = q.cursor.as_deref().and_then(decode::<CountCursor>);
+            let cur = q.cursor.as_deref().map(decode::<CountCursor>).transpose()?;
+            if cur.as_ref().is_some_and(|c| c.sort != "active") {
+                return Err(AppError::bad_request("cursor_invalid"));
+            }
             sqlx::query_as!(
                 Row,
                 r#"
@@ -210,7 +234,7 @@ pub async fn list(
                     count(*)::bigint as frame_count,
                     coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as integration_seconds
                   from photos
-                  where published_at is not null
+                  where published_at is not null and status = 'ready'
                   group by owner_id
                 ),
                 stats as (
@@ -246,24 +270,32 @@ pub async fn list(
                 "#,
                 cur.as_ref().map(|c| c.count),
                 cur.as_ref().map(|c| c.id),
-                limit
+                limit + 1
             )
             .fetch_all(&state.pool)
             .await?
         }
     };
 
-    let next_cursor = if rows.len() == limit as usize {
-        rows.last().map(|r| match sort {
+    // limit+1 sentinel (same pattern as explore): a final page of
+    // exactly `limit` rows used to emit a cursor whose next page was
+    // empty — a dead "Load more" for the client.
+    let more = rows.len() as i64 > limit;
+    let take: Vec<_> = rows.into_iter().take(limit as usize).collect();
+    let next_cursor = if more {
+        take.last().map(|r| match sort {
             "followers" => encode(&CountCursor {
+                sort: sort.to_string(),
                 count: r.follower_count,
                 id: r.id,
             }),
             "recent" => encode(&DateCursor {
+                sort: sort.to_string(),
                 created_at: r.created_at,
                 id: r.id,
             }),
             _ => encode(&CountCursor {
+                sort: sort.to_string(),
                 count: r.frame_count,
                 id: r.id,
             }),
@@ -273,7 +305,7 @@ pub async fn list(
     };
 
     Ok(Json(PhotographerIndexPage {
-        items: rows.into_iter().map(Into::into).collect(),
+        items: take.into_iter().map(Into::into).collect(),
         next_cursor,
     }))
 }
