@@ -111,6 +111,7 @@ pub async fn get(
             join users u on u.id = p.owner_id
             where p.published_at is not null
               and p.status = 'ready'
+              and u.pending_deletion_at is null
               and ($1::int4 is null or
                    p.appreciations_count < $1 or
                    (p.appreciations_count = $1 and (p.published_at, p.id) < ($2, $3)))
@@ -146,6 +147,7 @@ pub async fn get(
             join users u on u.id = p.owner_id
             where p.published_at is not null
               and p.status = 'ready'
+              and u.pending_deletion_at is null
               and ($1::timestamptz is null or (p.published_at, p.id) < ($1, $2))
               and ($3::text is null or p.category = $3)
               and ($4::int8 is null or p.published_at > now() - ($4::int8 || ' seconds')::interval)

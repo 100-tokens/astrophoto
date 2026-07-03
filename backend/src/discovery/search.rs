@@ -34,7 +34,8 @@ pub async fn get(
         r#"
         select t.slug as "slug!", t.canonical_name as "canonical_name!",
                (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id
-                where pt.target_id = t.id and p.published_at is not null and p.status='ready')::int8 as "photo_count!"
+                where pt.target_id = t.id and p.published_at is not null and p.status='ready'
+                  and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null))::int8 as "photo_count!"
         from targets t
         where t.canonical_name ilike $1
            or t.aliases_text ilike $1
@@ -51,7 +52,8 @@ pub async fn get(
         r#"
         select u.id as "id!", u.handle as "handle!", u.display_name as "display_name!"
         from users u
-        where lower(u.handle) like $1 or lower(u.display_name) like $1
+        where (lower(u.handle) like $1 or lower(u.display_name) like $1)
+          and u.pending_deletion_at is null
         order by u.handle
         limit $2
         "#,
@@ -86,6 +88,7 @@ pub async fn get(
         from photos p
         join users u on u.id = p.owner_id
         where p.published_at is not null and p.status = 'ready'
+          and u.pending_deletion_at is null
           and (lower(coalesce(p.target, '')) like $1 or lower(coalesce(p.caption, '')) like $1)
         order by p.published_at desc, p.id desc
         limit $2

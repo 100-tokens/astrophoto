@@ -35,6 +35,7 @@ pub async fn get(State(state): State<AppState>) -> Result<impl IntoResponse, App
                   coalesce(sum(coalesce(integration_s, exposure_s * coalesce(sessions, 1))), 0)::bigint as "integration_seconds!"
                 from photos
                 where published_at is not null
+                  and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
                 "#
             )
             .fetch_one(&state.pool)

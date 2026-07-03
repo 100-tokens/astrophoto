@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select u.handle::text as \"handle!\", p.short_id\n          from photos p join users u on u.id = p.owner_id\n         where p.id = $1 and p.published_at is not null\n           and u.pending_deletion_at is null\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "handle!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false
+    ]
+  },
+  "hash": "3f4d03297e20c59734932294d14c6b30f33afd11201b8a49c5b2cb7556ccae84"
+}

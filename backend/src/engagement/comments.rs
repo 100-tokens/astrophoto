@@ -86,7 +86,7 @@ pub async fn list(
                body, created_at
         from (
             select c.id, c.photo_id, c.author_id,
-                   coalesce(u.display_name, '[deleted]') as author_display_name,
+                   coalesce(case when u.pending_deletion_at is null then u.display_name end, '[deleted]') as author_display_name,
                    c.body, c.created_at
             from comments c
             left join users u on u.id = c.author_id

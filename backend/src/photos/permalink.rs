@@ -19,6 +19,7 @@ pub async fn lookup(
          where u.handle   = $1
            and p.short_id  = $2
            and p.published_at is not null
+           and u.pending_deletion_at is null
         "#,
         handle,
         short_id,

@@ -1,0 +1,106 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select t.id as \"id!\", t.slug as \"slug!\", t.canonical_name as \"canonical_name!\",\n               t.aliases as \"aliases!\", t.kind as \"kind!\",\n               t.right_ascension, t.declination, t.magnitude_v,\n               t.object_type, t.constellation,\n               t.major_axis_arcmin, t.minor_axis_arcmin, t.opposition_doy,\n               (select count(*) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready'\n                  and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null))::int8 as \"photo_count!\",\n               (select count(distinct p.owner_id) from photo_targets pt join photos p on p.id = pt.photo_id\n                where pt.target_id = t.id and p.published_at is not null and p.status = 'ready'\n                  and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null))::int8 as \"contributor_count!\"\n        from targets t\n        where t.slug = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "canonical_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "aliases!",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "kind!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "right_ascension",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "declination",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "magnitude_v",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 8,
+        "name": "object_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "constellation",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "major_axis_arcmin",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 11,
+        "name": "minor_axis_arcmin",
+        "type_info": "Float4"
+      },
+      {
+        "ordinal": 12,
+        "name": "opposition_doy",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 13,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "contributor_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "d9cc40e3f6ab364e35cd0c67fcceaad648185d89832e24d6ebb1fe4f4daac9fb"
+}

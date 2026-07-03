@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.published_at, p.owner_id,\n                  (u.pending_deletion_at is not null) as \"owner_pending!\"\n             from photos p join users u on u.id = p.owner_id\n            where p.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "owner_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "owner_pending!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "4175d0585b08804f9c2986eb97551ba665a00c5427c3fab3cc5679a9a6489472"
+}

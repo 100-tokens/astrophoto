@@ -118,6 +118,7 @@ pub async fn get(
             sqlx::query_scalar!(
                 r#"select count(*)::int8 as "c!" from photos
                where published_at is not null and status = 'ready'
+                 and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
                and lower(scope) = $1"#,
                 slug
             )
@@ -128,6 +129,7 @@ pub async fn get(
             sqlx::query_scalar!(
                 r#"select count(*)::int8 as "c!" from photos
                where published_at is not null and status = 'ready'
+                 and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
                and lower(camera) = $1"#,
                 slug
             )
@@ -138,6 +140,7 @@ pub async fn get(
             sqlx::query_scalar!(
                 r#"select count(*)::int8 as "c!" from photos
                where published_at is not null and status = 'ready'
+                 and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
                and lower(mount) = $1"#,
                 slug
             )
@@ -153,6 +156,7 @@ pub async fn get(
             sqlx::query_scalar!(
                 r#"select count(*)::int8 as "c!" from photos p
                where p.published_at is not null and p.status = 'ready'
+                 and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)
                and (exists (select 1 from photo_filters pf
                              where pf.photo_id = p.id and pf.item_id = $2)
                     or lower(p.filters) = $1)"#,
@@ -166,6 +170,7 @@ pub async fn get(
             sqlx::query_scalar!(
                 r#"select count(*)::int8 as "c!" from photos
                where published_at is not null and status = 'ready'
+                 and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)
                and lower(guiding) = $1"#,
                 slug
             )
@@ -196,6 +201,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.scope) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
                  and ($5::text is null or p.category = $5)
@@ -222,6 +228,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.scope) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
                order by p.published_at desc, p.id desc
@@ -246,6 +253,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.camera) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
                  and ($5::text is null or p.category = $5)
@@ -272,6 +280,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.camera) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
                order by p.published_at desc, p.id desc
@@ -296,6 +305,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.mount) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
                  and ($5::text is null or p.category = $5)
@@ -322,6 +332,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.mount) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
                order by p.published_at desc, p.id desc
@@ -351,6 +362,7 @@ pub async fn get(
                                where pf.photo_id = p.id and pf.item_id = $7)
                       or lower(p.filters) = $1)
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
                  and ($5::text is null or p.category = $5)
@@ -380,6 +392,7 @@ pub async fn get(
                                where pf.photo_id = p.id and pf.item_id = $6)
                       or lower(p.filters) = $1)
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
                order by p.published_at desc, p.id desc
@@ -405,6 +418,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.guiding) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::int4 is null or p.appreciations_count < $2 or
                       (p.appreciations_count = $2 and (p.published_at, p.id) < ($3, $4)))
                  and ($5::text is null or p.category = $5)
@@ -431,6 +445,7 @@ pub async fn get(
                from photos p join users u on u.id = p.owner_id
                where lower(p.guiding) = $1
                  and p.published_at is not null and p.status = 'ready'
+                 and u.pending_deletion_at is null
                  and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))
                  and ($4::text is null or p.category = $4)
                order by p.published_at desc, p.id desc

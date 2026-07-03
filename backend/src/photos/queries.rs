@@ -328,10 +328,14 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<PhotoRow>, App
     Ok(row)
 }
 
+/// `viewer_is_owner` keeps /account/frames working for a user in the
+/// deletion grace period — their PUBLIC listing is hidden, their own
+/// view is not.
 pub async fn list_by_owner(
     pool: &PgPool,
     owner_id: Uuid,
     limit: i64,
+    viewer_is_owner: bool,
 ) -> Result<Vec<PhotoRow>, AppError> {
     let rows = sqlx::query_as!(
         PhotoRow,
@@ -344,11 +348,13 @@ pub async fn list_by_owner(
                setup_id, focal_modifier, filters
         from photos
         where owner_id = $1 and published_at is not null
+          and ($3::bool or not exists (select 1 from users du where du.id = owner_id and du.pending_deletion_at is not null))
         order by published_at desc
         limit $2
         "#,
         owner_id,
-        limit
+        limit,
+        viewer_is_owner
     )
     .fetch_all(pool)
     .await?;
@@ -367,6 +373,7 @@ pub async fn list_recent_public(pool: &PgPool, limit: i64) -> Result<Vec<PhotoRo
                setup_id, focal_modifier, filters
         from photos
         where published_at is not null
+          and not exists (select 1 from users du where du.id = owner_id and du.pending_deletion_at is not null)
         order by published_at desc
         limit $1
         "#,
@@ -396,6 +403,7 @@ pub async fn list_following(
         from photos p
         join follows f on f.followed_id = p.owner_id
         where f.follower_id = $1 and p.published_at is not null
+          and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)
         order by p.published_at desc
         limit $2
         "#,
@@ -432,6 +440,7 @@ pub async fn list_by_filter_item(
         from photos p
         join photo_filters pf on pf.photo_id = p.id
         where pf.item_id = $1 and p.published_at is not null
+          and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)
         order by p.published_at desc, p.id desc
         limit $2
         "#,
@@ -506,15 +515,22 @@ pub async fn is_visible_to(
     viewer_id: Option<Uuid>,
 ) -> Result<bool, AppError> {
     let row = sqlx::query!(
-        r#"select published_at, owner_id from photos where id = $1"#,
+        r#"select p.published_at, p.owner_id,
+                  (u.pending_deletion_at is not null) as "owner_pending!"
+             from photos p join users u on u.id = p.owner_id
+            where p.id = $1"#,
         photo_id
     )
     .fetch_optional(pool)
     .await?;
     Ok(match (row, viewer_id) {
         (None, _) => false,
-        (Some(r), _) if r.published_at.is_some() => true,
+        // Owner arm FIRST: the owner keeps access to their own photos
+        // during the deletion grace period (they can still cancel).
         (Some(r), Some(v)) if r.owner_id == v => true,
-        _ => false,
+        // Everyone else: published AND the owner is not mid-deletion.
+        // The grace-period flag delists content immediately; cancelling
+        // restores it with no writes beyond clearing the flag.
+        (Some(r), _) => r.published_at.is_some() && !r.owner_pending,
     })
 }
