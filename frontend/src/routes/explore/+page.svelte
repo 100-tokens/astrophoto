@@ -23,6 +23,12 @@
     cursor = data.initial.next_cursor;
   });
 
+  // Guards the stale-cursor race: a load-more issued under filter set A
+  // must not write its next_cursor after the user switched to filter set
+  // B (the write would make the next load-more paginate B's feed from
+  // A's position, silently skipping rows).
+  let filterKey = $derived(`${data.sort}|${data.since}|${data.category ?? ''}|${data.following}`);
+
   function applyFilter(next: {
     sort?: string;
     since?: string;
@@ -52,6 +58,7 @@
   async function loadMoreFn() {
     if (!cursor) return { photos: [], next_cursor: null };
     const cur = cursor;
+    const issuedUnder = filterKey;
     const page = await fetchExplore(fetch, {
       sort: data.sort,
       since: data.since,
@@ -60,6 +67,12 @@
       cursor: cur,
       limit: 24
     });
+    if (issuedUnder !== filterKey) {
+      // Filters changed while this page was in flight: the {#key} block
+      // already remounted the grid and the $effect reseeded `cursor` —
+      // don't clobber it with the previous filter's position.
+      return { photos: [], next_cursor: cursor };
+    }
     cursor = page.next_cursor;
     return { photos: page.photos, next_cursor: page.next_cursor };
   }
@@ -75,9 +88,15 @@
   const pageDescription =
     'Browse community astrophotography on Astrophoto — filter by category, time window, or photographers you follow.';
 
-  // Canonical normalizes away filter params so every filtered view points at
-  // the one indexable /explore URL (avoids duplicate-content dilution).
-  let canonicalUrl = $derived(`${page.url.origin}/explore`);
+  // Canonical normalizes away filter params — sort/since/following views
+  // point at the one indexable /explore URL. Category variants instead
+  // canonicalize to their dedicated /c/<cat> page: they carry a
+  // category-specific <title>, and a canonical that claims sameness while
+  // the title differs gets ignored by crawlers (leaving two competing
+  // URLs for content whose real home is /c/<cat>).
+  let canonicalUrl = $derived(
+    data.category ? `${page.url.origin}/c/${data.category}` : `${page.url.origin}/explore`
+  );
   let ogImage = $derived.by(() => {
     const first = data.initial.photos[0];
     if (!first) return null;
@@ -115,7 +134,12 @@
 <AppHeader active="Gallery" />
 
 <main>
-  <DiscoveryHeader variant="explore" photoCount={data.totalFrames ?? data.initial.photos.length} />
+  <!-- No count is honest degradation when /api/site/stats is down — the
+       first-page length used to masquerade as the site-wide total. -->
+  <DiscoveryHeader
+    variant="explore"
+    {...data.totalFrames !== null ? { photoCount: data.totalFrames } : {}}
+  />
   <FilterPills
     variant="explore"
     sort={data.sort}
