@@ -23,6 +23,10 @@
   <title>Open an account — Astrophoto</title>
 </svelte:head>
 
+<!-- Skip-link target: the root layout's "Skip to content" points at
+     #main-content, which AppHeader normally renders — this page has no
+     AppHeader, so provide the anchor ourselves or the link is a no-op. -->
+<div id="main-content" tabindex="-1"></div>
 <div class="signup-screen">
   <div class="signup-col">
     <!-- Logo: wordmark only (per design prototype). -->

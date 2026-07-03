@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { GalleryPhoto } from '$lib/api/GalleryPhoto';
+  import { cdn } from '$lib/cdn';
   import Img from '$lib/components/Img.svelte';
   import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import { openLightboxOnClick } from '$lib/util/openLightbox';
@@ -25,23 +26,22 @@
   // Nominal 1x render width, snapped to 80px buckets to limit CDN cache
   // fragmentation; srcset adds 2x/3x for retina.
   let nominalW = $derived(Math.min(1280, Math.max(160, Math.ceil((ar * ROW_H) / 80) * 80)));
+  // Tiny LQIP behind the image while it loads — same pattern as the
+  // explore tiles (SSR/no-JS safe: a CSS background, not a JS toggle).
+  let lqip = $derived(cdn(photo.id, { w: 32 }));
+  // Accessible name matches the visible caption fallback chain
+  // (PhotoTitle falls back to the original filename, not 'Untitled').
+  let label = $derived(photo.target ?? photo.original_name ?? 'Untitled');
 </script>
 
 <a
   use:openLightboxOnClick={{ handle, short_id: photo.short_id }}
   class="tile"
-  style="--ar:{ar}; flex-grow:{ar};"
+  style="--ar:{ar}; flex-grow:{ar}; background-image:url('{lqip}');"
   href="/u/{handle}/p/{photo.short_id}"
-  aria-label={photo.target ?? 'Untitled'}
+  aria-label={label}
 >
-  <Img
-    photoId={photo.id}
-    w={nominalW}
-    sizes={`${nominalW}px`}
-    {priority}
-    alt={photo.target ?? 'Untitled'}
-    class="img"
-  />
+  <Img photoId={photo.id} w={nominalW} sizes={`${nominalW}px`} {priority} alt={label} class="img" />
   <span class="cap">
     <PhotoTitle photo={{ target: photo.target, original_name: photo.original_name }} size="md" />
     <span class="apps">{photo.appreciations_count} ❤</span>
@@ -56,7 +56,9 @@
     aspect-ratio: var(--ar);
     min-width: 0;
     overflow: hidden;
-    background: var(--bg-elevated);
+    background-color: var(--bg-elevated);
+    background-size: cover;
+    background-position: center;
   }
   .tile:focus-visible {
     outline: 2px solid var(--accent);
@@ -78,11 +80,19 @@
     font-size: 11px;
     display: flex;
     justify-content: space-between;
-    opacity: 0;
+    /* Visible by default: touch / no-hover devices never get :hover,
+       so an opacity-0 caption was unreadable there (same fix as the
+       explore tiles). Hover-capable devices keep the quiet reveal. */
+    opacity: 1;
     transition: opacity 0.15s ease-out;
   }
-  .tile:hover .cap,
-  .tile:focus-visible .cap {
-    opacity: 1;
+  @media (hover: hover) {
+    .cap {
+      opacity: 0;
+    }
+    .tile:hover .cap,
+    .tile:focus-visible .cap {
+      opacity: 1;
+    }
   }
 </style>

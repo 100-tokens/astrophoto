@@ -285,12 +285,12 @@
       color 0.15s;
   }
   .chip-toggle:hover {
-    border-color: var(--accent, #4a90e2);
+    border-color: var(--accent);
   }
   .chip-toggle.active {
-    border-color: var(--accent, #4a90e2);
-    color: var(--accent, #4a90e2);
-    background: color-mix(in srgb, var(--accent, #4a90e2) 12%, var(--bg-elevated));
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
   }
   .toggle {
     flex-direction: row;
@@ -300,7 +300,7 @@
     white-space: nowrap;
   }
   .toggle input {
-    accent-color: var(--accent, #4a90e2);
+    accent-color: var(--accent);
     cursor: pointer;
   }
   .toggle input:disabled {
@@ -355,7 +355,7 @@
     cursor: pointer;
   }
   .load-more:hover {
-    border-color: var(--accent, #4a90e2);
+    border-color: var(--accent);
   }
   .data-attrib {
     margin-top: 3rem;
