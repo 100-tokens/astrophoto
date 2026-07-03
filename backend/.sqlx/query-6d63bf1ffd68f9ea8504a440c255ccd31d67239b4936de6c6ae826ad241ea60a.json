@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select id, handle::text as \"handle!\", display_name, created_at,\n               (select count(*) from photos where owner_id = users.id and published_at is not null)\n                   as \"photo_count!\"\n          from users where handle = $1 and pending_deletion_at is null\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "handle!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "photo_count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "6d63bf1ffd68f9ea8504a440c255ccd31d67239b4936de6c6ae826ad241ea60a"
+}

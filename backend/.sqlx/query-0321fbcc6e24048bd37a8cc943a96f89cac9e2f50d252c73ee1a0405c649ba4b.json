@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select u.id as \"id!\", u.handle as \"handle!\", u.display_name as \"display_name!\"\n        from users u\n        where (lower(u.handle) like $1 or lower(u.display_name) like $1)\n          and u.pending_deletion_at is null\n        order by u.handle\n        limit $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "handle!",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0321fbcc6e24048bd37a8cc943a96f89cac9e2f50d252c73ee1a0405c649ba4b"
+}

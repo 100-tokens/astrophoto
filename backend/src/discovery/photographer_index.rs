@@ -133,6 +133,7 @@ pub async fn list(
                   from users u
                   left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
+                  where u.pending_deletion_at is null
                   group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select
@@ -191,6 +192,7 @@ pub async fn list(
                   from users u
                   left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
+                  where u.pending_deletion_at is null
                   group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select
@@ -250,6 +252,7 @@ pub async fn list(
                   from users u
                   left join photo_stats ps on ps.owner_id = u.id
                   left join follows f on f.followed_id = u.id
+                  where u.pending_deletion_at is null
                   group by u.id, ps.frame_count, ps.integration_seconds
                 )
                 select

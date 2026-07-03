@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set processing_json = '{\"pipeline\":[]}'::jsonb where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "140fae061ab0a716a6323b159911977fce7d3f245190b259cccf39fb63f53997"
+}

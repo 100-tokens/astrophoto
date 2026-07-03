@@ -57,7 +57,10 @@ pub async fn handler(
         let follower = user.0.ok_or(AppError::Unauthorized)?;
         queries::list_following(&state.pool, follower.id, limit).await?
     } else if let Some(id) = q.owner_id {
-        queries::list_by_owner(&state.pool, id, limit).await?
+        // Owners see their own listing even mid-deletion-grace
+        // (/account/frames rides this public route with owner_id=self).
+        let viewer_is_owner = user.0.as_ref().is_some_and(|u| u.id == id);
+        queries::list_by_owner(&state.pool, id, limit, viewer_is_owner).await?
     } else {
         queries::list_recent_public(&state.pool, limit).await?
     };

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update users set pending_deletion_at = now() + interval '7 days' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ef3b3b8864bd32efe61ad1ec52bb565b24f2da6903f39429326c779cfed448c1"
+}

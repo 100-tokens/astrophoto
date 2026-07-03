@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select count(*)::int8 as \"count!\"\n        from photos\n        where category = $1\n          and published_at is not null\n          and status = 'ready'\n          and not exists (select 1 from users du where du.id = photos.owner_id and du.pending_deletion_at is not null)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fffd162ff3a32b34dd1a6189b3deb53ae63bdbf839433a272c6ef2dbba78a58f"
+}

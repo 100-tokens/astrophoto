@@ -16,6 +16,7 @@ pub async fn redirect_uuid_to_canonical(
         select u.handle::text as "handle!", p.short_id
           from photos p join users u on u.id = p.owner_id
          where p.id = $1 and p.published_at is not null
+           and u.pending_deletion_at is null
         "#,
         id
     )

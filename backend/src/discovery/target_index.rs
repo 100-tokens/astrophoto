@@ -154,7 +154,8 @@ pub async fn list(
                                  join photos p on p.id = pt.photo_id
                                  where pt.target_id = t.id
                                    and p.published_at is not null
-                                   and p.status = 'ready'), 0)::int8 as "photo_count!"
+                                   and p.status = 'ready'
+                                   and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)), 0)::int8 as "photo_count!"
                 from targets t
                 where ($1::text is null or
                        t.canonical_name ilike '%' || $1 || '%' or
@@ -168,7 +169,8 @@ pub async fn list(
                         join photos p on p.id = pt.photo_id
                         where pt.target_id = t.id
                           and p.published_at is not null
-                          and p.status = 'ready'))
+                          and p.status = 'ready'
+                          and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)))
                   and ($8::real is null or t.major_axis_arcmin >= $8)
                   and ($9::real is null or t.major_axis_arcmin < $9)
                 order by t.canonical_name asc, t.id asc
@@ -205,7 +207,8 @@ pub async fn list(
                                  join photos p on p.id = pt.photo_id
                                  where pt.target_id = t.id
                                    and p.published_at is not null
-                                   and p.status = 'ready'), 0)::int8 as "photo_count!"
+                                   and p.status = 'ready'
+                                   and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)), 0)::int8 as "photo_count!"
                 from targets t
                 where ($1::text is null or
                        t.canonical_name ilike '%' || $1 || '%' or
@@ -222,7 +225,8 @@ pub async fn list(
                         join photos p on p.id = pt.photo_id
                         where pt.target_id = t.id
                           and p.published_at is not null
-                          and p.status = 'ready'))
+                          and p.status = 'ready'
+                          and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)))
                   and ($9::real is null or t.major_axis_arcmin >= $9)
                   and ($10::real is null or t.major_axis_arcmin < $10)
                   and least(abs(t.opposition_doy::int4 - $8::int4),
@@ -261,7 +265,8 @@ pub async fn list(
                                    join photos p on p.id = pt.photo_id
                                    where pt.target_id = t.id
                                      and p.published_at is not null
-                                     and p.status = 'ready'), 0)::int8 as photo_count
+                                     and p.status = 'ready'
+                                     and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)), 0)::int8 as photo_count
                     from targets t
                    where ($1::text is null or
                           t.canonical_name ilike '%' || $1 || '%' or
@@ -274,7 +279,8 @@ pub async fn list(
                            join photos p on p.id = pt.photo_id
                            where pt.target_id = t.id
                              and p.published_at is not null
-                             and p.status = 'ready'))
+                             and p.status = 'ready'
+                             and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)))
                      and ($8::real is null or t.major_axis_arcmin >= $8)
                      and ($9::real is null or t.major_axis_arcmin < $9)
                 )
@@ -337,6 +343,7 @@ pub async fn list(
              where pt.target_id = t.id
                and p.published_at is not null
                and p.status = 'ready'
+               and not exists (select 1 from users du where du.id = p.owner_id and du.pending_deletion_at is not null)
              order by p.appreciations_count desc, p.published_at desc
              limit 3
           ) p on true

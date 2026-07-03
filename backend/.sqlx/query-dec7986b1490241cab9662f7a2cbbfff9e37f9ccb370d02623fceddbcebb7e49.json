@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select p.id as \"id!\", p.short_id as \"short_id!\", p.target,\n                      p.width, p.height, p.blurhash,\n                      p.appreciations_count as \"appreciations_count!\",\n                      p.published_at,\n                      u.id as \"owner_id!\", u.handle as \"handle!\", u.display_name as \"display_name!\"\n               from photos p join users u on u.id = p.owner_id\n               where (exists (select 1 from photo_filters pf\n                               where pf.photo_id = p.id and pf.item_id = $6)\n                      or lower(p.filters) = $1)\n                 and p.published_at is not null and p.status = 'ready'\n                 and u.pending_deletion_at is null\n                 and ($2::timestamptz is null or (p.published_at, p.id) < ($2, $3))\n                 and ($4::text is null or p.category = $4)\n               order by p.published_at desc, p.id desc\n               limit $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "short_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "target",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "width",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "height",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "blurhash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "appreciations_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "owner_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 9,
+        "name": "handle!",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "display_name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "dec7986b1490241cab9662f7a2cbbfff9e37f9ccb370d02623fceddbcebb7e49"
+}
