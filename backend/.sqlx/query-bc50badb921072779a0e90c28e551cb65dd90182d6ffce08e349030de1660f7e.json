@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set published_at = now() - ($2 || ' minutes')::interval where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bc50badb921072779a0e90c28e551cb65dd90182d6ffce08e349030de1660f7e"
+}

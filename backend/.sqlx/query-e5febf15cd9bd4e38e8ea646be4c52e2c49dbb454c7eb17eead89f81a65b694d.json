@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set published_at = now() - interval '9 days' where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e5febf15cd9bd4e38e8ea646be4c52e2c49dbb454c7eb17eead89f81a65b694d"
+}

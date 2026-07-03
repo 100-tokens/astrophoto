@@ -46,7 +46,16 @@ pub async fn get(
     Query(q): Query<Q>,
 ) -> Result<impl IntoResponse, AppError> {
     let limit = q.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-    let sort = q.sort.as_deref().unwrap_or("newest");
+    // Enum-ish params validate consistently: unknown values are 400s,
+    // like `since` always was. `sort` used to fall through a `_` match
+    // arm (silently serving the newest feed), and `category` went
+    // straight into SQL equality (silently serving an empty feed —
+    // indistinguishable from a genuinely empty category).
+    let sort = match q.sort.as_deref() {
+        Some("newest") | None => "newest",
+        Some("most-appreciated") => "most-appreciated",
+        Some(_) => return Err(AppError::bad_request("sort_invalid")),
+    };
     let since_seconds: Option<i64> = match q.since.as_deref() {
         Some("24h") => Some(86_400),
         Some("7d") => Some(7 * 86_400),
@@ -54,7 +63,13 @@ pub async fn get(
         Some("all") | None => None,
         Some(_) => return Err(AppError::bad_request("since_invalid")),
     };
-    let category = q.category.as_deref();
+    let category = match q.category.as_deref() {
+        None => None,
+        Some(
+            c @ ("dso" | "planetary" | "lunar" | "solar" | "wide_field" | "nightscape" | "other"),
+        ) => Some(c),
+        Some(_) => return Err(AppError::bad_request("category_invalid")),
+    };
     // following=true with no session → empty page (the filter is "people you
     // follow", and an anonymous caller follows nobody). following=true with a
     // session → restrict to photos whose owner the caller follows.
@@ -69,6 +84,14 @@ pub async fn get(
         (false, _) => None,
     };
     let cursor = q.cursor.as_deref().map(cursor::decode).transpose()?;
+
+    // A cursor minted under sort=newest has no appreciations component;
+    // replayed under sort=most-appreciated it would null the keyset
+    // predicate and silently re-serve page 1 (duplicate rows, no error
+    // signal). Reject the mismatch like any other malformed cursor.
+    if sort == "most-appreciated" && cursor.as_ref().is_some_and(|c| c.appreciations.is_none()) {
+        return Err(AppError::bad_request("cursor_invalid"));
+    }
 
     let cur_pub = cursor.as_ref().map(|c| c.published_at);
     let cur_id = cursor.as_ref().map(|c| c.id).unwrap_or_else(Uuid::nil);
