@@ -224,7 +224,7 @@
   }
   .map-preview:hover .map-preview-cta,
   .map-preview:focus-visible .map-preview-cta {
-    background: var(--accent, #4a90e2);
+    background: var(--accent);
   }
   .attribution {
     margin: 0.5rem 0 0;

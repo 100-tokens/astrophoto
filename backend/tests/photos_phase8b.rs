@@ -957,13 +957,24 @@ async fn replace_swaps_storage_key_keeps_metadata() {
     assert!(row.replaced_at.is_some());
     assert!(row.published_at.is_some(), "published_at preserved");
 
-    let pending: i64 = sqlx::query_scalar!(
-        r#"select count(*) as "c!" from photo_pending_deletes where photo_id = $1"#,
-        id
-    )
-    .fetch_one(&h.pool)
-    .await
-    .unwrap();
+    // The pipeline deliberately marks the photo ready BEFORE the
+    // best-effort drain (see PipelineOptions::Replace in pipeline.rs),
+    // so the drain is eventually consistent relative to wait_for_ready —
+    // poll instead of asserting instantly (raced on slow CI runners).
+    let mut pending: i64 = -1;
+    for _ in 0..100 {
+        pending = sqlx::query_scalar!(
+            r#"select count(*) as "c!" from photo_pending_deletes where photo_id = $1"#,
+            id
+        )
+        .fetch_one(&h.pool)
+        .await
+        .unwrap();
+        if pending == 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
     assert_eq!(pending, 0, "pending deletes must be drained after replace");
 
     let thumb_count: i64 = sqlx::query_scalar!(

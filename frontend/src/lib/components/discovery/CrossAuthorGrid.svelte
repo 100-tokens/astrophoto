@@ -15,13 +15,34 @@
     emptyMessage?: string;
   } = $props();
 
-  // Use extraPhotos + extraCursor so we never seed $state from a prop directly.
+  // Use extraPhotos + extraCursor so we never seed $state from a prop
+  // directly. extraCursor is TRI-state: undefined = no extra page loaded
+  // yet (fall back to the initial cursor), null = pagination exhausted,
+  // string = next page. Conflating "untouched" with "exhausted" (both
+  // null) used to resurrect a permanently dead "Load more" button after
+  // the final page: the derived fell back to page 1's cursor forever.
   let extraPhotos = $state<DiscoveryPhoto[]>([]);
-  let extraCursor = $state<string | null>(null);
+  let extraCursor = $state<string | null | undefined>(undefined);
   let loading = $state(false);
+  let loadError = $state(false);
 
-  let photos = $derived([...(initial?.photos ?? []), ...extraPhotos]);
-  let nextCursor = $derived(extraCursor !== null ? extraCursor : (initial?.next_cursor ?? null));
+  let photos = $derived.by(() => {
+    // Dedupe by id: the most-appreciated keyset paginates over a mutable
+    // counter, so a photo whose count dropped between page fetches can
+    // legitimately reappear on the next page — and a duplicate id in the
+    // keyed {#each} throws, blanking the whole grid.
+    const seen = new Set<string>();
+    const out: DiscoveryPhoto[] = [];
+    for (const p of [...(initial?.photos ?? []), ...extraPhotos]) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+    return out;
+  });
+  let nextCursor = $derived(
+    extraCursor !== undefined ? extraCursor : (initial?.next_cursor ?? null)
+  );
 
   // Justified-rows layout is pure CSS (flex-grow ∝ aspect-ratio, flex-basis ∝
   // aspect-ratio × row-height), so the full grid — real <a>/<img>/captions —
@@ -34,10 +55,16 @@
   async function loadMore() {
     if (loading || !loadMoreFn) return;
     loading = true;
+    loadError = false;
     try {
       const page = await loadMoreFn();
       extraPhotos = [...extraPhotos, ...page.photos];
       extraCursor = page.next_cursor;
+    } catch {
+      // Surface the failure instead of letting the rejection escape
+      // unhandled — the button used to silently flip back to "Load
+      // more", indistinguishable from success.
+      loadError = true;
     } finally {
       loading = false;
     }
@@ -56,8 +83,11 @@
 {#if nextCursor && loadMoreFn}
   <div class="more">
     <button type="button" class="btn-more" disabled={loading} onclick={() => void loadMore()}>
-      {loading ? 'Loading…' : 'Load more'}
+      {loading ? 'Loading…' : loadError ? 'Couldn’t load — retry' : 'Load more'}
     </button>
+    {#if loadError}
+      <p class="more-error" role="alert">Loading more frames failed. Check your connection.</p>
+    {/if}
   </div>
 {:else if photos.length === 0 && !loading}
   <EmptyState
@@ -93,8 +123,17 @@
 
   .more {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
     padding: 24px;
+  }
+
+  .more-error {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--danger, #c33);
   }
 
   .btn-more {

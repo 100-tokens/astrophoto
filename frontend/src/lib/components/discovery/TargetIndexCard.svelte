@@ -103,7 +103,7 @@
   .opposition {
     margin: 0.25rem 0 0;
     font-size: 0.78rem;
-    color: var(--accent, #4a90e2);
+    color: var(--accent);
     font-family: var(--font-mono);
   }
   .count {
