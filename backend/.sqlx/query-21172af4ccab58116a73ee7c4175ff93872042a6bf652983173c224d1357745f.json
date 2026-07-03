@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select status as \"s!\" from photos where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "s!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "21172af4ccab58116a73ee7c4175ff93872042a6bf652983173c224d1357745f"
+}

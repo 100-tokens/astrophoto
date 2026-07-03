@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set status='failed',\n                pipeline_error='auto-calibration interrupted — retry by re-running finalize',\n                platesolve_error = case when platesolve_error = $1 then $2\n                                        else platesolve_error end\n          where status='awaiting-calibration'\n            and (platesolve_solved_at is null\n                 or platesolve_solved_at\n                    < coalesce(calibration_requested_at, replaced_at, created_at)\n                 or display_key is null)\n            and coalesce(calibration_requested_at, replaced_at, created_at)\n                < now() - interval '30 minutes'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "46c7a55efb1fed9c8cc9fa2606e46e5a29cdd191e9232c1736e695246e0a857d"
+}

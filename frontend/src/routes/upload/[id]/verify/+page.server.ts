@@ -46,11 +46,11 @@ export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies
     }
   }
 
-  // Optional batch context: ?ids=a,b,c lets the verify page render a
-  // queue thumbs strip and Skip/Continue with frame index. Filter to
-  // the caller's own photos so a forged URL can't enumerate someone
-  // else's drafts (each thumb still hits an authorised /api/photos/:id
-  // call client-side, but pre-filtering keeps the strip honest).
+  // Optional batch context: ?ids=a,b,c — the multi-file upload queue.
+  // Publishing advances to the next id (see the publish action) so
+  // frames 2..N aren't silently stranded as drafts. Ownership is
+  // enforced per-photo by this load's own 404 when the queue lands on a
+  // foreign id, so a forged URL leaks nothing.
   const idsParam = url.searchParams.get('ids');
   let queueIds: string[] = [];
   let queueIndex = -1;
@@ -230,7 +230,7 @@ export const actions: Actions = {
     redirect(303, `/photo/${params.id}`);
   },
 
-  publish: async ({ request, params, fetch, cookies }) => {
+  publish: async ({ request, params, fetch, cookies, url }) => {
     // Verify is the single publish step (the /caption page was removed in
     // 56acf4e). Persist the form — including the caption — then flip the
     // photo to published, so publishing never strands unsaved edits.
@@ -247,6 +247,22 @@ export const actions: Actions = {
       headers: { Cookie: cookie }
     });
     if (!published.ok) return fail(published.status, { error: await published.text() });
+
+    // Multi-file queue (?ids=a,b,c from the upload page): advance to the
+    // next frame instead of dropping the batch context — frames 2..N
+    // used to be silently stranded as drafts after publishing frame 1.
+    const idsParam = url.searchParams.get('ids');
+    if (idsParam) {
+      const remaining = idsParam
+        .split(',')
+        .map((s) => s.trim())
+        .filter((id) => id && id !== params.id);
+      const next = remaining[0];
+      if (next) {
+        const qs = remaining.length > 1 ? `?ids=${remaining.join(',')}` : '';
+        redirect(303, `/upload/${next}/verify${qs}`);
+      }
+    }
     redirect(303, `/photo/${params.id}`);
   }
 };

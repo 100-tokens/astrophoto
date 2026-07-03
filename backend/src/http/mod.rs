@@ -25,6 +25,13 @@ use crate::photos::platesolve::PlatesolveClient;
 /// bump once we move to a larger instance.
 const PLATESOLVE_MAX_CONCURRENT: usize = 1;
 
+/// Maximum concurrent upload finalizes that may buffer an original in
+/// memory. Each raster finalize holds the full original (up to the
+/// subscriber 200 MiB cap) plus its decoded image for the pipeline's
+/// duration — unbounded, a 12-file batch could OOM the ≤512 MB tier.
+/// Same sizing rationale as [`PLATESOLVE_MAX_CONCURRENT`].
+const FINALIZE_MAX_CONCURRENT: usize = 1;
+
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
@@ -40,6 +47,9 @@ pub struct AppState {
     /// Always present even when `platesolve` is `None` so the handler
     /// can short-circuit before claiming a permit.
     pub platesolve_permits: Arc<Semaphore>,
+    /// Bounds concurrent finalize pipelines (full original + decoded
+    /// image in RAM each) — acquired BEFORE the S3 GET buffers bytes.
+    pub finalize_permits: Arc<Semaphore>,
 }
 
 /// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
@@ -73,6 +83,7 @@ pub fn router(
         mailer,
         platesolve,
         platesolve_permits: Arc::new(Semaphore::new(PLATESOLVE_MAX_CONCURRENT)),
+        finalize_permits: Arc::new(Semaphore::new(FINALIZE_MAX_CONCURRENT)),
     };
     let mut router = Router::new()
         .route("/healthz", get(health::healthz))

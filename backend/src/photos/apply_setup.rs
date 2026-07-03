@@ -352,8 +352,20 @@ pub async fn detach(
     user: CurrentUser,
     Path(photo_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
+    // Detaching also advances last_step past 'upload': the verify load
+    // auto-applies the default setup only while last_step is
+    // null/'upload', and last_step otherwise moves only via a metadata
+    // PUT (field-edit autosave). Without this, the next load — including
+    // the 2s processing poll and link preloads — silently re-attached
+    // the setup the user just detached.
     let res = sqlx::query!(
-        "update photos set setup_id=null where id=$1 and owner_id=$2",
+        "update photos
+            set setup_id = null,
+                last_step = case
+                    when last_step is null or last_step = 'upload' then 'verify'
+                    else last_step
+                end
+          where id=$1 and owner_id=$2",
         photo_id,
         user.0.id
     )

@@ -80,3 +80,32 @@ async fn batch_publish_already_published_is_skipped_not_errored() {
     assert_eq!(status, 200);
     assert_eq!(resp["skipped"][0]["reason"], "already_published");
 }
+
+/// Duplicate ids in one request (double-click, naive client concat) used
+/// to 404 the whole batch: `= any($1)` deduplicates on the SQL side, so
+/// rows.len() < ids.len() even though every id existed.
+#[tokio::test]
+async fn batch_publish_tolerates_duplicate_ids() {
+    let app = TestApp::launch().await;
+    let (cookie, user_id) = app.signup_with_handle("M", "marie", "m@m.com").await;
+    let ready = insert_with_status(&app.pool, user_id, "ready").await;
+
+    let body = json!({ "ids": [ready, ready] });
+    let (status, resp): (_, serde_json::Value) = app
+        .oneshot_json(
+            "POST",
+            "/api/photos/batch/publish",
+            Some(&cookie),
+            Some(body),
+        )
+        .await;
+    assert_eq!(status, 200, "duplicates must not 404 the batch: {resp}");
+    assert_eq!(resp["published"].as_array().unwrap().len(), 1);
+
+    let published_at: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar!("select published_at from photos where id = $1", ready)
+            .fetch_one(&app.pool)
+            .await
+            .unwrap();
+    assert!(published_at.is_some(), "published exactly once");
+}

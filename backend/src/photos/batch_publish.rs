@@ -19,16 +19,24 @@ pub async fn handler(
         return Err(AppError::bad_request("too many ids"));
     }
 
+    // Dedup before the existence check: `= any($1)` deduplicates on the
+    // SQL side, so a repeated (existing, owned) id used to make
+    // rows.len() < ids.len() and fail the whole batch with a misleading
+    // 404 — a double-click was enough to trigger it.
+    let mut ids = body.ids.clone();
+    ids.sort_unstable();
+    ids.dedup();
+
     let mut tx = state.pool.begin().await?;
 
     let rows = sqlx::query!(
         "select id, owner_id, status, published_at, short_id from photos where id = any($1)",
-        &body.ids
+        &ids
     )
     .fetch_all(&mut *tx)
     .await?;
 
-    if rows.len() != body.ids.len() {
+    if rows.len() != ids.len() {
         return Err(AppError::not_found("one or more photo ids do not exist"));
     }
 
@@ -58,16 +66,29 @@ pub async fn handler(
                 reason,
             }),
             None => {
-                sqlx::query!(
-                    "update photos set published_at = now(), last_step = 'caption' where id = $1",
+                // Guarded like the single-photo publish: a replace claim
+                // racing this transaction must not publish a mid-swap
+                // photo, and published_at is written at most once. (No
+                // last_step='caption' — that step was removed in 56acf4e.)
+                let n = sqlx::query!(
+                    "update photos set published_at = now()
+                      where id = $1 and status = 'ready' and published_at is null",
                     r.id
                 )
                 .execute(&mut *tx)
-                .await?;
-                published.push(PublishedItem {
-                    id: r.id.to_string(),
-                    short_id: r.short_id.clone(),
-                });
+                .await?
+                .rows_affected();
+                if n == 0 {
+                    skipped.push(SkippedItem {
+                        id: r.id.to_string(),
+                        reason: SkipReason::StillProcessing,
+                    });
+                } else {
+                    published.push(PublishedItem {
+                        id: r.id.to_string(),
+                        short_id: r.short_id.clone(),
+                    });
+                }
             }
         }
     }

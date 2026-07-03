@@ -75,9 +75,14 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
     //    stale timestamp would publish the old display master while the
     //    new calibration is still queued — then 'ready' would let
     //    sweep_pending_deletes destroy the stashed previous original.
+    //    Gated on display_key like mark_xisf_ready: render persistence
+    //    is best-effort, and promoting a display-less row would let a
+    //    photo publish with nothing to render. Display-less rows fall
+    //    through to arm 2's 30-minute failure below.
     let promoted = sqlx::query!(
         "update photos set status='ready', pipeline_error=null
           where status='awaiting-calibration'
+            and display_key is not null
             and platesolve_solved_at
                 >= coalesce(calibration_requested_at, replaced_at, created_at)"
     )
@@ -93,6 +98,9 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
     //    "No solve landed" mirrors arm 1's clock: a platesolve_solved_at
     //    older than this calibration request is a previous solve, not
     //    this one.
+    //    A fresh solve with no display master also counts as
+    //    interrupted (arm 1 refuses to promote it), otherwise it would
+    //    hold 'awaiting-calibration' forever.
     let timed_out = sqlx::query!(
         "update photos
             set status='failed',
@@ -102,7 +110,8 @@ pub async fn sweep_stuck_pipeline(pool: &sqlx::PgPool) -> Result<(), AppError> {
           where status='awaiting-calibration'
             and (platesolve_solved_at is null
                  or platesolve_solved_at
-                    < coalesce(calibration_requested_at, replaced_at, created_at))
+                    < coalesce(calibration_requested_at, replaced_at, created_at)
+                 or display_key is null)
             and coalesce(calibration_requested_at, replaced_at, created_at)
                 < now() - interval '30 minutes'",
         SOLVING_SENTINEL,

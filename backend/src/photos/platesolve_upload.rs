@@ -461,18 +461,46 @@ pub fn auto_calibrate_xisf(state: AppState, photo_id: Uuid, storage_key: String,
     });
 }
 
-/// Status transition after a successful auto-calibrate: read the
-/// display master's dimensions out of the render telemetry (now in
-/// `platesolve_embed_json`) so the gallery has w/h, then mark ready.
-/// Best-effort — dimensions fall back to 0/0 if the read fails.
-async fn mark_xisf_ready(pool: &PgPool, photo_id: Uuid) -> Result<(), AppError> {
-    sqlx::query(
-        "update photos set status='ready', pipeline_error=null where id=$1 and status='awaiting-calibration'",
+/// Status transition after a successful auto-calibrate.
+///
+/// Gated on `display_key IS NOT NULL`: render persistence is
+/// best-effort in run_solve/persist_local_render, and 'ready' with no
+/// display master violates the invariant the JPEG pipeline maintains
+/// (readers never observe ready + null display) — the photo would be
+/// publishable yet render nothing anywhere. A solve that lands without
+/// a display flips to a retryable 'failed' instead.
+///
+/// Also claims 'failed' rows whose solve postdates this calibration
+/// request: with a 1-permit solve queue, the 30-minute sweep can fail a
+/// merely-queued row; when its solve eventually succeeds the photo must
+/// recover to ready rather than strand a paid-for solve.
+pub async fn mark_xisf_ready(pool: &PgPool, photo_id: Uuid) -> Result<(), AppError> {
+    let promoted = sqlx::query(
+        "update photos set status='ready', pipeline_error=null
+          where id=$1
+            and display_key is not null
+            and (status='awaiting-calibration'
+                 or (status='failed'
+                     and platesolve_solved_at
+                         >= coalesce(calibration_requested_at, replaced_at, created_at)))",
     )
     .bind(photo_id)
     .execute(pool)
     .await
-    .map_err(AppError::from)?;
+    .map_err(AppError::from)?
+    .rows_affected();
+    if promoted == 0 {
+        sqlx::query(
+            "update photos
+                set status='failed',
+                    pipeline_error='solve succeeded but no display master was rendered'
+              where id=$1 and status='awaiting-calibration'",
+        )
+        .bind(photo_id)
+        .execute(pool)
+        .await
+        .map_err(AppError::from)?;
+    }
     Ok(())
 }
 

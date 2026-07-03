@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set status='ready', pipeline_error=null\n          where status='awaiting-calibration'\n            and display_key is not null\n            and platesolve_solved_at\n                >= coalesce(calibration_requested_at, replaced_at, created_at)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b68c208d2da1e1c598757be12fd03a557dddebc1269858c0afdb49268f95c0ce"
+}

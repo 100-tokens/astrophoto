@@ -315,7 +315,10 @@ async fn sweep_promotes_solved_awaiting_calibration_to_ready() {
     )
     .await;
     sqlx::query!(
-        "update photos set platesolve_solved_at = now(), pipeline_error = 'stale' where id = $1",
+        "update photos
+            set platesolve_solved_at = now(), pipeline_error = 'stale',
+                display_key = 'display/s1.jpg'
+          where id = $1",
         solved
     )
     .execute(&app.pool)
@@ -809,4 +812,141 @@ async fn purging_a_user_decrements_appreciation_counters_on_others_photos() {
             .await
             .unwrap();
     assert_eq!(b_left, 1, "user B must be untouched");
+}
+
+/// Arm 1 must NOT promote a solved row that has no display master —
+/// 'ready' with a null display_key would render nothing anywhere while
+/// being publishable. Past the 30-minute window, arm 2 fails it instead.
+#[tokio::test]
+async fn sweep_never_promotes_display_less_rows_fails_them_after_window() {
+    let app = TestApp::launch().await;
+    let (_, user_id) = app
+        .signup_with_handle("Sweep", "sweepuser", "sweep@example.com")
+        .await;
+
+    let no_display = insert_photo(
+        &app.pool,
+        user_id,
+        "originals/nd1",
+        "application/x-xisf",
+        "awaiting-calibration",
+    )
+    .await;
+    sqlx::query!(
+        "update photos
+            set platesolve_solved_at = now(),
+                calibration_requested_at = now() - interval '5 minutes'
+          where id = $1",
+        no_display
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
+
+    sweep_stuck_pipeline(&app.pool).await.unwrap();
+    let status: String = sqlx::query_scalar!(
+        r#"select status as "s!" from photos where id = $1"#,
+        no_display
+    )
+    .fetch_one(&app.pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        status, "awaiting-calibration",
+        "in-window display-less row is left alone (not promoted)"
+    );
+
+    // Age the calibration request past the window: arm 2 fails it.
+    sqlx::query!(
+        "update photos set calibration_requested_at = now() - interval '31 minutes' where id = $1",
+        no_display
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
+    sweep_stuck_pipeline(&app.pool).await.unwrap();
+    let status: String = sqlx::query_scalar!(
+        r#"select status as "s!" from photos where id = $1"#,
+        no_display
+    )
+    .fetch_one(&app.pool)
+    .await
+    .unwrap();
+    assert_eq!(status, "failed", "display-less row fails, never readies");
+}
+
+/// mark_xisf_ready: display gate + the queued-solve rescue. A row the
+/// 30-minute sweep already failed (solve was merely queued behind the
+/// 1-permit semaphore) must recover to ready when its solve eventually
+/// lands with a display master.
+#[tokio::test]
+async fn mark_xisf_ready_gates_on_display_and_rescues_swept_rows() {
+    let app = TestApp::launch().await;
+    let (_, user_id) = app
+        .signup_with_handle("Sweep", "sweepuser", "sweep@example.com")
+        .await;
+
+    // Display-less: flips to failed with an explanatory pipeline_error.
+    let no_display = insert_photo(
+        &app.pool,
+        user_id,
+        "originals/mr1",
+        "application/x-xisf",
+        "awaiting-calibration",
+    )
+    .await;
+    astrophoto::photos::platesolve_upload::mark_xisf_ready(&app.pool, no_display)
+        .await
+        .unwrap();
+    let row = sqlx::query!(
+        "select status, pipeline_error from photos where id = $1",
+        no_display
+    )
+    .fetch_one(&app.pool)
+    .await
+    .unwrap();
+    assert_eq!(row.status, "failed");
+    assert!(
+        row.pipeline_error
+            .as_deref()
+            .unwrap_or("")
+            .contains("no display master"),
+        "explains the missing render; got {:?}",
+        row.pipeline_error
+    );
+
+    // Swept-then-solved: failed row whose solve postdates the request
+    // and whose display exists → rescued to ready.
+    let swept = insert_photo(
+        &app.pool,
+        user_id,
+        "originals/mr2",
+        "application/x-xisf",
+        "failed",
+    )
+    .await;
+    sqlx::query!(
+        "update photos
+            set calibration_requested_at = now() - interval '40 minutes',
+                platesolve_solved_at = now(),
+                display_key = 'display/mr2.jpg',
+                pipeline_error = 'auto-calibration interrupted'
+          where id = $1",
+        swept
+    )
+    .execute(&app.pool)
+    .await
+    .unwrap();
+    astrophoto::photos::platesolve_upload::mark_xisf_ready(&app.pool, swept)
+        .await
+        .unwrap();
+    let row = sqlx::query!(
+        "select status, pipeline_error from photos where id = $1",
+        swept
+    )
+    .fetch_one(&app.pool)
+    .await
+    .unwrap();
+    assert_eq!(row.status, "ready", "queued solve rescues the swept row");
+    assert!(row.pipeline_error.is_none());
 }

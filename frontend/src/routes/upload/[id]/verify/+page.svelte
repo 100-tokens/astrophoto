@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
+  import { api } from '$lib/api/client';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
   import Textarea from '$lib/components/Textarea.svelte';
@@ -15,6 +16,7 @@
   import VerifyHero from '$lib/components/verify-form/VerifyHero.svelte';
   import VerifyStepper from '$lib/components/verify-form/VerifyStepper.svelte';
   import { computeProvenance } from '$lib/utils/provenance';
+  import { humanizeUploadError } from '$lib/upload/errors';
   import type { FilterIntegration as FilterIntegrationT } from '$lib/api/FilterIntegration';
   import type { PhotoDetail } from '$lib/api/PhotoDetail';
   import type { PhotoFilterChip } from '$lib/api/PhotoFilterChip';
@@ -31,7 +33,6 @@
   let { data, form }: PageProps = $props();
   // Silence unused-import lint: SetupSummary referenced via prop type only.
   type _SetupSummary = SetupSummary;
-  let processingPoll = $state<number | null>(null);
 
   // --------------------------------------------------------------------
   // Plate-solve state machine (preserved verbatim from prior implementation)
@@ -253,6 +254,40 @@
     lastSyncedSolveAt = solvedAt;
   });
 
+  // XISF back-fill adoption. The form seeds ONCE from the pre-calibration
+  // photo (an XISF lands here nearly empty), while the background
+  // auto-calibrate fills camera/exposure/gain/temp/sessions/target from
+  // the file header — visible in the aside via the 2s poll, but NOT in
+  // the seeded form fields. Since every save sends the full snapshot and
+  // key-present nulls CLEAR columns (metadata.rs double_option), the
+  // first autosave/Publish after calibration used to silently destroy
+  // everything the header recovered. Adopt the back-fill into fields the
+  // user hasn't filled when the pipeline finishes: the form is disabled
+  // during processing, so an empty field means "no user value" — and a
+  // user-typed value still wins over the back-fill.
+  function initialStatus(): string {
+    return data.photo.status;
+  }
+  let lastAdoptedStatus = $state<string>(initialStatus());
+  $effect(() => {
+    const status = data.photo.status;
+    if (status === lastAdoptedStatus) return;
+    const p = data.photo;
+    if (!target.trim() && p.target) target = p.target;
+    if (!camera.trim() && p.camera) camera = p.camera;
+    if (!lens.trim() && p.lens) lens = p.lens;
+    if (!iso.trim() && p.iso != null) iso = String(p.iso);
+    if (!exposure_s.trim() && p.exposure_s != null) exposure_s = String(p.exposure_s);
+    if (!focal_mm.trim() && p.focal_mm != null) focal_mm = String(p.focal_mm);
+    if (!aperture_f.trim() && p.aperture_f != null) aperture_f = String(p.aperture_f);
+    if (!gain.trim() && p.gain != null) gain = String(p.gain);
+    if (!sensor_temp_c.trim() && p.sensor_temp_c != null) sensor_temp_c = String(p.sensor_temp_c);
+    if (!sessions.trim() && p.sessions != null) sessions = String(p.sessions);
+    if (!ra_deg.trim() && p.ra_deg != null) ra_deg = String(p.ra_deg);
+    if (!dec_deg.trim() && p.dec_deg != null) dec_deg = String(p.dec_deg);
+    lastAdoptedStatus = status;
+  });
+
   let filtersString = $derived(filterChips.map((f) => f.display_name).join(', '));
 
   // --------------------------------------------------------------------
@@ -290,6 +325,16 @@
     }
   }
 
+  /** Failed/pending band "Discard" — actually deletes the draft. */
+  async function discardDraft() {
+    try {
+      await api.photos.delete(data.photo.id);
+    } catch {
+      /* row may already be gone — either way, leave the dead end */
+    }
+    await goto('/account/frames');
+  }
+
   // --------------------------------------------------------------------
   // Derived photo state.
   // --------------------------------------------------------------------
@@ -299,6 +344,10 @@
   );
   let isAwaitingCalibration = $derived(data.photo.status === 'awaiting-calibration');
   let isFailed = $derived(data.photo.status === 'failed');
+  // 'pending' = the presigned PUT / finalize never completed: there is no
+  // image behind this draft. It used to fall through to the fully-enabled
+  // form, whose Publish then 400'd with raw backend JSON.
+  let isPending = $derived(data.photo.status === 'pending');
 
   let recoveredCount = $derived.by(() => {
     const p = data.photo;
@@ -346,19 +395,32 @@
   });
 
   // --------------------------------------------------------------------
-  // Background processing poll (thumbnails or auto-platesolve).
+  // Background processing poll (thumbnails or auto-platesolve). Capped:
+  // a wedged pipeline used to poll every 2s for up to ~90 minutes (the
+  // backend sweep flips stuck rows only on its half-hourly ticks) —
+  // thousands of requests behind a spinner that never resolves. After
+  // the cap we stop and tell the user to come back via drafts.
+  //
+  // The interval handle is a LOCAL, not $state: an effect that writes
+  // state it also reads re-triggers itself, and the re-run's cleanup
+  // clears the interval while the stale non-null handle blocks the
+  // restart — a self-cancelling poll.
   // --------------------------------------------------------------------
+  const POLL_CAP_MS = 10 * 60_000;
+  let pollTimedOut = $state(false);
   $effect(() => {
-    if (isProcessing && processingPoll === null) {
-      processingPoll = window.setInterval(() => invalidateAll(), 2000);
-    }
-    if (!isProcessing && processingPoll !== null) {
-      clearInterval(processingPoll);
-      processingPoll = null;
-    }
-    return () => {
-      if (processingPoll !== null) clearInterval(processingPoll);
-    };
+    if (!isProcessing || pollTimedOut) return;
+    const startedAt = Date.now();
+    const handle = window.setInterval(() => {
+      if (Date.now() - startedAt > POLL_CAP_MS) {
+        // Flips the dependency → the effect re-runs, returns early, and
+        // its cleanup has already cleared this interval.
+        pollTimedOut = true;
+        return;
+      }
+      void invalidateAll();
+    }, 2000);
+    return () => clearInterval(handle);
   });
 
   // --------------------------------------------------------------------
@@ -453,6 +515,13 @@
     // Don't autosave a published photo — that path requires explicit
     // confirmation via the "Save changes" form action.
     if (isPublished) return;
+    // Never autosave while the pipeline is still writing: the fieldset
+    // is disabled (no real edits possible), and a full-snapshot PUT of
+    // the empty form races the XISF back-fill — key-present nulls would
+    // permanently clear whatever the header recovery had just written.
+    // Component-init writes can trigger this effect without any user
+    // edit, so this gate is load-bearing, not belt-and-braces.
+    if (isProcessing || isPending) return;
 
     const patch = buildAutosavePatch();
     const handle = window.setTimeout(async () => {
@@ -508,17 +577,39 @@
             ● UPLOAD FAILED · {data.photo.pipeline_error ?? 'unknown error'}
           </div>
           <div class="failed-actions">
-            <form method="POST" action="?/save_draft">
-              <Button variant="ghost" type="submit">Discard</Button>
-            </form>
+            <!-- A real delete. This used to POST ?/save_draft with an
+                 empty form, which wiped the draft's metadata/tags via
+                 key-present nulls and left the row in place. -->
+            <Button variant="ghost" type="button" onclick={discardDraft}>Discard</Button>
             <Button variant="primary" href="/upload">Retry upload</Button>
+          </div>
+        </div>
+      </section>
+    {:else if isPending}
+      <section class="hero-band">
+        <VerifyHero
+          eyebrow="UPLOAD INCOMPLETE"
+          title="The file never fully arrived."
+          intro="This draft was created, but its upload never finished — there is nothing to verify or publish yet. Re-upload the file, or discard the draft."
+        />
+      </section>
+      <section class="failed-band">
+        <div class="panel-failed">
+          <div class="t-eyebrow danger">● UPLOAD INCOMPLETE · file missing</div>
+          <div class="failed-actions">
+            <Button variant="ghost" type="button" onclick={discardDraft}>Discard</Button>
+            <Button variant="primary" href="/upload">Re-upload</Button>
           </div>
         </div>
       </section>
     {:else}
       <section class="hero-band">
         <VerifyHero
-          eyebrow={isPublished ? 'EDIT METADATA' : 'NEW FRAME'}
+          eyebrow={isPublished
+            ? 'EDIT METADATA'
+            : data.queueIds.length > 1
+              ? `NEW FRAME · ${data.queueIndex + 1} OF ${data.queueIds.length}`
+              : 'NEW FRAME'}
           title="Verify the data."
           intro="Your camera and the plate-solver already wrote down most of this. Glance through, correct anything off, fill what's still empty — none of it is required."
         />
@@ -538,9 +629,14 @@
           {isPublished}
         />
 
+        <!-- `?/publish` replaces the whole query string, so the upload
+             queue's ids must ride along explicitly or publishing frame 1
+             would strand frames 2..N (the action advances through them). -->
         <form
           method="POST"
-          action={isPublished ? '?/save_changes_published' : '?/publish'}
+          action={isPublished
+            ? '?/save_changes_published'
+            : `?/publish${data.queueIds.length > 1 ? `&ids=${data.queueIds.join(',')}` : ''}`}
           class="metadata-form"
         >
           <div class="status-pill-row" aria-live="polite">
@@ -648,13 +744,21 @@
           </fieldset>
 
           {#if isProcessing}
-            <p class="t-meta processing-meta">
-              ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'} — polling every
-              2 s
-            </p>
+            {#if pollTimedOut}
+              <p class="t-meta form-error">
+                ● {isAwaitingCalibration ? 'PLATE-SOLVING' : 'PROCESSING'} IS TAKING LONGER THAN EXPECTED
+                — leave this page and check back from your drafts; the pipeline will finish (or fail with
+                a reason) in the background.
+              </p>
+            {:else}
+              <p class="t-meta processing-meta">
+                ● {isAwaitingCalibration ? 'PLATE-SOLVING XISF' : 'PROCESSING THUMBNAILS'} — polling every
+                2 s
+              </p>
+            {/if}
           {/if}
           {#if form?.error}
-            <p class="t-meta form-error">{form.error}</p>
+            <p class="t-meta form-error">{humanizeUploadError(form.error)}</p>
           {/if}
 
           <FooterActions {saveState} {secondsSinceSaved}>

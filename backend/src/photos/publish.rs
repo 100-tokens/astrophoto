@@ -33,11 +33,24 @@ pub async fn handler(
             "photo not ready: pipeline still processing or failed",
         ));
     }
-    sqlx::query!(
-        "update photos set published_at = now(), last_step = 'caption' where id = $1",
+    // Guarded UPDATE, not just the read-check above: a replace claim can
+    // flip status to 'processing' between the read and the write, and a
+    // concurrent publish must not shift published_at. 0 rows → the state
+    // moved under us; report it like the read would have. (No
+    // last_step='caption' write — that wizard step was removed in
+    // 56acf4e; verify only ever writes 'verify'.)
+    let published = sqlx::query!(
+        "update photos set published_at = now()
+          where id = $1 and status = 'ready' and published_at is null",
         id
     )
     .execute(&state.pool)
-    .await?;
+    .await?
+    .rows_affected();
+    if published == 0 {
+        return Err(AppError::bad_request(
+            "photo not ready: pipeline still processing or failed",
+        ));
+    }
     Ok(StatusCode::OK)
 }

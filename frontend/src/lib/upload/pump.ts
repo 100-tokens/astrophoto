@@ -1,3 +1,5 @@
+import { humanizeUploadError } from './errors';
+
 export type PumpOptions = {
   concurrency: number;
   runSlot: (id: string) => Promise<void>;
@@ -82,6 +84,14 @@ export type SlotProgress = {
   photoId?: string;
   shortId?: string;
   reason?: string;
+  /**
+   * XISF finalize returns 200 immediately with status
+   * 'awaiting-calibration' — the background solve is still running.
+   * The slot is done from the queue's perspective (navigable to
+   * verify), but labeling it plain "ready" misled users whose solve
+   * later failed.
+   */
+  calibrating?: boolean;
 };
 
 export type SlotHandle = {
@@ -93,6 +103,12 @@ export type SlotHandle = {
 
 // API base follows the same convention as HandlePicker.svelte and cdn.ts.
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+
+// A PUT that makes no progress for this long is a stalled connection —
+// without a timeout it wedges one of the pump's lanes forever (three
+// stalls freeze the whole queue). Generous: a tier-max 200 MB file on a
+// slow uplink, and the presigned URL itself only lives 10 minutes.
+const PUT_TIMEOUT_MS = 15 * 60_000;
 
 export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefined) {
   return async (id: string): Promise<void> => {
@@ -117,7 +133,7 @@ export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefin
         }),
         signal: abort.signal
       });
-      if (!init.ok) throw new Error(await init.text());
+      if (!init.ok) throw new Error(humanizeUploadError(await init.text()));
       const json = (await init.json()) as { files: NonNullable<SlotHandle['signed']>[] };
       const first = json.files[0];
       if (!first) throw new Error('init: server returned no files');
@@ -178,7 +194,16 @@ export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefin
         credentials: 'include',
         signal: abort.signal
       });
-      if (!fin.ok) throw new Error(await fin.text());
+      if (!fin.ok) throw new Error(humanizeUploadError(await fin.text()));
+      const finBody = (await fin.json().catch(() => ({}))) as { status?: string };
+      const calibrating = finBody.status === 'awaiting-calibration';
+      setProgress({
+        state: 'ready',
+        pct: 100,
+        photoId: signed.photo_id,
+        shortId: signed.short_id,
+        ...(calibrating ? { calibrating: true } : {})
+      });
     } catch (e) {
       if (abort.signal.aborted) {
         setProgress({
@@ -199,8 +224,6 @@ export function makeUploadRunner(getHandle: (id: string) => SlotHandle | undefin
       }
       return;
     }
-
-    setProgress({ state: 'ready', pct: 100, photoId: signed.photo_id, shortId: signed.short_id });
   };
 }
 
@@ -218,6 +241,7 @@ function xhrPut(
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('content-type', slot.mime);
+    xhr.timeout = PUT_TIMEOUT_MS;
     const onAbort = () => xhr.abort();
     signal.addEventListener('abort', onAbort);
     xhr.upload.onprogress = (e) => {
@@ -227,6 +251,10 @@ function xhrPut(
     xhr.onerror = () => {
       signal.removeEventListener('abort', onAbort);
       reject(new Error('PUT failed'));
+    };
+    xhr.ontimeout = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(new Error('Upload timed out — check your connection and retry.'));
     };
     xhr.onabort = () => {
       signal.removeEventListener('abort', onAbort);

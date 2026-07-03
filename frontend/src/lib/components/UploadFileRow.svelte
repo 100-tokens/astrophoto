@@ -27,7 +27,9 @@
   type Pill = { label: string; tone: 'accent' | 'info' | 'success' | 'danger' | 'muted' };
   const pill = $derived<Pill>(
     progress.state === 'ready'
-      ? { label: '✓ READY', tone: 'success' }
+      ? progress.calibrating
+        ? { label: '⟳ UPLOADED · CALIBRATING', tone: 'info' }
+        : { label: '✓ READY', tone: 'success' }
       : progress.state === 'uploading'
         ? { label: '↑ UPLOADING', tone: 'accent' }
         : progress.state === 'hashing'

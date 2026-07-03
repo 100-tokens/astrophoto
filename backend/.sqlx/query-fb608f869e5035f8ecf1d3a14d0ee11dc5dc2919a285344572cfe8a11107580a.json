@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos\n            set setup_id = null,\n                last_step = case\n                    when last_step is null or last_step = 'upload' then 'verify'\n                    else last_step\n                end\n          where id=$1 and owner_id=$2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb608f869e5035f8ecf1d3a14d0ee11dc5dc2919a285344572cfe8a11107580a"
+}
