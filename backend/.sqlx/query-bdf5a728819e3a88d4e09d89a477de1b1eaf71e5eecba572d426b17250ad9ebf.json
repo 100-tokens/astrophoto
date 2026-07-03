@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update photos set integration_s = 401400 where id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bdf5a728819e3a88d4e09d89a477de1b1eaf71e5eecba572d426b17250ad9ebf"
+}

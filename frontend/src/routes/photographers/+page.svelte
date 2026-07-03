@@ -20,28 +20,44 @@
   $effect(() => {
     items = data.initial.items;
     cursor = data.initial.next_cursor;
+    loadError = null;
   });
 
   function pickSort(next: 'active' | 'followers' | 'recent') {
     const u = new URL(window.location.href);
     u.searchParams.set('sort', next);
-    void goto(u.pathname + u.search, { keepFocus: true, noScroll: true });
+    // replaceState like the explore filter pills — sorting is a view
+    // refinement, not a step Back should walk through.
+    void goto(u.pathname + u.search, { replaceState: true, keepFocus: true, noScroll: true });
   }
 
   async function loadMore() {
     if (!cursor || loading) return;
     loading = true;
     loadError = null;
+    // Guard the stale-append race: a page issued under sort A must not
+    // splice into sort B's list (nor clobber its cursor) if the user
+    // switches pills while the fetch is in flight.
+    const issuedUnder = data.sort;
     try {
       const r = await fetch(
         `/api/photographers?sort=${data.sort}&cursor=${encodeURIComponent(cursor)}&limit=24`
       );
       if (!r.ok) throw new Error(`backend ${r.status}`);
-      const next = await r.json();
-      items = [...items, ...next.items];
+      const next = (await r.json()) as {
+        items: PhotographerListItem[];
+        next_cursor: string | null;
+      };
+      if (issuedUnder !== data.sort) return;
+      // Dedupe by handle: the active/followers keysets paginate over
+      // mutable counters, so a photographer whose count shifted between
+      // fetches can legitimately reappear — and a duplicate key in the
+      // {#each (p.handle)} throws, blanking the page.
+      const seen = new Set(items.map((i) => i.handle));
+      items = [...items, ...next.items.filter((i) => !seen.has(i.handle))];
       cursor = next.next_cursor;
-    } catch (e) {
-      loadError = (e as Error).message;
+    } catch {
+      loadError = 'Loading more photographers failed. Check your connection and retry.';
     } finally {
       loading = false;
     }
@@ -74,7 +90,7 @@
       hasPart: {
         '@type': 'ItemList',
         itemListOrder: 'https://schema.org/ItemListOrderDescending',
-        numberOfItems: items.length,
+        numberOfItems: Math.min(items.length, 50),
         itemListElement: items.slice(0, 50).map((p, i) => ({
           '@type': 'ListItem',
           position: i + 1,
@@ -115,23 +131,34 @@
     <h1 class="page-title">The people behind the <em>photos</em></h1>
 
     <nav class="sort-pills" aria-label="Sort photographers">
-      <button class="pill" class:on={data.sort === 'active'} onclick={() => pickSort('active')}
-        >Most active</button
+      <button
+        class="pill"
+        class:on={data.sort === 'active'}
+        aria-pressed={data.sort === 'active'}
+        onclick={() => pickSort('active')}>Most active</button
       >
       <button
         class="pill"
         class:on={data.sort === 'followers'}
+        aria-pressed={data.sort === 'followers'}
         onclick={() => pickSort('followers')}>Most followed</button
       >
-      <button class="pill" class:on={data.sort === 'recent'} onclick={() => pickSort('recent')}
-        >Newest</button
+      <button
+        class="pill"
+        class:on={data.sort === 'recent'}
+        aria-pressed={data.sort === 'recent'}
+        onclick={() => pickSort('recent')}>Newest</button
       >
     </nav>
   </section>
 
   <section class="grid">
     {#each items as p (p.handle)}
-      <a class="card" href={`/u/${encodeURIComponent(p.handle)}`} aria-label={p.display_name}>
+      <a
+        class="card"
+        href={`/u/${encodeURIComponent(p.handle)}`}
+        aria-label={`${p.display_name} (@${p.handle})`}
+      >
         <div class="cover">
           {#if p.cover_photo_id}
             <Img photoId={p.cover_photo_id} alt="" w={400} />
@@ -147,7 +174,11 @@
           <div class="stats t-meta">
             <span>{p.frame_count}</span><span>frame{Number(p.frame_count) === 1 ? '' : 's'}</span>
             <span class="sep">·</span>
-            <span>{formatHours(Number(p.integration_seconds))}</span><span>integration</span>
+            {#if Number(p.integration_seconds) >= 60}
+              <span>{formatHours(Number(p.integration_seconds))}</span><span>integration</span>
+            {:else}
+              <span>no integration logged</span>
+            {/if}
             {#if Number(p.follower_count) > 0}
               <span class="sep">·</span>
               <span>{p.follower_count}</span><span
@@ -174,7 +205,7 @@
       <button class="btn-ghost" onclick={loadMore} disabled={loading}>
         {loading ? 'Loading…' : 'Load more →'}
       </button>
-      {#if loadError}<span class="err">{loadError}</span>{/if}
+      {#if loadError}<span class="err" role="alert">{loadError}</span>{/if}
     </div>
   {/if}
 </main>
