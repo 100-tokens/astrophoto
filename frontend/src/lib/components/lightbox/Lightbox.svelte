@@ -36,6 +36,11 @@
   let invokerBefore: HTMLElement | null = null;
 
   function onKeydown(e: KeyboardEvent) {
+    // Modified keys belong to the browser/OS: Ctrl/Cmd+A is select-all
+    // (it used to trigger Appreciate), Alt+Arrow is history navigation,
+    // Ctrl+I opens devtools. Only bare keys drive lightbox shortcuts —
+    // Tab is exempt (the focus trap must see Shift+Tab).
+    if (e.key !== 'Tab' && (e.ctrlKey || e.metaKey || e.altKey)) return;
     switch (e.key) {
       case 'Escape':
         onClose();
