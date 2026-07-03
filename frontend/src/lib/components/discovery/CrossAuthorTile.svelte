@@ -31,14 +31,22 @@
   let rel = $derived(photo.published_at ? timeAgoShort(photo.published_at) : '');
 </script>
 
-<a
-  use:openLightboxOnClick={{ handle: photo.author_handle, short_id: photo.short_id }}
-  class="tile"
-  style="--ar:{ar}; flex-grow:{ar}; background-image:url('{lqip}');"
-  href="/u/{photo.author_handle}/p/{photo.short_id}"
-  aria-label={`${photo.target ?? photo.original_name ?? 'Untitled'} by @${photo.author_handle}`}
->
-  <Img photoId={photo.id} w={nominalW} sizes={`${nominalW}px`} {priority} alt="" class="img" />
+<!-- The tile is a multi-link card: the photo link and the caption's
+     author link are SIBLINGS. The author chip used to live inside the
+     tile anchor — nested <a> is invalid HTML, the parser closes the
+     outer anchor early, and SvelteKit hydration crashed with
+     HierarchyRequestError on every discovery route (explore, targets,
+     categories, tags, search), falling back to a full client
+     re-render. -->
+<article class="tile" style="--ar:{ar}; flex-grow:{ar}; background-image:url('{lqip}');">
+  <a
+    use:openLightboxOnClick={{ handle: photo.author_handle, short_id: photo.short_id }}
+    class="tile-link"
+    href="/u/{photo.author_handle}/p/{photo.short_id}"
+    aria-label={`${photo.target ?? photo.original_name ?? 'Untitled'} by @${photo.author_handle}`}
+  >
+    <Img photoId={photo.id} w={nominalW} sizes={`${nominalW}px`} {priority} alt="" class="img" />
+  </a>
   <span class="cap">
     <span class="cap-left">
       <span class="title">{photo.target ?? photo.original_name ?? 'Untitled'}</span>
@@ -49,7 +57,7 @@
     </span>
     <span class="apps">♡ {photo.appreciations_count}</span>
   </span>
-</a>
+</article>
 
 <style>
   .tile {
@@ -64,9 +72,17 @@
     background-position: center;
   }
 
-  .tile:focus-visible {
+  .tile-link {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .tile-link:focus-visible {
+    /* Inset ring: the anchor fills the tile, whose overflow:hidden
+       would clip an outward outline. */
     outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 
   .tile :global(.img) {
@@ -86,20 +102,28 @@
     justify-content: space-between;
     align-items: flex-end;
     gap: 8px;
+    /* Clicks fall through to the photo link below; only the author
+       chip (a sibling link, not a nested one) captures the pointer. */
+    pointer-events: none;
     /* Always visible by default so touch / no-hover devices (which never get
        :hover) can read the caption. */
     opacity: 1;
     transition: opacity 0.15s ease-out;
   }
 
+  .cap :global(.author-chip) {
+    pointer-events: auto;
+  }
+
   /* On hover-capable devices, keep the quiet gallery aesthetic: reveal the
-     caption on hover or keyboard focus (per the original handoff). */
+     caption on hover or keyboard focus (per the original handoff).
+     focus-within covers both the photo link and the author chip. */
   @media (hover: hover) {
     .cap {
       opacity: 0;
     }
     .tile:hover .cap,
-    .tile:focus-visible .cap {
+    .tile:focus-within .cap {
       opacity: 1;
     }
   }
