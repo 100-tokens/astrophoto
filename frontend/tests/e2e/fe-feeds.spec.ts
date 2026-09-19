@@ -90,9 +90,9 @@ test.describe('home / feed edge cases', () => {
     await page.goto(`${FRONTEND}/`);
 
     // attendu: home agrees with Explore — reticle empty state + publish CTA.
-    // Fake cards (Marie Dubois / NGC 7000 / non-clickable masonry) are gone.
+    // Fake cards (Marie Dubois / non-clickable masonry) are gone. Do not
+    // assert `NGC 7000` is absent: the real marketing copy still names it.
     await expect(page.getByText('Marie Dubois · Bortle 4')).toHaveCount(0);
-    await expect(page.getByText('NGC 7000')).toHaveCount(0);
     await expect(page.locator('.masonry-item')).toHaveCount(0);
     await expect(page.getByRole('status')).toContainText('No frames here yet');
     await expect(page.getByRole('status')).toContainText('be the first');
