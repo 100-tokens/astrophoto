@@ -7,11 +7,18 @@
 
   let { data, form }: PageProps = $props();
 
-  // Preserve handle across server-side error round-trips.
-  // $derived keeps this reactive when `form` changes after a server action.
+  // Preserve fields across server-side error round-trips. Handle already
+  // did this; display name / email / password used to wipe, then native
+  // "Please fill out this field" stacked on the server error.
   let handle = $state('');
+  let displayName = $state('');
+  let email = $state('');
+  let password = $state('');
   $effect(() => {
     if (form?.handle !== undefined) handle = form.handle;
+    if (form?.display_name !== undefined) displayName = form.display_name;
+    if (form?.email !== undefined) email = form.email;
+    if (form?.password !== undefined) password = form.password;
   });
 
   // Backend OAuth endpoint composed server-side and passed via PageData
@@ -83,6 +90,7 @@
           id="display_name"
           required
           placeholder="How others will see you"
+          bind:value={displayName}
         />
       </div>
 
@@ -95,7 +103,14 @@
 
       <div class="field">
         <label class="t-label" for="email">EMAIL</label>
-        <Input name="email" id="email" type="email" required placeholder="you@somewhere.com" />
+        <Input
+          name="email"
+          id="email"
+          type="email"
+          required
+          placeholder="you@somewhere.com"
+          bind:value={email}
+        />
       </div>
 
       <div class="field">
@@ -106,7 +121,9 @@
           type="password"
           required
           placeholder="At least 10 characters"
+          bind:value={password}
         />
+        <p class="t-meta password-hint">At least 10 characters.</p>
       </div>
 
       {#if form?.message}
@@ -203,6 +220,11 @@
   .form-error {
     color: var(--danger);
     margin: 0;
+  }
+
+  .password-hint {
+    margin: 0;
+    color: var(--fg-muted);
   }
 
   .terms-copy {

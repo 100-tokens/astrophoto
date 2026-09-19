@@ -22,7 +22,7 @@
   <title>Check your email — Astrophoto</title>
 </svelte:head>
 
-<AppHeader />
+<AppHeader hideCreateAccount />
 
 <main>
   <div class="check-email-screen">

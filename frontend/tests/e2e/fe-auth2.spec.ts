@@ -64,12 +64,16 @@ test.describe('signup edge cases', () => {
     await page.fill('input[name="handle"]', acc.handle);
     await page.fill('input[name="email"]', acc.email);
     await page.fill('input[name="password"]', '123456789'); // exactly 9 chars
+    await expect(page.locator('.password-hint')).toHaveText('At least 10 characters.');
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
 
     const err = page.locator('form.signup-form p.t-meta.form-error');
     await expect(err).toBeVisible();
     await expect(err).toHaveText('Password must be at least 10 characters.');
+    await expect(page.locator('input[name="display_name"]')).toHaveValue(acc.displayName);
+    await expect(page.locator('input[name="email"]')).toHaveValue(acc.email);
+    await expect(page.locator('input[name="password"]')).toHaveValue('123456789');
   });
 
   test('[FE-0125][FE-0126] 409 handle-conflict → handleError under picker, handle value preserved', async ({
@@ -148,6 +152,8 @@ test.describe('signup/check-email edge cases', () => {
     const email = 'au2-0130@example.com';
     await page.clock.install();
     await page.goto(`${FRONTEND}/signup/check-email?email=${encodeURIComponent(email)}`);
+
+    await expect(page.locator('header.app-header a.btn-primary[href="/signup"]')).toHaveCount(0);
 
     const btn = page.getByRole('button', { name: /Resend in \d+s/ });
     await expect(btn).toBeVisible();
