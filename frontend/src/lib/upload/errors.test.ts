@@ -22,6 +22,21 @@ describe('humanizeUploadError', () => {
     );
   });
 
+  it('never surfaces raw forbidden / origin-mismatch strings', () => {
+    const envelope = humanizeUploadError('{"error":"forbidden","message":"forbidden"}');
+    expect(envelope.toLowerCase()).not.toBe('forbidden');
+    expect(envelope).toMatch(/localhost|127\.0\.0\.1/);
+    expect(envelope).toMatch(/retry/i);
+
+    const plain = humanizeUploadError('forbidden');
+    expect(plain.toLowerCase()).not.toBe('forbidden');
+    expect(plain).toMatch(/localhost|127\.0\.0\.1/);
+
+    const proxy = humanizeUploadError('cross-origin request blocked');
+    expect(proxy).not.toContain('cross-origin request blocked');
+    expect(proxy).toMatch(/localhost|127\.0\.0\.1/);
+  });
+
   it('passes through plain text and truncates long bodies', () => {
     expect(humanizeUploadError('PUT 403')).toBe('PUT 403');
     expect(humanizeUploadError('')).toBe('Upload failed.');

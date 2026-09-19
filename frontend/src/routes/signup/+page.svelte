@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { PageProps } from './$types';
   import Wordmark from '$lib/components/Wordmark.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -7,11 +8,21 @@
 
   let { data, form }: PageProps = $props();
 
-  // Preserve handle across server-side error round-trips.
-  // $derived keeps this reactive when `form` changes after a server action.
-  let handle = $state('');
+  // Preserve fields across server-side error round-trips. Handle already
+  // did this; display name / email / password used to wipe, then native
+  // "Please fill out this field" stacked on the server error.
+  // Seed from the action round-trip so SSR HTML already has the values
+  // (no-JS and first paint). $effect keeps them in sync if form updates
+  // without a remount.
+  let handle = $state(untrack(() => form?.handle ?? ''));
+  let displayName = $state(untrack(() => form?.display_name ?? ''));
+  let email = $state(untrack(() => form?.email ?? ''));
+  let password = $state(untrack(() => form?.password ?? ''));
   $effect(() => {
     if (form?.handle !== undefined) handle = form.handle;
+    if (form?.display_name !== undefined) displayName = form.display_name;
+    if (form?.email !== undefined) email = form.email;
+    if (form?.password !== undefined) password = form.password;
   });
 
   // Backend OAuth endpoint composed server-side and passed via PageData
@@ -83,6 +94,7 @@
           id="display_name"
           required
           placeholder="How others will see you"
+          bind:value={displayName}
         />
       </div>
 
@@ -95,7 +107,14 @@
 
       <div class="field">
         <label class="t-label" for="email">EMAIL</label>
-        <Input name="email" id="email" type="email" required placeholder="you@somewhere.com" />
+        <Input
+          name="email"
+          id="email"
+          type="email"
+          required
+          placeholder="you@somewhere.com"
+          bind:value={email}
+        />
       </div>
 
       <div class="field">
@@ -106,7 +125,9 @@
           type="password"
           required
           placeholder="At least 10 characters"
+          bind:value={password}
         />
+        <p class="t-meta password-hint">At least 10 characters.</p>
       </div>
 
       {#if form?.message}
@@ -203,6 +224,11 @@
   .form-error {
     color: var(--danger);
     margin: 0;
+  }
+
+  .password-hint {
+    margin: 0;
+    color: var(--fg-muted);
   }
 
   .terms-copy {

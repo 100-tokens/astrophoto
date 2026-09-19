@@ -52,12 +52,12 @@ pub struct AppState {
     pub finalize_permits: Arc<Semaphore>,
 }
 
-/// Build a CORS layer that allows the given origin (e.g. the SvelteKit dev
-/// server). Credentials are permitted so session cookies flow through.
-/// Hard-coded to the dev origin for now; will be sourced from `Config` later.
-pub fn cors_layer(allowed_origin: HeaderValue) -> CorsLayer {
+/// Build a CORS layer that allows the given origins (e.g. the SvelteKit
+/// dev server, plus its loopback twin in local development). Credentials
+/// are permitted so session cookies flow through.
+pub fn cors_layer(allowed_origins: Vec<HeaderValue>) -> CorsLayer {
     CorsLayer::new()
-        .allow_origin(allowed_origin)
+        .allow_origin(allowed_origins)
         .allow_credentials(true)
         .allow_headers([HeaderName::from_static("content-type")])
         .allow_methods([

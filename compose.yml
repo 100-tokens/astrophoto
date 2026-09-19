@@ -19,7 +19,10 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Docker Hub's minio/minio repo was removed (2026-09); pulls fail with
+    # "access denied". Historical images remain on Quay — pin the last
+    # published community tag (same digest as quay.io/minio/minio:latest).
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin

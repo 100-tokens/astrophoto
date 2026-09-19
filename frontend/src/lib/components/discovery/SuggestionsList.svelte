@@ -5,13 +5,17 @@
   let {
     results,
     focusedIndex = -1,
+    query = '',
     onFocusChange,
-    onClose
+    onClose,
+    onSeeAll
   }: {
     results: SearchResults;
     focusedIndex?: number;
+    query?: string;
     onFocusChange?: (idx: number) => void;
     onClose?: () => void;
+    onSeeAll?: () => void;
   } = $props();
 
   let totalTargets = $derived(results.targets.length);
@@ -107,25 +111,43 @@
 
   <div class="footer" role="presentation">
     <span class="footer-hint">↑↓ NAVIGATE · ↩ OPEN · ESC CLOSE</span>
-    <span class="footer-all">SEE ALL →</span>
+    {#if query}
+      <a
+        class="footer-all"
+        href="/search?q={encodeURIComponent(query)}"
+        onclick={(e) => {
+          e.preventDefault();
+          onSeeAll?.();
+        }}>SEE ALL RESULTS →</a
+      >
+    {:else}
+      <span class="footer-all">SEE ALL →</span>
+    {/if}
   </div>
 </div>
 
 <style>
+  /* Full-width destination panel under the header — names must not truncate
+     in a 220px popover over the hero. */
   .suggestions {
-    position: absolute;
+    position: fixed;
     left: 0;
     right: 0;
-    top: calc(100% + 4px);
+    top: 64px;
+    width: 100%;
+    max-height: min(70vh, 640px);
+    overflow-y: auto;
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
+    border-left: 0;
+    border-right: 0;
     box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.4));
-    z-index: 100;
+    z-index: 200;
   }
 
   .bucket {
     border-bottom: 1px dashed var(--border-default);
-    padding: 8px 0;
+    padding: 8px 64px;
   }
 
   .bucket-label {
@@ -133,14 +155,14 @@
     font-size: 10px;
     letter-spacing: 0.08em;
     color: var(--accent);
-    padding: 4px 12px;
+    padding: 4px 0;
   }
 
   .drop-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
+    padding: 10px 12px;
     width: 100%;
     background: transparent;
     border: none;
@@ -176,9 +198,9 @@
     font-style: italic;
     font-size: 14px;
     flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
   }
 
   .item-meta {
@@ -203,10 +225,11 @@
   }
 
   .footer {
-    padding: 8px 12px;
+    padding: 12px 64px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
   }
 
   .footer-hint {
@@ -222,5 +245,14 @@
     letter-spacing: 0.06em;
     color: var(--accent);
     cursor: pointer;
+    text-decoration: none;
+  }
+
+  @media (max-width: 640px) {
+    .bucket,
+    .footer {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
   }
 </style>

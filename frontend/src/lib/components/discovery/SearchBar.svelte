@@ -86,11 +86,7 @@
       if (focusedIdx >= 0 && results) {
         navigateToFocused();
       } else {
-        const q = query.trim();
-        if (q) {
-          closeSuggestions();
-          void goto(`/search?q=${encodeURIComponent(q)}`);
-        }
+        seeAll();
       }
     }
   }
@@ -119,6 +115,23 @@
     query = '';
     inputEl?.blur();
     if (mobileOpen) mobileOpen = false;
+  }
+
+  function seeAll() {
+    const q = query.trim();
+    closeSuggestions();
+    if (q) void goto(`/search?q=${encodeURIComponent(q)}`);
+  }
+
+  function handleFormSubmit(e: SubmitEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    if (showSuggestions && focusedIdx >= 0 && results) {
+      navigateToFocused();
+      return;
+    }
+    seeAll();
   }
 
   // Global ⌘K / Ctrl-K handler.
@@ -164,64 +177,70 @@
     <button type="button" class="mobile-scrim" aria-label="Close search" onclick={closeMobile}
     ></button>
   {/if}
-  <div class="search-box" class:search-box-focused={focused}>
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke={focused ? 'var(--accent)' : 'currentColor'}
-      stroke-width="1.2"
-      aria-hidden="true"
-    >
-      <circle cx="7" cy="7" r="5" />
-      <line x1="11" y1="11" x2="14" y2="14" />
-    </svg>
-    <input
-      bind:this={inputEl}
-      bind:value={query}
-      type="search"
-      name="q"
-      id="global-search"
-      class="search-input"
-      placeholder="search the archive…"
-      autocomplete="off"
-      spellcheck={false}
-      aria-label="Search"
-      role="combobox"
-      aria-autocomplete="list"
-      aria-expanded={showSuggestions}
-      aria-controls="global-search-listbox"
-      aria-activedescendant={showSuggestions && focusedIdx >= 0
-        ? `global-search-opt-${focusedIdx}`
-        : undefined}
-      onfocus={() => {
-        focused = true;
-      }}
-      onblur={() => {
-        // Delay so clicks on suggestions register first.
-        setTimeout(() => {
-          focused = false;
-        }, 150);
-      }}
-      oninput={handleInput}
-      onkeydown={handleKeydown}
-    />
-    {#if mobileOpen}
-      <button type="button" class="mobile-close" aria-label="Close" onclick={closeMobile}>×</button>
-    {:else if !focused || query.length === 0}
-      <span class="kbd-hint">⌘K</span>
-    {/if}
-  </div>
+  <form class="search-form" method="GET" action="/search" onsubmit={handleFormSubmit}>
+    <div class="search-box" class:search-box-focused={focused}>
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke={focused ? 'var(--accent)' : 'currentColor'}
+        stroke-width="1.2"
+        aria-hidden="true"
+      >
+        <circle cx="7" cy="7" r="5" />
+        <line x1="11" y1="11" x2="14" y2="14" />
+      </svg>
+      <input
+        bind:this={inputEl}
+        bind:value={query}
+        type="search"
+        name="q"
+        id="global-search"
+        class="search-input"
+        placeholder="search the archive…"
+        autocomplete="off"
+        spellcheck={false}
+        aria-label="Search"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showSuggestions}
+        aria-controls="global-search-listbox"
+        aria-activedescendant={showSuggestions && focusedIdx >= 0
+          ? `global-search-opt-${focusedIdx}`
+          : undefined}
+        onfocus={() => {
+          focused = true;
+        }}
+        onblur={() => {
+          // Delay so clicks on suggestions register first.
+          setTimeout(() => {
+            focused = false;
+          }, 150);
+        }}
+        oninput={handleInput}
+        onkeydown={handleKeydown}
+      />
+      {#if mobileOpen}
+        <button type="button" class="mobile-close" aria-label="Close" onclick={closeMobile}
+          >×</button
+        >
+      {:else if !focused || query.length === 0}
+        <span class="kbd-hint">⌘K</span>
+      {/if}
+    </div>
+  </form>
 
   {#if showSuggestions && results}
     <SuggestionsList
       {results}
       focusedIndex={focusedIdx}
+      query={query.trim()}
       onFocusChange={(idx) => {
         focusedIdx = idx;
       }}
       onClose={closeSuggestions}
+      onSeeAll={seeAll}
     />
   {/if}
 </div>
@@ -301,6 +320,10 @@
     height: 28px;
     cursor: pointer;
     flex-shrink: 0;
+  }
+
+  .search-form {
+    width: 100%;
   }
 
   .search-box {

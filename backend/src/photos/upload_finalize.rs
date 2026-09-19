@@ -103,12 +103,18 @@ pub async fn handler(
     // the (potentially huge) XISF.
     if row.mime == "application/x-xisf" {
         queries::mark_awaiting_calibration(&state.pool, id).await?;
-        platesolve_upload::auto_calibrate_xisf(
-            state.clone(),
-            id,
-            row.storage_key.clone(),
-            row.owner_id,
-        );
+        // upload_init already rejects XISF when platesolve is unset.
+        // Skip the fire-and-forget spawn here too: auto_calibrate_xisf
+        // would immediately mark the row `failed`, racing the
+        // awaiting-calibration handoff this path just wrote.
+        if state.platesolve.is_some() {
+            platesolve_upload::auto_calibrate_xisf(
+                state.clone(),
+                id,
+                row.storage_key.clone(),
+                row.owner_id,
+            );
+        }
         return Ok(Json(FinalizeResp {
             status: "awaiting-calibration".into(),
             display_key: None,

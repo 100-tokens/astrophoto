@@ -1,4 +1,3 @@
-import { PHOTOS, NGC7000 } from '$lib/data/photos';
 import { cdn } from '$lib/cdn';
 import type { PageServerLoad } from './$types';
 import type { SiteStats } from '$lib/api/SiteStats';
@@ -49,12 +48,10 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
         realPhotos = body.photos;
       }
     } catch {
-      // backend down — fall back to placeholder demo content
+      // backend down — render the honest empty archive, not demo cards
     }
   }
 
-  // If we have real photos, build a gallery from them. Otherwise keep
-  // the placeholder demo content for a non-empty landing.
   const following_count = locals.user?.following_ids?.length ?? 0;
   const stats = await statsPromise;
 
@@ -86,13 +83,9 @@ export const load: PageServerLoad = async ({ fetch, locals, request }) => {
   }
 
   return {
-    heroPhoto: {
-      target: NGC7000.target,
-      integration: NGC7000.integration,
-      photographer: NGC7000.photographer.name
-    },
+    heroPhoto: null,
     heroSrc: undefined,
-    photos: PHOTOS.slice(0, 12).map((p) => ({ ...p, thumbSrc: undefined })),
+    photos: [],
     isReal: false,
     following_count,
     stats

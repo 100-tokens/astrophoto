@@ -78,30 +78,27 @@ test.afterEach(() => {
 });
 
 test.describe('home / feed edge cases', () => {
-  test('[FE-0546] zero published photos → isReal:false placeholder (NGC7000 hero + demo grid)', async ({
+  test('[FE-0546] zero published photos → honest empty archive (no demo hero or masonry)', async ({
     page
   }) => {
     // Establish the documented precondition deterministically: other specs in
     // the shared suite may have left published rows. Hide any from the feed so
-    // the isReal:false placeholder branch is what renders (serial workers:1; the
+    // the empty-archive branch is what renders (serial workers:1; the
     // owning specs have already finished asserting on their own rows).
     sql(`update photos set published_at = null where published_at is not null and status='ready'`);
 
     await page.goto(`${FRONTEND}/`);
 
-    // attendu: the landing is never empty — placeholder hero shows the demo
-    // photographer/Bortle line that only the isReal:false branch renders.
-    await expect(page.getByText('Marie Dubois · Bortle 4')).toBeVisible();
-
-    // The placeholder demo grid renders 12 PHOTOS.slice(0,12) cards. The masonry
-    // items must be present in the server-rendered markup.
-    const items = page.locator('.masonry-item');
-    await expect(items).toHaveCount(12);
-
-    // Hero src is undefined in the placeholder branch → no CDN <img> in the hero
-    // wrap. The hero photo wrapper exists but carries no remote image source.
-    const html = await page.content();
-    expect(html).not.toContain('display/'); // no seeded display-master url leaked in
+    // attendu: home agrees with Explore — reticle empty state + publish CTA.
+    // Fake cards (Marie Dubois / non-clickable masonry) are gone. Do not
+    // assert `NGC 7000` is absent: the real marketing copy still names it.
+    await expect(page.getByText('Marie Dubois · Bortle 4')).toHaveCount(0);
+    await expect(page.locator('.masonry-item')).toHaveCount(0);
+    await expect(page.getByRole('status')).toContainText('No frames here yet');
+    await expect(page.getByRole('status')).toContainText('be the first');
+    await expect(
+      page.getByRole('status').getByRole('link', { name: /Upload a frame/ })
+    ).toBeVisible();
   });
 
   test('[FE-0550] real photos render SSR tiles with cdn() URLs and ratio width/height', async ({

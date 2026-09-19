@@ -55,6 +55,28 @@ pub fn origin_of(url: &str) -> Option<String> {
     Some(origin.to_string())
 }
 
+/// Pair `localhost` with `127.0.0.1` (and vice versa), keeping scheme and port.
+/// Browsers treat these as distinct origins; cookie mutations and CORS fail
+/// if only one is allowlisted. Used in local development so MinIO uploads
+/// work from either address.
+pub fn loopback_twin(origin: &str) -> Option<String> {
+    const PAIRS: [(&str, &str); 4] = [
+        ("http://localhost", "http://127.0.0.1"),
+        ("http://127.0.0.1", "http://localhost"),
+        ("https://localhost", "https://127.0.0.1"),
+        ("https://127.0.0.1", "https://localhost"),
+    ];
+    for (from, to) in PAIRS {
+        if let Some(rest) = origin.strip_prefix(from) {
+            // rest is "" or ":port" — reject `http://localhost.evil`.
+            if rest.is_empty() || rest.starts_with(':') {
+                return Some(format!("{to}{rest}"));
+            }
+        }
+    }
+    None
+}
+
 /// True if the request carries a session cookie. Mirrors the session
 /// extractor's parse (split on ';', trim, match COOKIE_NAMES exactly).
 fn has_session_cookie(headers: &HeaderMap) -> bool {
@@ -136,6 +158,24 @@ mod tests {
         assert_eq!(origin_of("notaurl"), None);
         assert_eq!(origin_of("https://"), None);
         assert_eq!(origin_of(""), None);
+    }
+
+    #[test]
+    fn loopback_twin_pairs_localhost_and_loopback() {
+        assert_eq!(
+            loopback_twin("http://localhost:5173").as_deref(),
+            Some("http://127.0.0.1:5173")
+        );
+        assert_eq!(
+            loopback_twin("http://127.0.0.1:5173").as_deref(),
+            Some("http://localhost:5173")
+        );
+        assert_eq!(
+            loopback_twin("http://localhost").as_deref(),
+            Some("http://127.0.0.1")
+        );
+        assert_eq!(loopback_twin("https://app.example"), None);
+        assert_eq!(loopback_twin("http://localhost.evil"), None);
     }
 
     fn hdrs(pairs: &[(&str, &str)]) -> HeaderMap {

@@ -2,6 +2,7 @@
   import AppHeader from '$lib/components/AppHeader.svelte';
   import AppFooter from '$lib/components/AppFooter.svelte';
   import Button from '$lib/components/Button.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import Photo from '$lib/components/Photo.svelte';
   import PhotoTitle from '$lib/components/photos/PhotoTitle.svelte';
   import { ldJsonScriptTag } from '$lib/utils/seo';
@@ -26,7 +27,7 @@
     integration_seconds: number | bigint;
   }
   interface PageData {
-    heroPhoto: HeroPhoto;
+    heroPhoto: HeroPhoto | null;
     heroSrc: string | undefined;
     photos: GalleryPhoto[];
     isReal: boolean;
@@ -183,34 +184,34 @@
       </div>
     </div>
 
-    <!-- Right column: featured photo -->
-    <div class="hero-photo-wrap">
-      <Photo
-        target={data.heroPhoto.target ?? ''}
-        src={data.heroSrc}
-        priority
-        style="position: absolute; inset: 0; height: 100%;"
-      />
+    <!-- Right column: featured photo, or the same empty pattern Explore uses
+         when the archive has zero frames. Never invent a photographer or target. -->
+    {#if data.isReal && data.heroPhoto}
+      <div class="hero-photo-wrap">
+        <Photo
+          target={data.heroPhoto.target ?? ''}
+          src={data.heroSrc}
+          priority
+          style="position: absolute; inset: 0; height: 100%;"
+        />
 
-      <!-- Corner marks (inline — 24×24 at 0 inset) -->
-      <div
-        style="position: absolute; top: 0; right: 0; width: 24px; height: 24px;
-				   border-top: 1px solid var(--accent); border-right: 1px solid var(--accent);"
-      ></div>
-      <div
-        style="position: absolute; bottom: 0; left: 0; width: 24px; height: 24px;
-				   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent);"
-      ></div>
+        <!-- Corner marks (inline — 24×24 at 0 inset) -->
+        <div
+          style="position: absolute; top: 0; right: 0; width: 24px; height: 24px;
+					   border-top: 1px solid var(--accent); border-right: 1px solid var(--accent);"
+        ></div>
+        <div
+          style="position: absolute; bottom: 0; left: 0; width: 24px; height: 24px;
+					   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent);"
+        ></div>
 
-      <!-- Featured tag — drops the "of the week" lie when we don't have
-         a real weekly-curation mechanism. For logged-in users with
-         follows it's the latest from someone they follow; for everyone
-         else it's just the newest published frame. -->
-      <div class="fotw-tag">
-        <div style="color: var(--accent)">
-          {data.user && data.following_count > 0 ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
-        </div>
-        {#if data.isReal}
+        <!-- Featured tag — latest published, or latest from follows. -->
+        <div class="fotw-tag">
+          <div style="color: var(--accent)">
+            {data.user && data.following_count > 0
+              ? 'LATEST FROM YOUR FOLLOWS'
+              : 'LATEST PUBLISHED'}
+          </div>
           <div style="color: var(--fg-primary)">
             <PhotoTitle
               photo={{
@@ -220,14 +221,18 @@
               size="md"
             />
           </div>
-        {:else}
-          <div style="color: var(--fg-primary)">
-            {data.heroPhoto.target} · {data.heroPhoto.integration}
-          </div>
-          <div style="color: var(--fg-muted)">Marie Dubois · Bortle 4</div>
-        {/if}
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="hero-empty">
+        <EmptyState
+          title="No frames here yet"
+          message="Nothing matches this view yet — be the first to publish a frame."
+          ctaLabel="Upload a frame"
+          ctaHref="/upload"
+        />
+      </div>
+    {/if}
   </section>
 
   <!-- Filter bar — pills route to the per-category index pages so the
@@ -236,7 +241,7 @@
      and toggles actually drive query state. -->
   <section class="filter-bar">
     <div class="filter-chips">
-      {#each CATEGORIES as { label, href }, i}
+      {#each CATEGORIES as { label, href }, i (href)}
         <a
           {href}
           class={i === 0 ? 'chip chip-accent' : 'chip'}
@@ -255,12 +260,12 @@
     </a>
   </section>
 
-  <!-- Masonry grid -->
-  <section class="masonry-section">
-    <div class="masonry">
-      {#each data.photos as photo, i}
-        <div class="masonry-item">
-          {#if data.isReal}
+  {#if data.isReal && data.photos.length > 0}
+    <!-- Masonry grid — real published frames only. -->
+    <section class="masonry-section">
+      <div class="masonry">
+        {#each data.photos as photo, i (photo.slug)}
+          <div class="masonry-item">
             <a
               href="/photo/{photo.slug}"
               class="masonry-link"
@@ -274,39 +279,27 @@
                 />
               </div>
             </a>
-          {:else}
-            <!-- Demo seed grid (DB empty): cards are visual placeholders only;
-               no link, since the slugs don't resolve in the backend. -->
-            <div class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
-              <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
-                <Photo
-                  target={photo.target ?? ''}
-                  src={photo.thumbSrc}
-                  style="position: absolute; inset: 0; height: 100%;"
-                />
-              </div>
+            <div class="photo-meta-row">
+              <span class="photo-target"
+                ><PhotoTitle
+                  photo={{ target: photo.target, original_name: photo.original_name ?? null }}
+                  size="md"
+                /></span
+              >
+              <span class="photo-integration">{photo.integration}</span>
             </div>
-          {/if}
-          <div class="photo-meta-row">
-            <span class="photo-target"
-              ><PhotoTitle
-                photo={{ target: photo.target, original_name: photo.original_name ?? null }}
-                size="md"
-              /></span
-            >
-            <span class="photo-integration">{photo.integration}</span>
+            <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>
           </div>
-          <div class="photo-photographer">{photo.photographer.toUpperCase()}</div>
-        </div>
-      {/each}
-    </div>
-  </section>
+        {/each}
+      </div>
+    </section>
 
-  <!-- See-more — the home is a curated landing, paginated browsing lives
-     on /explore (cursor-based). -->
-  <div class="pagination">
-    <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
-  </div>
+    <!-- See-more — the home is a curated landing, paginated browsing lives
+       on /explore (cursor-based). -->
+    <div class="pagination">
+      <Button variant="secondary" size="lg" href="/explore">Browse the full archive →</Button>
+    </div>
+  {/if}
 </main>
 
 <AppFooter />
@@ -329,6 +322,9 @@
     margin: 0;
     font-weight: 600;
     letter-spacing: -0.015em;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
   }
 
   .hero-body {
@@ -362,6 +358,14 @@
   .hero-photo-wrap {
     position: relative;
     height: 560px;
+  }
+
+  .hero-empty {
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border-default);
   }
 
   .fotw-tag {
@@ -469,6 +473,12 @@
       height: 320px;
     }
 
+    /* Empty-archive CTA sits above the copy on small screens so the first
+       viewport is the honest empty pattern, not a clipped headline. */
+    .hero-empty {
+      order: -1;
+    }
+
     .filter-bar {
       padding: 16px 32px;
       flex-direction: column;
@@ -492,6 +502,20 @@
 
     .hero {
       padding: 32px 16px 24px;
+    }
+
+    .hero-h1 {
+      font-size: 32px;
+    }
+
+    .hero-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hero-actions :global(.btn) {
+      width: 100%;
+      justify-content: center;
     }
 
     .masonry-section {

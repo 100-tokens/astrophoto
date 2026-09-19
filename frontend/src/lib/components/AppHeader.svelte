@@ -13,10 +13,13 @@
      * no link gets `aria-current="page"` then. Defaulting to 'Gallery'
      * used to mark /explore as the current page on every such route. */
     active?: 'Gallery' | 'Targets' | 'Photographers' | 'About';
+    /** Hide the anonymous "Create account" CTA (check-email: inbox is the
+     * only action). Sign in remains. */
+    hideCreateAccount?: boolean;
     class?: string;
   }
 
-  let { active, class: className }: Props = $props();
+  let { active, hideCreateAccount = false, class: className }: Props = $props();
 
   // Auth state comes from layout data resolved by hooks.server.ts.
   let user = $derived(page.data.user);
@@ -71,7 +74,9 @@
       <AvatarMenu {user} />
     {:else}
       <a href="/signin" class="nav-link">Sign in</a>
-      <a href="/signup" class="btn btn-primary btn-sm">Create account</a>
+      {#if !hideCreateAccount}
+        <a href="/signup" class="btn btn-primary btn-sm">Create account</a>
+      {/if}
     {/if}
   </div>
 </header>
