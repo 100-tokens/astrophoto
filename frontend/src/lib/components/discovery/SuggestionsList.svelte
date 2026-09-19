@@ -27,21 +27,23 @@
   // Pin under the real header box (grace banner sits above `.app-header`)
   // or, in the mobile overlay, under the search field itself.
   $effect(() => {
-    const node = root;
-    if (!node) return;
+    const panel = root;
+    if (!panel) return;
     const isOverlay = overlay;
     function apply() {
+      const el = panel;
+      if (!el) return;
       const anchor = isOverlay
-        ? node.parentElement?.querySelector('.search-box')
+        ? el.parentElement?.querySelector('.search-box')
         : document.querySelector('header.app-header');
       if (!(anchor instanceof HTMLElement)) return;
-      node.style.top = `${anchor.getBoundingClientRect().bottom}px`;
+      el.style.top = `${anchor.getBoundingClientRect().bottom}px`;
     }
     apply();
     const ro = new ResizeObserver(apply);
     const header = document.querySelector('header.app-header');
     const banner = document.querySelector('.grace-banner');
-    const box = node.parentElement?.querySelector('.search-box');
+    const box = panel.parentElement?.querySelector('.search-box');
     if (header) ro.observe(header);
     if (banner) ro.observe(banner);
     if (box) ro.observe(box);
