@@ -6,6 +6,7 @@
     results,
     focusedIndex = -1,
     query = '',
+    overlay = false,
     onFocusChange,
     onClose,
     onSeeAll
@@ -13,6 +14,7 @@
     results: SearchResults;
     focusedIndex?: number;
     query?: string;
+    overlay?: boolean;
     onFocusChange?: (idx: number) => void;
     onClose?: () => void;
     onSeeAll?: () => void;
@@ -20,6 +22,39 @@
 
   let totalTargets = $derived(results.targets.length);
   let totalUsers = $derived(results.users.length);
+  let root: HTMLDivElement | undefined = $state();
+
+  // Pin under the real header box (grace banner sits above `.app-header`)
+  // or, in the mobile overlay, under the search field itself.
+  $effect(() => {
+    const panel = root;
+    if (!panel) return;
+    const isOverlay = overlay;
+    function apply() {
+      const el = panel;
+      if (!el) return;
+      const anchor = isOverlay
+        ? el.parentElement?.querySelector('.search-box')
+        : document.querySelector('header.app-header');
+      if (!(anchor instanceof HTMLElement)) return;
+      el.style.top = `${anchor.getBoundingClientRect().bottom}px`;
+    }
+    apply();
+    const ro = new ResizeObserver(apply);
+    const header = document.querySelector('header.app-header');
+    const banner = document.querySelector('.grace-banner');
+    const box = panel.parentElement?.querySelector('.search-box');
+    if (header) ro.observe(header);
+    if (banner) ro.observe(banner);
+    if (box) ro.observe(box);
+    window.addEventListener('resize', apply);
+    window.visualViewport?.addEventListener('resize', apply);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', apply);
+      window.visualViewport?.removeEventListener('resize', apply);
+    };
+  });
 
   function navigateTarget(slug: string) {
     onClose?.();
@@ -37,7 +72,13 @@
   }
 </script>
 
-<div class="suggestions" id="global-search-listbox" role="listbox" aria-label="Search suggestions">
+<div
+  bind:this={root}
+  class="suggestions"
+  id="global-search-listbox"
+  role="listbox"
+  aria-label="Search suggestions"
+>
   {#if results.targets.length > 0}
     <div class="bucket">
       <div class="bucket-label">● TARGETS · {results.targets.length}</div>
@@ -111,18 +152,14 @@
 
   <div class="footer" role="presentation">
     <span class="footer-hint">↑↓ NAVIGATE · ↩ OPEN · ESC CLOSE</span>
-    {#if query}
-      <a
-        class="footer-all"
-        href="/search?q={encodeURIComponent(query)}"
-        onclick={(e) => {
-          e.preventDefault();
-          onSeeAll?.();
-        }}>SEE ALL RESULTS →</a
-      >
-    {:else}
-      <span class="footer-all">SEE ALL →</span>
-    {/if}
+    <a
+      class="footer-all"
+      href="/search?q={encodeURIComponent(query)}"
+      onclick={(e) => {
+        e.preventDefault();
+        onSeeAll?.();
+      }}>SEE ALL RESULTS →</a
+    >
   </div>
 </div>
 

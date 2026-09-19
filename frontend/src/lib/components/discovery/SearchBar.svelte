@@ -236,6 +236,7 @@
       {results}
       focusedIndex={focusedIdx}
       query={query.trim()}
+      overlay={mobileOpen}
       onFocusChange={(idx) => {
         focusedIdx = idx;
       }}
