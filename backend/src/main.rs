@@ -85,10 +85,10 @@ async fn main() -> Result<()> {
     // In dev, also pair localhost with 127.0.0.1 so MinIO uploads work from
     // either browser origin.
     let mut allowed = std::collections::HashSet::from([cors_origin_str.clone()]);
-    if !cfg.session_secure {
-        if let Some(twin) = http::csrf::loopback_twin(&cors_origin_str) {
-            allowed.insert(twin);
-        }
+    if !cfg.session_secure
+        && let Some(twin) = http::csrf::loopback_twin(&cors_origin_str)
+    {
+        allowed.insert(twin);
     }
     if let Ok(extra) = std::env::var("APP_EXTRA_BROWSER_ORIGINS") {
         for o in extra.split(',') {
