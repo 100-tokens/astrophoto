@@ -65,15 +65,23 @@ test.describe('signup edge cases', () => {
     await page.fill('input[name="email"]', acc.email);
     await page.fill('input[name="password"]', '123456789'); // exactly 9 chars
     await expect(page.locator('.password-hint')).toHaveText('At least 10 characters.');
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('input[name="password"]')).toHaveAttribute('minlength', '10');
+    // minlength blocks a click before the action runs. form.submit() skips
+    // HTML constraint validation so the SvelteKit length guard is what fails.
+    await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/signup') && r.request().method() === 'POST'),
+      page.locator('form.signup-form').evaluate((form) => {
+        (form as HTMLFormElement).submit();
+      })
+    ]);
 
     const err = page.locator('form.signup-form p.t-meta.form-error');
     await expect(err).toBeVisible();
     await expect(err).toHaveText('Password must be at least 10 characters.');
     await expect(page.locator('input[name="display_name"]')).toHaveValue(acc.displayName);
     await expect(page.locator('input[name="email"]')).toHaveValue(acc.email);
-    await expect(page.locator('input[name="password"]')).toHaveValue('123456789');
+    // fail() does not echo the password.
+    await expect(page.locator('input[name="password"]')).toHaveValue('');
   });
 
   test('[FE-0125][FE-0126] 409 handle-conflict → handleError under picker, handle value preserved', async ({

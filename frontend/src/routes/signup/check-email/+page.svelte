@@ -8,8 +8,8 @@
   let { form }: PageProps = $props();
 
   let email = $derived(page.url.searchParams.get('email') ?? '');
-  // Verify-link failure is 410 Gone (`expired=1`). Unverified login is 403
-  // and does not set that flag, so the two landings do not share copy.
+  // Verify-link failure is 410 Gone (`expired=1`) and adds the expiry
+  // warning. Unverified login is 403 and does not set that flag.
   let expired = $derived(page.url.searchParams.get('expired') === '1');
   let secondsLeft = $state(60);
   let resending = $state(false);
@@ -38,12 +38,11 @@
         <p class="t-body" style="color: var(--color-warning, #c47);">
           That verification link has expired or was already used. Click resend to get a new one.
         </p>
-      {:else}
-        <p class="t-body">
-          We sent a confirmation link to <strong>{email}</strong>. Open it to finish setting up your
-          account. It can take a minute to arrive — don't forget to check spam.
-        </p>
       {/if}
+      <p class="t-body">
+        We sent a confirmation link to <strong>{email}</strong>. Open it to finish setting up your
+        account. It can take a minute to arrive — don't forget to check spam.
+      </p>
 
       <form
         method="POST"
