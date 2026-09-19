@@ -54,7 +54,7 @@ test.describe('signup edge cases', () => {
     await expect(err).toHaveText('All fields are required.');
   });
 
-  test('[FE-0115] 9-char password → front guard fail(400) min 10 chars before any network call', async ({
+  test('[FE-0115] 9-char password → native minlength=10 blocks click; server fail does not echo password', async ({
     page
   }) => {
     await page.goto(`${FRONTEND}/signup`);
@@ -65,15 +65,26 @@ test.describe('signup edge cases', () => {
     await page.fill('input[name="email"]', acc.email);
     await page.fill('input[name="password"]', '123456789'); // exactly 9 chars
     await expect(page.locator('.password-hint')).toHaveText('At least 10 characters.');
+    await expect(page.locator('input[name="password"]')).toHaveAttribute('minlength', '10');
+
     await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('form.signup-form p.t-meta.form-error')).toHaveCount(0);
+    expect(new URL(page.url()).pathname).toBe('/signup');
+    await expect(page.locator('input[name="password"]')).toHaveValue('123456789');
+
+    // Native minlength is bypassed the same way FE-0114 bypasses `required`.
+    await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/signup') && r.request().method() === 'POST'),
+      page.locator('form.signup-form').evaluate((el) => (el as HTMLFormElement).submit())
+    ]);
 
     const err = page.locator('form.signup-form p.t-meta.form-error');
     await expect(err).toBeVisible();
     await expect(err).toHaveText('Password must be at least 10 characters.');
     await expect(page.locator('input[name="display_name"]')).toHaveValue(acc.displayName);
     await expect(page.locator('input[name="email"]')).toHaveValue(acc.email);
-    await expect(page.locator('input[name="password"]')).toHaveValue('123456789');
+    await expect(page.locator('input[name="password"]')).toHaveValue('');
+    await expect(page.locator('html')).not.toContainText('123456789');
   });
 
   test('[FE-0125][FE-0126] 409 handle-conflict → handleError under picker, handle value preserved', async ({

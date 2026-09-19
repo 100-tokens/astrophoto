@@ -9,20 +9,19 @@
   let { data, form }: PageProps = $props();
 
   // Preserve fields across server-side error round-trips. Handle already
-  // did this; display name / email / password used to wipe, then native
+  // did this; display name / email used to wipe, then native
   // "Please fill out this field" stacked on the server error.
   // Seed from the action round-trip so SSR HTML already has the values
   // (no-JS and first paint). $effect keeps them in sync if form updates
-  // without a remount.
+  // without a remount. Password is never echoed in fail() HTML.
   let handle = $state(untrack(() => form?.handle ?? ''));
   let displayName = $state(untrack(() => form?.display_name ?? ''));
   let email = $state(untrack(() => form?.email ?? ''));
-  let password = $state(untrack(() => form?.password ?? ''));
+  let password = $state('');
   $effect(() => {
     if (form?.handle !== undefined) handle = form.handle;
     if (form?.display_name !== undefined) displayName = form.display_name;
     if (form?.email !== undefined) email = form.email;
-    if (form?.password !== undefined) password = form.password;
   });
 
   // Backend OAuth endpoint composed server-side and passed via PageData
@@ -124,6 +123,7 @@
           id="password"
           type="password"
           required
+          minlength={10}
           placeholder="At least 10 characters"
           bind:value={password}
         />

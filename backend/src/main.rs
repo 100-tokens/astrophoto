@@ -82,14 +82,9 @@ async fn main() -> Result<()> {
     // CORS origin is always allowed; APP_EXTRA_BROWSER_ORIGINS (comma-separated)
     // covers any additional browser-reachable frontend host (e.g. a raw Koyeb
     // *-web-* host alongside the canonical www) so users there are not 403'd.
-    // In dev, also pair localhost with 127.0.0.1 so MinIO uploads work from
-    // either browser origin.
+    // Extras stay CSRF-only: those hosts talk to the API through the same-origin
+    // SvelteKit proxy, so they must not get credentialed CORS.
     let mut allowed = std::collections::HashSet::from([cors_origin_str.clone()]);
-    if !cfg.session_secure
-        && let Some(twin) = http::csrf::loopback_twin(&cors_origin_str)
-    {
-        allowed.insert(twin);
-    }
     if let Ok(extra) = std::env::var("APP_EXTRA_BROWSER_ORIGINS") {
         for o in extra.split(',') {
             let o = o.trim().trim_end_matches('/');
@@ -98,11 +93,21 @@ async fn main() -> Result<()> {
             }
         }
     }
-    let mut cors_origins: Vec<HeaderValue> = Vec::new();
-    for o in &allowed {
+
+    // Credentialed CORS: canonical origin, plus the localhost/127.0.0.1 twin
+    // in local HTTP dev so MinIO uploads work from either address. Never copy
+    // extras into this set.
+    let mut cors_origins: Vec<HeaderValue> =
+        vec![cors_origin_str.parse().unwrap_or_else(|_| {
+            panic!("{cors_origin_str} is not a valid HTTP origin header value")
+        })];
+    if !cfg.session_secure
+        && let Some(twin) = http::csrf::loopback_twin(&cors_origin_str)
+    {
+        allowed.insert(twin.clone());
         cors_origins.push(
-            o.parse()
-                .unwrap_or_else(|_| panic!("{o} is not a valid HTTP origin header value")),
+            twin.parse()
+                .unwrap_or_else(|_| panic!("{twin} is not a valid HTTP origin header value")),
         );
     }
     let allowed_origins = http::csrf::AllowedOrigins(allowed);
