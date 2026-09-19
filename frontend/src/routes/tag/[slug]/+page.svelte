@@ -7,7 +7,6 @@
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
   import FilterPills from '$lib/components/discovery/FilterPills.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
-  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { fetchTagPage } from '$lib/api/discoveryClient';
   import type { PageData } from './$types';
 
@@ -92,5 +91,4 @@
   {/key}
 </main>
 
-<LightboxHost />
 <AppFooter />

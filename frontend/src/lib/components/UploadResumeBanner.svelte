@@ -27,8 +27,11 @@
   }
 
   function resume() {
-    const ids = drafts.map((d) => d.id).join(',');
-    goto(`/upload/batch/edit?ids=${ids}`);
+    const ids = drafts.map((d) => d.id);
+    const first = ids[0];
+    if (!first) return;
+    if (ids.length === 1) goto(`/upload/${first}/verify`);
+    else goto(`/upload/${first}/verify?ids=${ids.join(',')}`);
   }
 
   let discardOpen = $state(false);

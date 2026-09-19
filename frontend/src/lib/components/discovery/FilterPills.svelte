@@ -7,7 +7,7 @@
 
   let {
     sort = 'newest',
-    since = '7d',
+    since = 'all',
     category = undefined,
     following = false,
     variant = 'explore',
@@ -61,7 +61,7 @@
   // the backend would return an empty feed with no explanation.
   let showFollowing = $derived(variant === 'explore' && authed);
   let hasActiveFilters = $derived(
-    category !== undefined || following || since !== '7d' || sort !== 'newest'
+    category !== undefined || following || since !== 'all' || sort !== 'newest'
   );
 </script>
 

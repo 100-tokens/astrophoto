@@ -47,7 +47,7 @@ async fn argon2_slot() -> Result<SemaphorePermit<'static>, AppError> {
 /// Validate password strength. Returns `Err` with a static error code string
 /// if the password is too short or appears in the common-password dictionary.
 pub fn validate_strength(pwd: &str) -> Result<(), &'static str> {
-    if pwd.chars().count() < 12 {
+    if pwd.chars().count() < 10 {
         return Err("password_too_short");
     }
     let lower = pwd.to_ascii_lowercase();

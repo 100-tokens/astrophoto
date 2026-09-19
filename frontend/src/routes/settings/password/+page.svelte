@@ -16,12 +16,12 @@
       id="new_password"
       name="new_password"
       required
-      minlength="12"
+      minlength="10"
       class="input"
     />
 
     {#if form?.error === 'wrong_password'}<p class="err">Wrong current password.</p>{/if}
-    {#if form?.error === 'too_short'}<p class="err">Use at least 12 characters.</p>{/if}
+    {#if form?.error === 'too_short'}<p class="err">Use at least 10 characters.</p>{/if}
     {#if form?.error === 'too_common'}<p class="err">
         That password is too common. Choose something more unique.
       </p>{/if}

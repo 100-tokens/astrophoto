@@ -252,25 +252,25 @@ test.describe('reset request edge cases', () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe('reset/[token] edge cases', () => {
-  test('[FE-0146] 11-char new_password → front guard fail(400, too_short) → "Password must be at least 12 characters."', async ({
+  test('[FE-0146] 9-char new_password → front guard fail(400, too_short) → "Password must be at least 10 characters."', async ({
     page
   }) => {
     await page.goto(`${FRONTEND}/reset/sometoken123`);
 
-    // 11 chars: under the front guard `new_password.length < 12`.
+    // 9 chars: under the front guard `new_password.length < 10`.
     await page
       .locator('input[name="new_password"]')
       .evaluate((el) => el.removeAttribute('required'));
-    await page.fill('input[name="new_password"]', '12345678901'); // 11 chars
+    await page.fill('input[name="new_password"]', '123456789'); // 9 chars
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle');
 
     const err = page.locator('p.t-meta.form-error');
     await expect(err).toBeVisible();
-    await expect(err).toHaveText('Password must be at least 12 characters.');
+    await expect(err).toHaveText('Password must be at least 10 characters.');
   });
 
-  test('[FE-0153] strength bar segments light up as you type; "Use at least 12 characters" warning while < 12', async ({
+  test('[FE-0153] strength bar segments light up as you type; "Use at least 10 characters" warning while < 10', async ({
     page
   }) => {
     await page.goto(`${FRONTEND}/reset/sometoken123`);
@@ -283,15 +283,18 @@ test.describe('reset/[token] edge cases', () => {
     await input.fill('abc'); // len 3 → strength 1
     await expect(segs).toHaveCount(4);
     await expect(onSegs).toHaveCount(1);
-    await expect(warn).toHaveText('Use at least 12 characters.');
+    await expect(warn).toHaveText('Use at least 10 characters.');
 
-    await input.fill('abcdefghij'); // len 10 → strength 2
+    await input.fill('abcdefghi'); // len 9 → strength 2
     await expect(onSegs).toHaveCount(2);
-    await expect(warn).toBeVisible(); // still < 12
+    await expect(warn).toBeVisible();
+
+    await input.fill('abcdefghij'); // len 10 → still strength 2, warning gone
+    await expect(onSegs).toHaveCount(2);
+    await expect(warn).toHaveCount(0);
 
     await input.fill('abcdefghijklmn'); // len 14 → strength 3
     await expect(onSegs).toHaveCount(3);
-    await expect(warn).toHaveCount(0); // >= 12, warning gone
 
     await input.fill('abcdefghijklmnop'); // len 16 → strength 4
     await expect(onSegs).toHaveCount(4);

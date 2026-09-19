@@ -1,10 +1,15 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { enhance } from '$app/forms';
+  import { applyAction, enhance } from '$app/forms';
+  import type { PageProps } from './$types';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Button from '$lib/components/Button.svelte';
 
+  let { form }: PageProps = $props();
+
   let email = $derived(page.url.searchParams.get('email') ?? '');
+  // Verify-link failure is 410 Gone (`expired=1`). Unverified login is 403
+  // and does not set that flag, so the two landings do not share copy.
   let expired = $derived(page.url.searchParams.get('expired') === '1');
   let secondsLeft = $state(60);
   let resending = $state(false);
@@ -33,21 +38,28 @@
         <p class="t-body" style="color: var(--color-warning, #c47);">
           That verification link has expired or was already used. Click resend to get a new one.
         </p>
+      {:else}
+        <p class="t-body">
+          We sent a confirmation link to <strong>{email}</strong>. Open it to finish setting up your
+          account. It can take a minute to arrive — don't forget to check spam.
+        </p>
       {/if}
-      <p class="t-body">
-        We sent a confirmation link to <strong>{email}</strong>. Open it to finish setting up your
-        account. It can take a minute to arrive — don't forget to check spam.
-      </p>
 
       <form
         method="POST"
         action="?/resend"
-        use:enhance={() =>
-          async ({ result }) => {
+        use:enhance={() => {
+          return async ({ result }) => {
             resending = false;
-            if (result.type === 'success') resentOk = true;
-            secondsLeft = 60;
-          }}
+            if (result.type === 'success') {
+              resentOk = true;
+              secondsLeft = 60;
+            } else {
+              resentOk = false;
+            }
+            await applyAction(result);
+          };
+        }}
         onsubmit={() => {
           resending = true;
         }}
@@ -62,6 +74,9 @@
             Resend confirmation
           {/if}
         </Button>
+        {#if form?.error === 'missing_email'}
+          <p class="t-meta form-error">Please enter a valid email.</p>
+        {/if}
         {#if resentOk}
           <p class="t-body" style="margin-top: 8px;">
             If your account exists and isn't yet verified, we sent another link.
@@ -85,5 +100,9 @@
   .check-email-col {
     max-width: 480px;
     width: 100%;
+  }
+  .form-error {
+    color: var(--danger);
+    margin-top: 8px;
   }
 </style>

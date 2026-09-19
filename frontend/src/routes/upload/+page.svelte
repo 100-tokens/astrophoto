@@ -248,16 +248,11 @@
     pump.add(clientId);
   }
 
-  function continueToBatch() {
+  function continueToVerify() {
     if (readyIds.length === 0) return;
     if (readyIds.length === 1) {
       goto(`/upload/${readyIds[0]}/verify`);
     } else {
-      // Land on the first frame with the queue context in the URL —
-      // the verify page renders a thumbs strip + ←/→ keyboard nav and
-      // a Skip frame → / Publish · N of M action row from there. The
-      // older /upload/batch landing (apply common fields) is reachable
-      // from the verify page if we ever add a "Edit all at once" link.
       goto(`/upload/${readyIds[0]}/verify?ids=${readyIds.join(',')}`);
     }
   }
@@ -310,7 +305,7 @@
     <section class="page-header">
       <div class="page-header-row">
         <div class="page-header-title-block">
-          <div class="t-eyebrow">NEW UPLOAD · STEP 01 OF 03</div>
+          <div class="t-eyebrow">NEW UPLOAD · STEP 01 OF 02</div>
           <h1 class="page-title">Drop your <em>frames</em></h1>
         </div>
         <aside class="tier-rail" aria-label="Tier limits">
@@ -382,7 +377,7 @@
             <a href="/drafts" class="btn-ghost">Save & finish later</a>
             <button
               class="btn-primary"
-              onclick={continueToBatch}
+              onclick={continueToVerify}
               disabled={readyIds.length === 0}
               title={readyIds.length === 0
                 ? 'Wait for at least one upload to finish'

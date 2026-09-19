@@ -6,18 +6,16 @@ use ts_rs::TS;
 
 use astrophoto::api_types::{
     AdminEquipmentItem, AdminEquipmentPage, ApiTokenCreated, ApiTokenRow, ApplySetupInput,
-    AuthError, BatchApplyRequest, BatchApplyResponse, BatchPublishRequest, BatchPublishResponse,
-    CatalogValues, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto, DraftListItem,
-    DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket, EquipmentFacets,
-    EquipmentItemDetail, EquipmentItemInput, EquipmentItemPatch, EquipmentItemRef, EquipmentMeta,
-    EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary, GalleryPage,
-    GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
+    AuthError, CatalogValues, CategoryPage, CelestialObject, DiscoveryPage, DiscoveryPhoto,
+    DraftListItem, DraftListResponse, EquipmentCatalogResponse, EquipmentFacetBucket,
+    EquipmentFacets, EquipmentItemDetail, EquipmentItemInput, EquipmentItemPatch, EquipmentItemRef,
+    EquipmentMeta, EquipmentPage, EquipmentPaired, EquipmentSummary, FeaturedPhotoSummary,
+    GalleryPage, GalleryPhoto, Health, HeroStats, LocationSummary, MeStats, PatchTargetsItem,
     PatchTargetsResponse, PhotoDetail, PhotoFilterChip, PhotographerIndexPage,
-    PhotographerListItem, Preferences, Profile, PublicProfile, PublishedItem, RoleCount,
-    SearchResults, SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput,
-    SetupInputItem, SetupItem, SetupSummary, SiteStats, SkipReason, SkippedItem, SocialLink,
-    SocialPlatform, StorageSummary, TagMeta, TagPage, TargetIndexPage, TargetListItem, TargetMeta,
-    TargetPage, TargetPreviewThumb, User, UserPublic,
+    PhotographerListItem, Preferences, Profile, PublicProfile, RoleCount, SearchResults,
+    SearchTargetHit, SearchUserHit, SessionRow, SetupDetail, SetupInput, SetupInputItem, SetupItem,
+    SetupSummary, SiteStats, SocialLink, SocialPlatform, StorageSummary, TagMeta, TagPage,
+    TargetIndexPage, TargetListItem, TargetMeta, TargetPage, TargetPreviewThumb, User, UserPublic,
 };
 use astrophoto::photos::platesolve::{PlatesolveResult, SolveOptions};
 use astrophoto::photos::platesolve_status::PlatesolveStatus;
@@ -77,13 +75,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ApplySetupInput::export_all_to(out_dir)?;
     DraftListItem::export_all_to(out_dir)?;
     DraftListResponse::export_all_to(out_dir)?;
-    BatchApplyRequest::export_all_to(out_dir)?;
-    BatchApplyResponse::export_all_to(out_dir)?;
-    BatchPublishRequest::export_all_to(out_dir)?;
-    PublishedItem::export_all_to(out_dir)?;
-    SkipReason::export_all_to(out_dir)?;
-    SkippedItem::export_all_to(out_dir)?;
-    BatchPublishResponse::export_all_to(out_dir)?;
     PatchTargetsItem::export_all_to(out_dir)?;
     PatchTargetsResponse::export_all_to(out_dir)?;
     TargetPreviewThumb::export_all_to(out_dir)?;

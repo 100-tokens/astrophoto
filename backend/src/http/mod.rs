@@ -140,14 +140,6 @@ pub fn router(
             axum::routing::get(crate::photos::drafts_list::handler),
         )
         .route(
-            "/api/photos/batch/apply",
-            axum::routing::post(crate::photos::batch_apply::handler),
-        )
-        .route(
-            "/api/photos/batch/publish",
-            axum::routing::post(crate::photos::batch_publish::handler),
-        )
-        .route(
             "/api/photos/:id",
             get(crate::photos::get::handler)
                 .put(crate::photos::metadata::handler)

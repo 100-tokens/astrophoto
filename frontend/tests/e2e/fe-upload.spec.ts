@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { FRONTEND, BACKEND, sql, signupVerifiedAndLogin, apiSignup, freshAccount } from './helpers';
+import { FRONTEND, BACKEND, sql, signupVerifiedAndLogin } from './helpers';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SAMPLE_JPEG = readFileSync(join(__dirname, 'fixtures', 'sample.jpg'));
@@ -300,154 +300,6 @@ test('[FE-0428] a normal photo renders the idle plate-solve panel without errori
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// /upload/batch
-// ─────────────────────────────────────────────────────────────────────────
-
-test("[FE-0437] /upload/batch with a single id collapses to that id's verify page", async ({
-  page,
-  request
-}) => {
-  const acc = await signupVerifiedAndLogin(page, request, Date.now(), 'up');
-  const id = seedPhoto(acc.email, { status: 'ready', published: false });
-
-  await page.goto(`${FRONTEND}/upload/batch?ids=${id}`);
-  await page.waitForLoadState('networkidle');
-
-  // attendu: redirect(303, /upload/<id>/verify).
-  await expect(page).toHaveURL(`${FRONTEND}/upload/${id}/verify`);
-  await expect(page.locator('form.metadata-form')).toBeVisible();
-});
-
-test('[FE-0438] /upload/batch?ids=own,victim never leaks victim metadata and errors the page', async ({
-  page,
-  request
-}) => {
-  const owner = await signupVerifiedAndLogin(page, request, Date.now(), 'up');
-
-  // A second user owns the victim draft. is_visible_to gates GET to the owner,
-  // so getPhoto(victim) 404s; batch load has no try/catch ⇒ ApiError → error.
-  const victim = freshAccount(Date.now(), 'victim');
-  await apiSignup(request, victim);
-  sql(`update users set email_verified_at = now() where email = '${victim.email}'`);
-  const victimName = 'SECRET-VICTIM-FRAME-NAME.jpg';
-  const victimId = seedPhoto(victim.email, {
-    status: 'ready',
-    published: false,
-    originalName: victimName
-  });
-
-  // Two ids forces the batch landing (a single id would redirect to verify).
-  const ownId = seedPhoto(owner.email, { status: 'ready', published: false });
-
-  const resp = await page.goto(`${FRONTEND}/upload/batch?ids=${ownId},${victimId}`);
-  await page.waitForLoadState('networkidle');
-
-  // attendu: no victim metadata reaches the page; the load fails (>= 400).
-  expect(resp?.status()).toBeGreaterThanOrEqual(400);
-  const html = await page.content();
-  expect(html).not.toContain(victimName);
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// /upload/batch/edit
-// ─────────────────────────────────────────────────────────────────────────
-
-test('[FE-0445] ?selected pointing at an id not in the list falls back to the first frame', async ({
-  page,
-  request
-}) => {
-  const acc = await signupVerifiedAndLogin(page, request, Date.now(), 'up');
-  const a = seedPhoto(acc.email, {
-    status: 'ready',
-    published: false,
-    originalName: 'frame-a.jpg'
-  });
-  const b = seedPhoto(acc.email, {
-    status: 'ready',
-    published: false,
-    originalName: 'frame-b.jpg'
-  });
-  const bogus = randomUUID();
-
-  await page.goto(`${FRONTEND}/upload/batch/edit?ids=${a},${b}&selected=${bogus}`);
-  await page.waitForLoadState('networkidle');
-
-  // attendu: selected falls back to ids[0]; the BatchRibbon highlights the
-  // first frame (aria-current="true") rather than erroring.
-  const thumbs = page.locator('nav[aria-label="Photos in this batch"] button.thumb');
-  await expect(thumbs).toHaveCount(2);
-  await expect(thumbs.nth(0)).toHaveAttribute('aria-current', 'true');
-  await expect(thumbs.nth(1)).not.toHaveAttribute('aria-current', 'true');
-  // The ribbon position meta reflects the first frame.
-  await expect(page.getByText('1 of 2')).toBeVisible();
-});
-
-test('[FE-0446] editing a frame in batch/edit autosaves via an owner-scoped PUT to that frame id', async ({
-  page,
-  request
-}) => {
-  const acc = await signupVerifiedAndLogin(page, request, Date.now(), 'up');
-  const a = seedPhoto(acc.email, {
-    status: 'ready',
-    published: false,
-    originalName: 'frame-a.jpg'
-  });
-  const b = seedPhoto(acc.email, {
-    status: 'ready',
-    published: false,
-    originalName: 'frame-b.jpg'
-  });
-
-  // VerifyPane autosave (autosave={true}) PUTs /api/photos/<selected id>. The
-  // owner gate lives in metadata.rs — we exercise the owned path: the PUT is
-  // scoped to the selected frame's id and succeeds, flipping the save state.
-  const putUrls: string[] = [];
-  page.on('request', (r) => {
-    if (r.method() === 'PUT' && r.url().includes('/api/photos/')) putUrls.push(r.url());
-  });
-
-  await page.goto(`${FRONTEND}/upload/batch/edit?ids=${a},${b}&selected=${a}`);
-  await page.waitForLoadState('networkidle');
-
-  // Edit the caption to trigger the debounced autosave (800ms).
-  await page.locator('textarea[name="caption"]').fill('autosaved caption');
-
-  // attendu: each autosave is owner-scoped to the per-frame id. The PUT targets
-  // the selected frame (a), and the owned PUT round-trips → the save indicator
-  // confirms a successful save ("● Saved … ago", state idle).
-  const saveState = page.locator('.save-state');
-  await expect(saveState).toContainText(/Saved \d+s ago/, { timeout: 10_000 });
-  await expect(saveState).toHaveAttribute('data-state', 'idle');
-
-  // The autosave PUT is scoped to the selected frame's id (a), never b's.
-  await expect.poll(() => putUrls.some((u) => u.includes(`/api/photos/${a}`))).toBe(true);
-  expect(putUrls.some((u) => u.includes(`/api/photos/${b}`))).toBe(false);
-
-  // attendu (security half): "a switched ?selected to a forged id still fails
-  // the per-id PUT owner gate". The batch/edit load owner-gates every id in
-  // ?ids and coalesces ?selected to an owned id, so VerifyPane can never
-  // autosave to a non-owned frame from this surface — the only faithful way to
-  // drive the documented metadata.rs:111 Forbidden check is the per-id PUT it
-  // protects. Forge that PUT directly: a victim's photo, the owner's cookie.
-  const victim = freshAccount(Date.now() + 1, 'upvictim');
-  await apiSignup(request, victim);
-  sql(`update users set email_verified_at = now() where email = '${victim.email}'`);
-  const victimId = seedPhoto(victim.email, { status: 'ready', published: false });
-
-  const cookies = await page.context().cookies();
-  const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-  const forged = await request.put(`${BACKEND}/api/photos/${victimId}`, {
-    headers: { 'Content-Type': 'application/json', Cookie: cookieHeader },
-    data: { caption: 'forged edit', last_step: 'verify' }
-  });
-  // The row exists but owner_id != caller → Forbidden (403), NOT 404. The
-  // victim's frame is untouched (no caption written).
-  expect(forged.status()).toBe(403);
-  const victimCaption = sql(`select coalesce(caption, '') from photos where id = '${victimId}'`);
-  expect(victimCaption).toBe('');
-});
-
-// ─────────────────────────────────────────────────────────────────────────
 // /me/drafts
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -493,7 +345,7 @@ test('[FE-0454] Resume recent filters to drafts inside the newest-60min window, 
   const acc = await signupVerifiedAndLogin(page, request, Date.now(), 'up');
 
   // Two recent drafts (within 60 min of the newest) + one old draft (2h back).
-  // resumeRecent should carry only the two recent ids into batch/edit.
+  // resumeRecent should carry only the two recent ids into verify.
   const recentA = seedPhoto(acc.email, { status: 'ready', published: false });
   const recentB = seedPhoto(acc.email, {
     status: 'ready',
@@ -510,11 +362,10 @@ test('[FE-0454] Resume recent filters to drafts inside the newest-60min window, 
   await page.waitForLoadState('networkidle');
 
   await page.getByRole('button', { name: 'Resume recent' }).click();
-  await page.waitForURL(/\/upload\/batch\/edit\?ids=/);
+  await page.waitForURL(/\/upload\/[^/]+\/verify\?ids=/);
 
-  // attendu: only the two within-window ids go into ?ids=…; the old one is
-  // excluded; all ids come from the owner-scoped drafts list (FE-0454 cannot
-  // inject a foreign id — the list itself is owner-filtered server-side).
+  // attendu: only the two within-window ids go into the one-by-one verify
+  // queue; the old one is excluded. The list itself is owner-filtered.
   const url = new URL(page.url());
   const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean);
   expect(ids).toContain(recentA);

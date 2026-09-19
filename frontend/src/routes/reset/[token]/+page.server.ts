@@ -13,7 +13,7 @@ export const actions: Actions = {
   default: async ({ request, params, fetch, cookies }) => {
     const fd = await request.formData();
     const new_password = String(fd.get('new_password') ?? '');
-    if (new_password.length < 12) return fail(400, { error: 'too_short' as const });
+    if (new_password.length < 10) return fail(400, { error: 'too_short' as const });
 
     let res: Response;
     try {

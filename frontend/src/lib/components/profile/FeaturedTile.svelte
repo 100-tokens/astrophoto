@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { FeaturedPhotoSummary } from '$lib/api/FeaturedPhotoSummary';
   import Img from '$lib/components/Img.svelte';
-  import { openLightboxOnClick } from '$lib/util/openLightbox';
 
   let {
     item,
@@ -12,12 +11,7 @@
   } = $props();
 </script>
 
-<a
-  use:openLightboxOnClick={{ handle, short_id: item.short_id }}
-  class="tile"
-  href="/u/{handle}/p/{item.short_id}"
-  aria-label={item.target ?? 'Featured photo'}
->
+<a class="tile" href="/u/{handle}/p/{item.short_id}" aria-label={item.target ?? 'Featured photo'}>
   <span class="rank">#{String(item.featured_position).padStart(2, '0')}</span>
   <Img
     photoId={item.id}

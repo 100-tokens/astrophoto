@@ -27,7 +27,7 @@ function pick<T extends string>(raw: string | null, allowed: readonly T[], fallb
 
 export const load: PageServerLoad = async ({ fetch, url, locals }) => {
   const sort = pick(url.searchParams.get('sort'), SORTS, 'newest');
-  const since = pick(url.searchParams.get('since'), SINCES, '7d');
+  const since = pick(url.searchParams.get('since'), SINCES, 'all');
   const categoryParam = url.searchParams.get('category');
   const category =
     categoryParam !== null && (CATEGORIES as readonly string[]).includes(categoryParam)

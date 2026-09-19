@@ -19,6 +19,7 @@
     target: string | null;
     original_name?: string | null;
     thumbSrc?: string;
+    href: string;
   }
 
   interface SiteStats {
@@ -29,8 +30,10 @@
   interface PageData {
     heroPhoto: HeroPhoto | null;
     heroSrc: string | undefined;
+    heroHref: string | null;
     photos: GalleryPhoto[];
     isReal: boolean;
+    fromFollows: boolean;
     following_count: number;
     stats: SiteStats | null;
     user?: { id: string } | null;
@@ -131,7 +134,7 @@
   {@html ldJsonScriptTag(siteJsonLd)}
 </svelte:head>
 
-<AppHeader active="Gallery" />
+<AppHeader />
 
 <main>
   <!-- Hero strip -->
@@ -139,7 +142,7 @@
     <!-- Left column: editorial copy -->
     <div class="hero-copy">
       <div style="margin-bottom: 16px;">
-        {#if data.user && data.following_count > 0}
+        {#if data.fromFollows}
           <span class="t-eyebrow accent">
             ● FROM THE {data.following_count}
             {data.following_count === 1 ? 'PHOTOGRAPHER' : 'PHOTOGRAPHERS'} YOU FOLLOW
@@ -186,8 +189,8 @@
 
     <!-- Right column: featured photo, or the same empty pattern Explore uses
          when the archive has zero frames. Never invent a photographer or target. -->
-    {#if data.isReal && data.heroPhoto}
-      <div class="hero-photo-wrap">
+    {#if data.isReal && data.heroPhoto && data.heroHref}
+      <a class="hero-photo-wrap" href={data.heroHref}>
         <Photo
           target={data.heroPhoto.target ?? ''}
           src={data.heroSrc}
@@ -208,9 +211,7 @@
         <!-- Featured tag — latest published, or latest from follows. -->
         <div class="fotw-tag">
           <div style="color: var(--accent)">
-            {data.user && data.following_count > 0
-              ? 'LATEST FROM YOUR FOLLOWS'
-              : 'LATEST PUBLISHED'}
+            {data.fromFollows ? 'LATEST FROM YOUR FOLLOWS' : 'LATEST PUBLISHED'}
           </div>
           <div style="color: var(--fg-primary)">
             <PhotoTitle
@@ -222,7 +223,7 @@
             />
           </div>
         </div>
-      </div>
+      </a>
     {:else}
       <div class="hero-empty">
         <EmptyState
@@ -266,11 +267,7 @@
       <div class="masonry">
         {#each data.photos as photo, i (photo.slug)}
           <div class="masonry-item">
-            <a
-              href="/photo/{photo.slug}"
-              class="masonry-link"
-              aria-label={photo.target ?? 'Untitled'}
-            >
+            <a href={photo.href} class="masonry-link" aria-label={photo.target ?? 'Untitled'}>
               <div class="photo-wrap" style="height: {HEIGHTS[i % HEIGHTS.length]}px;">
                 <Photo
                   target={photo.target ?? ''}
@@ -357,7 +354,10 @@
 
   .hero-photo-wrap {
     position: relative;
+    display: block;
     height: 560px;
+    color: inherit;
+    text-decoration: none;
   }
 
   .hero-empty {

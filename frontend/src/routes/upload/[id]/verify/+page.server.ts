@@ -1,11 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { SetupDetail } from '$lib/api/SetupDetail';
+import { signinUrl } from '$lib/auth/return-to';
 
 const API = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
 
 export const load: PageServerLoad = async ({ params, url, locals, fetch, cookies }) => {
-  if (!locals.user) redirect(303, '/signin');
+  if (!locals.user) redirect(303, signinUrl(url.pathname + url.search));
   const cookie = cookies
     .getAll()
     .map((c) => `${c.name}=${c.value}`)

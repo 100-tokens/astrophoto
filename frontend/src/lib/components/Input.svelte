@@ -9,6 +9,7 @@
     name?: string;
     id?: string;
     required?: boolean;
+    minlength?: number;
     step?: string | number;
     class?: string;
   }
@@ -21,6 +22,7 @@
     name,
     id,
     required,
+    minlength,
     step,
     class: className
   }: Props = $props();
@@ -33,6 +35,7 @@
   {id}
   {placeholder}
   {required}
+  {minlength}
   {step}
   bind:value
 />

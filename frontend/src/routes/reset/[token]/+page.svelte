@@ -51,7 +51,7 @@
               id="new_password"
               type="password"
               required
-              placeholder="At least 12 characters"
+              placeholder="At least 10 characters"
               bind:value={pwd}
             />
           </div>
@@ -64,12 +64,12 @@
             </div>
           {/if}
 
-          {#if pwd.length > 0 && pwd.length < 12}
-            <p class="t-meta warn">Use at least 12 characters.</p>
+          {#if pwd.length > 0 && pwd.length < 10}
+            <p class="t-meta warn">Use at least 10 characters.</p>
           {/if}
 
           {#if form?.error === 'too_short'}
-            <p class="t-meta form-error">Password must be at least 12 characters.</p>
+            <p class="t-meta form-error">Password must be at least 10 characters.</p>
           {/if}
 
           {#if form?.error === 'weak'}

@@ -63,7 +63,12 @@ export function humanizeUploadError(raw: string): string {
 }
 
 function forbiddenCopy(): string {
-  return 'This upload was blocked because the page address is not allowed. In development, open the app at localhost or 127.0.0.1 — both are accepted — then retry.';
+  const generic =
+    'This upload was blocked because the page address is not allowed — retry from the usual site URL.';
+  if (import.meta.env.DEV) {
+    return `${generic} In development, open the app at localhost or 127.0.0.1 — both are accepted.`;
+  }
+  return generic;
 }
 
 function isForbiddenText(value: string | undefined): boolean {

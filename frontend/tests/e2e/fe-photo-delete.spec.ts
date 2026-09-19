@@ -2,11 +2,8 @@ import { test, expect } from '@playwright/test';
 import { FRONTEND, freshAccount, apiSignup, verifyEmail, uiLogin, sql } from './helpers';
 
 /**
- * Regression: an owner opening their own photo by CLICKING it in their profile
- * gallery must reach the full detail view (Edit / Replace / Delete), not the
- * read-only lightbox. The lightbox (page.state.lightbox via openLightboxOnClick)
- * has no owner affordances, so before the fix a logged-in owner could never
- * delete a photo they reached by clicking — only by loading the URL directly.
+ * Regression: clicking a photo in the profile gallery opens the full detail
+ * view (Edit / Replace / Delete) at the permalink.
  */
 
 function firstLine(out: string): string {
@@ -36,9 +33,7 @@ test('[owner] clicking own photo in the profile gallery opens the full view with
   try {
     await page.goto(`${FRONTEND}/u/${acc.handle}`);
 
-    // The tile is an <a> with the canonical permalink href + the
-    // openLightboxOnClick action. Wait for the page to settle so the action is
-    // hydrated (the bug only manifests once the action intercepts the click).
+    // The tile is an <a> with the canonical permalink. Wait for hydration, then click.
     const tile = page.locator(`a[href="/u/${acc.handle}/p/${shortId}"]`).first();
     await expect(tile).toBeVisible();
     await page.waitForLoadState('networkidle');

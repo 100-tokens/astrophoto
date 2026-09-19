@@ -1,6 +1,4 @@
 pub mod apply_setup;
-pub mod batch_apply;
-pub mod batch_publish;
 pub mod cdn;
 pub mod cleanup;
 pub mod count;

@@ -3,7 +3,6 @@
   import Img from '$lib/components/Img.svelte';
   import AuthorChip from './AuthorChip.svelte';
   import { cdn } from '$lib/cdn';
-  import { openLightboxOnClick } from '$lib/util/openLightbox';
   import { timeAgoShort } from '$lib/util/relativeTime';
 
   let {
@@ -40,7 +39,6 @@
      re-render. -->
 <article class="tile" style="--ar:{ar}; flex-grow:{ar}; background-image:url('{lqip}');">
   <a
-    use:openLightboxOnClick={{ handle: photo.author_handle, short_id: photo.short_id }}
     class="tile-link"
     href="/u/{photo.author_handle}/p/{photo.short_id}"
     aria-label={`${photo.target ?? photo.original_name ?? 'Untitled'} by @${photo.author_handle}`}

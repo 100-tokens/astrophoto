@@ -59,7 +59,7 @@
 
       <!-- Actions -->
       <div class="error-actions">
-        <Button variant="primary" size="lg" href="/">Back to gallery</Button>
+        <Button variant="primary" size="lg" href="/explore">Back to gallery</Button>
         <Button variant="secondary" size="lg" href="/search">Search the archive</Button>
       </div>
     </div>
