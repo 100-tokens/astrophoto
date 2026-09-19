@@ -615,7 +615,7 @@
         />
         {#if !isPublished}
           <div class="hero-stepper">
-            <VerifyStepper currentStep={2} variant="three" />
+            <VerifyStepper currentStep={2} />
           </div>
         {/if}
       </section>

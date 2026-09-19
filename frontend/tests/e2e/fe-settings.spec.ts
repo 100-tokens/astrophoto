@@ -175,7 +175,7 @@ test.describe('settings profile', () => {
 });
 
 test.describe('settings password', () => {
-  test('[FE-0200] an 11-char new password short-circuits the action with too_short (server guard)', async ({
+  test('[FE-0200] a 9-char new password short-circuits the action with too_short (server guard)', async ({
     page,
     request
   }) => {
@@ -183,20 +183,20 @@ test.describe('settings password', () => {
     await page.goto(`${FRONTEND}/settings/password`);
 
     const newPw = page.locator('#new_password');
-    // Clear the client guards so the 11-char value reaches the action,
-    // where `if (new_password.length < 12) return fail(400,{error:'too_short'})`.
+    // Clear the client guards so the 9-char value reaches the action,
+    // where `if (new_password.length < 10) return fail(400,{error:'too_short'})`.
     await newPw.evaluate((el) => {
       el.removeAttribute('required');
       el.removeAttribute('minlength');
     });
     await page.fill('#current_password', 'whatever12345');
-    await newPw.fill('shortpw1234'); // 11 chars
+    await newPw.fill('shortpw12'); // 9 chars
     await page.click('button[type="submit"]');
     await page.waitForLoadState('networkidle'); // non-enhanced form → full POST
 
     // The rendered too_short message is the observable proof the guard fired
     // (the backend password-change call is server-side and never reached).
-    await expect(page.locator('p.err', { hasText: 'Use at least 12 characters.' })).toBeVisible();
+    await expect(page.locator('p.err', { hasText: 'Use at least 10 characters.' })).toBeVisible();
   });
 
   test('[FE-0208] a successful change renders "Password changed. Other devices have been signed out."', async ({

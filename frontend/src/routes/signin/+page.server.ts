@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { safeReturnFromUrl } from '$lib/auth/return-to';
 
 // Resolve the public backend origin at server-runtime. Koyeb staging sets
 // BACKEND_URL but build-time VITE_API_BASE_URL isn't visible to client
@@ -18,7 +19,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-  default: async ({ request, fetch, cookies, getClientAddress }) => {
+  default: async ({ request, fetch, cookies, getClientAddress, url }) => {
     const data = await request.formData();
     const email = String(data.get('email') ?? '');
     const password = String(data.get('password') ?? '');
@@ -49,9 +50,9 @@ export const actions: Actions = {
         return fail(401, { email, message: 'Invalid email or password.' });
       }
       if (res.status === 403) {
-        // Backend rejects sign-in for users with email_verified_at IS NULL.
-        // Push the user to the check-email page to resend or wait for the link.
-        throw redirect(303, `/signup/check-email?email=${encodeURIComponent(email)}`);
+        // Backend rejects sign-in for users with email_verified_at IS NULL
+        // (Forbidden), distinct from a spent verify link (410 Gone).
+        throw redirect(303, `/signup/check-email?email=${encodeURIComponent(email)}&unverified=1`);
       }
       const txt = await res.text();
       return fail(500, { email, message: `Sign-in failed: ${txt}` });
@@ -88,6 +89,6 @@ export const actions: Actions = {
       cookies.set(name, value, opts);
     }
 
-    throw redirect(303, '/');
+    throw redirect(303, safeReturnFromUrl(url));
   }
 };

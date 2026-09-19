@@ -8,7 +8,6 @@
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
   import FilterPills from '$lib/components/discovery/FilterPills.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
-  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import AladinSkyMap from '$lib/components/discovery/AladinSkyMap.svelte';
   import ExternalArchiveLinks from '$lib/components/discovery/ExternalArchiveLinks.svelte';
   import { fetchTargetPage } from '$lib/api/discoveryClient';
@@ -126,5 +125,4 @@
   />
 </main>
 
-<LightboxHost />
 <AppFooter />

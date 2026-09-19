@@ -19,7 +19,7 @@
         <div class="panel panel-danger">
           <h1 class="panel-title">Link expired</h1>
           <p class="panel-body">
-            Email-change confirmation links expire after 24 hours. Please request a new email change
+            Email-change confirmation links expire after one hour. Please request a new email change
             from your account settings.
           </p>
           <Button variant="primary" href="/settings/email">Back to settings</Button>

@@ -28,7 +28,6 @@ export const actions: Actions = {
     if (!email || !password || !display_name || !handle) {
       return fail(400, {
         email,
-        password,
         display_name,
         handle,
         message: 'All fields are required.'
@@ -37,7 +36,6 @@ export const actions: Actions = {
     if (password.length < 10) {
       return fail(400, {
         email,
-        password,
         display_name,
         handle,
         message: 'Password must be at least 10 characters.'
@@ -60,7 +58,6 @@ export const actions: Actions = {
       const msg = e instanceof Error ? e.message : 'Network error.';
       return fail(503, {
         email,
-        password,
         display_name,
         handle,
         message: `Backend unreachable: ${msg}`
@@ -77,7 +74,6 @@ export const actions: Actions = {
         if (msg.includes('handle')) {
           return fail(409, {
             email,
-            password,
             display_name,
             handle,
             handleError: 'That handle is already taken.'
@@ -85,7 +81,6 @@ export const actions: Actions = {
         }
         return fail(409, {
           email,
-          password,
           display_name,
           handle,
           message: 'An account with that email already exists.'
@@ -94,7 +89,6 @@ export const actions: Actions = {
       if (res.status === 422) {
         return fail(422, {
           email,
-          password,
           display_name,
           handle,
           message: 'Please check your inputs.'
@@ -103,7 +97,6 @@ export const actions: Actions = {
       const txt = await res.text();
       return fail(500, {
         email,
-        password,
         display_name,
         handle,
         message: `Sign-up failed: ${txt}`

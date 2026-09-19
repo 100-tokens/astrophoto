@@ -107,8 +107,7 @@ test.describe('home / feed edge cases', () => {
   }) => {
     const { id } = await freshUserWithId(request, 'fe0550');
     // Two photos: realPhotos[0] becomes the hero, the rest fill the grid where
-    // each tile is an <a href="/photo/<id>"> with a cdn() thumb. Seeding two
-    // guarantees at least one grid tile to assert the /photo link on.
+    // each tile is an <a href="/u/{handle}/p/{shortid}"> with a cdn() thumb.
     const heroId = seedPublishedPhoto(id, { target: 'NGC 7000' });
     const gridId = seedPublishedPhoto(id, { target: 'IC 1396' });
 
@@ -126,13 +125,12 @@ test.describe('home / feed edge cases', () => {
     // Tiles carry ratio width/height attrs rendered server-side.
     expect(html).toMatch(/width="\d+"/);
     expect(html).toMatch(/height="\d+"/);
-    // At least one grid tile is a /photo/<id> link in the SSR markup.
-    expect(html).toMatch(/href="\/photo\/[0-9a-f-]{36}"/);
+    // At least one grid tile is a permalink in the SSR markup.
+    expect(html).toMatch(/href="\/u\/[^"]+\/p\/[^"]+"/);
 
-    // Same through a hydrated page: this is the isReal gallery, so a grid tile
-    // links to /photo/<id>.
+    // Same through a hydrated page.
     await page.goto(`${FRONTEND}/`);
-    await expect(page.locator('a[href^="/photo/"]').first()).toBeVisible();
+    await expect(page.locator('a[href*="/p/"]').first()).toBeVisible();
   });
 
   test('[FE-0551] malicious original_name on home feed is escaped, src derives from UUID', async ({

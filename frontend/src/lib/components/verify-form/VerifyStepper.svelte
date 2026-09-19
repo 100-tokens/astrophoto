@@ -1,34 +1,17 @@
 <script lang="ts">
-  // VerifyStepper — restyled stepper used by /upload/[id]/verify only.
-  // Distinct from UploadStepper (now aligned to the same three-step
-  // model) so other routes are not disturbed by the new active-state
-  // ● NOW affordance.
-  //
-  // The handoff defaults to the three-step "Verify & Equip" merged variant
-  // because Equipment-as-step-03 overlaps with the page's own Equipment
-  // section (UX issue #1). Four-step is supported for product preview.
+  // Verify page stepper. Caption and publish are on this same screen, so
+  // the flow is two steps, not three.
 
-  type Variant = 'three' | 'four';
   interface Props {
-    currentStep: 1 | 2 | 3 | 4;
-    variant?: Variant;
+    currentStep: 1 | 2;
   }
 
-  let { currentStep, variant = 'three' }: Props = $props();
+  let { currentStep }: Props = $props();
 
-  const THREE_STEPS = [
+  const STEPS = [
     { id: 1, label: 'UPLOAD' },
-    { id: 2, label: 'VERIFY & EQUIP' },
-    { id: 3, label: 'CAPTION & PUBLISH' }
+    { id: 2, label: 'VERIFY & EQUIP' }
   ];
-  const FOUR_STEPS = [
-    { id: 1, label: 'UPLOAD' },
-    { id: 2, label: 'VERIFY DATA' },
-    { id: 3, label: 'EQUIPMENT' },
-    { id: 4, label: 'CAPTION & PUBLISH' }
-  ];
-
-  let steps = $derived(variant === 'four' ? FOUR_STEPS : THREE_STEPS);
 
   function stateFor(idx: number): 'done' | 'active' | 'pending' {
     if (idx + 1 < currentStep) return 'done';
@@ -37,13 +20,8 @@
   }
 </script>
 
-<div
-  class="vstepper"
-  role="list"
-  aria-label="Upload progress"
-  style:grid-template-columns={`repeat(${steps.length}, 1fr)`}
->
-  {#each steps as step, i (step.id)}
+<div class="vstepper" role="list" aria-label="Upload progress">
+  {#each STEPS as step, i (step.id)}
     {@const s = stateFor(i)}
     <div
       class={`vstep vstep--${s}`}
@@ -64,6 +42,7 @@
 <style>
   .vstepper {
     display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0;
     font-family: var(--font-mono);
     font-size: 11px;
@@ -108,7 +87,5 @@
     .vstep-mark {
       margin-right: 8px;
     }
-    /* Three-step on mobile keeps the row; four-step gets too cramped — */
-    /* the existing 4-step usage is on /upload, not here. */
   }
 </style>

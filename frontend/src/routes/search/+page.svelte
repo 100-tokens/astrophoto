@@ -3,7 +3,6 @@
   import AppFooter from '$lib/components/AppFooter.svelte';
   import DiscoveryHeader from '$lib/components/discovery/DiscoveryHeader.svelte';
   import CrossAuthorGrid from '$lib/components/discovery/CrossAuthorGrid.svelte';
-  import LightboxHost from '$lib/components/discovery/LightboxHost.svelte';
   import { pluralize } from '$lib/util/pluralize';
   import type { PageData } from './$types';
 
@@ -91,7 +90,6 @@
   {/if}
 </main>
 
-<LightboxHost />
 <AppFooter />
 
 <style>

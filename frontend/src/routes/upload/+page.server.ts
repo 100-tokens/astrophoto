@@ -3,9 +3,10 @@ import type { PageServerLoad } from './$types';
 import { api } from '$lib/api/client';
 import type { DraftListItem } from '$lib/api/DraftListItem';
 import type { StorageSummary } from '$lib/api/StorageSummary';
+import { signinUrl } from '$lib/auth/return-to';
 
-export const load: PageServerLoad = async ({ locals, fetch, request }) => {
-  if (!locals.user) redirect(303, '/signin');
+export const load: PageServerLoad = async ({ locals, fetch, request, url }) => {
+  if (!locals.user) redirect(303, signinUrl(url.pathname + url.search));
 
   const cookie = request.headers.get('cookie') ?? '';
 

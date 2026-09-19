@@ -15,8 +15,10 @@
     const ids = data.drafts.items
       .filter((d) => Date.parse(d.created_at) >= cutoff)
       .map((d) => d.id);
-    if (ids.length === 1) goto(`/upload/${ids[0]}/verify`);
-    else goto(`/upload/batch/edit?ids=${ids.join(',')}`);
+    const first = ids[0];
+    if (!first) return;
+    if (ids.length === 1) goto(`/upload/${first}/verify`);
+    else goto(`/upload/${first}/verify?ids=${ids.join(',')}`);
   }
 </script>
 

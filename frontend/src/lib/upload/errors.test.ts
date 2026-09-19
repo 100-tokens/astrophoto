@@ -25,15 +25,21 @@ describe('humanizeUploadError', () => {
   it('never surfaces raw forbidden / origin-mismatch strings', () => {
     const envelope = humanizeUploadError('{"error":"forbidden","message":"forbidden"}');
     expect(envelope.toLowerCase()).not.toBe('forbidden');
-    expect(envelope).toMatch(/localhost|127\.0\.0\.1/);
+    expect(envelope).toMatch(/page address is not allowed/i);
     expect(envelope).toMatch(/retry/i);
 
     const plain = humanizeUploadError('forbidden');
     expect(plain.toLowerCase()).not.toBe('forbidden');
-    expect(plain).toMatch(/localhost|127\.0\.0\.1/);
+    expect(plain).toMatch(/page address is not allowed/i);
 
     const proxy = humanizeUploadError('cross-origin request blocked');
     expect(proxy).not.toContain('cross-origin request blocked');
+    expect(proxy).toMatch(/page address is not allowed/i);
+
+    // Vitest runs with import.meta.env.DEV, so the loopback hint is present.
+    // Production builds omit it — see forbiddenCopy().
+    expect(envelope).toMatch(/localhost|127\.0\.0\.1/);
+    expect(plain).toMatch(/localhost|127\.0\.0\.1/);
     expect(proxy).toMatch(/localhost|127\.0\.0\.1/);
   });
 

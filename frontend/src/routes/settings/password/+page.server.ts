@@ -8,7 +8,7 @@ export const actions: Actions = {
     const fd = await request.formData();
     const current_password_raw = String(fd.get('current_password') ?? '');
     const new_password = String(fd.get('new_password') ?? '');
-    if (new_password.length < 12) return fail(400, { error: 'too_short' });
+    if (new_password.length < 10) return fail(400, { error: 'too_short' });
     const body =
       current_password_raw.length > 0
         ? { current_password: current_password_raw, new_password }

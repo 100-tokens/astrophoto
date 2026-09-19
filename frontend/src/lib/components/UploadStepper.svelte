@@ -1,21 +1,12 @@
 <script lang="ts">
-  // Three-step stepper for the upload flow — completed steps carry a ✓,
-  // the active step is accent-colored, future steps are muted.
-  //
-  // Matches the verify page's own hero stepper and its "STEP NN OF 03"
-  // eyebrows: equipment and caption both live on the verify step since
-  // the dedicated caption page was removed (56acf4e). This used to list
-  // four steps while the surrounding copy said "OF 03".
-  //
-  // currentStep is 1-based: 1 = upload, 2 = verify & equip,
-  // 3 = caption & publish.
+  // Two screens: upload, then verify (equipment, caption, and publish
+  // live on that one page). currentStep is 1-based.
 
-  let { currentStep }: { currentStep: 1 | 2 | 3 } = $props();
+  let { currentStep }: { currentStep: 1 | 2 } = $props();
 
   const STEPS = [
     { id: 1, label: 'UPLOAD' },
-    { id: 2, label: 'VERIFY & EQUIP' },
-    { id: 3, label: 'CAPTION & PUBLISH' }
+    { id: 2, label: 'VERIFY & EQUIP' }
   ];
 
   function stateFor(idx: number): 'done' | 'active' | 'pending' {

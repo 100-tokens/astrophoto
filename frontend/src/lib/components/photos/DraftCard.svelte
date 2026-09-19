@@ -20,11 +20,9 @@
       ? 'STEP · PROCESSING'
       : photo.status === 'failed'
         ? 'STEP · FAILED'
-        : photo.last_step === 'verify'
-          ? 'STEP 02 · VERIFYING DATA'
-          : photo.last_step === 'caption'
-            ? 'STEP 03 · CAPTION & PUBLISH'
-            : 'STEP 01 · UPLOADED'
+        : photo.last_step === 'verify' || photo.last_step === 'caption'
+          ? 'STEP 02 · VERIFY & EQUIP'
+          : 'STEP 01 · UPLOAD'
   );
 
   let resumeHref = $derived(`/upload/${photo.id}/verify`);
