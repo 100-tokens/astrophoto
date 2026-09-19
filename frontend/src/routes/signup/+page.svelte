@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { PageProps } from './$types';
   import Wordmark from '$lib/components/Wordmark.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -10,10 +11,13 @@
   // Preserve fields across server-side error round-trips. Handle already
   // did this; display name / email / password used to wipe, then native
   // "Please fill out this field" stacked on the server error.
-  let handle = $state('');
-  let displayName = $state('');
-  let email = $state('');
-  let password = $state('');
+  // Seed from the action round-trip so SSR HTML already has the values
+  // (no-JS and first paint). $effect keeps them in sync if form updates
+  // without a remount.
+  let handle = $state(untrack(() => form?.handle ?? ''));
+  let displayName = $state(untrack(() => form?.display_name ?? ''));
+  let email = $state(untrack(() => form?.email ?? ''));
+  let password = $state(untrack(() => form?.password ?? ''));
   $effect(() => {
     if (form?.handle !== undefined) handle = form.handle;
     if (form?.display_name !== undefined) displayName = form.display_name;
