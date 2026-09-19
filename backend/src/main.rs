@@ -77,15 +77,19 @@ async fn main() -> Result<()> {
         .unwrap_or("http://localhost:5173")
         .trim_end_matches('/')
         .to_string();
-    let cors_origin: HeaderValue = cors_origin_str
-        .parse()
-        .expect("APP_CORS_ORIGIN is not a valid HTTP origin header value");
 
     // CSRF Origin allowlist for cookie-authenticated mutations. The frontend
     // CORS origin is always allowed; APP_EXTRA_BROWSER_ORIGINS (comma-separated)
     // covers any additional browser-reachable frontend host (e.g. a raw Koyeb
     // *-web-* host alongside the canonical www) so users there are not 403'd.
-    let mut allowed = std::collections::HashSet::from([cors_origin_str]);
+    // In dev, also pair localhost with 127.0.0.1 so MinIO uploads work from
+    // either browser origin.
+    let mut allowed = std::collections::HashSet::from([cors_origin_str.clone()]);
+    if !cfg.session_secure {
+        if let Some(twin) = http::csrf::loopback_twin(&cors_origin_str) {
+            allowed.insert(twin);
+        }
+    }
     if let Ok(extra) = std::env::var("APP_EXTRA_BROWSER_ORIGINS") {
         for o in extra.split(',') {
             let o = o.trim().trim_end_matches('/');
@@ -93,6 +97,13 @@ async fn main() -> Result<()> {
                 allowed.insert(o.to_string());
             }
         }
+    }
+    let mut cors_origins: Vec<HeaderValue> = Vec::new();
+    for o in &allowed {
+        cors_origins.push(
+            o.parse()
+                .unwrap_or_else(|_| panic!("{o} is not a valid HTTP origin header value")),
+        );
     }
     let allowed_origins = http::csrf::AllowedOrigins(allowed);
 
@@ -108,7 +119,7 @@ async fn main() -> Result<()> {
             allowed_origins,
             http::csrf::origin_guard,
         ))
-        .layer(http::cors_layer(cors_origin))
+        .layer(http::cors_layer(cors_origins))
         .layer(TraceLayer::new_for_http())
         .layer(SetResponseHeaderLayer::if_not_present(
             header::X_CONTENT_TYPE_OPTIONS,

@@ -21,6 +21,8 @@ export function humanizeUploadError(raw: string): string {
     /* not a JSON envelope — fall through to the raw text */
   }
 
+  const trimmed = raw.trim();
+
   switch (code) {
     case 'conflict':
       return 'You have already uploaded this exact file — find it in your frames or drafts.';
@@ -42,12 +44,32 @@ export function humanizeUploadError(raw: string): string {
       return 'Too many uploads at once — wait a moment and retry.';
     case 'unauthorized':
       return 'Your session expired — sign in again.';
+    case 'forbidden':
+      return forbiddenCopy();
     default:
       break;
   }
 
+  if (isForbiddenText(message) || isForbiddenText(trimmed)) {
+    return forbiddenCopy();
+  }
+  if (looksLikeCrossOrigin(message) || looksLikeCrossOrigin(trimmed)) {
+    return forbiddenCopy();
+  }
+
   if (message) return message;
-  const trimmed = raw.trim();
   if (!trimmed) return 'Upload failed.';
   return trimmed.length > 200 ? `${trimmed.slice(0, 200)}…` : trimmed;
+}
+
+function forbiddenCopy(): string {
+  return 'This upload was blocked because the page address is not allowed. In development, open the app at localhost or 127.0.0.1 — both are accepted — then retry.';
+}
+
+function isForbiddenText(value: string | undefined): boolean {
+  return (value ?? '').trim().toLowerCase() === 'forbidden';
+}
+
+function looksLikeCrossOrigin(value: string | undefined): boolean {
+  return (value ?? '').toLowerCase().includes('cross-origin');
 }
